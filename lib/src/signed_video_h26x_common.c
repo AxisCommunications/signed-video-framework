@@ -925,9 +925,7 @@ get_hash_wrapper(signed_video_t *self, const h26x_nalu_t *nalu)
  *
  * takes the |hashable_data| from the NALU, hash it and store the hash in |nalu_hash|. */
 static svi_rc
-simply_hash(signed_video_t __attribute__((unused)) * self,
-    const h26x_nalu_t *nalu,
-    uint8_t *nalu_hash)
+simply_hash(signed_video_t ATTR_UNUSED *self, const h26x_nalu_t *nalu, uint8_t *nalu_hash)
 {
   assert(nalu && nalu_hash);
   const uint8_t *hashable_data = nalu->hashable_data;

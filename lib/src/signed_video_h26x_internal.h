@@ -21,12 +21,10 @@
 #ifndef __SIGNED_VIDEO_H26X_INTERNAL__
 #define __SIGNED_VIDEO_H26X_INTERNAL__
 
-
 #include <stdbool.h>  // bool
 
 #include "signed_video_defines.h"  // svi_rc
 #include "signed_video_internal.h"  // gop_info_t, gop_state_t, HASH_DIGEST_SIZE
-
 
 typedef struct _h26x_nalu_list_item_t h26x_nalu_list_item_t;
 typedef struct _h26x_nalu_t h26x_nalu_t;
@@ -44,7 +42,6 @@ typedef enum {
   UUID_TYPE_SIGNED_VIDEO = 1,
 } SignedVideoUUIDType;
 
-
 /* Semicolon needed after, ex. DEBUG_LOG("my debug: %d", 42); */
 #ifdef SIGNED_VIDEO_DEBUG
 char *
@@ -53,7 +50,6 @@ nalu_type_to_str(const h26x_nalu_t *nalu);
 
 /* SEI UUID types */
 extern const uint8_t kUuidSignedVideo[UUID_LEN];
-
 
 /**
  * A struct representing the stream of NALUs, added to Signed Video for validating authenticity.
@@ -139,7 +135,6 @@ struct _h26x_nalu_t {
   bool is_first_nalu_in_gop;  // True for the first slice of an I-frame
   bool is_gop_sei;  // True if this is a Signed Video generated SEI NALU
 };
-
 
 /* Internal APIs for gop_state_t functions */
 

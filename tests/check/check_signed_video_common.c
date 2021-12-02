@@ -40,7 +40,7 @@ START_TEST(invalid_api_inputs)
   // This test is run in a loop with loop index _i, corresponding to codec.*/
   SignedVideoCodec codec = _i;
 
-  signed_video_t * sv = NULL;
+  signed_video_t *sv = NULL;
 
   // Check invalid codecs
   sv = signed_video_create(-1);
@@ -87,7 +87,7 @@ START_TEST(correct_version)
   check = signed_video_compare_versions(kVer1, NULL);
   ck_assert_int_eq(check, -1);
 
-  const char * checkptr = signed_video_get_version();
+  const char *checkptr = signed_video_get_version();
   ck_assert(checkptr);
   ck_assert(checkptr[0] == 'R');
 }

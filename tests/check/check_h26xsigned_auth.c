@@ -124,7 +124,7 @@ authenticity_is_identical(signed_video_authenticity_t *orig,
  * like reset.
  */
 static void
-validate_nalu_list(signed_video_t * sv, nalu_list_t * list,
+validate_nalu_list(signed_video_t *sv, nalu_list_t *list,
     struct validation_stats expected)
 {
   if (!list) return;
@@ -882,7 +882,7 @@ END_TEST
  * 4b. Validate without a reset.
  */
 static nalu_list_t *
-mimic_au_fast_forward_and_get_list(signed_video_t * sv, struct sv_setting setting)
+mimic_au_fast_forward_and_get_list(signed_video_t *sv, struct sv_setting setting)
 {
   nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", setting);
   nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGI");
@@ -960,7 +960,7 @@ START_TEST(fast_forward_stream_without_reset)
 END_TEST
 
 static nalu_list_t *
-mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t * sv,
+mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv,
     struct sv_setting setting)
 {
   nalu_list_t *list = generate_delayed_sei_list(setting);

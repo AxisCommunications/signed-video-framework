@@ -23,6 +23,12 @@
 #include "includes/signed_video_interfaces.h"
 #include "includes/signed_video_openssl.h"
 
+#if defined(_WIN32) || defined(_WIN64)
+#define ATTR_UNUSED
+#else
+#define ATTR_UNUSED __attribute__((unused))
+#endif
+
 static bool signature_generated = false;
 static key_paths_t *key_paths = NULL;
 
@@ -41,7 +47,7 @@ unthreaded_openssl_sign_hash(signature_info_t *signature_info)
 /* The |signature_data| is not copied since this implementation is blocking the thread and the
  * signature is written to the memory at once. */
 static bool
-unthreaded_openssl_has_signature(uint8_t __attribute__((unused)) *signature_data)
+unthreaded_openssl_has_signature(uint8_t ATTR_UNUSED *signature_data)
 {
   if (signature_generated) {
     signature_generated = false;

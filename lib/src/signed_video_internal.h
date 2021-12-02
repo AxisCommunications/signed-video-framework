@@ -21,7 +21,6 @@
 #ifndef __SIGNED_VIDEO_INTERNAL__
 #define __SIGNED_VIDEO_INTERNAL__
 
-
 #include <stdbool.h>  // bool
 #include <stdint.h>  // uint8_t
 #include <string.h>  // size_t
@@ -31,7 +30,6 @@
 #include "includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
 #include "signed_video_defines.h"  // svi_rc
 
-
 typedef struct _gop_info_t gop_info_t;
 typedef struct _gop_state_t gop_state_t;
 typedef struct _gop_info_detected_t gop_info_detected_t;
@@ -39,7 +37,11 @@ typedef struct _gop_info_detected_t gop_info_detected_t;
 /* Forward declare h26x_nalu_list_t here so we can add a member to signed_video_t. */
 typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 
-
+#if defined(_WIN32) || defined(_WIN64)
+#define ATTR_UNUSED
+#else
+#define ATTR_UNUSED __attribute__((unused))
+#endif
 /* We currently only support SHA256() which produces hashes of size 256 bits. */
 #define HASH_DIGEST_SIZE (256 / 8)
 
@@ -58,7 +60,6 @@ typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 #endif
 
 #define UUID_LEN 16
-#define UNUSED(x) (__attribute__((unused)) x)
 #define MAX_NALUS_TO_PREPEND 5  // This means that we have room to prepend 4 additional nalus.
 #define LAST_TWO_BYTES_INIT_VALUE 0x0101  // Anything but 0x00 are proper inits
 #define STOP_BYTE_VALUE 0x80
@@ -68,7 +69,6 @@ typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 #endif
 
 #define HASH_LIST_SIZE (HASH_DIGEST_SIZE * MAX_GOP_LENGTH)
-
 
 /**
  * The authentication state machine
@@ -208,7 +208,6 @@ struct _gop_info_t {
   int verified_signature_hash;  // Status of last hash-signature-pair verification. Has 1 for
   // success, 0 for fail, and -1 for error.
 };
-
 
 void
 bytes_to_version_str(const int *arr, char *str);

@@ -69,24 +69,24 @@ get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo);
  * settings = the session setup for this test.
  */
 nalu_list_t *
-create_signed_nalus(const char * str, struct sv_setting settings);
+create_signed_nalus(const char *str, struct sv_setting settings);
 
 /* Creates a nalu_list_t with all the NALUs produced after signing. This mimic what leaves the
  * camera. Content in sei-nalus is dependent on the recurrence value.
  */
 nalu_list_t *
-create_signed_nalus_recurrence(const char * str, struct sv_setting settings,
+create_signed_nalus_recurrence(const char *str, struct sv_setting settings,
     int recurrence);
 
 /* Removes the NALU list items with position |item_number| from the |list|. The item is, after a
  * check against the expected |str|, then freed. */
 void
-remove_item_then_check_and_free(nalu_list_t * list, int item_number,
-    const char * str);
+remove_item_then_check_and_free(nalu_list_t *list, int item_number,
+    const char *str);
 
 /* Modifies the id of |item_number| by incrementing the value by one. Applies to both codecs in
  * |h26x_lists|. A sanity check on expected string of that item is done. */
 void
-modify_list_item(nalu_list_t * list, int item_number, const char * exp_str);
+modify_list_item(nalu_list_t *list, int item_number, const char *exp_str);
 
 #endif  // __SIGNED_VIDEO_HELPERS_H__

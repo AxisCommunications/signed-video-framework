@@ -22,13 +22,11 @@
 #ifndef __SIGNED_VIDEO_SIGN_H__
 #define __SIGNED_VIDEO_SIGN_H__
 
-
 #include <stdint.h>  // uint8_t
 #include <string.h>  // size_t
 
 #include "signed_video_common.h"  // signed_video_t, SignedVideoReturnCode
 #include "signed_video_interfaces.h"  // sign_algo_t
-
 
 /**
  * Instruction on where to prepend a generated NALU.
@@ -86,7 +84,6 @@ typedef enum {
   // or missing.
   SV_AUTHENTICITY_LEVEL_NUM
 } SignedVideoAuthenticityLevel;
-
 
 /**
  * @brief Updates Signed Video, with a H26x NALU, for signing
