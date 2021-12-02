@@ -21,7 +21,7 @@
 #ifndef __SIGNED_VIDEO_TLV_H__
 #define __SIGNED_VIDEO_TLV_H__
 
-/***** INCLUDE FILES SECTION **********************************************************************/
+
 #include <stdbool.h>  // bool
 #include <stdint.h>  // uint8_t
 #include <string.h>  // size_t
@@ -29,9 +29,7 @@
 #include "includes/signed_video_common.h"  // signed_video_t
 #include "signed_video_defines.h"  // svi_rc
 
-/***** CONSTANT AND MACRO SECTION *****************************************************************/
 
-/***** TYPE DEFINITION SECTION ********************************************************************/
 /**
  * Definition of available TLV tags.
  * The list begins and ends with invalid tags (UNDEFINED_TAG and NUMBER_OF_TLV_TAGS).
@@ -50,7 +48,6 @@ typedef enum {
   NUMBER_OF_TLV_TAGS = 7,
 } sv_tlv_tag_t;
 
-/***** FUNCTION DECLARATION SECTION ***************************************************************/
 
 /**
  * @brief Encodes a SEI-nalu payload defined by a list of tags.

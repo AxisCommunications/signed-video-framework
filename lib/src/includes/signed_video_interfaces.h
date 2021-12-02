@@ -21,7 +21,6 @@
 #ifndef __SIGNED_VIDEO_INTERFACES_H__
 #define __SIGNED_VIDEO_INTERFACES_H__
 
-/***** INCLUDE FILES SECTION **********************************************************************/
 
 #include <stdbool.h>  // bool
 #include <stdint.h>  // uint8_t
@@ -29,11 +28,9 @@
 
 #include "signed_video_common.h"
 
-/***** TYPE DECLARATION SECTION *******************************************************************/
 
 typedef struct _signature_info_t signature_info_t;
 
-/***** TYPE DEFINITION SECTION ********************************************************************/
 
 /**
  * @brief Signing algorithm
@@ -64,7 +61,6 @@ struct _signature_info_t {
   size_t max_signature_size;  // The allocated size of the |signature|.
 };
 
-/***** FUNCTION DECLARATION SECTION ***************************************************************/
 
 /**
  * Cryptography library calling interface APIs are declared here.

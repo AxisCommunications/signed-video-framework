@@ -21,11 +21,9 @@
 #ifndef __SIGNED_VIDEO_DEFINES__
 #define __SIGNED_VIDEO_DEFINES__
 
-/***** INCLUDE FILES SECTION **********************************************************************/
 
 #include <stdbool.h>  // bool
 
-/***** CONSTANT AND MACRO SECTION *****************************************************************/
 
 // Semicolon needed after, ex. DEBUG_LOG("my debug: %d", 42);
 #ifdef SIGNED_VIDEO_DEBUG
@@ -145,7 +143,6 @@
     SVI_MAYBE_GOTO_CATCH_ERROR_WITH_MSG(fail_msg, ##__VA_ARGS__) \
   } while (0)
 
-/***** TYPE DEFINITION SECTION ********************************************************************/
 
 typedef enum {
   SVI_OK = 0,

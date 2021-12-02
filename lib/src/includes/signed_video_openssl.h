@@ -21,7 +21,7 @@
 #ifndef __SIGNED_VIDEO_OPENSSL__
 #define __SIGNED_VIDEO_OPENSSL__
 
-/***** INCLUDE FILES SECTION **********************************************************************/
+
 #include <stdint.h>  // uint8_t
 #include <string.h>  // size_t, strcmp, strlen, strcpy, strcat
 

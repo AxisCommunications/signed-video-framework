@@ -21,7 +21,6 @@
 #ifndef __SIGNED_VIDEO_INTERNAL__
 #define __SIGNED_VIDEO_INTERNAL__
 
-/***** INCLUDE FILES SECTION **********************************************************************/
 
 #include <stdbool.h>  // bool
 #include <stdint.h>  // uint8_t
@@ -32,7 +31,6 @@
 #include "includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
 #include "signed_video_defines.h"  // svi_rc
 
-/***** TYPE DECLARATION SECTION *******************************************************************/
 
 typedef struct _gop_info_t gop_info_t;
 typedef struct _gop_state_t gop_state_t;
@@ -41,7 +39,6 @@ typedef struct _gop_info_detected_t gop_info_detected_t;
 /* Forward declare h26x_nalu_list_t here so we can add a member to signed_video_t. */
 typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 
-/***** CONSTANT AND MACRO SECTION *****************************************************************/
 
 /* We currently only support SHA256() which produces hashes of size 256 bits. */
 #define HASH_DIGEST_SIZE (256 / 8)
@@ -72,7 +69,6 @@ typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 
 #define HASH_LIST_SIZE (HASH_DIGEST_SIZE * MAX_GOP_LENGTH)
 
-/***** TYPE DEFINITION SECTION ********************************************************************/
 
 /**
  * The authentication state machine
@@ -213,7 +209,6 @@ struct _gop_info_t {
   // success, 0 for fail, and -1 for error.
 };
 
-/***** FUNCTION DECLARATION SECTION ***************************************************************/
 
 void
 bytes_to_version_str(const int *arr, char *str);
