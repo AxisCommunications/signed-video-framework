@@ -40,8 +40,6 @@
 // The salt added to the recursive hash to get the final gop_hash
 #define GOP_HASH_SALT 1
 
-static const SignedVideoAuthenticityLevel kDefaultAuthenticityLevel = SV_AUTHENTICITY_LEVEL_FRAME;
-
 static bool
 version_str_to_bytes(int *arr, const char *str);
 
@@ -1120,9 +1118,6 @@ signed_video_create(SignedVideoCodec codec)
     self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
 
     self->recurrence = RECURRENCE_MIN;
-
-    SVI_THROW(
-        sv_rc_to_svi_rc(signed_video_set_authenticity_level(self, kDefaultAuthenticityLevel)));
 
     // Setup the plugin.
     SVI_THROW(sv_rc_to_svi_rc(sv_interface_setup()));
