@@ -18,14 +18,17 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+
 #ifndef __SIGNED_VIDEO_AUTH_H__
 #define __SIGNED_VIDEO_AUTH_H__
+
 
 #include <stdbool.h>  // bool
 #include <stdint.h>  // uint8_t
 #include <string.h>  // size_t
 
 #include "signed_video_common.h"  // signed_video_t, SignedVideoReturnCode
+
 
 /**
  * Status of authenticity validation since last result
@@ -119,6 +122,7 @@ typedef struct {
   signed_video_latest_validation_t latest_validation;
   // Holds the information of the latest validation.
 } signed_video_authenticity_t;
+
 
 /**
  * @brief Frees the signed_video_authenticity_t report.

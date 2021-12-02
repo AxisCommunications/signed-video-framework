@@ -18,6 +18,7 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+
 #ifndef __SIGNED_VIDEO_OPENSSL__
 #define __SIGNED_VIDEO_OPENSSL__
 
@@ -28,6 +29,7 @@
 #include "signed_video_common.h"  // SignedVideoReturnCode
 #include "signed_video_interfaces.h"  // signature_info_t, sign_algo_t
 
+
 /**
  * Object to keep the path structure used to create and read pem-files.
  */
@@ -37,6 +39,7 @@ typedef struct {
   char *full_path_to_private_key;
   // Null-terminated character string specifying the full path location to the private-key pem-file.
 } key_paths_t;
+
 
 /**
  * @brief Malloc data

@@ -18,10 +18,13 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+
 #ifndef __SIGNED_VIDEO_COMMON_H__
 #define __SIGNED_VIDEO_COMMON_H__
 
+
 typedef struct _signed_video_t signed_video_t;
+
 
 /**
  * @brief Signed Video Return Code
@@ -50,6 +53,7 @@ typedef enum {
  * The following codecs are supported. The codec in use when creating the signed video session.
  */
 typedef enum { SV_CODEC_H264 = 0, SV_CODEC_H265 = 1, SV_CODEC_NUM } SignedVideoCodec;
+
 
 /**
  * @brief Create a new signed video session.
