@@ -1,0 +1,4 @@
+option('debugprints',
+  type : 'boolean',
+  value : false,
+  description : 'Run with SIGNED_VIDEO_DEBUG flag')

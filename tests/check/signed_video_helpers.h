@@ -1,0 +1,92 @@
+/**
+ * MIT License
+ *
+ * Copyright (c) 2021 Axis Communications AB
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of this software
+ * and associated documentation files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the next paragraph) shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+ * BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+#ifndef __SIGNED_VIDEO_HELPERS_H__
+#define __SIGNED_VIDEO_HELPERS_H__
+
+#include "lib/src/includes/signed_video_interfaces.h"  // sign_algo_t
+#include "lib/src/includes/signed_video_common.h"  // signed_video_t, SignedVideoCodec
+#include "lib/src/includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
+#include "nalu_list.h"  // nalu_list_t
+
+#define HW_ID "hardware_id"
+#define FW_VER "firmware_version"
+#define SER_NO "serial_no"
+#define MANUFACT "manufacturer"
+#define ADDR "address"
+
+struct sv_setting {
+  SignedVideoCodec codec;
+  SignedVideoAuthenticityLevel auth_level;
+  sign_algo_t algo;
+};
+
+#define NUM_SETTINGS 8
+extern const struct sv_setting settings[NUM_SETTINGS];
+
+/* Creates a signed_video_t session and initialize it by setting
+ * 1. a path to openssl keys
+ * 2. product info strings
+ *
+ * This is useful for testing the signing part and generating a signed stream of nalus. */
+signed_video_t *
+get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo);
+
+/* Creates a nalu_list_t with all the NALUs produced after signing. This mimic what leaves the
+ * camera.
+ *
+ * The input is a string of characters representing the type of NALUs passed into the signing
+ * session.
+ * Example-1: 'IPPIPP' will push two identical GOPs
+ *   I-nalu, P-nalu, P-nalu.
+ * Example-2: for multi slice, 'IiPpPpIiPpPp' will push two identical GOPs
+ *   I-nalu, i-nalu, P-nalu, p-nalu, P-nalu, p-nalu.
+ * Valid characters are:
+ *   I: I-nalu Indicates first I slice in the current I nalu
+ *   i: i-nalu Indicates other than first I slice. Example: second and third slice
+ *   P: P-nalu Indicates first P slice in the current P nalu
+ *   p: p-nalu Indicates other than first P slice. Example: second and third slice
+ *   S: Non signed-video-framework SEI-nalu
+ *   X: Invalid nalu, i.e., not a H26x nalu.
+ *
+ * settings = the session setup for this test.
+ */
+nalu_list_t *
+create_signed_nalus(const char *str, struct sv_setting settings);
+
+/* Creates a nalu_list_t with all the NALUs produced after signing. This mimic what leaves the
+ * camera. Content in sei-nalus is dependent on the recurrence value.
+ */
+nalu_list_t *
+create_signed_nalus_recurrence(const char *str, struct sv_setting settings,
+    int recurrence);
+
+/* Removes the NALU list items with position |item_number| from the |list|. The item is, after a
+ * check against the expected |str|, then freed. */
+void
+remove_item_then_check_and_free(nalu_list_t *list, int item_number,
+    const char *str);
+
+/* Modifies the id of |item_number| by incrementing the value by one. Applies to both codecs in
+ * |h26x_lists|. A sanity check on expected string of that item is done. */
+void
+modify_list_item(nalu_list_t *list, int item_number, const char *exp_str);
+
+#endif  // __SIGNED_VIDEO_HELPERS_H__

@@ -1,0 +1,39 @@
+signedvideoframework_public_headers = files(
+  'includes/signed_video_auth.h',
+  'includes/signed_video_common.h',
+  'includes/signed_video_interfaces.h',
+  'includes/signed_video_openssl.h',
+  'includes/signed_video_sign.h',
+)
+
+signedvideoframework_sources = files(
+  'signed_video_authenticity.c',
+  'signed_video_authenticity.h',
+  'signed_video_defines.h',
+  'signed_video_h26x_auth.c',
+  'signed_video_h26x_common.c',
+  'signed_video_h26x_internal.h',
+  'signed_video_h26x_nalu_list.c',
+  'signed_video_h26x_nalu_list.h',
+  'signed_video_h26x_sign.c',
+  'signed_video_internal.h',
+  'signed_video_openssl.c',
+  'signed_video_tlv.c',
+  'signed_video_tlv.h',
+)
+
+# Until we have plugin management in place we add the plugin file(s)
+signedvideoframework_sources += plugin_sources
+
+openssl_dep = dependency('openssl', required: true)
+
+install_headers(signedvideoframework_public_headers,
+  install_dir : '@0@/signed-video-framework'.format(get_option('includedir')))
+
+signedvideoframework_deps = [ openssl_dep ]
+
+signedvideoframework = shared_library('signed-video-framework',
+  signedvideoframework_sources,
+  dependencies : signedvideoframework_deps,
+  install : true,
+)
