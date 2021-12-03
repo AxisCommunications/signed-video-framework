@@ -52,7 +52,7 @@ For the end user to validate the authenticity of a signed video the public key, 
 
 ### GOP level signing
 Transmitting the list of hashes can be too expensive in terms of increase bitrate. The *Signed Video Framework* therefore offer a light version in GOP level as authenticitiy level. Instead of the hash list we compute one single hash to represent the entire document including metadata and all the frame hashes, and we do that recursively.
-The recursive operation is initialized with a hashed salt `hash(0) = h(salt)`. The next step is to add `href` as `hash(1) = h(hash(0), href)` and the n'th hash becomes `hash(n) = h(hash(n-1), hash(F_n))`, where `F_n` is the frame coresponding to the n'th hash.
+The recursive operation is initialized with a hashed salt `hash(0) = h(salt)`. The next step is to add `href` as `hash(1) = h(hash(0), href)` and the n'th hash becomes `hash(n) = h(hash(n-1), hash(F_n))`, where `F_n` is the frame corresponding to the n'th hash.
 The recursive hash is finalized with the document hash itself, now without the list of hashes. Hence, it includes the metadata only. Let us call this final hash a gop hash as
 
 `hash(gop) = h(hash(N), hash(document))`
