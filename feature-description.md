@@ -1,3 +1,5 @@
+Copyright (C) 2021, Axis Communications AB, Lund, Sweden. All Rights Reserved.
+
 # Signed Video feature description
 This is a high level description of the *Signed Video* feature. For a correct, detailed and complete description we refer to the source code.
 We believe a high level description will help understand what the source code aims to accomplish. Therefore, even though this description may have minor flaws, it is good to read before digging into the source code.
