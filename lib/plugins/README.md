@@ -1,3 +1,5 @@
+Copyright (C) 2021, Axis Communications AB, Lund, Sweden. All Rights Reserved.
+
 # Signed Video Framework plugins
 
 Signing using a private key is usually done in a secure part of a device. This usually requires device specific operations which cannot be generalized to an open source project. We therefore see a need to support signing through a concept of plugins.
