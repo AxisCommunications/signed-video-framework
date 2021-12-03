@@ -1,3 +1,5 @@
+*Copyright (C) 2021, Axis Communications AB, Lund, Sweden. All Rights Reserved.*
+
 # signed-video-framework
 This repository holds the framework code of the feature Signed Video. The Signed Video feature secures the video from tampering after signing by adding cryptographic signatures to the video. Each video frame is hashed and repeatedly generates signatures based on these hashes using a private key set by the signer. The signature data added to the video does not affect the video rendering.
 
