@@ -1,3 +1,5 @@
+*Copyright (C) 2021, Axis Communications AB, Lund, Sweden. All Rights Reserved.*
+
 # Using the Signed Video Framework library
 The Signed Video Framework handles both the signing part as well as the validation part. All public APIs needed are located in [includes/](./includes/).
 
