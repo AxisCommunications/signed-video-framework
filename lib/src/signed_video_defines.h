@@ -45,8 +45,8 @@
  * SVI_TRY()
  *     initiates the scope.
  * SVI_CATCH()
- *     initiates a scope for catching and handling errors. Note that if we reach this point without
- *     errors, this section is not executed.
+ *     initiates a scope for catching and handling errors. Note that if this point is reached
+ *     without errors, this section is not executed.
  * SVI_DONE(status)
  *     completes the scope and everything afterwards (error or not) will be executed. The variable
  *     |status| is set accordingly.
