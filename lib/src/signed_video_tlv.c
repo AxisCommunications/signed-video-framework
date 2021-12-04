@@ -239,7 +239,6 @@ encode_product_info(signed_video_t *self, uint8_t *data)
   size_t data_size = 0;
   const uint8_t version = 1;
   const uint8_t kFullByte = 255;
-  const uint8_t kFullByteMinusEnd = 254;
 
   // Version 1:
   //  - version (1 byte)
@@ -260,81 +259,101 @@ encode_product_info(signed_video_t *self, uint8_t *data)
   data_size += 1;
   size_t hardware_id_size = product_info->hardware_id ? strlen(product_info->hardware_id) + 1 : 1;
   bool hardware_id_too_long = (hardware_id_size > kFullByte);
-  data_size += hardware_id_too_long ? kFullByte : hardware_id_size;
+  const uint8_t hardware_id_size_onebyte =
+      hardware_id_too_long ? kFullByte : (uint8_t)hardware_id_size;
+  data_size += hardware_id_size_onebyte;
 
   data_size += 1;
   size_t firmware_version_size =
       product_info->firmware_version ? strlen(product_info->firmware_version) + 1 : 1;
   bool firmware_version_too_long = (firmware_version_size > kFullByte);
-  data_size += firmware_version_too_long ? kFullByte : firmware_version_size;
+  const uint8_t firmware_version_size_onebyte =
+      firmware_version_too_long ? kFullByte : (uint8_t)firmware_version_size;
+  data_size += firmware_version_size_onebyte;
 
   data_size += 1;
   size_t serial_number_size =
       product_info->serial_number ? strlen(product_info->serial_number) + 1 : 1;
   bool serial_number_too_long = (serial_number_size > kFullByte);
-  data_size += serial_number_too_long ? kFullByte : serial_number_size;
+  const uint8_t serial_number_size_onebyte =
+      serial_number_too_long ? kFullByte : (uint8_t)serial_number_size;
+  data_size += serial_number_size_onebyte;
 
   data_size += 1;
   size_t manufacturer_size =
       product_info->manufacturer ? strlen(product_info->manufacturer) + 1 : 1;
   bool manufacturer_too_long = (manufacturer_size > kFullByte);
-  data_size += manufacturer_too_long ? kFullByte : manufacturer_size;
+  const uint8_t manufacturer_size_onebyte =
+      manufacturer_too_long ? kFullByte : (uint8_t)manufacturer_size;
+  data_size += manufacturer_size_onebyte;
 
   data_size += 1;
   size_t address_size = product_info->address ? strlen(product_info->address) + 1 : 1;
   bool address_too_long = (address_size > kFullByte);
-  data_size += address_too_long ? kFullByte : address_size;
+  const uint8_t address_size_onebyte = address_too_long ? kFullByte : (uint8_t)address_size;
+  data_size += address_size_onebyte;
 
   if (!data) return data_size;
 
   uint8_t *data_ptr = data;
   uint16_t *last_two_bytes = &self->last_two_bytes;
+  uint8_t str_end_byte = '\0';
   // Version
   write_byte(last_two_bytes, &data_ptr, version, true);
 
-  write_byte(last_two_bytes, &data_ptr, hardware_id_size, true);
-  if (hardware_id_too_long) {
-    write_byte_many(&data_ptr, product_info->hardware_id, kFullByteMinusEnd, last_two_bytes, true);
-    write_byte(last_two_bytes, &data_ptr, '\0', true);
-  } else {
-    write_byte_many(&data_ptr, product_info->hardware_id, hardware_id_size, last_two_bytes, true);
-  }
+  // Write |hardware_id|.
+  write_byte(last_two_bytes, &data_ptr, hardware_id_size_onebyte, true);
+  // Write all but the last character.
+  write_byte_many(
+      &data_ptr, product_info->hardware_id, hardware_id_size_onebyte - 1, last_two_bytes, true);
+  // Determine and write the last character.
+  str_end_byte = (hardware_id_too_long || !product_info->hardware_id)
+      ? '\0'
+      : product_info->hardware_id[hardware_id_size_onebyte - 1];
+  write_byte(last_two_bytes, &data_ptr, str_end_byte, true);
 
-  write_byte(last_two_bytes, &data_ptr, firmware_version_size, true);
-  if (firmware_version_too_long) {
-    write_byte_many(
-        &data_ptr, product_info->firmware_version, kFullByteMinusEnd, last_two_bytes, true);
-    write_byte(last_two_bytes, &data_ptr, '\0', true);
-  } else {
-    write_byte_many(
-        &data_ptr, product_info->firmware_version, firmware_version_size, last_two_bytes, true);
-  }
+  // Write |firmware_version|.
+  write_byte(last_two_bytes, &data_ptr, firmware_version_size_onebyte, true);
+  // Write all but the last character.
+  write_byte_many(&data_ptr, product_info->firmware_version, firmware_version_size_onebyte - 1,
+      last_two_bytes, true);
+  // Determine and write the last character.
+  str_end_byte = (firmware_version_too_long || !product_info->firmware_version)
+      ? '\0'
+      : product_info->firmware_version[firmware_version_size_onebyte - 1];
+  write_byte(last_two_bytes, &data_ptr, str_end_byte, true);
 
-  write_byte(last_two_bytes, &data_ptr, serial_number_size, true);
-  if (serial_number_too_long) {
-    write_byte_many(
-        &data_ptr, product_info->serial_number, kFullByteMinusEnd, last_two_bytes, true);
-    write_byte(last_two_bytes, &data_ptr, '\0', true);
-  } else {
-    write_byte_many(
-        &data_ptr, product_info->serial_number, serial_number_size, last_two_bytes, true);
-  }
+  // Write |serial_number|.
+  write_byte(last_two_bytes, &data_ptr, serial_number_size_onebyte, true);
+  // Write all but the last character.
+  write_byte_many(
+      &data_ptr, product_info->serial_number, serial_number_size_onebyte - 1, last_two_bytes, true);
+  // Determine and write the last character.
+  str_end_byte = (serial_number_too_long || !product_info->serial_number)
+      ? '\0'
+      : product_info->serial_number[serial_number_size_onebyte - 1];
+  write_byte(last_two_bytes, &data_ptr, str_end_byte, true);
 
-  write_byte(last_two_bytes, &data_ptr, manufacturer_size, true);
-  if (manufacturer_too_long) {
-    write_byte_many(&data_ptr, product_info->manufacturer, kFullByteMinusEnd, last_two_bytes, true);
-    write_byte(last_two_bytes, &data_ptr, '\0', true);
-  } else {
-    write_byte_many(&data_ptr, product_info->manufacturer, manufacturer_size, last_two_bytes, true);
-  }
+  // Write |manufacturer|.
+  write_byte(last_two_bytes, &data_ptr, manufacturer_size_onebyte, true);
+  // Write all but the last character.
+  write_byte_many(
+      &data_ptr, product_info->manufacturer, manufacturer_size_onebyte - 1, last_two_bytes, true);
+  // Determine and write the last character.
+  str_end_byte = (manufacturer_too_long || !product_info->manufacturer)
+      ? '\0'
+      : product_info->manufacturer[manufacturer_size_onebyte - 1];
+  write_byte(last_two_bytes, &data_ptr, str_end_byte, true);
 
-  write_byte(last_two_bytes, &data_ptr, address_size, true);
-  if (address_too_long) {
-    write_byte_many(&data_ptr, product_info->address, kFullByteMinusEnd, last_two_bytes, true);
-    write_byte(last_two_bytes, &data_ptr, '\0', true);
-  } else {
-    write_byte_many(&data_ptr, product_info->address, address_size, last_two_bytes, true);
-  }
+  // Write |address|.
+  write_byte(last_two_bytes, &data_ptr, address_size_onebyte, true);
+  // Write all but the last character.
+  write_byte_many(&data_ptr, product_info->address, address_size_onebyte - 1, last_two_bytes, true);
+  // Determine and write the last character.
+  str_end_byte = (address_too_long || !product_info->address)
+      ? '\0'
+      : product_info->address[address_size_onebyte - 1];
+  write_byte(last_two_bytes, &data_ptr, str_end_byte, true);
 
   return (data_ptr - data);
 }
@@ -433,7 +452,7 @@ decode_arbitrary_data(signed_video_t *self, const uint8_t *data, size_t data_siz
 {
   const uint8_t *data_ptr = data;
   uint8_t version = *data_ptr++;
-  uint16_t arbdata_size = data_size - 1;
+  uint16_t arbdata_size = (uint16_t)(data_size - 1);
   svi_rc status = SVI_UNKNOWN;
 
   SVI_TRY()
@@ -512,7 +531,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
   signature_info_t *signature_info = self->signature_info;
   uint8_t version = *data_ptr++;
   sign_algo_t algo = *data_ptr++;
-  uint16_t pubkey_size = data_size - 2;  // We only store version, algo and the key.
+  uint16_t pubkey_size = (uint16_t)(data_size - 2);  // We only store version, algo and the key.
   svi_rc status = SVI_UNKNOWN;
 
   SVI_TRY()
@@ -591,7 +610,7 @@ decode_hash_list(signed_video_t *self, const uint8_t *data, size_t data_size)
     SVI_THROW_IF_WITH_MSG(
         hash_list_size > HASH_LIST_SIZE, SVI_MEMORY, "Found more hashes than fit in hash_list");
     memcpy(self->gop_info->hash_list, data_ptr, hash_list_size);
-    self->gop_info->list_idx = hash_list_size;
+    self->gop_info->list_idx = (int)hash_list_size;
 
     data_ptr += hash_list_size;
 
