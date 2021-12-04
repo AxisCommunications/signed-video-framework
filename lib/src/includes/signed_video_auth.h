@@ -58,9 +58,9 @@ typedef struct {
   bool public_key_has_changed;
   // A new Public key has been detected. Signing an ongoing stream with a new key is not allowed.
   int number_of_expected_picture_nalus;
-  // Indicates how many picture NALUs (i.e., excluding SEI, PPS/SPS/VPS, AUD) are expected, and
-  // part of the signature, since last validation. A negative value indicates that we have not
-  // received that information due to a missing, or tampered, SEI.
+  // Indicates how many picture NALUs (i.e., excluding SEI, PPS/SPS/VPS, AUD) were expected, and
+  // part of the signature, since last validation. A negative value indicates that such information
+  // is lacking due to a missing, or tampered, SEI.
   int number_of_received_picture_nalus;
   // Indicates how many picture NALUs (i.e., excluding SEI, PPS/SPS/VPS, AUD) have been received
   // since last validation, and used to verify the signature. If the signed video feature is
@@ -225,8 +225,8 @@ signed_video_get_authenticity_report(signed_video_t *self);
  * |authenticity| for a new report.
  * Two typical use cases are; 1) live monitoring which could be screening the video until
  * authenticity can no longer be validated OK, and 2) screening a recording and get a full report at
- * the end. In the first case we can simply abort the operation as soon as a validation fails,
- * whereas in the latter case we need to screen all the NALUs.
+ * the end. In the first case further operations can simply be aborted as soon as a validation
+ * fails, whereas in the latter case all the NALUs need to be screened.
  * NOTE: Only the live monitoring use case is currently supported.
  *
  * Example code of usage; See example code above.

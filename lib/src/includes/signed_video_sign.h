@@ -38,13 +38,14 @@
  * already been created, this generated NALU should prepend all already added NALUs in that extra
  * AU.
  *
- * For example, assume we have one AU with one NALU F0, that is, the memory looks like
+ * For example, assume one AU with one NALU F0, that is, the memory looks like
  *
  * | AUD | F0 |
  *
- * Now we pull four NALUs in order; F1, F2, F3 and F4. The corresponding instructions are;
- * SIGNED_VIDEO_PREPEND_NALU, SIGNED_VIDEO_PREPEND_NALU, SIGNED_VIDEO_PREPEND_ACCESS_UNIT and
- * SIGNED_VIDEO_PREPEND_ACCESS_UNIT. Then the memory afterwards should look like this
+ * Further, assume four NALUs are pulled in order; F1, F2, F3 and F4. The corresponding
+ * instructions are; SIGNED_VIDEO_PREPEND_NALU, SIGNED_VIDEO_PREPEND_NALU,
+ * SIGNED_VIDEO_PREPEND_ACCESS_UNIT and SIGNED_VIDEO_PREPEND_ACCESS_UNIT. Then the memory afterwards
+ * should look like this
  *
  * | AUD | F4 | F3 | AUD | F2 | F1 | F0 |
  * /---------------/
@@ -80,8 +81,8 @@ typedef enum {
   // The entire GOP is verified as one solid chunk. Hence, if validation fails it is unknown which
   // NALUs were incorrect or missing.
   SV_AUTHENTICITY_LEVEL_FRAME = 1,
-  // Individual NALUs are verified. Hence, if validation fails we known which NALUs were incorrect
-  // or missing.
+  // Individual NALUs are verified. Hence, if validation fails the incorrect or missing NALU(s) are
+  // detected.
   SV_AUTHENTICITY_LEVEL_NUM
 } SignedVideoAuthenticityLevel;
 
@@ -202,10 +203,10 @@ signed_video_nalu_data_free(uint8_t *nalu_data);
 /**
  * @brief Tells Signed Video that the stream has ended
  *
- * When we reach the end of a stream (EOS) we need to transmit a final SEI-NALU to be able to
- * validate all the way to the end, and avoiding a dangling end.
+ * When reaching the end of a stream (EOS) a final SEI-NALU needs to be transmitted to be able to
+ * validate all the way to the end, thereby avoiding a dangling end.
  *
- * This API can be called when we reach the end of a stream. Afterwards, all NALUs to prepend
+ * This API can be called when the end of a stream is reached. Afterwards, all NALUs to prepend
  * should be pulled as normal using signed_video_get_nalu_to_prepend(...) above.
  *
  * @param self Pointer to the signed_video_t object in use.
@@ -223,8 +224,8 @@ signed_video_set_end_of_stream(signed_video_t *self);
  * struct for the session. Although this should only have to be set once, this can be called
  * multiple times during the signing, but it must be done in between adding NALUs synchronously.
  * NOTE: This API assumes null-terminated input strings.
- * NOTE: The length of a string has to be less than 265 characters, since we only transmit one
- * byte of each string as metadata.
+ * NOTE: The length of a string has to be less than 255 characters, otherwise the string will be
+ * truncated.
  *
  * @param self Signed Video session pointer
  * @param hardware_id Null-terminated string
@@ -280,14 +281,14 @@ signed_video_set_private_key(signed_video_t *self,
 /**
  * @brief Sets the authenticity level to be used.
  *
- * We support two levels of authenticity; GOP and Frame, where Frame is default. At GOP level a
- * verification is made for the entire GOP in one chunk, whereas at Frame level we can verify each
- * frames individually.
+ * The framework supports two levels of authenticity; GOP and Frame, where Frame is default. At GOP
+ * level a verification is made for the entire GOP in one chunk, whereas at Frame level frame drops
+ * can be handled.
  *
  * The signing part decides on the level and the receiving end will automatically produce an
  * appropriate report.
  *
- * Note that authenticity at Frame level will have a significantly higher bitrate than at GOP
+ * NOTE: that authenticity at Frame level will have a significantly higher bitrate than at GOP
  * level.
  *
  * @param self Pointer to the signed_video_t object session.

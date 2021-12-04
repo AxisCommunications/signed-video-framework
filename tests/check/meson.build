@@ -35,8 +35,8 @@ test_env.append('VALGRIND_OPTS',
 test_env.append('G_SLICE', 'always-malloc')
 test_env.append('G_DEBUG', 'gc-friendly')
 
-# TODO: We want CK_FORK=no also, to get ONE leak summary and not separate
-# ones for each test. But currently it fails if we run in 'CK_FORK = no' mode.
+# TODO: It is decired to set CK_FORK=no also, to get ONE leak summary and not separate ones for
+# each test. But currently it fails when running in 'CK_FORK = no' mode.
 #test_env.append('CK_FORK', 'no')
 
 foreach t : tests

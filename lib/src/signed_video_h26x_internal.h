@@ -128,7 +128,7 @@ struct _h26x_nalu_t {
   const uint8_t *tlv_start_in_nalu_data;  // Points to beginning of the TLV data in the |nalu_data|
   const uint8_t *tlv_data;  // Points to the TLV data after removing emulation prevention bytes
   size_t tlv_size;  // Total size of the |tlv_data|
-  uint8_t *tmp_tlv_memory;  // Temporary memory used if we have emulation prevention bytes
+  uint8_t *tmp_tlv_memory;  // Temporary memory used if there are emulation prevention bytes
   uint32_t start_code;  // Start code or replaced by NALU data size
   int emulation_prevention_bytes;  // Computed emulation prevention bytes
   bool is_primary_slice;  // The first slice in the NALU or not

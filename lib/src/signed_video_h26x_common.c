@@ -648,9 +648,9 @@ parse_nalu_info(const uint8_t *nalu_data,
       nalu.payload_size = payload_size;
       // We now know the payload size, including UUID (16 bytes) and excluding stop bit. This means
       // that we can determine if we have added any emulation prevention bytes.
-      int emp = nalu.hashable_data_size;
-      emp -= (payload - nalu.hashable_data);  // Read bytes so far
-      emp -= payload_size;  // The true encoded payload size, excluding stop byte.
+      int emp = (int)nalu.hashable_data_size;
+      emp -= (int)(payload - nalu.hashable_data);  // Read bytes so far
+      emp -= (int)payload_size;  // The true encoded payload size, excluding stop byte.
       // If we have the stop bit in a byte of its own it's not included in the payload size. This is
       // actually always the case for the signed video generated SEI data.
 

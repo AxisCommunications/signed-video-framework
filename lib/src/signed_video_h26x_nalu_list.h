@@ -92,7 +92,7 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t* list);
  * @param list The |list| including the |item|.
  * @param num_missing Number of missing items to append/prepend.
  * @param append Appends |item| if true and prepends |item| if false.
- * @param item The |item| of which we append/prepend the 'missing' items.
+ * @param item The |item| of which the 'missing' items are append/prepend.
  *
  * @returns Signed Video Internal Return Code
  */
@@ -105,8 +105,8 @@ h26x_nalu_list_add_missing(h26x_nalu_list_t* list,
 /**
  * @brief Removes 'M' items present at the beginning of a |list|
  *
- * There are scenarios when we add missing items to the front of the |list|, when we actually could
- * not verify the hashes. This function removes them and resets the flag
+ * There are scenarios when missing items are added to the front of the |list|, when the framework
+ * actually could not verify the hashes. This function removes them and resets the flag
  * |first_verification_not_authentic| of non-pending items. Further, marks the decoded SEI as 'U',
  * even if it could be verified, because it is not associated with this recording.
  *
@@ -135,10 +135,10 @@ h26x_nalu_list_get_next_sei_item(const h26x_nalu_list_t* list);
  *   - number of missing NALUs
  *
  * @param list The |list| to collect statistics from.
- * @param num_invalid_nalus A pointer to which we write the number of NALUs that could not be
- *   validated as authentic.
- * @param num_missing_nalus A pointer to which we write the number of missing NALUs detected by the
- *   validation.
+ * @param num_invalid_nalus A pointer to which the number of NALUs, that could not be validated as
+ *   authentic, is written.
+ * @param num_missing_nalus A pointer to which the number of missing NALUs, detected by the
+ *   validation, is written.
  */
 void
 h26x_nalu_list_get_stats(const h26x_nalu_list_t* list,
@@ -171,8 +171,8 @@ h26x_nalu_list_get_validation_str(const h26x_nalu_list_t* list);
  * @brief Cleans up among validated NALUs
  *
  * To avoid the list from growing uncontrolled in size outdated, already validated, NALUs are
- * removed. This is done by one-by-one remove the first_item from the list until we hit the first
- * 'pending' one.
+ * removed. This is done by removing the first_item from the list one-by-one until the first
+ * 'pending' one is detected.
  *
  * @note that calling this function before h26x_nalu_list_get_validation_str() can remove
  *   information that was supposed to be presented to the end user.

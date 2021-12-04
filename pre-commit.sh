@@ -10,7 +10,7 @@ fi
 
 echo "--Static code analysis--"
 for file in `git diff-index --cached --name-only HEAD --diff-filter=ACMR| grep "src\/.*\.[c|h]$"` ; do
-    # This makes sure we check against the revision in the index (and not the checked out version).
+    # This makes sure to check against the revision in the index (and not the checked out version).
 
     clang-format -i $file
 done

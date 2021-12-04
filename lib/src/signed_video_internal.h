@@ -34,7 +34,7 @@ typedef struct _gop_info_t gop_info_t;
 typedef struct _gop_state_t gop_state_t;
 typedef struct _gop_info_detected_t gop_info_detected_t;
 
-/* Forward declare h26x_nalu_list_t here so we can add a member to signed_video_t. */
+// Forward declare h26x_nalu_list_t here for signed_video_t.
 typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -42,7 +42,7 @@ typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 #else
 #define ATTR_UNUSED __attribute__((unused))
 #endif
-/* We currently only support SHA256() which produces hashes of size 256 bits. */
+// Currently only support SHA-256 which produces hashes of size 256 bits.
 #define HASH_DIGEST_SIZE (256 / 8)
 
 #define SV_VERSION_BYTES 3
@@ -60,7 +60,7 @@ typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 #endif
 
 #define UUID_LEN 16
-#define MAX_NALUS_TO_PREPEND 5  // This means that we have room to prepend 4 additional nalus.
+#define MAX_NALUS_TO_PREPEND 5  // This means that there is room to prepend 4 additional nalus.
 #define LAST_TWO_BYTES_INIT_VALUE 0x0101  // Anything but 0x00 are proper inits
 #define STOP_BYTE_VALUE 0x80
 
@@ -73,39 +73,38 @@ typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 /**
  * The authentication state machine
  * The process of validating the authenticity of a video is described by a set of operating states.
- * The main goal is to produce an authentication result. This is done when we have reached the end
- * of a GOP and have a SEI to use, or if we reach a new GOP without receiving a SEI.
+ * The main goal is to produce an authentication result. This is done when the end of a GOP is
+ * reached.
  *
  * The basic processing flow of a NALU can be found in the description of
  * signed_video_add_h26x_nalu().
  */
 typedef enum {
-  AUTH_STATE_INIT = 0,  // The initial state where we wait for a first hashable NALU.
-  AUTH_STATE_WAIT_FOR_GOP_END = 1,  // The normal state where we hash and add NALUs. We leave this
-  // state as soon as we receive a SEI, or if we detect a new GOP with an I NALU.
+  AUTH_STATE_INIT = 0,  // The initial state; waiting for a first hashable NALU.
+  AUTH_STATE_WAIT_FOR_GOP_END = 1,  // The normal state where NALUs are hashed and added. This state
+  // is left as soon as a SEI is received, or if a new GOP with an I NALU is detected.
   AUTH_STATE_WAIT_FOR_NEXT_NALU = 2,  // The SEI prepends a picture NALU, and in some situations the
-  // hash of that NALU is included in the document hash generating the signature. Hence, we need to
-  // wait for another NALU before we can validate the authenticity.
-  AUTH_STATE_GOP_END = 3,  // Received an I NALU. Time to store the GOP data and verify and validate
-  // once we have the SEI as well.
+  // hash of that NALU is included in the document hash generating the signature. Hence, the
+  // framework needs to wait for another NALU before authenticity validation can be performed.
+  AUTH_STATE_GOP_END = 3,  // Received an I NALU. The framework is ready for validation when the
+  // SEI has been received.
   AUTH_STATE_VALIDATE = 4,  // Validate authenticity and produce an authentication result.
 } auth_state_t;
 
 struct _gop_state_t {
   bool has_auth_result;  // State to indicate that an authenticity result is available for the user.
-  bool is_first_validation;  // State to indicate if this is the first validation. If so, we cannot
-  // rely on the validation result, since we may be out of sync, e.g. after exporting to a file.
-  bool signing_present;  // State to indicate if Signed Video is present or not. We can only move
-  // from false to true unless a reset is performed. That is, once we have detected Signed Video the
-  // video is signed.
+  bool is_first_validation;  // State to indicate if this is the first validation. If so, a failing
+  // validation result is not necessarily true, since the framework may be out of sync, e.g. after
+  // exporting to a file.
+  bool signing_present;  // State to indicate if Signed Video is present or not. It is only possible
+  // to move from false to true unless a reset is performed.
   // TODO: Get rid of the dependency of |num_pending_validations|.
   int num_pending_validations;  // Counter for number of pending validations.
   auth_state_t auth_state;  // Operating state of the authentication process.
 
-  // Some detection is done while decoding the SEI and based on the |auth_state|. Later on we will
-  // decode the SEI upon validation instead, and the |auth_state| might have changed by then.
-  // Therefore we need to store both current and previous states after calling
-  // gop_state_pre_actions().
+  // Some detection is done while decoding the SEI and based on the |auth_state|, and some are done
+  // when decoding the SEI, which is done upon validation. Therefore, both current and previous
+  // states of |auth_state|, after calling gop_state_pre_actions(), are stored.
   auth_state_t cur_auth_state;  // Current |auth_state| after gop_state_pre_actions().
   auth_state_t prev_auth_state;  // Previous |cur_auth_state|.
   bool has_public_key;  // State to indicate if public key is received.
@@ -116,8 +115,8 @@ struct _gop_info_detected_t {
   // The authenticity is not always validated directly when a SEI NALU is received.
   bool has_lost_sei;  // State to indicate if the SEI NALU of the GOP was lost.
   bool gop_transition_is_lost;  // State to indicate if the transition between GOPs has been lost.
-  // This can be detected if we detect a lost SEI, and at the same time wait for an I NALU. An
-  // example when this happens is if we lose the entire AU including both the SEI and the I NALU.
+  // This can be detected if a lost SEI is detected, and at the same time waiting for an I NALU. An
+  // example when this happens is if an entire AU is lost including both the SEI and the I NALU.
 };
 
 struct _signed_video_t {
@@ -135,8 +134,8 @@ struct _signed_video_t {
   signed_video_nalu_to_prepend_t nalus_to_prepend_list[MAX_NALUS_TO_PREPEND];
   int num_nalus_to_prepend;
 
-  // TODO: Collect everything needed by the authentication part only in one struct/object, which we
-  // do not need to create on the signing side.
+  // TODO: Collect everything needed by the authentication part only in one struct/object, which
+  // then is not needed to be created on the signing side, saving some memory.
 
   // Status and authentication
   // Linked list to track the validation status of each added NALU. Items are appended to the list
@@ -149,7 +148,7 @@ struct _signed_video_t {
   int recurrence;
 
   int signing_present;
-  // State to indicate if Signed Video is present or not. Used for signing. We can only move
+  // State to indicate if Signed Video is present or not. Used for signing, and can only move
   // downwards between the states below.
   // -1 : Initialized value. No NALUs processed yet.
   // 0 : Signed Video information so far not present.

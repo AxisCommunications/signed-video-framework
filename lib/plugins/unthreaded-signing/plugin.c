@@ -36,7 +36,8 @@ static SignedVideoReturnCode
 unthreaded_openssl_sign_hash(signature_info_t *signature_info)
 {
   if (!signature_info) return SV_INVALID_PARAMETER;
-  // If we have not pulled the generated signature we cannot sign a new hash.
+  // If the generated signature has not been pulled a new signature cannot be generated without
+  // replacing it.
   if (signature_generated) return SV_NOT_SUPPORTED;
 
   signature_generated = true;

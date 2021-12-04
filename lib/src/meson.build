@@ -22,7 +22,7 @@ signedvideoframework_sources = files(
   'signed_video_tlv.h',
 )
 
-# Until we have plugin management in place we add the plugin file(s)
+# Until plugin management in place the plugin file(s) are added to the sources.
 signedvideoframework_sources += plugin_sources
 
 openssl_dep = dependency('openssl', required: true)
