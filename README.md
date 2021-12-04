@@ -5,7 +5,21 @@ This repository holds the framework code of the feature Signed Video. The Signed
 
 A more detailed description of the Signed Video feature is found in [feature-description](./feature-description.md).
 
-The framework consists of both the signing and the validation part and both parts are built jointly. Hence, there is no difference in building for validation or signing. The library source code is split into [src/](./lib/src/) and [plugins/](./lib/plugins/). Signing is commonly device specific, hence the framework uses the concept of signing plugins to allow that. Currently, only one plugin is available; See [plugins/](./lib/plugins/).
+## File structure
+```
+signer-video-framework
+├── lib
+|   ├── plugins
+|   |   └── unthreaded-signing
+|   |       └── plugin.c
+|   └── src
+|       ├── includes
+|       |   └── public header files
+|       └── source files
+└── tests
+```
+
+The repository is split into a library and tests. The library is further organized in a [source code](./lib/src/) and a [plugins](./lib/plugins/). The source code inludes all necessary source files for both signing and validation, and there is no conceptual difference in building the library for signing or for validation. Signing though, is commonly device specific with separate calls for, e.g., reading and using private keys. Therefore, the framework uses the concept of signing plugins with implementations of a set of [interfaces](./lib/src/includes/signed_video_interfaces.h). The framework comes with an unthreaded signing plugin.
 
 For instructions on how to use the APIs to integrate the Signed Video Framework in either a signing or a validation application, see [lib/](./lib/). Application examples are available in the [signed-video-framework-examples](https://github.com/AxisCommunications/signed-video-framework-examples) repository.
 
@@ -45,3 +59,6 @@ Nothing extra needs to be done to generate the build environment. To run the uni
 ninja -C build test
 ```
 Alternatively, you can run the script [tests/test_checks.sh](./tests/test_checks.sh) and the unittests will run both with and without debug prints.
+
+# License
+[MIT License](./LICENSE)
