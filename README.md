@@ -35,30 +35,54 @@ The repository uses meson + ninja as default build method. Further, OpenSSL is u
 - [libcheck](https://libcheck.github.io/check/) The framework for unittests
 
 # Build Instructions
-Below are meson instruction on how to build for either signing or validation. For help on meson usage see [mesonbuild.com](https://mesonbuild.com/).
+Below are meson instructions on how to build for either signing or validation. For help on meson usage see [mesonbuild.com](https://mesonbuild.com/).
+The meson instructions in this repository will create a shared library named `libsigned-video-framework`.
 
-## Setup build structure
+## Configure with meson
 ```
-meson . build
+meson path/to/signed-video-framework path/to/build/folder
 ```
-will generate compile instructions for ninja and put them in a folder named `./build`.
+will generate compile instructions for ninja and put them in a folder located at `path/to/build/folder`.
 The framework comes with an option to build with debug prints
 ```
-meson -Ddebugprints=true . build
+meson -Ddebugprints=true path/to/signed-video-framework path/to/build/folder
+```
+With the `--prefix` meson option it is possible to specify an arbitrary location to where the shared library is installed.
+```
+meson --prefix /absolute/path/to/your/local/installs path/to/signed-video-framework path/to/build/folder
 ```
 
-## Compile and install the library
+## Compile and install the shared library
+To compile signed-video-framework using ninja run
+```
+ninja -C path/to/build/folder
+```
+and the object file is located at `path/to/build/folder/lib/src/libsigned-video-framework.so`. To install the shared library run
 ```
 meson install -C build
 ```
-The library, named `libsigned-video-framework`, will be installed where libraries are installed. The header files will be located in a sub-folder of `includes` named `signed-video-framework`.
+The library, named `libsigned-video-framework`, will be installed where libraries are installed, or at `path/to/your/local/installs` if you configured meson with `--prefix`. The header files will be located in a sub-folder of `includes` named `signed-video-framework`.
 
-## Build and run unittests
-Nothing extra needs to be done to generate the build environment. To run the unittests simply call
+## Example build commands on Linux
+1. Configure and compile into `./build` without installing from the top level
 ```
+meson . build
+ninja -C build
+```
+2. Configure, compile and install in `./my_installs/` from a folder including `signed-video-framework/`
+```
+meson --prefix $PWD/my_installs signed-video-framework build
+meson install -C build
+```
+
+## Configure, build and run unittests
+To run the tests we need to compile the library with other settings. Activate these with the meson option `test-settings` set to `true`. Hence, to build and run the unittests call
+```
+meson -Dtest-settings=true . build
 ninja -C build test
 ```
 Alternatively, you can run the script [tests/test_checks.sh](./tests/test_checks.sh) and the unittests will run both with and without debug prints.
+Note that you need libcheck installed as well.
 
 # License
 [MIT License](./LICENSE)
