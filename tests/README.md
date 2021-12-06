@@ -1,6 +1,6 @@
 *Copyright (C) 2021, Axis Communications AB, Lund, Sweden. All Rights Reserved.*
 
-# Signed Video Framework Tests
+# Signed Video Framework tests
 
 ## Prerequisites
 The repository comes with unittests which use the check test framework. For getting and installing libcheck see [libcheck](https://libcheck.github.io/check/).
