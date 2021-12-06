@@ -20,7 +20,7 @@ jobs:
       with:
         action: test
         directory: build
-        setup-options: -Db_coverage=true
+        setup-options: -Db_coverage=true -Dtest-settings=true
         options: --verbose
         meson-version: 0.53.2
         ninja-version: 1.9.0.post1
