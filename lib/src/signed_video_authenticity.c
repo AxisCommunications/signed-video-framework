@@ -99,22 +99,22 @@ allocate_memory_and_copy_string(char **dst_str, const char *src_str)
 
   size_t dst_size = *dst_str ? strlen(*dst_str) + 1 : 0;
   const size_t src_size = strlen(src_str) + 1;
-  svi_rc status = SVI_UNKNOWN;
-  SVI_TRY()
-    if (src_size != dst_size) {
-      char *new_dst_str = realloc(*dst_str, src_size);
-      SVI_THROW_IF(!new_dst_str, SVI_MEMORY);
-      *dst_str = new_dst_str;
-    }
-    strcpy(*dst_str, src_str);
-  SVI_CATCH()
-  {
-    free(*dst_str);
-    *dst_str = NULL;
-  }
-  SVI_DONE(status)
 
-  return status;
+  if (src_size != dst_size) {
+    char *new_dst_str = realloc(*dst_str, src_size);
+    if (!new_dst_str) goto catch_error;
+
+    *dst_str = new_dst_str;
+  }
+  strcpy(*dst_str, src_str);
+
+  return SVI_OK;
+
+catch_error:
+  free(*dst_str);
+  *dst_str = NULL;
+
+  return SVI_MEMORY;
 }
 
 /**
