@@ -24,12 +24,6 @@ cdata = configuration_data()
 cdata.set_quoted('VERSION', meson.project_version())
 configure_file(output : 'signed-video-framework.pc', configuration : cdata)
 
-pkgconfig = import('pkgconfig')
-pkgconfig.generate(
-    name: 'signed-video-framework',
-    description: 'Signed Video Framework',
-)
-
 configinc = include_directories('.')
 
 subdir('lib')
