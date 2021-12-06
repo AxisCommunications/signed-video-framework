@@ -37,3 +37,9 @@ signedvideoframework = shared_library('signed-video-framework',
   dependencies : signedvideoframework_deps,
   install : true,
 )
+
+pkgconfig = import('pkgconfig')
+pkgconfig.generate(
+    name: 'signed-video-framework',
+    description: 'Signed Video Framework',
+)
