@@ -2,12 +2,12 @@
 
 # Signed Video feature description
 This is a high level description of the *Signed Video* feature. For a correct, detailed and complete description see the source code.
-A high level description will help understand what the source code aims to accomplish. Therefore, even though this description may have minor flaws, it is good to read before digging into the source code.
+A high level description will help understand what the source code aims to accomplish. Therefore, even though this description is not complete, it is good to read before digging into the source code.
 
 ## What is it?
 The feature *Signed Video* adds cryptographic signatures to a captured video as part of the video codec format. The video is, after adding these signatures, protected against manipulations, that is, the authenticity of the video can be validated if needed.
 
-Full tampering coverage is not guaranteed. There are still various tampering scenarios that are not handled and also, authenticity is a matter of trust. For example, a complete authenticity validation of a video is only possible if the user trusts the Public key used for verifying the signature. If the Public key cannot be trusted, the framework will still signal the video as authentic, since validating the Public key is out of the scope.
+Full tampering coverage is not guaranteed. There are still various tampering scenarios that are not handled and also, authenticity is a matter of trust. For example, a complete authenticity validation of a video is only possible if both the validation result **and** the Public key used for verifying the signature can be trusted. The framework signals the video as authentic **given** that the Public key can be trusted. Validating the Public key is out of scope.
 
 ## Summary
 A video consists of picture frames displayed at a certain frame rate. If these frames are transmitted or stored for later use and displayed by a third party one would like to be able to validate that they have not been manipulated since the time of signing.
@@ -21,14 +21,14 @@ On a high level, *Signed Video* hashes encoded video frames and on a regular bas
 
 Signing frequency. Signing is done upon transition between two Group of Pictures (GOP). For short GOP lengths the time between two GOP transitions may be shorter than the time it takes to perform the signing. Hence, there is a limit on how short GOPs the framework can allow for to be able to sign a video in real-time.
 
-Authenticity level. *Signed Video* supports two levels of authenticity; GOP level and NALU level. For GOP level, all frames between two signatures are treated in one single chunk and if the validation fails, all these frames are marked as not authentic even if it is due to a lost frame. For NALU level the framework can identify which frames are authentic or not, or even lost. The cost for validating the authenticity of each individual NAL is an increase in bitrate.
+Authenticity level. *Signed Video* supports two levels of authenticity; GOP level and NALU level. For GOP level, all frames between two signatures are treated in one single chunk and if the validation fails, all these frames are marked as not authentic even if it is due to a lost frame. For NALU level the framework can identify which frames are authentic or not, or even lost. This means that frame drops can be handled. The cost for validating the authenticity of each individual NAL is an increase in bitrate.
 
 ## Detailed description
 As mentioned, the framework currently only supports H264 and H265. These codec formats allow the user to add arbitrary data to a stream through SEI frames of type *user data unregistered*. *Signed Video* puts the produced signatures and additional metadata in such frames. These SEI frames are ignored by the decoder and will therefore not affect the video rendering.
 One obvious drawback is that it is easy to destroy the signed video and make it unsigned by simply dropping those SEI frames. In some cases this can also be benefitial if, e.g., the user is no longer interested in its authenticity.
 It is out of scope to protect against lost SEI frames.
 
-All operations are done on the encoded video stream. Each picture frame is split into NALUs Units (NALU) and *Signed Video* operates on these NALUs. NALUs that are not part of a picture frame are ignored. These NALUs are
+All operations are done on the encoded video stream. Each picture frame is split into NAL Units (NALU) and *Signed Video* operates on these NALUs. NALUs that are not part of a picture frame are ignored. These NALUs are
 - SPS/PPS/VPS
 - AUD
 - SEIs other than Signed Video specific
@@ -37,7 +37,7 @@ Note that these can still affect the visual aspect of a video.
 
 ### Signing a GOP
 Without loss of generality, consider three consecutive GOPs each starting with an IDR (I-frame) followed by 4 non-IDRs (P-frames). In text format it would look like `IPPPPIPPPPIPPPP`.
-The signing information is collected in a SEI frame (`S`) and put just before the picture frame to follow the Access Unit AU format. Each I-frame will trigger a signing procedure and ideally the SEI is generated and available instantaneously and can be attached to the stream as `SIPPPPSIPPPPSIPPPP`.
+The signing information is collected in a SEI frame (`S`) and put just before the picture frame to follow the Access Unit (AU) format. Each I-frame will trigger a signing procedure and ideally the SEI is generated and available instantaneously and can be attached to the stream as `SIPPPPSIPPPPSIPPPP`.
 
 Each NALU is hashed using SHA-256, but not in a straightforward manner. Since every P-frame directly or indirectly refers to the I-frame starting the GOP they are linked together. Let `h(F)` denote the hash of a frame `F`, and `href = h(I)` is the hash of the first I-frame in a GOP and used as reference. Then each frame in a GOP is hashed according to `hash(F) = h(href, h(F))` where `href` and `h(F)` have been aligned in memory.
 All hashes are collected in a list and together with some metadata form a `document`, which later will be signed.
@@ -54,12 +54,12 @@ For the end user to validate the authenticity of a signed video the public key, 
 
 ### GOP level signing
 Transmitting the list of hashes can be too expensive in terms of an increased bitrate. The *Signed Video Framework* therefore offer a light version in GOP level as authenticitiy level. Instead of the hash list one single hash to represent the entire document is computed. This single hash represents both the metadata and all the frame hashes, and is implemented recursively.
-The recursive operation is initialized with a hashed salt `hash(0) = h(salt)`. The next step is to add `href` as `hash(1) = h(hash(0), href)` and the n'th hash becomes `hash(n) = h(hash(n-1), hash(F_n))`, where `F_n` is the frame corresponding to the n'th hash.
+The recursive operation is initialized with a hashed salt `hash(0) = h(salt)`. The next step is to add `href` as `hash(1) = h(hash(0), href)` and the n'th hash becomes `hash(n) = h(hash(n-1), hash(F_n))`, where `F_n` is the frame that produced the n'th hash.
 The recursive hash is finalized with the document hash itself, now without the list of hashes. Hence, it includes the metadata only. This final hash, denoted as a gop hash, is
 
 `hash(gop) = h(hash(N), hash(document))`
 
-This hash is then signed and the generated signature. Together with the `document` the signature then forms the SEI = `document + signature` where `signature = sign(hash(gop))`
+This hash is then signed by generating a signature. Together with the `document` the signature then forms the SEI = `document + signature` where `signature = sign(hash(gop))`
 
 For NALU level and long GOP lengths, *Signed Video* automatically falls back to GOP level to avoid very large SEI frames.
 
