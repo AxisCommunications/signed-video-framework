@@ -30,8 +30,8 @@ The source code is tested on a Linux platform.
 
 # Getting started
 The repository uses meson + ninja as default build method. Further, OpenSSL is used for cryptographic operations and to run unittests you need libcheck.
-- [meson](https://mesonbuild.com/Getting-meson.html) Getting meson and ninja
-- [OpenSSL](https://www.openssl.org/) The default library to handle keys, hashes and signatures
+- [meson](https://mesonbuild.com/Getting-meson.html) Getting meson and ninja. Meson version 0.47.0 or newer is required.
+- [OpenSSL](https://www.openssl.org/) The default library to handle keys, hashes and signatures. OpenSSL version 1.1.1 or newer is required.
 - [libcheck](https://libcheck.github.io/check/) The framework for unittests
 
 # Build Instructions
