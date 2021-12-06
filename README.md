@@ -1,13 +1,13 @@
 *Copyright (C) 2021, Axis Communications AB, Lund, Sweden. All Rights Reserved.*
 
-# signed-video-framework
-This repository holds the framework code of the feature Signed Video. The Signed Video feature secures the video from tampering after signing by adding cryptographic signatures to the video. Each video frame is hashed and repeatedly generates signatures based on these hashes using a private key set by the signer. The signature data added to the video does not affect the video rendering.
+# Signed Video Framework
+This repository holds the framework code of the feature Signed Video. The Signed Video feature secures the video from tampering after signing by adding cryptographic signatures to the video. Each video frame is hashed and signatures are generated repeatedly based on these hashes using a private key set by the signer. The signature data added to the video does not affect the video rendering.
 
 A more detailed description of the Signed Video feature is found in [feature-description](./feature-description.md).
 
 ## File structure
 ```
-signer-video-framework
+signed-video-framework
 ├── lib
 |   ├── plugins
 |   |   └── unthreaded-signing
@@ -19,9 +19,11 @@ signer-video-framework
 └── tests
 ```
 
-The repository is split into a library and tests. The library is further organized in a [source code](./lib/src/) and a [plugins](./lib/plugins/). The source code inludes all necessary source files for both signing and validation, and there is no conceptual difference in building the library for signing or for validation. Signing though, is commonly device specific with separate calls for, e.g., reading and using private keys. Therefore, the framework uses the concept of signing plugins with implementations of a set of [interfaces](./lib/src/includes/signed_video_interfaces.h). The framework comes with an unthreaded signing plugin.
+The repository is split into a library and tests. The library is further organized in [source code](./lib/src/) and [plugins](./lib/plugins/). The source code inludes all necessary source files for both signing and validation, and there is no conceptual difference in building the library for signing or for validation. 
 
-For instructions on how to use the APIs to integrate the Signed Video Framework in either a signing or a validation application, see [lib/](./lib/). Application examples are available in the [signed-video-framework-examples](https://github.com/AxisCommunications/signed-video-framework-examples) repository.
+Signing is commonly device specific with separate calls for, e.g., reading and using private keys. Therefore, the framework uses the concept of signing plugins which implements a set of [interfaces](./lib/src/includes/signed_video_interfaces.h). The framework comes with an unthreaded signing plugin.
+
+For instructions on how to use the APIs to integrate the Signed Video Framework in either a signing or a validation application, see [lib/](./lib/). Example applications are available in the [signed-video-framework-examples](https://github.com/AxisCommunications/signed-video-framework-examples) repository.
 
 # Releases
 There are no pre-built releases. The user is encouraged to build the library from a [release tag](https://github.com/AxisCommunications/signed-video-framework/tags).
@@ -53,7 +55,7 @@ meson --prefix /absolute/path/to/your/local/installs path/to/signed-video-framew
 ```
 
 ## Compile and install the shared library
-To compile signed-video-framework using ninja run
+To compile signed-video-framework using ninja
 ```
 ninja -C path/to/build/folder
 ```
@@ -69,14 +71,14 @@ The library, named `libsigned-video-framework`, will be installed where librarie
 meson . build
 ninja -C build
 ```
-2. Configure, compile and install in `./my_installs/` from a folder including `signed-video-framework/`
+2. Configure, compile and install in `./my_installs/` from the parent folder of `signed-video-framework/`
 ```
 meson --prefix $PWD/my_installs signed-video-framework build
 meson install -C build
 ```
 
 ## Configure, build and run unittests
-To run the tests we need to compile the library with other settings. Activate these with the meson option `test-settings` set to `true`. Hence, to build and run the unittests call
+To run the tests compile the library with the meson option `test-settings` set to `true`. This will apply some settings needed for the tests to run properly. Hence, to build and run the unittests call
 ```
 meson -Dtest-settings=true . build
 ninja -C build test
