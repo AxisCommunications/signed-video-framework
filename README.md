@@ -19,7 +19,7 @@ signed-video-framework
 └── tests
 ```
 
-The repository is split into a library and tests. The library is further organized in [source code](./lib/src/) and [plugins](./lib/plugins/). The source code inludes all necessary source files for both signing and validation, and there is no conceptual difference in building the library for signing or for validation. 
+The repository is split into a library and tests. The library is further organized in [source code](./lib/src/) and [plugins](./lib/plugins/). The source code includes all necessary source files for both signing and validation, and there is no conceptual difference in building the library for signing or for validation. 
 
 Signing is commonly device specific with separate calls for, e.g., reading and using private keys. Therefore, the framework uses the concept of signing plugins which implements a set of [interfaces](./lib/src/includes/signed_video_interfaces.h). The framework comes with an unthreaded signing plugin.
 
@@ -78,7 +78,7 @@ meson install -C build
 ```
 
 ## Configure, build and run unittests
-To run the tests compile the library with the meson option `test-settings` set to `true`. This will apply some settings needed for the tests to run properly. Hence, to build and run the unittests call
+To run the tests, compile the library with the meson option `test-settings` set to `true`. This will apply some settings needed for the tests to run properly. Hence, to build and run the unittests call
 ```
 meson -Dtest-settings=true . build
 ninja -C build test
