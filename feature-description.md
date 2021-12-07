@@ -25,7 +25,7 @@ Authenticity level. *Signed Video* supports two levels of authenticity; GOP leve
 
 ## Detailed description
 As mentioned, the framework currently only supports H264 and H265. These codec formats allow the user to add arbitrary data to a stream through SEI frames of type *user data unregistered*. *Signed Video* puts the produced signatures and additional metadata in such frames. These SEI frames are ignored by the decoder and will therefore not affect the video rendering.
-One obvious drawback is that it is easy to destroy the signed video and make it unsigned by simply dropping those SEI frames. In some cases this can also be benefitial if, e.g., the user is no longer interested in its authenticity.
+One obvious drawback is that it is easy to destroy the signed video and make it unsigned by simply dropping those SEI frames. In some cases this can also be beneficial if, e.g., the user is no longer interested in its authenticity.
 It is out of scope to protect against lost SEI frames.
 
 All operations are done on the encoded video stream. Each picture frame is split into NAL Units (NALU) and *Signed Video* operates on these NALUs. NALUs that are not part of a picture frame are ignored. These NALUs are
@@ -82,7 +82,7 @@ The UUID is used to put a *Signed Video* identity to the SEI. The payload includ
 
 `| ------------------------- document -------------------------- | signature | stop bit |`
 
-By definion the `document` includes everything from the NALU header to the signature tag, hence the entire frame is secured.
+By definition the `document` includes everything from the NALU header to the signature tag, hence the entire frame is secured.
 
 ### Signing in a secure hardware
 When signing in hardware the signing itself may take some time and to avoid piling up frames *Signed Video Framework* supports the SEI frames being added at a later stage, but no later than at the next signing request.
