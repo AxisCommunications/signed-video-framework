@@ -157,6 +157,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload)
 
     payload_size = document_size + gop_info_size;
     payload_size += UUID_LEN;  // UUID
+    payload_size += 1;  // One byte for reserved data.
     // Compute total SEI NALU data size.
     sei_buffer_size += self->codec == SV_CODEC_H264 ? 6 : 7;  // NALU header
     sei_buffer_size += payload_size / 256 + 1;  // Size field
@@ -202,6 +203,9 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload)
 
     // User data unregistered UUID field
     h26x_set_nal_uuid_type(self, &payload_ptr, UUID_TYPE_SIGNED_VIDEO);
+
+    // Add reserved byte(s).
+    *payload_ptr++ = SV_RESERVED_BYTE;
 
     size_t written_size =
         tlv_list_encode_or_get_size(self, document_encoders, num_doc_encoders, payload_ptr);

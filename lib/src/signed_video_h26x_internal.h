@@ -125,6 +125,7 @@ struct _h26x_nalu_t {
   bool is_hashable;  // Should be hashed
   const uint8_t *payload;  // Points to the payload (including UUID for SEI-nalus)
   size_t payload_size;  // Parsed payload size
+  uint8_t reserved_byte;  // First byte of SEI payload
   const uint8_t *tlv_start_in_nalu_data;  // Points to beginning of the TLV data in the |nalu_data|
   const uint8_t *tlv_data;  // Points to the TLV data after removing emulation prevention bytes
   size_t tlv_size;  // Total size of the |tlv_data|

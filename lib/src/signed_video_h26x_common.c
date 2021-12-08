@@ -528,11 +528,18 @@ remove_emp_bytes_from_sei_payload(h26x_nalu_t *nalu)
   assert(nalu);
   if (!nalu->is_hashable || !nalu->is_gop_sei || (nalu->is_valid <= 0)) return;
 
-  // The UUID (16 bytes) has by definition no emulation prevention bytes. Hence, we can easily find
-  // the start of the TLV part.
+  // The UUID (16 bytes) has by definition no emulation prevention bytes. Hence, read the
+  // |reserved_byte| and point to the start of the TLV part.
   nalu->tlv_start_in_nalu_data = nalu->payload + UUID_LEN;
-  nalu->tlv_data = nalu->tlv_start_in_nalu_data;
   nalu->tlv_size = nalu->payload_size - UUID_LEN;
+  uint8_t reserved_byte = *nalu->tlv_start_in_nalu_data;
+  // The |reserved_byte| should have a starting bit. Otherwise, assume it is a tag.
+  if (reserved_byte & 0x80) {
+    nalu->reserved_byte = reserved_byte;
+    nalu->tlv_start_in_nalu_data++;  // Move past the |reserved_byte|.
+    nalu->tlv_size -= 1;  // Exclude the |reserved_byte|.
+  }
+  nalu->tlv_data = nalu->tlv_start_in_nalu_data;
 
   if (nalu->emulation_prevention_bytes <= 0) return;
 
