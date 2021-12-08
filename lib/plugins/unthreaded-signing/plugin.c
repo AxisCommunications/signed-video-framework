@@ -30,7 +30,6 @@
 #endif
 
 static bool signature_generated = false;
-static key_paths_t *key_paths = NULL;
 
 static SignedVideoReturnCode
 unthreaded_openssl_sign_hash(signature_info_t *signature_info)
@@ -57,20 +56,6 @@ unthreaded_openssl_has_signature(uint8_t ATTR_UNUSED *signature_data)
   return false;
 }
 
-static SignedVideoReturnCode
-unthreaded_setup(void)
-{
-  key_paths = calloc(1, sizeof(key_paths_t));
-  return key_paths ? SV_OK : SV_MEMORY;
-}
-
-static void
-unthreaded_teardown(void)
-{
-  free(key_paths);
-  key_paths = NULL;
-}
-
 /**
  * Definitions of declared interfaces.
  */
@@ -90,13 +75,12 @@ sv_interface_get_signature(uint8_t *signature)
 SignedVideoReturnCode
 sv_interface_setup()
 {
-  return unthreaded_setup();
+  return SV_OK;
 }
 
 void
 sv_interface_teardown()
 {
-  unthreaded_teardown();
 }
 
 uint8_t *

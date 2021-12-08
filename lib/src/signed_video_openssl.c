@@ -525,5 +525,8 @@ signed_video_generate_private_key(sign_algo_t algo,
   SVI_CATCH()
   SVI_DONE(status)
 
+  free(key_paths.path_to_keys);
+  free(key_paths.full_path_to_private_key);
+
   return svi_rc_to_signed_video_rc(status);
 }
