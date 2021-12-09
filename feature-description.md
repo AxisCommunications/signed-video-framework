@@ -14,7 +14,7 @@ A video consists of picture frames displayed at a certain frame rate. If these f
 
 In brief, the principle of signing documents is used, that is, collect information and sign the information using a Private encryption key. Then, packetize the produced signature together with some additional information. For validation, the user can then verify the information by using the signature and the corresponding Public key.
 
-On a high level, *Signed Video* hashes encoded video frames and on a regular basis creates a document representing these hashes and signs that document. This signature, together with the document, is added to the video using Supplementary Enhancement Information (SEI) frames.
+On a high level, *Signed Video* hashes encoded video frames and on a regular basis creates a `document` representing these hashes and signs that `document`. This signature, together with the `document`, is added to the video using Supplementary Enhancement Information (SEI) frames.
 
 ## Limitations and properties
 *Signed Video* is currently only available for the video codec formats H264 and H265. Therefore, most of the description uses the Network Abstraction Layer (NAL) concept. Note that raw videos are not supported.
@@ -52,14 +52,15 @@ and together with the `document` itself is added to the stream in a SEI, that is
 After signing, the next GOP is then initiated with a new `href` using the very same I-frame that closed the previous GOP.
 For the end user to validate the authenticity of a signed video the public key, associated with the private key used when signing, is needed. The *Signed Video Framework* supports including the public key as part of the metadata. This simplifies validating the authenticity of the video, but requires a separate logic to verify its origin.
 
-### GOP level signing
-Transmitting the list of hashes can be too expensive in terms of an increased bitrate. The *Signed Video Framework* therefore offer a light version in GOP level as authenticitiy level. Instead of the hash list one single hash to represent the entire document is computed. This single hash represents both the metadata and all the frame hashes, and is implemented recursively.
-The recursive operation is initialized with a hashed salt `hash(0) = h(salt)`. The next step is to add `href` as `hash(1) = h(hash(0), href)` and the n'th hash becomes `hash(n) = h(hash(n-1), hash(F_n))`, where `F_n` is the frame that produced the n'th hash.
-The recursive hash is finalized with the document hash itself, now without the list of hashes. Hence, it includes the metadata only. This final hash, denoted as a gop hash, is
+#### Signing at GOP authenticity level
+Transmitting the list of hashes can be too expensive in terms of an increased bitrate. The *Signed Video Framework* therefore offer a light version in GOP level as authenticitiy level. Instead of transmitting the hash list a single hash representing all the frames and the metadata is computed. This single hash is implemented recursively and is then signed.
+
+The recursive operation is initialized with a hashed salt `hash(0) = h(salt)`. The next step is to add `href` as `hash(1) = h(hash(0), href)` and the n'th hash becomes `hash(n) = h(hash(n-1), hash(F_n))`, where `F_n` is the frame that produced the n'th hash. The last frame added to the recursive hash is `Inext` and a `document` is created just like above, but now without the hash list, hence it includes the metadata only.
+The recursive hash is then finalized with the hash of this `document` and is denoted as _gop hash_
 
 `hash(gop) = h(hash(N), hash(document))`
 
-This hash is then signed by generating a signature. Together with the `document` the signature then forms the SEI = `document + signature` where `signature = sign(hash(gop))`
+The _gop hash_ is then signed by generating a signature. Combine the metadata, which by definition is the `document`, and the signature to form the SEI = `document + signature` where `signature = sign(hash(gop))`
 
 For NALU level and long GOP lengths, *Signed Video* automatically falls back to GOP level to avoid very large SEI frames.
 
@@ -69,7 +70,7 @@ Part from the public key it is possible to add some signer specific information.
 - Firmware version (can be used if the *Signed Video Framework* is integrated in another code base)
 - Serial No
 - Manufacturer (Who is the signer, for example Axis Communication AB)
-- Address (Contact information of signer)
+- Address (Contact information of signer, e.g., url, email, mail)
 
 ### SEI format
 The framework uses the *user data unregistered* type of SEIs. These are organized as
@@ -85,4 +86,4 @@ The UUID is used to put a *Signed Video* identity to the SEI. The payload includ
 By definition the `document` includes everything from the NALU header to the signature tag, hence the entire frame is secured.
 
 ### Signing in a secure hardware
-When signing in hardware the signing itself may take some time and to avoid piling up frames *Signed Video Framework* supports the SEI frames being added at a later stage, but no later than at the next signing request.
+When signing in hardware the signing itself may take some time and to avoid piling up frames *Signed Video Framework* supports the SEI frames being added at a later stage, but no later than at the next signing request. Using the example above, a signed video segment could look like `IPSPPPIPPPPSIPPPSP` where the `S`s show up delayed compared to the ideal case `SIPPPPSIPPPPSIPPPP`.
