@@ -5,6 +5,8 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
 
 jobs:
   build_tests:
@@ -29,23 +31,3 @@ jobs:
       run: valgrind $GITHUB_WORKSPACE/build_lib/tests/check/unittest_sign
     - name: Run valgrind on unittest_auth
       run: valgrind $GITHUB_WORKSPACE/build_lib/tests/check/unittest_auth
-    #- uses: actions/setup-python@v1
-    #- uses: BSFishy/meson-build@v1.0.3
-    #  with:
-    #    action: test
-    #    directory: build
-    #    setup-options: -Db_coverage=true -Dtest-settings=true
-    #    options: --verbose
-    #    meson-version: 0.53.2
-    #    ninja-version: 1.9.0.post1
-    #    gcovr-version: 4.2
-
-  run_valgrind:
-    if: ${{ success() }}
-    needs: build_tests
-    runs-on: ubuntu-latest
-    steps:
-    - name: Install valgrind manually
-      run: sudo apt-get install valgrind
-    - name: Run valgrind on unittest_common
-      run: ls $GITHUB_WORKSPACE
