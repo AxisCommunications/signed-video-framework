@@ -44,7 +44,7 @@ All hashes are collected in a list and together with some metadata form a `docum
 
 To preserve the order of GOPs the I-frame of the next GOP is also include in the list of hashes, that is, `hash(Inext) = h(href, h(Inext))` is added as well.
 
-This `document` is then hashed and signed to produce a signature as
+This `document` is then hashed, denoted _gop hash_ (`= h(document)`), and signed to produce a signature as
 
 `signature = sign(h(document))`
 
@@ -56,7 +56,7 @@ For the end user to validate the authenticity of a signed video the public key, 
 Transmitting the list of hashes can be too expensive in terms of an increased bitrate. The *Signed Video Framework* therefore offer a light version in GOP level as authenticitiy level. Instead of transmitting the hash list a single hash representing all the frames and the metadata is computed. This single hash is implemented recursively and is then signed.
 
 The recursive operation is initialized with a hashed salt `hash(0) = h(salt)`. The next step is to add `href` as `hash(1) = h(hash(0), href)` and the n'th hash becomes `hash(n) = h(hash(n-1), hash(F_n))`, where `F_n` is the frame that produced the n'th hash. The last frame added to the recursive hash is `Inext` and a `document` is created just like above, but now without the hash list, hence it includes the metadata only.
-The recursive hash is then finalized with the hash of this `document` and is denoted as _gop hash_
+The recursive hash is then finalized with the hash of this `document` which now becomes the _gop hash_
 
 `hash(gop) = h(hash(N), hash(document))`
 
