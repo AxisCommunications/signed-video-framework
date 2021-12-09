@@ -40,5 +40,5 @@ jobs:
     - name: Install valgrind manually
       run: sudo apt-get install valgrind
     - name: Run valgrind on unittest_common
-      run: valgrind ./build_lib/tests/check/unittest_common
+      run: valgrind $GITHUB_WORKSPACE/build_lib/tests/check/unittest_common
       shell: bash
