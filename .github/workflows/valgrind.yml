@@ -1,4 +1,4 @@
-name: meson CI
+name: valgrind CI
 
 on:
   push:
@@ -6,8 +6,7 @@ on:
   pull_request:
     branches: [ master ]
 
-jobs:
-  build:
+build:
 
     runs-on: ubuntu-latest
 
@@ -21,7 +20,7 @@ jobs:
         action: test
         directory: build
         setup-options: -Db_coverage=true -Dtest-settings=true
-        options: --verbose
+        options: --verbose --wrap=valgrind
         meson-version: 0.53.2
         ninja-version: 1.9.0.post1
         gcovr-version: 4.2
