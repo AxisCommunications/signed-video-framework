@@ -101,7 +101,7 @@ typedef struct {
   char *firmware_version;  // Firmware version
   char *serial_number;  // Serial number
   char *manufacturer;  // Manufacturer
-  char *address;  // Address to manufacturer, like www-address
+  char *address;  // Address to manufacturer, contact info like url/email/mail address.
 } signed_video_product_info_t;
 
 /**
