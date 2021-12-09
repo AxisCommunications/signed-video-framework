@@ -27,7 +27,7 @@ tests = [
 
 testinc = include_directories('.')
 test_env = environment()
-test_env.set('CK_DEFAULT_TIMEOUT', '120')
+test_env.set('CK_DEFAULT_TIMEOUT', '1000')
 test_env.append('VALGRIND_OPTS',
                 '--suppressions=' + meson.source_root() + '/valgrind.supp',
                 '--leak-check=full',
