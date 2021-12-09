@@ -25,6 +25,10 @@ jobs:
       run: sudo apt-get install valgrind
     - name: Run valgrind on unittest_common
       run: valgrind $GITHUB_WORKSPACE/build_lib/tests/check/unittest_common
+    - name: Run valgrind on unittest_sign
+      run: valgrind $GITHUB_WORKSPACE/build_lib/tests/check/unittest_sign
+    - name: Run valgrind on unittest_auth
+      run: valgrind $GITHUB_WORKSPACE/build_lib/tests/check/unittest_auth
     #- uses: actions/setup-python@v1
     #- uses: BSFishy/meson-build@v1.0.3
     #  with:
@@ -45,4 +49,3 @@ jobs:
       run: sudo apt-get install valgrind
     - name: Run valgrind on unittest_common
       run: ls $GITHUB_WORKSPACE
-      shell: bash
