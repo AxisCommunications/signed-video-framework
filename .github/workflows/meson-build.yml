@@ -20,7 +20,7 @@ jobs:
     - name: Setup meson
       run: meson -Dtest-settings=true . build_lib
     - name: Compile and run tests
-      run: ninja -C build test
+      run: ninja -C build_lib test
     #- uses: actions/setup-python@v1
     #- uses: BSFishy/meson-build@v1.0.3
     #  with:
