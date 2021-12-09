@@ -19,7 +19,7 @@ jobs:
         action: test
         directory: build
         setup-options: -Db_coverage=true -Dtest-settings=true
-        options: --verbose --wrap=valgrind
+        options: --verbose
         meson-version: 0.53.2
         ninja-version: 1.9.0.post1
         gcovr-version: 4.2
