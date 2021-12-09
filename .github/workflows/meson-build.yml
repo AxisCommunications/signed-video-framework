@@ -14,6 +14,8 @@ jobs:
     steps:
     - name: Install check manually
       run: sudo apt-get install check
+    - name: Install valgrind manually
+      run: sudo apt-get install valgrind
     - uses: actions/checkout@v2
     - uses: actions/setup-python@v1
     - uses: BSFishy/meson-build@v1.0.3
