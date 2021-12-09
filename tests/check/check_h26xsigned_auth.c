@@ -1247,7 +1247,6 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, recurrence, s, e);
 
   // Add test case to suit
-  tcase_set_timeout(tc, 100);
   suite_add_tcase(suite, tc);
   return suite;
 }
