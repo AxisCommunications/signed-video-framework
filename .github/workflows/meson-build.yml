@@ -13,16 +13,24 @@ jobs:
     - name: Install check manually
       run: sudo apt-get install check
     - uses: actions/checkout@v2
-    - uses: actions/setup-python@v1
-    - uses: BSFishy/meson-build@v1.0.3
-      with:
-        action: test
-        directory: build
-        setup-options: -Db_coverage=true -Dtest-settings=true
-        options: --verbose
-        meson-version: 0.53.2
-        ninja-version: 1.9.0.post1
-        gcovr-version: 4.2
+    - name: Install meson
+      run: python -m pip install meson==0.53.2
+    - name: Install ninja
+      run: python -m pip install ninja==1.9.0.post1
+    - name: Setup meson
+      run: meson -Dtest-settings=true . build_lib
+    - name: Compile and run tests
+      run: ninja -C build test
+    #- uses: actions/setup-python@v1
+    #- uses: BSFishy/meson-build@v1.0.3
+    #  with:
+    #    action: test
+    #    directory: build
+    #    setup-options: -Db_coverage=true -Dtest-settings=true
+    #    options: --verbose
+    #    meson-version: 0.53.2
+    #    ninja-version: 1.9.0.post1
+    #    gcovr-version: 4.2
 
   run_valgrind:
     if: ${{ success() }}
@@ -32,5 +40,5 @@ jobs:
     - name: Install valgrind manually
       run: sudo apt-get install valgrind
     - name: Run valgrind on unittest_common
-      run: valgrind $GITHUB_WORKSPACE/build/tests/check/unittest_common
+      run: valgrind ./build_lib/tests/check/unittest_common
       shell: bash
