@@ -21,6 +21,8 @@ jobs:
       run: meson -Dtest-settings=true . build_lib
     - name: Compile and run tests
       run: ninja -C build_lib test
+    - name: Run valgrind on unittest_common
+      run: valgrind $GITHUB_WORKSPACE/build_lib/tests/check/unittest_common
     #- uses: actions/setup-python@v1
     #- uses: BSFishy/meson-build@v1.0.3
     #  with:
@@ -40,5 +42,5 @@ jobs:
     - name: Install valgrind manually
       run: sudo apt-get install valgrind
     - name: Run valgrind on unittest_common
-      run: valgrind $GITHUB_WORKSPACE/build_lib/tests/check/unittest_common
+      run: ls $GITHUB_WORKSPACE
       shell: bash
