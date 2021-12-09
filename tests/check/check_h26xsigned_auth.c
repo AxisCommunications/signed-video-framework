@@ -1207,7 +1207,6 @@ signed_video_suite(void)
   Suite *suite = suite_create("Signed video auth tests");
   TCase *tc = tcase_create("Signed video standard unit test");
   tcase_add_checked_fixture(tc, setup, teardown);
-  tcase_set_timeout(tc, 100);
 
   // The test loop works like this
   //   for (int _i = s; _i < e; _i++) {}
@@ -1248,6 +1247,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, recurrence, s, e);
 
   // Add test case to suit
+  tcase_set_timeout(tc, 100);
   suite_add_tcase(suite, tc);
   return suite;
 }
