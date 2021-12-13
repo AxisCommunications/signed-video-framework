@@ -3,17 +3,17 @@
  *
  * Copyright (c) 2021 Axis Communications AB
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software
- * and associated documentation files (the "Software"), to deal in the Software without
- * restriction, including without limitation the rights to use, copy, modify, merge, publish,
- * distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+ * associated documentation files (the "Software"), to deal in the Software without restriction,
+ * including without limitation the rights to use, copy, modify, merge, publish, distribute,
+ * sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
  * The above copyright notice and this permission notice (including the next paragraph) shall be
  * included in all copies or substantial portions of the Software.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
- * BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+ * NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
  * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
@@ -212,8 +212,8 @@ validate_nalu_list(signed_video_t *sv, nalu_list_t *list,
 }
 
 /* Test description
- * The public API signed_video_add_nalu_and_authenticate(...) is checked for invalid parameters,
- * and invalid H26x nalus.
+ * The public API signed_video_add_nalu_and_authenticate(...) is checked for invalid parameters, and
+ * invalid H26x nalus.
  */
 START_TEST(invalid_api_inputs)
 {
@@ -410,7 +410,7 @@ START_TEST(intact_with_undefined_multislice_nalu_in_stream)
 END_TEST
 
 /* Test description
- * Verify that we get invalid authentication if we remove one P-nalu.  The operation is as follows:
+ * Verify that we get invalid authentication if we remove one P-nalu. The operation is as follows:
  * 1. Generate a nalu_list with a sequence of signed GOPs.
  * 2. Remove one P-nalu in the middle GOP.
  * 3. Check the authentication result
@@ -592,9 +592,9 @@ START_TEST(remove_the_i_nalu)
   nalu_list_check_str(list, "GIPPGIPPGPPGIPPGI");
 
   // One pending NALU per GOP. A missing I NALU will affect two GOPs, since it is part of two
-  // gop_hashes. At GOP level the missing NALU will make the GOP invalid, but for Frame level we
-  // can identify the missed NALU when the I NALU is not the reference, that is, the first GOP is
-  // valid with missing info, whereas the second becomes invalid.
+  // gop_hashes. At GOP level the missing NALU will make the GOP invalid, but for Frame level we can
+  // identify the missed NALU when the I NALU is not the reference, that is, the first GOP is valid
+  // with missing info, whereas the second becomes invalid.
   struct validation_stats expected = {
       .valid_gops = 2, .invalid_gops = 3, .missed_nalus = 1, .pending_nalus = 5
   };
@@ -656,8 +656,8 @@ START_TEST(sei_arrives_late)
   nalu_list_item_check_str(sei, "G");
   nalu_list_check_str(list, "GIPPPIPPPGIPPPGI");
 
-  // Prepend the middle P of the next GOP: GIPPPIP (G)P PGIPPPGI. This is equivalent with
-  // appending the first P of the same GOP, that is, number 7.
+  // Prepend the middle P of the next GOP: GIPPPIP (G)P PGIPPPGI. This is equivalent with appending
+  // the first P of the same GOP, that is, number 7.
   nalu_list_append_item(list, sei, 7);
   nalu_list_check_str(list, "GIPPPIPGPPGIPPPGI");
 
@@ -678,8 +678,8 @@ generate_delayed_sei_list(struct sv_setting setting)
   nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPIPPPIP", setting);
   nalu_list_check_str(list, "GIPPPGIPPPGIPPPGIPPPGIP");
 
-  // Remove each SEI in the list and append it 2 items later (which in practice becomes 1 item
-  // later since we just removed the SEI).
+  // Remove each SEI in the list and append it 2 items later (which in practice becomes 1 item later
+  // since we just removed the SEI).
   nalu_list_item_t *sei = nalu_list_remove_item(list, 1);
   nalu_list_item_check_str(sei, "G");
   nalu_list_append_item(list, sei, 2);
@@ -833,8 +833,8 @@ END_TEST
 /* Test description
  * Verify that we do get a valid authentication if the signing on the camera was reset. From a
  * signed video perspective this action is correct as long as recorded NALUs are not transmitted
- * while the signing is down. That would on the other hand be detected at the client side through
- * a failed validation. The operation is as follows:
+ * while the signing is down. That would on the other hand be detected at the client side through a
+ * failed validation. The operation is as follows:
  * 1. Generate a NALU list with a sequence of signed GOPs.
  * 2. Generate a second list with a sequence of signed GOPs and concatenate lists.
  * 3. Run all NALUs through the authenticator.
@@ -856,8 +856,8 @@ START_TEST(camera_reset_on_signing_side)
   nalu_list_check_str(list, "GIPPGIPPGIPPPGI");
 
   // One pending NALU per GOP. Note that the mid GOP (IPPGI) includes the reset on the camera. It
-  // will be marked as invalid and compute 3 more NALUs than expected. In G it is communicated
-  // there is only 2 NALUs present (GI). So missed NALUs equals -3 (IPP).
+  // will be marked as invalid and compute 3 more NALUs than expected. In G it is communicated there
+  // is only 2 NALUs present (GI). So missed NALUs equals -3 (IPP).
   const struct validation_stats expected = {
       .valid_gops = 2, .invalid_gops = 2, .missed_nalus = -3, .pending_nalus = 4
   };
@@ -1022,8 +1022,8 @@ START_TEST(fast_forward_stream_with_delayed_seis)
 END_TEST
 
 /* Export-to-file tests descriptions
- * The main scenario for usage is to validate authenticity on exported files. The stream then
- * looks a little different since we have no start reference.
+ * The main scenario for usage is to validate authenticity on exported files. The stream then looks
+ * a little different since we have no start reference.
  *
  * Below is a helper function that creates a stream of NALUs and exports the middle part by pop-ing
  * GOPs at the beginning and at the end.
@@ -1129,9 +1129,9 @@ START_TEST(no_signature)
   nalu_list_check_str(list, "IPPIPPIPPIPPI");
 
   // Note that we are one frame off. The start of a GOP (the I) is reported as end of the previous
-  // GOP. This is not a big deal, since the message is still clear; We have no signed video. We
-  // will always have one GOP pending validation, since we wait for a potential SEI, and will
-  // validate upon the 'next' GOP transition.
+  // GOP. This is not a big deal, since the message is still clear; We have no signed video. We will
+  // always have one GOP pending validation, since we wait for a potential SEI, and will validate
+  // upon the 'next' GOP transition.
   //
   // IPPI    -> (PPPP)  (pending, pending, pending, pending)
   // IPPIPPI -> (UUUPPPP) (unsigned, unsigned, unsigned, pending, ...)
