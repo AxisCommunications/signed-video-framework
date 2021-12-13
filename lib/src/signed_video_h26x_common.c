@@ -240,6 +240,12 @@ gop_info_create(void)
   gop_info->gop_hash = gop_info->hashes;
   gop_info->nalu_hash = gop_info->hashes + HASH_DIGEST_SIZE;
 
+  // Set hash_list_size to same as what is allocated.
+  if (set_hash_list_size(gop_info, HASH_LIST_SIZE) != SVI_OK) {
+    gop_info_free(gop_info);
+    gop_info = NULL;
+  }
+
   return gop_info;
 }
 
@@ -253,6 +259,16 @@ void
 gop_info_reset(gop_info_t *gop_info)
 {
   assert(gop_info);
+}
+
+svi_rc
+set_hash_list_size(gop_info_t *gop_info, size_t hash_list_size)
+{
+  if (!gop_info) return SVI_INVALID_PARAMETER;
+  if (hash_list_size > HASH_LIST_SIZE) return SVI_NOT_SUPPORTED;
+
+  gop_info->hash_list_size = hash_list_size;
+  return SVI_OK;
 }
 
 svi_rc
@@ -896,7 +912,7 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *nalu_hash)
   uint8_t *hash_list = &self->gop_info->hash_list[0];
   int *list_idx = &self->gop_info->list_idx;
   // Check if there is room for another hash in the |hash_list|.
-  if (*list_idx + HASH_DIGEST_SIZE > HASH_LIST_SIZE) *list_idx = -1;
+  if (*list_idx + HASH_DIGEST_SIZE > (int)self->gop_info->hash_list_size) *list_idx = -1;
   if (*list_idx >= 0) {
     // We have a valid |hash_list| and can copy the |nalu_hash| to it.
     memcpy(&hash_list[*list_idx], nalu_hash, HASH_DIGEST_SIZE);

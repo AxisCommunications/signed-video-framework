@@ -85,7 +85,7 @@ pull_nalus(signed_video_t *sv, nalu_list_item_t *item)
  * Takes a string of NALU characters ('I', 'i', 'P', 'p', 'S', 'X') as input and generates NALU
  * data for these. Then adds these NALUs to the input session. The generated sei-nalus are added to
  * the stream. */
-static nalu_list_t *
+nalu_list_t *
 create_signed_nalus_with_sv(signed_video_t *sv, const char *str)
 {
   SignedVideoReturnCode rc = SV_OK;

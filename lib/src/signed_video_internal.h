@@ -190,6 +190,7 @@ struct _gop_info_t {
   uint8_t *gop_hash;  // Pointing to the memory slot of the gop_hash in |hashes|.
   uint8_t hash_list[HASH_LIST_SIZE];  // Pointer to the list of hashes used for
   // SV_AUTHENTICITY_LEVEL_FRAME.
+  size_t hash_list_size;  // The allowed size of the |hash_list|. This can be less than allocated.
   int list_idx;  // Pointing to next available slot in the |hash_list|. If something has gone wrong,
   // like exceeding available memory, |list_idx| = -1.
   uint8_t gop_hash_init;  // The initialization value for the |gop_hash|.
@@ -226,6 +227,11 @@ struct_member_memory_allocated_and_copy(void **member_ptr,
 
 void
 gop_info_reset(gop_info_t *gop_info);
+
+/* Sets the allowed size of |hash_list|.
+ * Note that this can be different from what is allocated. */
+svi_rc
+set_hash_list_size(gop_info_t *gop_info, size_t hash_list_size);
 
 /* Resets the gop_hash. */
 svi_rc
