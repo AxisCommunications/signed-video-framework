@@ -225,7 +225,7 @@ struct_member_memory_allocated_and_copy(void **member_ptr,
     const uint8_t new_size);
 
 void
-sei_signed_gop_info_reset(gop_info_t *gop_info);
+gop_info_reset(gop_info_t *gop_info);
 
 /* Resets the gop_hash. */
 svi_rc

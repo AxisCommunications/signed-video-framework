@@ -46,7 +46,7 @@ version_str_to_bytes(int *arr, const char *str);
 static gop_info_t *
 gop_info_create(void);
 static void
-sei_signed_gop_info_free(gop_info_t *gop_info);
+gop_info_free(gop_info_t *gop_info);
 
 static size_t
 h264_get_payload_size(const uint8_t *data, size_t *payload_size);
@@ -212,7 +212,7 @@ bytes_to_version_str(const int *arr, char *str)
 }
 
 static void
-sei_signed_product_info_free(signed_video_product_info_t *product_info)
+product_info_free(signed_video_product_info_t *product_info)
 {
   if (product_info) {
     product_info_free_members(product_info);
@@ -244,13 +244,13 @@ gop_info_create(void)
 }
 
 static void
-sei_signed_gop_info_free(gop_info_t *gop_info)
+gop_info_free(gop_info_t *gop_info)
 {
   free(gop_info);
 }
 
 void
-sei_signed_gop_info_reset(gop_info_t *gop_info)
+gop_info_reset(gop_info_t *gop_info)
 {
   assert(gop_info);
 }
@@ -1149,7 +1149,7 @@ signed_video_reset(signed_video_t *self)
     SVI_THROW_IF(!self, SVI_INVALID_PARAMETER);
     DEBUG_LOG("Resetting signed session");
     // Reset session states
-    // TODO: Move these to sei_signed_gop_info_reset(...)
+    // TODO: Move these to gop_info_reset(...)
     self->gop_info->verified_signature_hash = -1;
     // If a reset is forced, the stored hashes in |hash_list| have no meaning anymore.
     self->gop_info->list_idx = 0;
@@ -1185,8 +1185,8 @@ signed_video_free(signed_video_t *self)
   h26x_nalu_list_free(self->nalu_list);
 
   signed_video_authenticity_report_free(self->authenticity);
-  sei_signed_product_info_free(self->product_info);
-  sei_signed_gop_info_free(self->gop_info);
+  product_info_free(self->product_info);
+  gop_info_free(self->gop_info);
   signature_free(self->signature_info);
   free(self);
 }
