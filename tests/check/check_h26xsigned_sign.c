@@ -25,7 +25,9 @@
 #include "lib/src/includes/signed_video_common.h"
 #include "lib/src/includes/signed_video_openssl.h"
 #include "lib/src/includes/signed_video_sign.h"
+#include "lib/src/signed_video_defines.h"  // svi_rc
 #include "lib/src/signed_video_h26x_internal.h"  // signed_video_set_recurrence_interval()
+#include "lib/src/signed_video_internal.h"  // set_hash_list_size()
 #include "nalu_list.h"
 #include "signed_video_helpers.h"
 
@@ -402,8 +404,14 @@ START_TEST(fallback_to_gop_level)
 
   // By construction, run the test for SV_AUTHENTICITY_LEVEL_FRAME only.
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    nalu_list_t *list = NULL;
-    list = create_signed_nalus("IPPIPPPPPPPPPPPPPPPPPPPPPPPPI", settings[_i]);
+    const size_t kFallbackSize = 10;
+    signed_video_t *sv = get_initialized_signed_video(settings[_i].codec, settings[_i].algo);
+    ck_assert(sv);
+    ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
+    ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * HASH_DIGEST_SIZE), SVI_OK);
+
+    // Create a list of NALUs given the input string.
+    nalu_list_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPI");
     nalu_list_check_str(list, "GIPPGIPPPPPPPPPPPPPPPPPPPPPPPPGI");
     nalu_list_item_t *sei_3 = nalu_list_remove_item(list, 31);
     nalu_list_item_check_str(sei_3, "G");
@@ -420,6 +428,7 @@ START_TEST(fallback_to_gop_level)
     nalu_list_free_item(sei_2);
     nalu_list_free_item(sei_3);
     nalu_list_free(list);
+    signed_video_free(sv);
   }
 }
 END_TEST

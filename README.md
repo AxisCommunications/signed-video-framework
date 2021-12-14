@@ -78,9 +78,9 @@ meson install -C build
 ```
 
 ## Configure, build and run unittests
-To run the tests, compile the library with the meson option `test-settings` set to `true`. This will apply some settings needed for the tests to run properly. Hence, to build and run the unittests call
+Nothing extra is needed. Hence, to build and run the unittests call
 ```
-meson -Dtest-settings=true . build
+meson . build
 ninja -C build test
 ```
 Alternatively, you can run the script [tests/test_checks.sh](./tests/test_checks.sh) and the unittests will run both with and without debug prints.
