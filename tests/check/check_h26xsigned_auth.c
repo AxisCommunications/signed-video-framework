@@ -178,6 +178,7 @@ validate_nalu_list(signed_video_t *sv, nalu_list_t *list,
       default:
         break;
       }
+      ck_assert(!latest->public_key_has_changed);
       // Check if product_info has been received and set correctly.
       if (latest->authenticity != SV_AUTH_RESULT_NOT_SIGNED) {
         ck_assert_int_eq(strcmp(auth_report->product_info.hardware_id, HW_ID), 0);
