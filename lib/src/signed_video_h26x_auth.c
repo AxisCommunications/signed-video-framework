@@ -741,6 +741,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
   latest->number_of_expected_picture_nalus = -1;
   latest->number_of_received_picture_nalus = -1;
   latest->number_of_pending_picture_nalus = -1;
+  latest->public_key_has_changed = false;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
