@@ -22,24 +22,27 @@ signedvideoframework_sources = files(
   'signed_video_tlv.h',
 )
 
-# Until plugin management in place the plugin file(s) are added to the sources.
+# Until plugin management is in place the plugin file(s) are added to the sources.
 signedvideoframework_sources += plugin_sources
 
-openssl_dep = dependency('openssl', required: true)
+openssl_dep = dependency('openssl', required : true)
 
-install_headers(signedvideoframework_public_headers,
-  install_dir : '@0@/signed-video-framework'.format(get_option('includedir')))
+install_headers(
+    signedvideoframework_public_headers,
+    install_dir : '@0@/signed-video-framework'.format(get_option('includedir')))
 
 signedvideoframework_deps = [ openssl_dep ]
 
-signedvideoframework = shared_library('signed-video-framework',
-  signedvideoframework_sources,
-  dependencies : signedvideoframework_deps,
-  install : true,
+signedvideoframework = shared_library(
+    'signed-video-framework',
+    signedvideoframework_sources,
+    version : meson.project_version(),
+    dependencies : signedvideoframework_deps,
+    install : true,
 )
 
 pkgconfig = import('pkgconfig')
 pkgconfig.generate(
-    name: 'signed-video-framework',
-    description: 'Signed Video Framework',
+    name : 'signed-video-framework',
+    description : 'Signed Video Framework',
 )
