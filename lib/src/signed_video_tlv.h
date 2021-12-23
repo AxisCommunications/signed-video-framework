@@ -149,4 +149,12 @@ write_byte(uint16_t *last_two_bytes,
 uint8_t
 read_byte(uint16_t *last_two_bytes, const uint8_t **payload, bool do_emulation_prevention);
 
+/**
+ * @brief Decodes the PUBLIC_KEY_TAG from data
+ *
+ * @returns SVI_OK if decoding was successful, otherwise an error code.
+ */
+svi_rc
+decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size);
+
 #endif  // __SIGNED_VIDEO_TLV_H__

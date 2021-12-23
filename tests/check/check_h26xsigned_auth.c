@@ -1200,6 +1200,107 @@ START_TEST(recurrence)
 END_TEST
 
 
+/* Test description
+ * Check authentication when public key arrives late.
+ *
+ * The operation is as follows:
+ * 1. Generate a nalu_list with a sequence of signed GOPs.
+ * 2. Check the sequence of NALUs.
+ * 3. Remove the first GOP containing the public key.
+ * 4. Check the authentication result.
+ */
+START_TEST(late_public_key)
+{
+  int recurrence = 3;
+
+  nalu_list_t *list = create_signed_nalus_recurrence("IPPIPPIPPIPPIPPIPPI",
+      settings[_i], recurrence);
+  ck_assert(list);
+  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
+
+  /* Remove first 4 items to get rid of first public key */
+  nalu_list_item_t *g_1 = nalu_list_remove_item(list, 1);
+  nalu_list_item_check_str(g_1, "G");
+  nalu_list_item_t *i_1 = nalu_list_remove_item(list, 1);
+  nalu_list_item_check_str(i_1, "I");
+  nalu_list_item_t *p_1 = nalu_list_remove_item(list, 1);
+  nalu_list_item_check_str(p_1, "P");
+  nalu_list_item_t *p_2 = nalu_list_remove_item(list, 1);
+  nalu_list_item_check_str(p_2, "P");
+  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGI");
+  /* First public key now exist in item 9 */
+
+  // GIPPGIPPGI     valid & 1 pending & 2 unsigned
+  // IPPGI          valid & 1 pending
+  // IPPGI          valid & 1 pending
+  // IPPGI          valid & 1 pending
+
+  /* One pending NALU per GOP. */
+  const struct validation_stats expected = {.valid_gops = 4, .unsigned_gops = 2, .pending_nalus = 4};
+  validate_nalu_list(NULL, list, expected);
+
+  nalu_list_free_item(g_1);
+  nalu_list_free_item(i_1);
+  nalu_list_free_item(p_1);
+  nalu_list_free_item(p_2);
+  nalu_list_free(list);
+}
+END_TEST
+
+/* Test description
+ * Check authentication if public key arrives late and a sei is missing before public key arrives.
+ *
+ * The operation is as follows:
+ * 1. Generate a nalu_list with a sequence of signed GOPs.
+ * 2. Check the sequence of NALUs.
+ * 3. Remove the first GOP containing the public key.
+ * 4. Remove a sei before public key arrives.
+ * 5. Check the authentication result.
+ */
+START_TEST(late_public_key_and_no_sei_before_key_arrives)
+{
+  int recurrence = 3;
+
+  nalu_list_t *list = create_signed_nalus_recurrence("IPPIPPIPPIPPIPPIPPI",
+      settings[_i], recurrence);
+  ck_assert(list);
+  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
+
+  /* Remove first 4 items to get rid of first public key */
+  nalu_list_item_t *g_1 = nalu_list_remove_item(list, 1);
+  nalu_list_item_check_str(g_1, "G");
+  nalu_list_item_t *i_1 = nalu_list_remove_item(list, 1);
+  nalu_list_item_check_str(i_1, "I");
+  nalu_list_item_t *p_1 = nalu_list_remove_item(list, 1);
+  nalu_list_item_check_str(p_1, "P");
+  nalu_list_item_t *p_2 = nalu_list_remove_item(list, 1);
+  nalu_list_item_check_str(p_2, "P");
+  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGI");
+
+  nalu_list_item_t *g_2 = nalu_list_remove_item(list, 5);
+  nalu_list_item_check_str(g_2, "G");
+  nalu_list_check_str(list, "GIPPIPPGIPPGIPPGIPPGI");
+  /* First public key now exist in item 8 */
+
+  // GIPPIPPG       invalid & 4 pending & 1 unsigned
+  // IPPGI          invalid & 1 pending
+  // IPPGI          valid & 1 pending
+  // IPPGI          valid & 1 pending
+  // IPPGI          valid & 1 pending
+
+  /* One pending NALU per GOP. */
+  const struct validation_stats expected = {.valid_gops = 3, .invalid_gops = 2, .unsigned_gops = 1, .pending_nalus = 8};
+  validate_nalu_list(NULL, list, expected);
+
+  nalu_list_free_item(g_1);
+  nalu_list_free_item(i_1);
+  nalu_list_free_item(p_1);
+  nalu_list_free_item(p_2);
+  nalu_list_free_item(g_2);
+  nalu_list_free(list);
+}
+END_TEST
+
 static Suite *
 signed_video_suite(void)
 {
@@ -1245,6 +1346,8 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, no_signature, s, e);
   tcase_add_loop_test(tc, multislice_no_signature, s, e);
   tcase_add_loop_test(tc, recurrence, s, e);
+  tcase_add_loop_test(tc, late_public_key, s, e);
+  tcase_add_loop_test(tc, late_public_key_and_no_sei_before_key_arrives, s, e);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);

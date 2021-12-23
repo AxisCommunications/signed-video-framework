@@ -29,6 +29,8 @@
 typedef struct _h26x_nalu_list_item_t h26x_nalu_list_item_t;
 typedef struct _h26x_nalu_t h26x_nalu_t;
 
+#define NR_OF_PENDING_GOPS 120
+
 typedef enum {
   NALU_TYPE_UNDEFINED = 0,
   NALU_TYPE_SEI = 1,
@@ -62,6 +64,10 @@ struct _h26x_nalu_list_t {
   h26x_nalu_list_item_t *last_item;  // Points to the last item in the linked list, that is, the
   // latest NALU added for validation.
   int num_items;  // The number of items linked together in the list.
+
+  gop_state_t gop_state_pending[NR_OF_PENDING_GOPS];
+  gop_info_detected_t gop_info_detected_pending[NR_OF_PENDING_GOPS];
+  int gop_idx;
 };
 
 /**

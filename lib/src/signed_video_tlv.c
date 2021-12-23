@@ -62,8 +62,6 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size);
 
 static size_t
 encode_public_key(signed_video_t *self, uint8_t *data);
-static svi_rc
-decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size);
 
 static size_t
 encode_arbitrary_data(signed_video_t *self, uint8_t *data);
@@ -524,7 +522,7 @@ encode_public_key(signed_video_t *self, uint8_t *data)
  * @brief Decodes the PUBLIC_KEY_TAG from data
  *
  */
-static svi_rc
+svi_rc
 decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
   const uint8_t *data_ptr = data;
