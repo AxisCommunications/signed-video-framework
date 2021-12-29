@@ -43,6 +43,7 @@ signedvideoframework = shared_library(
 
 pkgconfig = import('pkgconfig')
 pkgconfig.generate(
+    signedvideoframework,
     name : 'signed-video-framework',
     description : 'Signed Video Framework',
 )
