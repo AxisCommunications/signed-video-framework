@@ -108,7 +108,6 @@ struct _gop_state_t {
   // states of |auth_state|, after calling gop_state_pre_actions(), are stored.
   auth_state_t cur_auth_state;  // Current |auth_state| after gop_state_pre_actions().
   auth_state_t prev_auth_state;  // Previous |cur_auth_state|.
-  bool has_public_key;  // State to indicate if public key is received.
 };
 
 struct _gop_info_detected_t {
@@ -170,6 +169,8 @@ struct _signed_video_t {
   uint8_t *arbitrary_data;  // Enables the user to transmit user specific data and is automatically
   // sent through the ARBITRARY_DATA_TAG.
   size_t arbitrary_data_size;  // Size of |arbitrary_data|.
+
+  bool has_public_key;  // State to indicate if public key is received.
 };
 
 typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;

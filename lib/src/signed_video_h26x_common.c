@@ -1125,6 +1125,7 @@ signed_video_create(SignedVideoCodec codec)
     self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
 
     self->recurrence = RECURRENCE_MIN;
+    self->has_public_key = false;
 
     // Setup the plugin.
     SVI_THROW(sv_rc_to_svi_rc(sv_interface_setup()));

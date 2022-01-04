@@ -541,7 +541,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
         &signature_info->public_key, &signature_info->public_key_size, pubkey_size)));
 
     memcpy(signature_info->public_key, data_ptr, pubkey_size);
-    self->gop_state.has_public_key = true;
+    self->has_public_key = true;
     data_ptr += pubkey_size;
 
     SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);

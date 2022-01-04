@@ -179,7 +179,8 @@ validate_nalu_list(signed_video_t *sv, nalu_list_t *list,
         break;
       }
       // Check if product_info has been received and set correctly.
-      if (latest->authenticity != SV_AUTH_RESULT_NOT_SIGNED) {
+      if ((latest->authenticity != SV_AUTH_RESULT_NOT_SIGNED) &&
+          (latest->authenticity != SV_AUTH_RESULT_NO_PUBLIC_KEY)) {
         ck_assert_int_eq(strcmp(auth_report->product_info.hardware_id, HW_ID), 0);
         ck_assert_int_eq(strcmp(auth_report->product_info.firmware_version, FW_VER), 0);
         ck_assert_int_eq(strcmp(auth_report->product_info.serial_number, SER_NO), 0);
@@ -1230,13 +1231,13 @@ START_TEST(late_public_key)
   nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGI");
   /* First public key now exist in item 9 */
 
-  // GIPPGIPPGI     valid & 1 pending & 2 unsigned
+  // GIPPGIPPGI     valid & 1 pending
   // IPPGI          valid & 1 pending
   // IPPGI          valid & 1 pending
   // IPPGI          valid & 1 pending
 
   /* One pending NALU per GOP. */
-  const struct validation_stats expected = {.valid_gops = 4, .unsigned_gops = 2, .pending_nalus = 4};
+  const struct validation_stats expected = {.valid_gops = 4, .pending_nalus = 4};
   validate_nalu_list(NULL, list, expected);
 
   nalu_list_free_item(g_1);
@@ -1282,14 +1283,14 @@ START_TEST(late_public_key_and_no_sei_before_key_arrives)
   nalu_list_check_str(list, "GIPPIPPGIPPGIPPGIPPGI");
   /* First public key now exist in item 8 */
 
-  // GIPPIPPG       invalid & 4 pending & 1 unsigned
+  // GIPPIPPG       invalid & 4 pending
   // IPPGI          invalid & 1 pending
   // IPPGI          valid & 1 pending
   // IPPGI          valid & 1 pending
   // IPPGI          valid & 1 pending
 
   /* One pending NALU per GOP. */
-  const struct validation_stats expected = {.valid_gops = 3, .invalid_gops = 2, .unsigned_gops = 1, .pending_nalus = 8};
+  const struct validation_stats expected = {.valid_gops = 3, .invalid_gops = 2, .pending_nalus = 8};
   validate_nalu_list(NULL, list, expected);
 
   nalu_list_free_item(g_1);

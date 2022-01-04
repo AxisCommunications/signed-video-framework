@@ -45,6 +45,8 @@ typedef enum {
   // validation.
   SV_AUTH_RESULT_OK = 4,
   // Successfully verified all NALUs that could be verified, and all expected NALUs are present.
+  SV_AUTH_RESULT_NO_PUBLIC_KEY = 5,
+  // No public key.
   SV_AUTH_NUM_SIGNED_GOP_VALID_STATES
 } SignedVideoAuthenticityResult;
 

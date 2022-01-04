@@ -707,12 +707,8 @@ prepare_for_validation(signed_video_t *self)
       memcpy(signature_info->hash, self->gop_info->gop_hash, HASH_DIGEST_SIZE);
     }
 
-    if (signature_info->public_key) {
-      gop_state->has_public_key = true;
-    }
-
-    SVI_THROW_IF_WITH_MSG(gop_state->signing_present && !gop_state->has_public_key, SVI_UNKNOWN,
-        "No public key found");
+    SVI_THROW_IF_WITH_MSG(
+        gop_state->signing_present && !self->has_public_key, SVI_UNKNOWN, "No public key found");
     // If we have received a SEI there is a signature to use for verification.
     if (self->gop_info_detected.has_gop_sei) {
       SVI_THROW(sv_rc_to_svi_rc(
@@ -754,7 +750,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
     return SVI_MEMORY;
   }
 
-  if (!gop_state->has_public_key && gop_state->signing_present) {
+  if (!self->has_public_key && gop_state->signing_present) {
     bool public_key_found = false;
     h26x_nalu_list_item_t *item = nalu_list->first_item;
 
@@ -780,6 +776,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
     if (!public_key_found) {
       /* Reset the gop_state_t and gop_info_detected_t. */
       gop_state_reset(gop_state, gop_info_detected);
+      latest->authenticity = SV_AUTH_RESULT_NO_PUBLIC_KEY;
       return SVI_OK;
     }
   }
