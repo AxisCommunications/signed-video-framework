@@ -567,6 +567,7 @@ validate_authenticity(signed_video_t *self)
     num_expected_nalus = -1;
     num_received_nalus = -1;
   }
+  if (latest->public_key_has_changed) valid = SV_AUTH_RESULT_NOT_OK;
 
   // Update |latest_validation| with the validation result.
   latest->authenticity = valid;
