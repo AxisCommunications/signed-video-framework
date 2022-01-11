@@ -542,7 +542,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     SVI_THROW(sv_rc_to_svi_rc(openssl_key_memory_allocated(
         &signature_info->public_key, &signature_info->public_key_size, pubkey_size)));
 
-    if(memcmp(data_ptr, signature_info->public_key, pubkey_size) != 0 && self->gop_state.has_public_key) {
+    if (memcmp(data_ptr, signature_info->public_key, pubkey_size) && self->gop_state.has_public_key) {
       self->latest_validation->public_key_has_changed = true;
     }
     memcpy(signature_info->public_key, data_ptr, pubkey_size);
