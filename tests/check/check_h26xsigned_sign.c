@@ -361,18 +361,20 @@ START_TEST(sei_increase_with_gop_length)
   nalu_list_item_check_str(sei_2, "G");
   nalu_list_item_t *sei_1 = nalu_list_remove_item(list, 1);
   nalu_list_item_check_str(sei_1, "G");
-  if (auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
-    // Verify constant size. Note that the size differs if more emulation prevention bytes have
-    // been added in one SEI compared to the other. That is not the case here though.
-    ck_assert_uint_eq(sei_1->data_size, sei_2->data_size);
-    ck_assert_uint_eq(sei_2->data_size, sei_3->data_size);
-  } else if (auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    // Verify increased size.
-    ck_assert_uint_lt(sei_1->data_size, sei_2->data_size);
-    ck_assert_uint_lt(sei_2->data_size, sei_3->data_size);
-  } else {
-    // We should not end up here.
-    ck_assert(false);
+  if (settings[_i].recurrence == SV_RECURRENCE_DEFAULT) {
+    if (auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
+      // Verify constant size. Note that the size differs if more emulation prevention bytes have
+      // been added in one SEI compared to the other. That is not the case here though.
+      ck_assert_uint_eq(sei_1->data_size, sei_2->data_size);
+      ck_assert_uint_eq(sei_2->data_size, sei_3->data_size);
+    } else if (auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
+      // Verify increased size.
+      ck_assert_uint_lt(sei_1->data_size, sei_2->data_size);
+      ck_assert_uint_lt(sei_2->data_size, sei_3->data_size);
+    } else {
+      // We should not end up here.
+      ck_assert(false);
+    }
   }
   nalu_list_free_item(sei_1);
   nalu_list_free_item(sei_2);
@@ -389,7 +391,7 @@ END_TEST
  * With
  *   IPPIPPPPPPPPPPPPPPPPPPPPPPPPI
  *
- * we authomatically fall back on SV_AUTHENTICITY_LEVEL_GOP in at the third "I".
+ * we automatically fall back on SV_AUTHENTICITY_LEVEL_GOP in at the third "I".
  *
  * We test this by comparing the SEI NALU sizes. The first one should include one hash in the hash
  * list, the second one four hashes and the last one no hash list at all, hence
@@ -411,11 +413,11 @@ START_TEST(fallback_to_gop_level)
     nalu_list_item_check_str(sei_2, "G");
     nalu_list_item_t *sei_1 = nalu_list_remove_item(list, 1);
     nalu_list_item_check_str(sei_1, "G");
-
     // Verify SEI sizes.
-    ck_assert_uint_lt(sei_1->data_size, sei_2->data_size);
-    ck_assert_uint_lt(sei_3->data_size, sei_1->data_size);
-
+    if (settings[_i].recurrence == SV_RECURRENCE_DEFAULT) {
+      ck_assert_uint_lt(sei_1->data_size, sei_2->data_size);
+      ck_assert_uint_lt(sei_3->data_size, sei_1->data_size);
+    }
     nalu_list_free_item(sei_1);
     nalu_list_free_item(sei_2);
     nalu_list_free_item(sei_3);
@@ -458,29 +460,28 @@ END_TEST
  */
 START_TEST(recurrence)
 {
-  int recurrence = 3;
+  if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+    nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
+    ck_assert(list);
+    nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
 
-  nalu_list_t *list =
-      create_signed_nalus_recurrence("IPPIPPIPPIPPIPPIPPI", settings[_i], recurrence);
-  ck_assert(list);
-  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
-
-  nalu_list_item_t *item;
-  int last_sei_size = 0;
-  int gop_counter = 0;
-  for (int i = 1; i <= (list->num_items); i++) {
-    item = nalu_list_get_item(list, i);
-    if (strncmp(item->str_code, "G", 1) == 0) {
-      if ((gop_counter % recurrence) == 0) {
-        ck_assert_int_gt(item->data_size, last_sei_size);
-      } else {
-        ck_assert_int_le(item->data_size, last_sei_size);
+    nalu_list_item_t *item;
+    int last_sei_size = 0;
+    int gop_counter = 0;
+    for (int i = 1; i <= (list->num_items); i++) {
+      item = nalu_list_get_item(list, i);
+      if (strncmp(item->str_code, "G", 1) == 0) {
+        if ((gop_counter % settings[_i].recurrence) == 0) {
+          ck_assert_int_gt(item->data_size, last_sei_size);
+        } else {
+          ck_assert_int_le(item->data_size, last_sei_size);
+        }
+        gop_counter++;
+        last_sei_size = item->data_size;
       }
-      gop_counter++;
-      last_sei_size = item->data_size;
     }
+    nalu_list_free(list);
   }
-  nalu_list_free(list);
 }
 END_TEST
 

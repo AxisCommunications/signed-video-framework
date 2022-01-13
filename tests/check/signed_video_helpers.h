@@ -32,13 +32,16 @@
 #define MANUFACT "manufacturer"
 #define ADDR "address"
 
+typedef enum { SV_RECURRENCE_DEFAULT = 1, SV_RECURRENCE_THREE = 3} SignedVideoRecurrence;
+
 struct sv_setting {
   SignedVideoCodec codec;
   SignedVideoAuthenticityLevel auth_level;
   sign_algo_t algo;
+  SignedVideoRecurrence recurrence;
 };
 
-#define NUM_SETTINGS 8
+#define NUM_SETTINGS 16
 extern const struct sv_setting settings[NUM_SETTINGS];
 
 /* Creates a signed_video_t session and initialize it by setting
@@ -70,13 +73,6 @@ get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo);
  */
 nalu_list_t *
 create_signed_nalus(const char *str, struct sv_setting settings);
-
-/* Creates a nalu_list_t with all the NALUs produced after signing. This mimic what leaves the
- * camera. Content in sei-nalus is dependent on the recurrence value.
- */
-nalu_list_t *
-create_signed_nalus_recurrence(const char *str, struct sv_setting settings,
-    int recurrence);
 
 /* Removes the NALU list items with position |item_number| from the |list|. The item is, after a
  * check against the expected |str|, then freed. */

@@ -1087,10 +1087,16 @@ START_TEST(file_export_with_dangling_end)
   signed_video_t *sv = signed_video_create(settings[_i].codec);
   ck_assert(sv);
   // One pending NALU per GOP.
-  const struct validation_stats expected = {
+  struct validation_stats expected = {
       .valid_gops = 2, .pending_nalus = 3, .has_signature = 1
   };
+  if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+    expected.valid_gops = 1;
+    expected.pending_nalus = 1;
+    expected.has_signature = 0;
+  }
   validate_nalu_list(sv, list, expected);
+
   // Free list and session.
   signed_video_free(sv);
   nalu_list_free(list);
@@ -1108,9 +1114,14 @@ START_TEST(file_export_without_dangling_end)
   signed_video_t *sv = signed_video_create(settings[_i].codec);
   ck_assert(sv);
   // One pending NALU per GOP.
-  const struct validation_stats expected = {
+  struct validation_stats expected = {
       .valid_gops = 3, .pending_nalus = 4, .has_signature = 1
   };
+  if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+    expected.valid_gops = 2;
+    expected.pending_nalus = 2;
+    expected.has_signature = 0;
+  }
   validate_nalu_list(sv, list, expected);
   // Free list and session.
   signed_video_free(sv);
@@ -1185,12 +1196,17 @@ END_TEST
  */
 START_TEST(recurrence)
 {
-  int recurrence = 3;
-
-  nalu_list_t *list = create_signed_nalus_recurrence("IPPIPPIPPIPPIPPIPPI",
-      settings[_i], recurrence);
+  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
   ck_assert(list);
   nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
+
+  // GI             valid & 1 pending
+  // IPPGI          valid & 1 pending
+  // IPPGI          valid & 1 pending
+  // IPPGI          valid & 1 pending
+  // IPPGI          valid & 1 pending
+  // IPPGI          valid & 1 pending
+  // IPPGI          valid & 1 pending
 
   // One pending NALU per GOP.
   const struct validation_stats expected = {.valid_gops = 7, .pending_nalus = 7};
@@ -1212,10 +1228,7 @@ END_TEST
  */
 START_TEST(late_public_key)
 {
-  int recurrence = 3;
-
-  nalu_list_t *list = create_signed_nalus_recurrence("IPPIPPIPPIPPIPPIPPI",
-      settings[_i], recurrence);
+  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
   ck_assert(list);
   nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
 
@@ -1231,13 +1244,27 @@ START_TEST(late_public_key)
   nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGI");
   /* First public key now exist in item 9 */
 
+  // --- SV_RECURRENCE_DEFAULT ---
+  // GI             has signature & 1 pending (not valid because first GIPP was removed)
+  // IPPGI          valid & 1 pending
+  // IPPGI          valid & 1 pending
+  // IPPGI          valid & 1 pending
+  // IPPGI          valid & 1 pending
+  // IPPGI          valid & 1 pending
+
+  // --- SV_RECURRENCE_THREE ---
   // GIPPGIPPGI     valid & 1 pending
   // IPPGI          valid & 1 pending
   // IPPGI          valid & 1 pending
   // IPPGI          valid & 1 pending
 
   /* One pending NALU per GOP. */
-  const struct validation_stats expected = {.valid_gops = 4, .pending_nalus = 4};
+  struct validation_stats expected = {.valid_gops = 5, .pending_nalus = 6, .has_signature = 1};
+  if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+    expected.valid_gops = 4;
+    expected.pending_nalus = 4;
+    expected.has_signature = 0;
+  }
   validate_nalu_list(NULL, list, expected);
 
   nalu_list_free_item(g_1);
@@ -1260,10 +1287,7 @@ END_TEST
  */
 START_TEST(late_public_key_and_no_sei_before_key_arrives)
 {
-  int recurrence = 3;
-
-  nalu_list_t *list = create_signed_nalus_recurrence("IPPIPPIPPIPPIPPIPPI",
-      settings[_i], recurrence);
+  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
   ck_assert(list);
   nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
 
@@ -1281,16 +1305,37 @@ START_TEST(late_public_key_and_no_sei_before_key_arrives)
   nalu_list_item_t *g_2 = nalu_list_remove_item(list, 5);
   nalu_list_item_check_str(g_2, "G");
   nalu_list_check_str(list, "GIPPIPPGIPPGIPPGIPPGI");
-  /* First public key now exist in item 8 */
+  // First public key now exist in item 8 if SV_RECURRENCE_THREE
 
+
+  // --- SV_RECURRENCE_DEFAULT ---
+  // GI             has signature & 1 pending (not valid because first GIPP was removed)
+  // IPPIPPG        invalid & 4 pending (last 4) since they will be validated next time
+  // IPPGI          invalid & 1 pending
+  // IPPGI          valid & 1 pending
+  // IPPGI          valid & 1 pending
+  // IPPGI          valid & 1 pending
+
+  // --- SV_RECURRENCE_THREE ---
   // GIPPIPPG       invalid & 4 pending
   // IPPGI          invalid & 1 pending
   // IPPGI          valid & 1 pending
   // IPPGI          valid & 1 pending
   // IPPGI          valid & 1 pending
 
-  /* One pending NALU per GOP. */
-  const struct validation_stats expected = {.valid_gops = 3, .invalid_gops = 2, .pending_nalus = 8};
+  // One pending NALU per GOP.
+  struct validation_stats expected = {};
+  if (settings[_i].recurrence == SV_RECURRENCE_DEFAULT) {
+    expected.valid_gops = 3;
+    expected.invalid_gops = 2;
+    expected.pending_nalus = 9;
+    expected.has_signature = 1;
+  } else if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+    expected.valid_gops = 3;
+    expected.invalid_gops = 2;
+    expected.pending_nalus = 8;
+    expected.has_signature = 0;
+  }
   validate_nalu_list(NULL, list, expected);
 
   nalu_list_free_item(g_1);
