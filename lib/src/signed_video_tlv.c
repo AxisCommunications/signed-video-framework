@@ -62,6 +62,8 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size);
 
 static size_t
 encode_public_key(signed_video_t *self, uint8_t *data);
+static svi_rc
+decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size);
 
 static size_t
 encode_arbitrary_data(signed_video_t *self, uint8_t *data);
@@ -522,7 +524,7 @@ encode_public_key(signed_video_t *self, uint8_t *data)
  * @brief Decodes the PUBLIC_KEY_TAG from data
  *
  */
-svi_rc
+static svi_rc
 decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
   const uint8_t *data_ptr = data;
@@ -898,6 +900,40 @@ tlv_find_tag(signed_video_t *self,
   DEBUG_LOG("Never found the tag");
 
   return NULL;
+}
+
+svi_rc
+tlv_find_tag_and_decode(signed_video_t *self,
+    const uint8_t *tlv_data,
+    size_t tlv_data_size,
+    sv_tlv_tag_t tag,
+    bool with_ep)
+{
+  svi_rc status = SVI_UNKNOWN;
+
+  if (!self || !tlv_data || tlv_data_size == 0) return SVI_INVALID_PARAMETER;
+
+  const uint8_t *tag_ptr = tlv_find_tag(self, tlv_data, tlv_data_size, tag, with_ep);
+
+  if (!tag_ptr) {
+    return SVI_INVALID_PARAMETER;
+  }
+
+  // Read the length
+  uint16_t last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
+  uint16_t length = read_byte(&last_two_bytes, &tlv_data, with_ep);
+  if (tlv_tuples[tag].bytes_for_length == 2) {
+    length <<= 8;
+    length |= read_byte(&last_two_bytes, &tlv_data, with_ep);
+  }
+
+  status = tlv_decode(self, tag_ptr, length);
+  if (status != SVI_OK) {
+    DEBUG_LOG("TLV decode failed (error %d)", status);
+    status = SVI_DECODING_ERROR;
+  }
+
+  return status;
 }
 
 size_t

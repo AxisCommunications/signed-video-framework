@@ -150,11 +150,25 @@ uint8_t
 read_byte(uint16_t *last_two_bytes, const uint8_t **payload, bool do_emulation_prevention);
 
 /**
- * @brief Decodes the PUBLIC_KEY_TAG from data
+ * @brief Scans the TLV part of a SEI payload and decodes the found tag when it's detected.
  *
- * @returns SVI_OK if decoding was successful, otherwise an error code.
+ * The data is assumed to have been written in a TLV format. tlv_find_tag parses data as long as
+ * there are new tags, but never decodes it. The function can handle data both with and without
+ * emulation prevention bytes.
+ *
+ * @param signed_video Pointer to the signed_video_t session.
+ * @param tlv_data Pointer to the TLV data to scan.
+ * @param tlv_data_size Size of the TLV data.
+ * @param tag The tag to search for and when detected returns its location.
+ * @param with_ep Flag to indicate if emulation prevention bytes is on.
+ *
+ * @returns SVI_OK if find and decoding was successful, otherwise an error code.
  */
 svi_rc
-decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size);
+tlv_find_tag_and_decode(signed_video_t *self,
+    const uint8_t *tlv_data,
+    size_t tlv_data_size,
+    sv_tlv_tag_t tag,
+    bool with_ep);
 
 #endif  // __SIGNED_VIDEO_TLV_H__

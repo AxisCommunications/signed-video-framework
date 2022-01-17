@@ -750,6 +750,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
     return SVI_MEMORY;
   }
 
+  svi_rc status = SVI_UNKNOWN;
   if (!self->has_public_key && gop_state->signing_present) {
     bool public_key_found = false;
     h26x_nalu_list_item_t *item = nalu_list->first_item;
@@ -758,17 +759,11 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
       if (item->nalu && item->nalu->is_gop_sei && item->validation_status == 'P') {
         const uint8_t *tlv_data = item->nalu->tlv_data;
         size_t tlv_size = item->nalu->tlv_size;
-        // TODO: tlv_find_tag -> tlv_find_tag_and_decode?
-        const uint8_t *public_key_tag_ptr =
-            tlv_find_tag(self, tlv_data, tlv_size, PUBLIC_KEY_TAG, false);
-
-        if (public_key_tag_ptr) {
-          size_t length = ((size_t)public_key_tag_ptr[1] << 8 | public_key_tag_ptr[2]);
-          decode_public_key(self, public_key_tag_ptr + 3, length);
-
+        status = tlv_find_tag_and_decode(self, tlv_data, tlv_size, PUBLIC_KEY_TAG, false);
+        if (status == SVI_OK) {
           public_key_found = true;
         } else {
-          DEBUG_LOG("Public key missing");
+          DEBUG_LOG("Public key missing (error %d)", status);
         }
       }
       item = item->next;
@@ -776,7 +771,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
     if (!public_key_found) {
       /* Reset the gop_state_t and gop_info_detected_t. */
       gop_state_reset(gop_state, gop_info_detected);
-      latest->authenticity = SV_AUTH_RESULT_NO_PUBLIC_KEY;
+      latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
       return SVI_OK;
     }
   }
@@ -787,7 +782,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
   latest->number_of_received_picture_nalus = -1;
   latest->number_of_pending_picture_nalus = -1;
 
-  svi_rc status = SVI_UNKNOWN;
+  status = SVI_UNKNOWN;
   SVI_TRY()
     // |first_validation_check| keeps track of first validation when looping through pending gops
     bool first_validation_check = true;

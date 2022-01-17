@@ -180,7 +180,7 @@ validate_nalu_list(signed_video_t *sv, nalu_list_t *list,
       }
       // Check if product_info has been received and set correctly.
       if ((latest->authenticity != SV_AUTH_RESULT_NOT_SIGNED) &&
-          (latest->authenticity != SV_AUTH_RESULT_NO_PUBLIC_KEY)) {
+          (latest->authenticity != SV_AUTH_RESULT_SIGNATURE_PRESENT)) {
         ck_assert_int_eq(strcmp(auth_report->product_info.hardware_id, HW_ID), 0);
         ck_assert_int_eq(strcmp(auth_report->product_info.firmware_version, FW_VER), 0);
         ck_assert_int_eq(strcmp(auth_report->product_info.serial_number, SER_NO), 0);
@@ -1093,7 +1093,7 @@ START_TEST(file_export_with_dangling_end)
   if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
     expected.valid_gops = 1;
     expected.pending_nalus = 1;
-    expected.has_signature = 0;
+    expected.has_signature = 2;
   }
   validate_nalu_list(sv, list, expected);
 
@@ -1120,7 +1120,7 @@ START_TEST(file_export_without_dangling_end)
   if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
     expected.valid_gops = 2;
     expected.pending_nalus = 2;
-    expected.has_signature = 0;
+    expected.has_signature = 2;
   }
   validate_nalu_list(sv, list, expected);
   // Free list and session.
@@ -1253,7 +1253,7 @@ START_TEST(late_public_key)
   // IPPGI          valid & 1 pending
 
   // --- SV_RECURRENCE_THREE ---
-  // GIPPGIPPGI     valid & 1 pending
+  // GIPPGIPPGI     valid & 2 has signature & 1 pending
   // IPPGI          valid & 1 pending
   // IPPGI          valid & 1 pending
   // IPPGI          valid & 1 pending
@@ -1263,7 +1263,7 @@ START_TEST(late_public_key)
   if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
     expected.valid_gops = 4;
     expected.pending_nalus = 4;
-    expected.has_signature = 0;
+    expected.has_signature = 2;
   }
   validate_nalu_list(NULL, list, expected);
 
@@ -1317,7 +1317,7 @@ START_TEST(late_public_key_and_no_sei_before_key_arrives)
   // IPPGI          valid & 1 pending
 
   // --- SV_RECURRENCE_THREE ---
-  // GIPPIPPG       invalid & 4 pending
+  // GIPPIPPG       invalid & 1 has signature & 4 pending
   // IPPGI          invalid & 1 pending
   // IPPGI          valid & 1 pending
   // IPPGI          valid & 1 pending
@@ -1334,7 +1334,7 @@ START_TEST(late_public_key_and_no_sei_before_key_arrives)
     expected.valid_gops = 3;
     expected.invalid_gops = 2;
     expected.pending_nalus = 8;
-    expected.has_signature = 0;
+    expected.has_signature = 1;
   }
   validate_nalu_list(NULL, list, expected);
 
