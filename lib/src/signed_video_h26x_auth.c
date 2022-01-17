@@ -750,7 +750,6 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
     return SVI_MEMORY;
   }
 
-  svi_rc status = SVI_UNKNOWN;
   if (!self->has_public_key && gop_state->signing_present) {
     bool public_key_found = false;
     h26x_nalu_list_item_t *item = nalu_list->first_item;
@@ -759,11 +758,13 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
       if (item->nalu && item->nalu->is_gop_sei && item->validation_status == 'P') {
         const uint8_t *tlv_data = item->nalu->tlv_data;
         size_t tlv_size = item->nalu->tlv_size;
-        status = tlv_find_tag_and_decode(self, tlv_data, tlv_size, PUBLIC_KEY_TAG, false);
-        if (status == SVI_OK) {
+        svi_rc ret = SVI_UNKNOWN;
+        ret = tlv_find_tag_and_decode(self, tlv_data, tlv_size, PUBLIC_KEY_TAG, false);
+        if (ret == SVI_OK) {
           public_key_found = true;
+          break;
         } else {
-          DEBUG_LOG("Public key missing (error %d)", status);
+          DEBUG_LOG("Public key missing");
         }
       }
       item = item->next;
@@ -782,7 +783,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
   latest->number_of_received_picture_nalus = -1;
   latest->number_of_pending_picture_nalus = -1;
 
-  status = SVI_UNKNOWN;
+  svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     // |first_validation_check| keeps track of first validation when looping through pending gops
     bool first_validation_check = true;

@@ -20,6 +20,7 @@
  */
 #include "signed_video_tlv.h"
 
+#include <assert.h>  // assert
 #include <stdlib.h>  // free
 
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
@@ -909,30 +910,31 @@ tlv_find_tag_and_decode(signed_video_t *self,
     sv_tlv_tag_t tag,
     bool with_ep)
 {
-  svi_rc status = SVI_UNKNOWN;
-
   if (!self || !tlv_data || tlv_data_size == 0) return SVI_INVALID_PARAMETER;
 
   const uint8_t *tag_ptr = tlv_find_tag(self, tlv_data, tlv_data_size, tag, with_ep);
-
   if (!tag_ptr) {
     return SVI_INVALID_PARAMETER;
   }
 
-  // Read the length
-  uint16_t last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
-  uint16_t length = read_byte(&last_two_bytes, &tlv_data, with_ep);
-  if (tlv_tuples[tag].bytes_for_length == 2) {
-    length <<= 8;
-    length |= read_byte(&last_two_bytes, &tlv_data, with_ep);
-  }
-
-  status = tlv_decode(self, tag_ptr, length);
+  svi_rc status = SVI_UNKNOWN;
+  size_t tlv_header_size = 0;
+  size_t length = 0;
+  sv_tlv_tag_t tag_check = 0;
+  status = decode_tlv_header(tag_ptr, &tlv_header_size, &tag_check, &length);
   if (status != SVI_OK) {
-    DEBUG_LOG("TLV decode failed (error %d)", status);
-    status = SVI_DECODING_ERROR;
+    DEBUG_LOG("Could not decode TLV header (error %d)", status);
+    goto catch_error;
+  }
+  assert(tag == tag_check);
+
+  sv_tlv_decoder_t decoder = get_decoder(tag);
+  status = decoder(self, tag_ptr + tlv_header_size, length);
+  if (status != SVI_OK) {
+    DEBUG_LOG("Could not decode data (error %d)", status);
   }
 
+catch_error:
   return status;
 }
 
