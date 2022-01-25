@@ -46,6 +46,7 @@ struct validation_stats {
   int missed_nalus;
   int pending_nalus;
   int has_signature;
+  bool public_key_has_changed;
 };
 
 // TODO: Will be used in the future, when the authenticity report is being populated.
@@ -144,6 +145,7 @@ validate_nalu_list(signed_video_t *sv, nalu_list_t *list,
   int missed_nalus = 0;
   int pending_nalus = 0;
   int has_signature = 0;
+  bool public_key_has_changed = false;
   // Pop one NALU at a time.
   nalu_list_item_t *item = nalu_list_pop_first_item(list);
   while (item) {
@@ -178,7 +180,7 @@ validate_nalu_list(signed_video_t *sv, nalu_list_t *list,
       default:
         break;
       }
-      ck_assert(!latest->public_key_has_changed);
+      public_key_has_changed |= latest->public_key_has_changed;
       // Check if product_info has been received and set correctly.
       if (latest->authenticity != SV_AUTH_RESULT_NOT_SIGNED) {
         ck_assert_int_eq(strcmp(auth_report->product_info.hardware_id, HW_ID), 0);
@@ -208,6 +210,7 @@ validate_nalu_list(signed_video_t *sv, nalu_list_t *list,
   ck_assert_int_eq(missed_nalus, expected.missed_nalus);
   ck_assert_int_eq(pending_nalus, expected.pending_nalus);
   ck_assert_int_eq(has_signature, expected.has_signature);
+  ck_assert_int_eq(public_key_has_changed, expected.public_key_has_changed);
 
   if (internal_sv) signed_video_free(sv);
 }
@@ -860,7 +863,36 @@ START_TEST(camera_reset_on_signing_side)
   // will be marked as invalid and compute 3 more NALUs than expected. In G it is communicated there
   // is only 2 NALUs present (GI). So missed NALUs equals -3 (IPP).
   const struct validation_stats expected = {
-      .valid_gops = 2, .invalid_gops = 2, .missed_nalus = -3, .pending_nalus = 4
+      .valid_gops = 2, .invalid_gops = 2, .missed_nalus = -3, .pending_nalus = 4, .public_key_has_changed = true
+  };
+  validate_nalu_list(NULL, list, expected);
+  nalu_list_free(list);
+}
+END_TEST
+
+/* Test description
+ */
+START_TEST(detect_change_of_public_key)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  // Generate 2 GOPs
+  nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i]);
+  nalu_list_check_str(list, "GIPPGIPP");
+
+  // Generate another GOP from scratch
+  nalu_list_t *second_list = create_signed_nalus("IPPPI", settings[_i]);
+  nalu_list_check_str(second_list, "GIPPPGI");
+
+  nalu_list_append_and_free(list, second_list);
+  nalu_list_check_str(list, "GIPPGIPPGIPPPGI");
+
+  // One pending NALU per GOP. Note that the mid GOP (IPPGI) includes the reset on the camera. It
+  // will be marked as invalid and compute 3 more NALUs than expected. In G it is communicated
+  // there is only 2 NALUs present (GI). So missed NALUs equals -3 (IPP).
+  const struct validation_stats expected = {
+      .valid_gops = 2, .invalid_gops = 2, .missed_nalus = -3, .pending_nalus = 4, .public_key_has_changed = true
   };
   validate_nalu_list(NULL, list, expected);
 
@@ -1246,6 +1278,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, no_signature, s, e);
   tcase_add_loop_test(tc, multislice_no_signature, s, e);
   tcase_add_loop_test(tc, recurrence, s, e);
+  tcase_add_loop_test(tc, detect_change_of_public_key, s, e);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);
