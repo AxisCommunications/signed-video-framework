@@ -190,14 +190,12 @@ openssl_verify_hash(const signature_info_t *signature_info, int *verified_result
   return svi_rc_to_signed_video_rc(status);
 }
 
-/* Creates a RSA private key and stores it as a PEM file in the designated location. */
+/* Creates a RSA private key and stores it as a PEM file in the designated location. Existing key
+ * will be overwritten. */
 static svi_rc
 create_rsa_private_key(const key_paths_t *key_paths)
 {
   if (!key_paths) return SVI_INVALID_PARAMETER;
-
-  // Return directly if private key file already exists
-  if (access(key_paths->full_path_to_private_key, F_OK | R_OK) == 0) return SVI_OK;
 
   EVP_PKEY *pkey = NULL;
   BIGNUM *bn = NULL;
@@ -242,14 +240,12 @@ create_rsa_private_key(const key_paths_t *key_paths)
   return status;
 }
 
-/* Creates a ECDSA private key and stores it as a PEM file in the designated location. */
+/* Creates a ECDSA private key and stores it as a PEM file in the designated location. Existing key
+ * will be overwritten. */
 static svi_rc
 create_ecdsa_private_key(const key_paths_t *key_paths)
 {
   if (!key_paths) return SVI_INVALID_PARAMETER;
-
-  // Return directly if private key file already exists
-  if (access(key_paths->full_path_to_private_key, F_OK | R_OK) == 0) return SVI_OK;
 
   EC_KEY *ec_key = NULL;
   EVP_PKEY *pkey = NULL;
