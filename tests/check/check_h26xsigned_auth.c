@@ -879,8 +879,14 @@ START_TEST(detect_change_of_public_key)
   nalu_list_append_and_free(list, list_with_new_public_key);
   nalu_list_check_str(list, "GIPPGIPPGIPPPGI");
 
-  // One pending NALU per GOP. It will be marked as invalid and compute 3 more NALUs than expected.
-  // In G it is communicated there is only 2 NALUs present (GI). So missed NALUs equals -3 (IPP).
+  // The list will be validated successfully up to the third SEI (G) which has the new Public key.
+  //
+  //   GI      -> .P (valid, 1 pending, public_key_has_changed = false)
+  //   IPPGI   -> ....P (valid, 1 pending, public_key_has_changed = false)
+  //   IPPG*I  -> NNN.P (invalid, 1 pending, public_key_has_changed = true, -3 missing)
+  //   IPPPG*I -> N....P (invalid, 1 pending, public_key_has_changed = false)
+  // where G* has the new Public key. Note that we get -3 missing since we receive 3 more than what
+  // is expected according to G*.
   const struct validation_stats expected = {.valid_gops = 2,
       .invalid_gops = 2,
       .missed_nalus = -3,
