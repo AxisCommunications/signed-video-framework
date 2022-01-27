@@ -24,18 +24,19 @@
 #include <string.h>  // strcmp
 
 #include "lib/src/includes/signed_video_auth.h"  // signed_video_authenticity_t
-#include "lib/src/includes/signed_video_sign.h"  // signed_video_set_authenticity_level()
 #include "lib/src/includes/signed_video_common.h"  // signed_video_t
-
+#include "lib/src/includes/signed_video_sign.h"  // signed_video_set_authenticity_level()
 #include "nalu_list.h"  // nalu_list_create()
 #include "signed_video_helpers.h"  // sv_setting, create_signed_nalus()
 
 static void
-setup() {
+setup()
+{
 }
 
 static void
-teardown() {
+teardown()
+{
 }
 
 struct validation_stats {
@@ -125,8 +126,7 @@ authenticity_is_identical(signed_video_authenticity_t *orig,
  * like reset.
  */
 static void
-validate_nalu_list(signed_video_t *sv, nalu_list_t *list,
-    struct validation_stats expected)
+validate_nalu_list(signed_video_t *sv, nalu_list_t *list, struct validation_stats expected)
 {
   if (!list) return;
   bool internal_sv = false;
@@ -149,36 +149,36 @@ validate_nalu_list(signed_video_t *sv, nalu_list_t *list,
   // Pop one NALU at a time.
   nalu_list_item_t *item = nalu_list_pop_first_item(list);
   while (item) {
-    SignedVideoReturnCode rc = signed_video_add_nalu_and_authenticate(sv, item->data,
-        item->data_size, &auth_report);
+    SignedVideoReturnCode rc =
+        signed_video_add_nalu_and_authenticate(sv, item->data, item->data_size, &auth_report);
     ck_assert_int_eq(rc, SV_OK);
 
     if (auth_report) {
       latest = &(auth_report->latest_validation);
       ck_assert(latest);
       if (latest->number_of_expected_picture_nalus >= 0) {
-        missed_nalus += latest->number_of_expected_picture_nalus -
-            latest->number_of_received_picture_nalus;
+        missed_nalus +=
+            latest->number_of_expected_picture_nalus - latest->number_of_received_picture_nalus;
       }
       pending_nalus += latest->number_of_pending_picture_nalus;
       switch (latest->authenticity) {
-      case SV_AUTH_RESULT_OK_WITH_MISSING_INFO:
-        valid_gops_with_missing_info++;
-        break;
-      case SV_AUTH_RESULT_OK:
-        valid_gops++;
-        break;
-      case SV_AUTH_RESULT_NOT_OK:
-        invalid_gops++;
-        break;
-      case SV_AUTH_RESULT_SIGNATURE_PRESENT:
-        has_signature++;
-        break;
-      case SV_AUTH_RESULT_NOT_SIGNED:
-        unsigned_gops++;
-        break;
-      default:
-        break;
+        case SV_AUTH_RESULT_OK_WITH_MISSING_INFO:
+          valid_gops_with_missing_info++;
+          break;
+        case SV_AUTH_RESULT_OK:
+          valid_gops++;
+          break;
+        case SV_AUTH_RESULT_NOT_OK:
+          invalid_gops++;
+          break;
+        case SV_AUTH_RESULT_SIGNATURE_PRESENT:
+          has_signature++;
+          break;
+        case SV_AUTH_RESULT_NOT_SIGNED:
+          unsigned_gops++;
+          break;
+        default:
+          break;
       }
       public_key_has_changed |= latest->public_key_has_changed;
       // Check if product_info has been received and set correctly.
@@ -234,16 +234,15 @@ START_TEST(invalid_api_inputs)
   nalu_list_item_t *invalid = nalu_list_item_create_and_set_id("X", 0, codec);
   // signed_video_add_nalu_and_authenticate()
   // NULL pointers are invalid, as well as zero sized nalus.
-  SignedVideoReturnCode sv_rc = signed_video_add_nalu_and_authenticate(NULL, p_nalu->data,
-      p_nalu->data_size, NULL);
+  SignedVideoReturnCode sv_rc =
+      signed_video_add_nalu_and_authenticate(NULL, p_nalu->data, p_nalu->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   sv_rc = signed_video_add_nalu_and_authenticate(sv, NULL, p_nalu->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   sv_rc = signed_video_add_nalu_and_authenticate(sv, p_nalu->data, 0, NULL);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   // An invalid NALU should return silently.
-  sv_rc = signed_video_add_nalu_and_authenticate(sv, invalid->data, invalid->data_size,
-      NULL);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, invalid->data, invalid->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Free nalu_list_item and session.
   nalu_list_free_item(p_nalu);
@@ -434,8 +433,7 @@ START_TEST(remove_one_p_nalu)
 
   // One pending NALU per GOP.
   struct validation_stats expected = {
-      .valid_gops = 2, .invalid_gops = 2, .missed_nalus = 1, .pending_nalus = 4
-  };
+      .valid_gops = 2, .invalid_gops = 2, .missed_nalus = 1, .pending_nalus = 4};
   // For Frame level we can identify the missing NALU and mark the GOP as valid with missing info.
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
     expected.valid_gops = 3;
@@ -470,9 +468,7 @@ START_TEST(interchange_two_p_nalus)
   nalu_list_check_str(list, "GIPPGIPPPGIPPGI");
 
   // One pending NALU per GOP.
-  struct validation_stats expected = {
-      .valid_gops = 2, .invalid_gops = 2, .pending_nalus = 4
-  };
+  struct validation_stats expected = {.valid_gops = 2, .invalid_gops = 2, .pending_nalus = 4};
   // For Frame level we can identify the I NALU, hence the linking between GOPs is intact.
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
     expected.valid_gops = 3;
@@ -501,9 +497,7 @@ START_TEST(modify_one_p_nalu)
   modify_list_item(list, modify_nalu_number, "P");
 
   // One pending NALU per GOP.
-  struct validation_stats expected = {
-      .valid_gops = 2, .invalid_gops = 2, .pending_nalus = 4
-  };
+  struct validation_stats expected = {.valid_gops = 2, .invalid_gops = 2, .pending_nalus = 4};
   // For Frame level we can identify the I NALU, hence the linking between GOPs is intact.
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
     expected.valid_gops = 3;
@@ -529,9 +523,7 @@ START_TEST(modify_one_i_nalu)
 
   // One pending NALU per GOP. Note that a modified I-nalu affects two GOPs due to linked hashes,
   // but it will also affect a third if we validate with a gop_hash.
-  struct validation_stats expected = {
-      .valid_gops = 1, .invalid_gops = 3, .pending_nalus = 4
-  };
+  struct validation_stats expected = {.valid_gops = 1, .invalid_gops = 3, .pending_nalus = 4};
   // For Frame level, the first GOP will be marked as valid with missing info since we cannot
   // correctly validate the last NALU (the modified I).
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
@@ -572,10 +564,8 @@ START_TEST(remove_the_g_nalu)
   // IPPIPPG invalid & 4 pending (last 4) since they will be validated next time
   // IPPGI   invalid & 1 pending
   // IPPGI     valid & 1 pending
-  
-  const struct validation_stats expected = {
-      .valid_gops = 3, .invalid_gops = 2, .pending_nalus = 8
-  };
+
+  const struct validation_stats expected = {.valid_gops = 3, .invalid_gops = 2, .pending_nalus = 8};
   validate_nalu_list(NULL, list, expected);
 
   nalu_list_free(list);
@@ -600,8 +590,7 @@ START_TEST(remove_the_i_nalu)
   // identify the missed NALU when the I NALU is not the reference, that is, the first GOP is valid
   // with missing info, whereas the second becomes invalid.
   struct validation_stats expected = {
-      .valid_gops = 2, .invalid_gops = 3, .missed_nalus = 1, .pending_nalus = 5
-  };
+      .valid_gops = 2, .invalid_gops = 3, .missed_nalus = 1, .pending_nalus = 5};
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
     expected.valid_gops = 3;
     expected.invalid_gops = 2;
@@ -635,8 +624,7 @@ START_TEST(remove_the_gi_nalus)
   // "missing gops", so we cannot get that information. This will be solved when changing to a more
   // complete authentication report.
   const struct validation_stats expected = {
-      .valid_gops = 2, .invalid_gops = 2, .missed_nalus = -2, .pending_nalus = 4
-  };
+      .valid_gops = 2, .invalid_gops = 2, .missed_nalus = -2, .pending_nalus = 4};
   validate_nalu_list(NULL, list, expected);
 
   nalu_list_free(list);
@@ -744,7 +732,7 @@ START_TEST(lost_g_before_late_sei_arrival)
 
   // Prepend the middle P of the next GOP: GIPPPGIPPPIP (G)P PGIPPGI. This is equivalent with
   // appending the first P of the same GOP, that is, number 12.
-  
+
   nalu_list_append_item(list, sei, 12);
   nalu_list_check_str(list, "GIPPPGIPPPIPGPPGIPPGI");
 
@@ -761,10 +749,9 @@ START_TEST(lost_g_before_late_sei_arrival)
   //                verify the first time
   // IP(G)PPGI    valid & 1 pending
   // IPPGI        valid & 1 pending
-  
+
   const struct validation_stats expected = {
-      .valid_gops = 3, .invalid_gops = 2, .pending_nalus = 10
-  };
+      .valid_gops = 3, .invalid_gops = 2, .pending_nalus = 10};
   validate_nalu_list(NULL, list, expected);
 
   nalu_list_free(list);
@@ -793,8 +780,7 @@ START_TEST(lost_all_nalus_between_two_seis)
   // NALU. This is a descrepancy in the way we count NALUs by excluding SEIs.
   // TODO: Fix the measured difference in missed_nalus.
   struct validation_stats expected = {
-      .valid_gops = 2, .invalid_gops = 3, .missed_nalus = 4, .pending_nalus = 5
-  };
+      .valid_gops = 2, .invalid_gops = 3, .missed_nalus = 4, .pending_nalus = 5};
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
     expected.valid_gops = 3;
     expected.invalid_gops = 2;
@@ -862,9 +848,13 @@ START_TEST(camera_reset_on_signing_side)
   // One pending NALU per GOP. Note that the mid GOP (IPPGI) includes the reset on the camera. It
   // will be marked as invalid and compute 3 more NALUs than expected. In G it is communicated there
   // is only 2 NALUs present (GI). So missed NALUs equals -3 (IPP).
-  const struct validation_stats expected = {
-      .valid_gops = 2, .invalid_gops = 2, .missed_nalus = -3, .pending_nalus = 4, .public_key_has_changed = true
-  };
+  // TODO: public_key_has_changed is expected to be true now when we have changed the behavior in
+  // generate private key.
+  const struct validation_stats expected = {.valid_gops = 2,
+      .invalid_gops = 2,
+      .missed_nalus = -3,
+      .pending_nalus = 4,
+      .public_key_has_changed = true};
   validate_nalu_list(NULL, list, expected);
   nalu_list_free(list);
 }
@@ -882,18 +872,20 @@ START_TEST(detect_change_of_public_key)
   nalu_list_check_str(list, "GIPPGIPP");
 
   // Generate another GOP from scratch
-  nalu_list_t *second_list = create_signed_nalus("IPPPI", settings[_i]);
-  nalu_list_check_str(second_list, "GIPPPGI");
+  // This will get a new public key
+  nalu_list_t *list_with_new_public_key = create_signed_nalus("IPPPI", settings[_i]);
+  nalu_list_check_str(list_with_new_public_key, "GIPPPGI");
 
-  nalu_list_append_and_free(list, second_list);
+  nalu_list_append_and_free(list, list_with_new_public_key);
   nalu_list_check_str(list, "GIPPGIPPGIPPPGI");
 
-  // One pending NALU per GOP. Note that the mid GOP (IPPGI) includes the reset on the camera. It
-  // will be marked as invalid and compute 3 more NALUs than expected. In G it is communicated
-  // there is only 2 NALUs present (GI). So missed NALUs equals -3 (IPP).
-  const struct validation_stats expected = {
-      .valid_gops = 2, .invalid_gops = 2, .missed_nalus = -3, .pending_nalus = 4, .public_key_has_changed = true
-  };
+  // One pending NALU per GOP. It will be marked as invalid and compute 3 more NALUs than expected.
+  // In G it is communicated there is only 2 NALUs present (GI). So missed NALUs equals -3 (IPP).
+  const struct validation_stats expected = {.valid_gops = 2,
+      .invalid_gops = 2,
+      .missed_nalus = -3,
+      .pending_nalus = 4,
+      .public_key_has_changed = true};
   validate_nalu_list(NULL, list, expected);
 
   nalu_list_free(list);
@@ -960,8 +952,7 @@ START_TEST(fast_forward_stream_with_reset)
   // We should get one GOP marked as SV_AUTH_RESULT_SIGNATURE_PRESENT right after the reset. One
   // pending NALU per GOP.
   const struct validation_stats expected = {
-      .valid_gops = 2, .pending_nalus = 3, .has_signature = 1
-  };
+      .valid_gops = 2, .pending_nalus = 3, .has_signature = 1};
   validate_nalu_list(sv, list, expected);
   // Free list and session.
   signed_video_free(sv);
@@ -982,8 +973,7 @@ START_TEST(fast_forward_stream_without_reset)
   // Start validating without resetting the session.  We will get an invalid GOP since the fast
   // forward is equivalent with dropping NALUs. One pending NALU per GOP.
   const struct validation_stats expected = {
-      .valid_gops = 1, .invalid_gops = 2, .missed_nalus = 1, .pending_nalus = 3
-  };
+      .valid_gops = 1, .invalid_gops = 2, .missed_nalus = 1, .pending_nalus = 3};
   validate_nalu_list(sv, list, expected);
 
   // Free list and session.
@@ -993,8 +983,7 @@ START_TEST(fast_forward_stream_without_reset)
 END_TEST
 
 static nalu_list_t *
-mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv,
-    struct sv_setting setting)
+mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_setting setting)
 {
   nalu_list_t *list = generate_delayed_sei_list(setting);
   nalu_list_check_str(list, "IPGPPIPGPPIPGPPIPGPPIPG");
@@ -1043,10 +1032,9 @@ START_TEST(fast_forward_stream_with_delayed_seis)
   // IPGPPIPG ->      .....PP. (valid)
   //
   // Total number of pending NALUs = 2 + 2 + 2 = 6
-  
+
   const struct validation_stats expected = {
-      .valid_gops = 2, .pending_nalus = 6, .has_signature = 1
-  };
+      .valid_gops = 2, .pending_nalus = 6, .has_signature = 1};
   validate_nalu_list(sv, list, expected);
   // Free list and session.
   signed_video_free(sv);
@@ -1091,8 +1079,7 @@ mimic_file_export(struct sv_setting setting, bool include_i_nalu_at_end)
   // Prepend list with PPS/SPS/VPS NALU
   nalu_list_prepend_first_item(list, ps);
 
-  nalu_list_check_str(list,
-      include_i_nalu_at_end ? "VGIPPGIPPGIPPGI" : "VGIPPGIPPGIPP");
+  nalu_list_check_str(list, include_i_nalu_at_end ? "VGIPPGIPPGIPPGI" : "VGIPPGIPPGIPP");
 
   // Create a new session.
   signed_video_t *sv = signed_video_create(setting.codec);
@@ -1120,8 +1107,7 @@ START_TEST(file_export_with_dangling_end)
   ck_assert(sv);
   // One pending NALU per GOP.
   const struct validation_stats expected = {
-      .valid_gops = 2, .pending_nalus = 3, .has_signature = 1
-  };
+      .valid_gops = 2, .pending_nalus = 3, .has_signature = 1};
   validate_nalu_list(sv, list, expected);
   // Free list and session.
   signed_video_free(sv);
@@ -1141,8 +1127,7 @@ START_TEST(file_export_without_dangling_end)
   ck_assert(sv);
   // One pending NALU per GOP.
   const struct validation_stats expected = {
-      .valid_gops = 3, .pending_nalus = 4, .has_signature = 1
-  };
+      .valid_gops = 3, .pending_nalus = 4, .has_signature = 1};
   validate_nalu_list(sv, list, expected);
   // Free list and session.
   signed_video_free(sv);
@@ -1172,7 +1157,7 @@ START_TEST(no_signature)
   // IPPIPPI -> (UUUPPPP)
   //
   // pending_nalus = 4 * 4 = 16
-  
+
   const struct validation_stats expected = {.unsigned_gops = 4, .pending_nalus = 16};
   validate_nalu_list(NULL, list, expected);
 
@@ -1197,7 +1182,7 @@ START_TEST(multislice_no_signature)
   // IiPpPpIiPpPpI -> (UUUUUUPPPPPPP)
   //
   // pending_nalus = 4 * 7 = 28
-  
+
   const struct validation_stats expected = {.unsigned_gops = 4, .pending_nalus = 28};
   validate_nalu_list(NULL, list, expected);
 
@@ -1219,8 +1204,8 @@ START_TEST(recurrence)
 {
   int recurrence = 3;
 
-  nalu_list_t *list = create_signed_nalus_recurrence("IPPIPPIPPIPPIPPIPPI",
-      settings[_i], recurrence);
+  nalu_list_t *list =
+      create_signed_nalus_recurrence("IPPIPPIPPIPPIPPIPPI", settings[_i], recurrence);
   ck_assert(list);
   nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
 
@@ -1232,7 +1217,6 @@ START_TEST(recurrence)
 }
 END_TEST
 
-
 static Suite *
 signed_video_suite(void)
 {
@@ -1243,7 +1227,7 @@ signed_video_suite(void)
 
   // The test loop works like this
   //   for (int _i = s; _i < e; _i++) {}
-  
+
   int s = 0;
   int e = NUM_SETTINGS;
 
@@ -1270,6 +1254,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, lost_all_nalus_between_two_seis, s, e);
   tcase_add_loop_test(tc, add_one_sei_nalu_after_signing, s, e);
   tcase_add_loop_test(tc, camera_reset_on_signing_side, s, e);
+  tcase_add_loop_test(tc, detect_change_of_public_key, s, e);
   tcase_add_loop_test(tc, fast_forward_stream_with_reset, s, e);
   tcase_add_loop_test(tc, fast_forward_stream_without_reset, s, e);
   tcase_add_loop_test(tc, fast_forward_stream_with_delayed_seis, s, e);
@@ -1278,7 +1263,6 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, no_signature, s, e);
   tcase_add_loop_test(tc, multislice_no_signature, s, e);
   tcase_add_loop_test(tc, recurrence, s, e);
-  tcase_add_loop_test(tc, detect_change_of_public_key, s, e);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);
@@ -1290,10 +1274,10 @@ main(void)
 {
   // Create suite runner and run
   int failed_tests = 0;
-  SRunner *sr = srunner_create (NULL);
-  srunner_add_suite (sr, signed_video_suite());
-  srunner_run_all (sr, CK_ENV);
-  failed_tests = srunner_ntests_failed (sr);
-  srunner_free (sr);
+  SRunner *sr = srunner_create(NULL);
+  srunner_add_suite(sr, signed_video_suite());
+  srunner_run_all(sr, CK_ENV);
+  failed_tests = srunner_ntests_failed(sr);
+  srunner_free(sr);
   return (failed_tests == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
