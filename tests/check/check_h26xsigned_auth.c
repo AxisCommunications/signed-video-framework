@@ -872,7 +872,7 @@ START_TEST(detect_change_of_public_key)
   nalu_list_check_str(list, "GIPPGIPP");
 
   // Generate another GOP from scratch
-  // This will get a new public key
+  // This will generate a new private key, hence transmit a different public key.
   nalu_list_t *list_with_new_public_key = create_signed_nalus("IPPPI", settings[_i]);
   nalu_list_check_str(list_with_new_public_key, "GIPPPGI");
 
