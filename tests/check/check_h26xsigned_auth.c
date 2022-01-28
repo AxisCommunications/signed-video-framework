@@ -881,9 +881,9 @@ START_TEST(detect_change_of_public_key)
 
   // The list will be validated successfully up to the third SEI (G) which has the new Public key.
   //
-  //   GI      -> .P (valid, 1 pending, public_key_has_changed = false)
-  //   IPPGI   -> ....P (valid, 1 pending, public_key_has_changed = false)
-  //   IPPG*I  -> NNN.P (invalid, 1 pending, public_key_has_changed = true, -3 missing)
+  //   GI      -> .P     (valid, 1 pending, public_key_has_changed = false)
+  //   IPPGI   -> ....P  (valid, 1 pending, public_key_has_changed = false)
+  //   IPPG*I  -> NNN.P  (invalid, 1 pending, public_key_has_changed = true, -3 missing)
   //   IPPPG*I -> N....P (invalid, 1 pending, public_key_has_changed = false)
   // where G* has the new Public key. Note that we get -3 missing since we receive 3 more than what
   // is expected according to G*.
