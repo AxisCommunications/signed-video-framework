@@ -567,6 +567,7 @@ validate_authenticity(signed_video_t *self)
     num_expected_nalus = -1;
     num_received_nalus = -1;
   }
+  if (latest->public_key_has_changed) valid = SV_AUTH_RESULT_NOT_OK;
 
   // Update |latest_validation| with the validation result.
   latest->authenticity = valid;
@@ -741,6 +742,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
   latest->number_of_expected_picture_nalus = -1;
   latest->number_of_received_picture_nalus = -1;
   latest->number_of_pending_picture_nalus = -1;
+  latest->public_key_has_changed = false;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
