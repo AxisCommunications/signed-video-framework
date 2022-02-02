@@ -27,6 +27,6 @@
 SignedVideoReturnCode
 sv_vendor_axis_communications_set_attestation_report(signed_video_t *self,
     uint8_t *attestation,
-    size_t att_size,
-    uint8_t *cert_chain,
-    size_t cert_size);
+    size_t attestation_size,
+    uint8_t *certificate_chain,
+    size_t certificate_size);

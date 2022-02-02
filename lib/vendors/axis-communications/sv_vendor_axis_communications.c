@@ -21,12 +21,15 @@
 
 #include "sv_vendor_axis_communications.h"
 
+/**
+ * Function description
+ */
 SignedVideoReturnCode
 sv_vendor_axis_communications_set_attestation_report(__attribute__((unused)) signed_video_t *self,
     __attribute__((unused)) uint8_t *attestation,
-    __attribute__((unused)) size_t att_size,
-    __attribute__((unused)) uint8_t *cert_chain,
-    __attribute__((unused)) size_t cert_size)
+    __attribute__((unused)) size_t attestation_size,
+    __attribute__((unused)) uint8_t *certificate_chain,
+    __attribute__((unused)) size_t certificate_size)
 {
   return SV_OK;
 }
