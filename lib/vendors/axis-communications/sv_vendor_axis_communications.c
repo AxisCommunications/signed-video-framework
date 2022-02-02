@@ -21,9 +21,6 @@
 
 #include "sv_vendor_axis_communications.h"
 
-#include <stddef.h>
-#include <stdint.h>
-
 SignedVideoReturnCode
 sv_vendor_axis_communications_set_attestation_report(__attribute__((unused)) signed_video_t *self,
     __attribute__((unused)) uint8_t *attestation,
