@@ -164,6 +164,8 @@ struct _signed_video_t {
   signed_video_authenticity_t *authenticity;  // Pointer to the authenticity report of which results
   // will be written.
 
+  // For signing plugin
+  void *plugin_handle;
   signature_info_t *signature_info;  // Pointer to all necessary information to sign in a plugin.
 
   // Arbitrary data

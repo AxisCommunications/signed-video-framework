@@ -29,28 +29,29 @@
 #define ATTR_UNUSED __attribute__((unused))
 #endif
 
-static bool signature_generated = false;
+// Plugin handle to store the signature_generated flag.
+typedef struct _sv_unthreaded_plugin_t {
+  bool signature_generated;
+} sv_unthreaded_plugin_t;
 
 static SignedVideoReturnCode
-unthreaded_openssl_sign_hash(signature_info_t *signature_info)
+unthreaded_openssl_sign_hash(sv_unthreaded_plugin_t *self, signature_info_t *signature_info)
 {
   if (!signature_info) return SV_INVALID_PARAMETER;
   // If the generated signature has not been pulled a new signature cannot be generated without
   // replacing it.
-  if (signature_generated) return SV_NOT_SUPPORTED;
+  if (self->signature_generated) return SV_NOT_SUPPORTED;
 
-  signature_generated = true;
+  self->signature_generated = true;
 
   return openssl_sign_hash(signature_info);
 }
 
-/* The |signature_data| is not copied since this implementation is blocking the thread and the
- * signature is written to the memory at once. */
 static bool
-unthreaded_openssl_has_signature(uint8_t ATTR_UNUSED *signature_data)
+unthreaded_openssl_has_signature(sv_unthreaded_plugin_t *self)
 {
-  if (signature_generated) {
-    signature_generated = false;
+  if (self->signature_generated) {
+    self->signature_generated = false;
     return true;
   }
   return false;
@@ -61,26 +62,38 @@ unthreaded_openssl_has_signature(uint8_t ATTR_UNUSED *signature_data)
  */
 
 SignedVideoReturnCode
-sv_interface_sign_hash(signature_info_t *signature_info)
+sv_interface_sign_hash(void *plugin_handle, signature_info_t *signature_info)
 {
-  return unthreaded_openssl_sign_hash(signature_info);
+  sv_unthreaded_plugin_t *self = (sv_unthreaded_plugin_t *)plugin_handle;
+
+  return unthreaded_openssl_sign_hash(self, signature_info);
 }
 
+/* The |signature| is not copied.
+ * This implementation is blocking the thread while signing and the signature is written to the
+ * memory at once. Therefore, only the handle is passed to unthreaded_openssl_has_signature() for
+ * sanity checks on state etc. */
 bool
-sv_interface_get_signature(uint8_t *signature)
+sv_interface_get_signature(void *plugin_handle,
+    uint8_t ATTR_UNUSED *signature,
+    size_t ATTR_UNUSED *signature_size)
 {
-  return unthreaded_openssl_has_signature(signature);
+  sv_unthreaded_plugin_t *self = (sv_unthreaded_plugin_t *)plugin_handle;
+
+  return unthreaded_openssl_has_signature(self);
 }
 
-SignedVideoReturnCode
+void *
 sv_interface_setup()
 {
-  return SV_OK;
+  return calloc(1, sizeof(sv_unthreaded_plugin_t));
 }
 
 void
-sv_interface_teardown()
+sv_interface_teardown(void *plugin_handle)
 {
+  sv_unthreaded_plugin_t *self = (sv_unthreaded_plugin_t *)plugin_handle;
+  free(self);
 }
 
 uint8_t *

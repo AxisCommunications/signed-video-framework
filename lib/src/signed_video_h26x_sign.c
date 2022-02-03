@@ -251,7 +251,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload)
     // End of GOP. Reset flag to get new reference.
     self->gop_info->has_reference_hash = false;
 
-    SVI_THROW(sv_rc_to_svi_rc(sv_interface_sign_hash(signature_info)));
+    SVI_THROW(sv_rc_to_svi_rc(sv_interface_sign_hash(self->plugin_handle, signature_info)));
 
   SVI_CATCH()
   {
@@ -405,7 +405,9 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
     // Only add a SEI if the current NALU is the primary picture NALU and of course if signing is
     // completed.
     if ((nalu.nalu_type == NALU_TYPE_I || nalu.nalu_type == NALU_TYPE_P) && nalu.is_primary_slice &&
-        signature_info->signature && sv_interface_get_signature(signature_info->signature)) {
+        signature_info->signature &&
+        sv_interface_get_signature(
+            self->plugin_handle, signature_info->signature, &signature_info->signature_size)) {
 #ifdef SIGNED_VIDEO_DEBUG
       // Verify the just signed hash
       int verified = -1;
@@ -481,7 +483,9 @@ signed_video_set_end_of_stream(signed_video_t *self)
 
     SVI_THROW(generate_sei_nalu(self, &(nalu_to_prepend->nalu_data)));
     // Fetch the signature. If it is not ready we exit without generating the SEI.
-    SVI_THROW_IF(!sv_interface_get_signature(self->signature_info->signature), SVI_NOT_SUPPORTED);
+    SVI_THROW_IF(!sv_interface_get_signature(self->plugin_handle, self->signature_info->signature,
+                     &self->signature_info->signature_size),
+        SVI_NOT_SUPPORTED);
 
     size_t data_size = get_sign_and_complete_sei_nalu(self, &(nalu_to_prepend->nalu_data));
     SVI_THROW_IF(!data_size, SVI_UNKNOWN);
