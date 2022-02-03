@@ -19,14 +19,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#ifndef __SV_VENDOR_AXIS_COMMUNICATIONS_H__
+#define __SV_VENDOR_AXIS_COMMUNICATIONS_H__
+
 #include <stddef.h>
-#include <stdint.h>
 
 #include "includes/signed_video_common.h"  // SignedVideoReturnCode, signed_video_t
 
 SignedVideoReturnCode
 sv_vendor_axis_communications_set_attestation_report(signed_video_t *self,
-    uint8_t *attestation,
+    void *attestation,
     size_t attestation_size,
-    uint8_t *certificate_chain,
-    size_t certificate_size);
+    char *certificate_chain_size);
+
+#endif  // __SV_VENDOR_AXIS_COMMUNICATIONS_H__

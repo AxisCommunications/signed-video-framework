@@ -25,6 +25,7 @@ signedvideoframework_sources = files(
 # Until plugin management is in place the plugin file(s) are added to the sources.
 signedvideoframework_sources += plugin_sources
 signedvideoframework_sources += vendor_sources
+signedvideoframework_sources += vendor_public_headers
 
 openssl_dep = dependency('openssl', required : true)
 
