@@ -79,6 +79,8 @@ nalu_type_to_str(const h26x_nalu_t *nalu)
       return nalu->is_primary_slice == true ? "P-nalu" : "p-nalu";
     case NALU_TYPE_PS:
       return "PPS/SPS/VPS";
+    case NALU_TYPE_OTHER:
+      return "valid other nalu";
     case NALU_TYPE_UNDEFINED:
     default:
       return "unknown nalu";
@@ -360,7 +362,6 @@ parse_h264_nalu_header(h26x_nalu_t *nalu)
   uint8_t nal_ref_idc = nalu_header & 0x60;  // Two bits
   uint8_t nalu_type = nalu_header & 0x1f;
   bool nalu_header_is_valid = false;
-  bool nalu_is_ignored = false;
 
   // First slice in the current NALU or not
   nalu->is_primary_slice = *(nalu->hashable_data + H264_NALU_HEADER_LEN) & 0x80;
@@ -375,7 +376,7 @@ parse_h264_nalu_header(h26x_nalu_t *nalu)
     case 2:  // Coded slice data partition A
     case 3:  // Coded slice data partition B
     case 4:  // Coded slice data partition C
-      nalu->nalu_type = NALU_TYPE_UNDEFINED;
+      nalu->nalu_type = NALU_TYPE_OTHER;
       nalu_header_is_valid = true;
       break;
     case 5:  // Coded slice of an IDR picture, hence I-nalu
@@ -396,25 +397,23 @@ parse_h264_nalu_header(h26x_nalu_t *nalu)
     case 9:  // AU delimiter
       // Do not hash because these will be removed if you switch from bytestream to NALU stream
       // format
-      nalu->nalu_type = NALU_TYPE_UNDEFINED;
+      nalu->nalu_type = NALU_TYPE_OTHER;
       nalu_header_is_valid = true;
-      nalu_is_ignored = true;
       break;
     case 10:  // End of sequence
     case 11:  // End of stream
     case 12:  // Filter data
-      nalu->nalu_type = NALU_TYPE_UNDEFINED;
+      nalu->nalu_type = NALU_TYPE_OTHER;
       nalu_header_is_valid = (nal_ref_idc == 0);
       break;
     default:
       nalu->nalu_type = NALU_TYPE_UNDEFINED;
-      nalu_header_is_valid = true;
       break;
   }
 
   // If the forbidden_zero_bit is set this is not a correct NALU header.
   nalu_header_is_valid &= !forbidden_zero_bit;
-  return nalu_header_is_valid && !nalu_is_ignored;
+  return nalu_header_is_valid;
 }
 
 static bool
@@ -429,7 +428,6 @@ parse_h265_nalu_header(h26x_nalu_t *nalu)
   uint8_t nuh_temporal_id_plus1 = (*(nalu->hashable_data + 1) & 0x07);  // Three bits
   uint8_t temporalId = nuh_temporal_id_plus1 - 1;
   bool nalu_header_is_valid = false;
-  bool nalu_is_ignored = false;
 
   if ((nuh_temporal_id_plus1 == 0) || (nuh_layer_id > 63)) {
     DEBUG_LOG("H265 NALU header %02x%02x is invalid", nalu_header, *(nalu->hashable_data + 1));
@@ -451,12 +449,12 @@ parse_h265_nalu_header(h26x_nalu_t *nalu)
       break;
     case 2:  // 2 TSA_N Coded slice segment of a TSA picture VCL
     case 3:  // 3 TSA_R Coded slice segment of a TSA picture VCL
-      nalu->nalu_type = NALU_TYPE_UNDEFINED;
+      nalu->nalu_type = NALU_TYPE_OTHER;
       nalu_header_is_valid = (temporalId != 0);
       break;
     case 4:  // 4 STSA_N Coded slice segment of an STSA picture VCL
     case 5:  // 5 STSA_R Coded slice segment of an STSA picture VCL
-      nalu->nalu_type = NALU_TYPE_UNDEFINED;
+      nalu->nalu_type = NALU_TYPE_OTHER;
       nalu_header_is_valid = (nuh_layer_id == 0) ? (temporalId != 0) : true;
       break;
 
@@ -465,7 +463,7 @@ parse_h265_nalu_header(h26x_nalu_t *nalu)
     case 7:  // 7 RADL_R Coded slice segment of a RADL picture VCL
     case 8:  // 8 RASL_N Coded slice segment of a RASL picture VCL
     case 9:  // 9 RASL_R Coded slice segment of a RASL picture VCL
-      nalu->nalu_type = NALU_TYPE_UNDEFINED;
+      nalu->nalu_type = NALU_TYPE_OTHER;
       nalu_header_is_valid = (temporalId != 0);
       break;
 
@@ -493,15 +491,14 @@ parse_h265_nalu_header(h26x_nalu_t *nalu)
       // Do not hash because these will be removed if you switch
       // from bytestream to NALU stream format
       nalu_header_is_valid = true;
-      nalu_is_ignored = true;
       break;
     case 36:  // 36 EOS_NUT End non-VCL
     case 37:  // 37 EOB_NUT End of non-VCL
-      nalu->nalu_type = NALU_TYPE_UNDEFINED;
+      nalu->nalu_type = NALU_TYPE_OTHER;
       nalu_header_is_valid = (temporalId == 0) && (nuh_layer_id == 0);
       break;
     case 38:  // 38 FD_NUTFiller datafiller_data_rbsp() non-VCL
-      nalu->nalu_type = NALU_TYPE_UNDEFINED;
+      nalu->nalu_type = NALU_TYPE_OTHER;
       nalu_header_is_valid = true;
       break;
     case 39:  // 39 PREFIX_SEI_NUTSUFFIX_SEI_NUT non-VCL
@@ -524,13 +521,12 @@ parse_h265_nalu_header(h26x_nalu_t *nalu)
       // 24..31 RSV_VCL24.. RSV_VCL31 Reserved non-IRAP VCL NAL unit types VCL
       // 48..63 UNSPEC48..UNSPEC63Unspecified  non-VCL
       nalu->nalu_type = NALU_TYPE_UNDEFINED;
-      nalu_header_is_valid = false;
       break;
   }
 
   // If the forbidden_zero_bit is set this is not a correct NALU header.
   nalu_header_is_valid &= !forbidden_zero_bit;
-  return nalu_header_is_valid && !nalu_is_ignored;
+  return nalu_header_is_valid;
 }
 
 /**
@@ -611,7 +607,7 @@ parse_nalu_info(const uint8_t *nalu_data,
   const uint32_t kStartCode = 0x00000001;
   uint32_t start_code = 0;
   size_t read_bytes = read_32bits(nalu_data, &start_code);
-  bool nalu_header_is_hashable = false;
+  bool nalu_header_is_valid = false;
 
   if (start_code != kStartCode) {
     // Check if this is a 3 byte Start Code.
@@ -627,23 +623,19 @@ parse_nalu_info(const uint8_t *nalu_data,
   nalu.start_code = start_code;
 
   if (codec == SV_CODEC_H264) {
-    nalu_header_is_hashable = parse_h264_nalu_header(&nalu);
+    nalu_header_is_valid = parse_h264_nalu_header(&nalu);
     nalu_header_len = H264_NALU_HEADER_LEN;
   } else {
-    nalu_header_is_hashable = parse_h265_nalu_header(&nalu);
+    nalu_header_is_valid = parse_h265_nalu_header(&nalu);
     nalu_header_len = H265_NALU_HEADER_LEN;
   }
-  // If we do not have a correct NALU header set the NALU type to undefined
-  if (!nalu_header_is_hashable) nalu.nalu_type = NALU_TYPE_UNDEFINED;
-  nalu.is_valid = nalu_header_is_hashable;
-  // The base assumption is that a valid H26X NALU should also be hashed. There is one exception and
-  // that is SEI-nalus which are treated separately.
-  nalu.is_hashable = nalu_header_is_hashable;
+  // If a correct NALU header could not be parsed, mark as invalid.
+  nalu.is_valid = nalu_header_is_valid;
 
-  // Do not hash PPS/SPS/VPS NALUs. They can change for example when storing to file.
-  if (nalu.nalu_type == NALU_TYPE_PS) nalu.is_hashable = false;
+  // Only picture NALUs are hashed.
+  if (nalu.nalu_type == NALU_TYPE_I || nalu.nalu_type == NALU_TYPE_P) nalu.is_hashable = true;
 
-  nalu.is_first_nalu_in_gop = nalu.nalu_type == NALU_TYPE_I && nalu.is_primary_slice;
+  nalu.is_first_nalu_in_gop = (nalu.nalu_type == NALU_TYPE_I) && nalu.is_primary_slice;
 
   // It has been noticed that, at least, ffmpeg can add a trailing 0x00 byte at the end of a NALU
   // when exporting to an mp4 container file. This has so far only been observed for H265. The
@@ -690,7 +682,6 @@ parse_nalu_info(const uint8_t *nalu_data,
     nalu.is_gop_sei = (nalu.uuid_type == UUID_TYPE_SIGNED_VIDEO);
 
     // Only Signed Video generated SEI-NALUs are valid and hashable.
-    nalu.is_valid = nalu.is_gop_sei;
     nalu.is_hashable = nalu.is_gop_sei;
 
     remove_emp_bytes_from_sei_payload(&nalu);
