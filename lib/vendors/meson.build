@@ -3,8 +3,7 @@
 # signed-video-framework.
 
 vendor_sources = files(
-  'axis-communications/sv_vendor_axis_communications.h',
-  'axis-communications/sv_vendor_axis_communications.c'
+  'axis-communications/sv_vendor_axis_communications.c',
 )
 
 vendor_public_headers = files(

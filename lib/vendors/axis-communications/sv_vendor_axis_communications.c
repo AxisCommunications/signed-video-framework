@@ -28,7 +28,7 @@ SignedVideoReturnCode
 sv_vendor_axis_communications_set_attestation_report(__attribute__((unused)) signed_video_t *self,
     __attribute__((unused)) void *attestation,
     __attribute__((unused)) size_t attestation_size,
-    __attribute__((unused)) char *certificate_chain_size)
+    __attribute__((unused)) char *certificate_chain)
 {
   return SV_OK;
 }
