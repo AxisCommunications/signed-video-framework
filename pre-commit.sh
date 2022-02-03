@@ -9,12 +9,12 @@ if [ "$NO_VERIFY" ]; then
 fi
 
 echo "--Static code analysis--"
-for file in `git diff-index --cached --name-only HEAD --diff-filter=ACMR| grep "src\/.*\.[c|h]$"` ; do
+for file in `git diff-index --cached --name-only HEAD --diff-filter=ACMR| grep ".\/.*\.[c|h]$"` ; do
     # This makes sure to check against the revision in the index (and not the checked out version).
 
     clang-format -i $file
 done
-for diffile in `git diff --name-only --diff-filter=ACMR| grep "src\/.*\.[c|h]$"` ; do
+for diffile in `git diff --name-only --diff-filter=ACMR| grep ".\/.*\.[c|h]$"` ; do
 echo "================================================================================"
 echo " clang-format found problems with $file"
 echo
