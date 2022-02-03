@@ -53,6 +53,7 @@ typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 
 #define DEFAULT_MAX_GOP_LENGTH 300
 #define RECURRENCE_MIN 1
+#define RECURRENCE_OFFSET_DEFAULT 0
 
 /* Compile time defined, otherwise set default value */
 #ifndef MAX_GOP_LENGTH
@@ -146,6 +147,7 @@ struct _signed_video_t {
   gop_state_t gop_state;
   gop_info_detected_t gop_info_detected;
   int recurrence;
+  int recurrence_offset;
 
   int signing_present;
   // State to indicate if Signed Video is present or not. Used for signing, and can only move

@@ -800,7 +800,8 @@ tlv_list_encode_or_get_size(signed_video_t *self,
     sv_tlv_tag_t tag = tags[ii];
     sv_tlv_tuple_t tlv = tlv_tuples[tag];
 
-    if (tlv.is_always_present || (gop_counter % self->recurrence) == 0) {
+    if (tlv.is_always_present ||
+        ((gop_counter + self->recurrence_offset) % self->recurrence) == 0) {
       size_t tlv_size = tlv_encode_or_get_size_generic(self, tlv, data_ptr);
       tlv_list_size += tlv_size;
       // Increment data_ptr if we're writing data
@@ -904,37 +905,52 @@ tlv_find_tag(signed_video_t *self,
 }
 
 svi_rc
-tlv_find_tag_and_decode(signed_video_t *self,
+tlv_find_tag_and_decode_recurrent_tags(signed_video_t *self,
     const uint8_t *tlv_data,
     size_t tlv_data_size,
-    sv_tlv_tag_t tag,
     bool with_ep)
 {
+  const uint8_t *tlv_data_ptr = tlv_data;
+  const uint8_t *latest_tag_location = NULL;
+
   if (!self || !tlv_data || tlv_data_size == 0) return SVI_INVALID_PARAMETER;
 
-  const uint8_t *tag_ptr = tlv_find_tag(self, tlv_data, tlv_data_size, tag, with_ep);
-  if (!tag_ptr) {
-    return SVI_INVALID_PARAMETER;
-  }
-
   svi_rc status = SVI_UNKNOWN;
-  size_t tlv_header_size = 0;
-  size_t length = 0;
-  sv_tlv_tag_t tag_check = 0;
-  status = decode_tlv_header(tag_ptr, &tlv_header_size, &tag_check, &length);
-  if (status != SVI_OK) {
-    DEBUG_LOG("Could not decode TLV header (error %d)", status);
-    goto catch_error;
-  }
-  assert(tag == tag_check);
+  uint16_t last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
+  while (tlv_data_ptr < tlv_data + tlv_data_size) {
+    latest_tag_location = tlv_data_ptr;
+    // Read the tag
+    sv_tlv_tag_t this_tag = read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
+    // If it is a recurrent tag then decode it
+    if (!tlv_tuples[this_tag].is_always_present) {
+      size_t tlv_header_size = 0;
+      size_t length = 0;
+      sv_tlv_tag_t tag_check = 0;
+      status = decode_tlv_header(latest_tag_location, &tlv_header_size, &tag_check, &length);
+      if (status != SVI_OK) {
+        DEBUG_LOG("Could not decode tlv header");
+        break;
+      }
+      sv_tlv_decoder_t decoder = get_decoder(this_tag);
+      status = decoder(self, latest_tag_location + tlv_header_size, length);
+      if (status != SVI_OK) {
+        DEBUG_LOG("Could not decode");
+        break;
+      }
+    }
 
-  sv_tlv_decoder_t decoder = get_decoder(tag);
-  status = decoder(self, tag_ptr + tlv_header_size, length);
-  if (status != SVI_OK) {
-    DEBUG_LOG("Could not decode data (error %d)", status);
+    // Read the length
+    uint16_t length = read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
+    if (tlv_tuples[this_tag].bytes_for_length == 2) {
+      length <<= 8;
+      length |= read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
+    }
+    // Scan past the data
+    for (int i = 0; i < length; i++) {
+      read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
+    }
   }
 
-catch_error:
   return status;
 }
 

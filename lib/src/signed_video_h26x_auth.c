@@ -750,27 +750,25 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
     return SVI_MEMORY;
   }
 
+  // Check if public_key has been received
   if (!self->has_public_key && gop_state->signing_present) {
-    bool public_key_found = false;
+    bool public_key_decoded = false;
     h26x_nalu_list_item_t *item = nalu_list->first_item;
 
-    while (item) {
+    while (item && !public_key_decoded) {
       if (item->nalu && item->nalu->is_gop_sei && item->validation_status == 'P') {
         const uint8_t *tlv_data = item->nalu->tlv_data;
         size_t tlv_size = item->nalu->tlv_size;
-        svi_rc ret = SVI_UNKNOWN;
-        ret = tlv_find_tag_and_decode(self, tlv_data, tlv_size, PUBLIC_KEY_TAG, false);
-        if (ret == SVI_OK) {
-          public_key_found = true;
-          break;
-        } else {
-          DEBUG_LOG("Public key missing");
+        public_key_decoded =
+            tlv_find_tag_and_decode_recurrent_tags(self, tlv_data, tlv_size, false) == SVI_OK;
+        if (!public_key_decoded) {
+          DEBUG_LOG("Failed to find and decode recurrent tags");
         }
       }
       item = item->next;
     }
-    if (!public_key_found) {
-      /* Reset the gop_state_t and gop_info_detected_t. */
+    if (!public_key_decoded) {
+      DEBUG_LOG("Public key missing");
       gop_state_reset(gop_state, gop_info_detected);
       latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
       return SVI_OK;

@@ -211,4 +211,24 @@ parse_nalu_info(const uint8_t *nalu_data,
 SignedVideoReturnCode
 signed_video_set_recurrence_interval(signed_video_t *self, int recurrence);
 
+#ifdef UNIT_TEST
+/**
+ * @brief Sets the recurrence offset for the signed video session
+ *
+ * Without an offset the recurrent tags are included in the first SEI. But with an offset the
+ * recurrent tags are included later on dependent on offset.
+ *
+ * This API to set the recurrence offset is only possible to use when executing unit tests.
+ *
+ * @param self Session struct pointer
+ * @param offset Recurrence offset
+ *
+ * @returns SV_OK Recurrence offset was successfully set,
+ *          SV_INVALID_PARAMETER Invalid parameter,
+ *          SV_NOT_SUPPORTED Recurrence interval is not supported.
+ */
+SignedVideoReturnCode
+signed_video_set_recurrence_offset(signed_video_t *self, int offset);
+#endif
+
 #endif  // __SIGNED_VIDEO_H26X_INTERNAL__

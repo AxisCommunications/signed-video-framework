@@ -15,6 +15,8 @@ if get_option('test-settings')
   endif
   # Set MAX_GOP_LENGTH to 10 in tests to avoid long streams
   add_global_arguments('-DMAX_GOP_LENGTH=10', language : 'c')
+  # Option for code related to unit tests
+  add_global_arguments('-DUNIT_TEST', language : 'c')
 endif
 if get_option('debugprints')
   add_global_arguments('-DSIGNED_VIDEO_DEBUG', language : 'c')

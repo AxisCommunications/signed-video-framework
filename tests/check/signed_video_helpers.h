@@ -21,8 +21,8 @@
 #ifndef __SIGNED_VIDEO_HELPERS_H__
 #define __SIGNED_VIDEO_HELPERS_H__
 
-#include "lib/src/includes/signed_video_interfaces.h"  // sign_algo_t
 #include "lib/src/includes/signed_video_common.h"  // signed_video_t, SignedVideoCodec
+#include "lib/src/includes/signed_video_interfaces.h"  // sign_algo_t
 #include "lib/src/includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
 #include "nalu_list.h"  // nalu_list_t
 
@@ -32,16 +32,21 @@
 #define MANUFACT "manufacturer"
 #define ADDR "address"
 
-typedef enum { SV_RECURRENCE_DEFAULT = 1, SV_RECURRENCE_THREE = 3} SignedVideoRecurrence;
+typedef enum { SV_RECURRENCE_DEFAULT = 1, SV_RECURRENCE_THREE = 3 } SignedVideoRecurrence;
+typedef enum {
+  SV_RECURRENCE_OFFSET_DEFAULT = 0,
+  SV_RECURRENCE_OFFSET_ONE = 1
+} SignedVideoRecurrenceOffset;
 
 struct sv_setting {
   SignedVideoCodec codec;
   SignedVideoAuthenticityLevel auth_level;
   sign_algo_t algo;
   SignedVideoRecurrence recurrence;
+  SignedVideoRecurrenceOffset recurrence_offset;
 };
 
-#define NUM_SETTINGS 16
+#define NUM_SETTINGS 32
 extern const struct sv_setting settings[NUM_SETTINGS];
 
 /* Creates a signed_video_t session and initialize it by setting
@@ -77,8 +82,7 @@ create_signed_nalus(const char *str, struct sv_setting settings);
 /* Removes the NALU list items with position |item_number| from the |list|. The item is, after a
  * check against the expected |str|, then freed. */
 void
-remove_item_then_check_and_free(nalu_list_t *list, int item_number,
-    const char *str);
+remove_item_then_check_and_free(nalu_list_t *list, int item_number, const char *str);
 
 /* Modifies the id of |item_number| by incrementing the value by one. Applies to both codecs in
  * |h26x_lists|. A sanity check on expected string of that item is done. */

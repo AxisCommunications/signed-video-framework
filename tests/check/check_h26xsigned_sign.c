@@ -53,8 +53,7 @@ pull_nalus(signed_video_t *sv, int num_nalus_to_pull, int *nalus_pulled)
   if (num_nalus_to_pull == 0) goto done;
 
   sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
-  while (sv_rc == SV_OK &&
-      nalu_to_prepend.prepend_instruction != SIGNED_VIDEO_PREPEND_NOTHING) {
+  while (sv_rc == SV_OK && nalu_to_prepend.prepend_instruction != SIGNED_VIDEO_PREPEND_NOTHING) {
 
     num_pulled_nalus++;
     // Free the nalu_data before pulling a new nalu_to_prepend.
@@ -106,8 +105,7 @@ START_TEST(api_inputs)
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   sv_rc = signed_video_set_private_key(sv, SIGN_ALGO_NUM, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
-  sv_rc =
-      signed_video_set_private_key(sv, SIGN_ALGO_NUM + 1, private_key, private_key_size);
+  sv_rc = signed_video_set_private_key(sv, SIGN_ALGO_NUM + 1, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
   sv_rc = signed_video_set_private_key(sv, -1, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
@@ -168,8 +166,8 @@ START_TEST(api_inputs)
   sv_rc = signed_video_set_end_of_stream(NULL);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   // Checking signed_video_set_product_info().
-  sv_rc = signed_video_set_product_info(NULL, "hardware_id", "firmware_version",
-      "serial_number", "manufacturer", "address");
+  sv_rc = signed_video_set_product_info(
+      NULL, "hardware_id", "firmware_version", "serial_number", "manufacturer", "address");
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   // The strings are allowed to be NULL pointers.
   sv_rc = signed_video_set_product_info(
@@ -221,11 +219,10 @@ START_TEST(incorrect_operation)
   SignedVideoReturnCode sv_rc =
       signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
-  sv_rc = signed_video_generate_private_key(
-      settings[_i].algo, "./", &private_key, &private_key_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc =
-      signed_video_set_private_key(sv, settings[_i].algo, private_key, private_key_size);
+      signed_video_generate_private_key(settings[_i].algo, "./", &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_private_key(sv, settings[_i].algo, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -460,28 +457,26 @@ END_TEST
  */
 START_TEST(recurrence)
 {
-  if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
-    nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
-    ck_assert(list);
-    nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
+  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
+  ck_assert(list);
+  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
 
-    nalu_list_item_t *item;
-    int last_sei_size = 0;
-    int gop_counter = 0;
-    for (int i = 1; i <= (list->num_items); i++) {
-      item = nalu_list_get_item(list, i);
-      if (strncmp(item->str_code, "G", 1) == 0) {
-        if ((gop_counter % settings[_i].recurrence) == 0) {
+  nalu_list_item_t *item;
+  int last_sei_size = 0;
+  int gop_counter = 0;
+  for (int i = 1; i <= (list->num_items); i++) {
+    item = nalu_list_get_item(list, i);
+    if (strncmp(item->str_code, "G", 1) == 0) {
+      if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+        if (((gop_counter + settings[_i].recurrence_offset) % settings[_i].recurrence) == 0) {
           ck_assert_int_gt(item->data_size, last_sei_size);
-        } else {
-          ck_assert_int_le(item->data_size, last_sei_size);
         }
-        gop_counter++;
-        last_sei_size = item->data_size;
       }
+      gop_counter++;
+      last_sei_size = item->data_size;
     }
-    nalu_list_free(list);
   }
+  nalu_list_free(list);
 }
 END_TEST
 
