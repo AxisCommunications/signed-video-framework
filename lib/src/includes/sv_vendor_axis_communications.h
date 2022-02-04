@@ -22,7 +22,7 @@
 #ifndef __SV_VENDOR_AXIS_COMMUNICATIONS_H__
 #define __SV_VENDOR_AXIS_COMMUNICATIONS_H__
 
-#include <stddef.h>
+#include <string.h>
 
 #include "signed_video_common.h"  // SignedVideoReturnCode, signed_video_t
 

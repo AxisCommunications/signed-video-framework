@@ -21,14 +21,24 @@
 
 #include "includes/sv_vendor_axis_communications.h"
 
+#include <stdlib.h>
+
+#include "signed_video_internal.h"
+
 /**
  * Function description
  */
 SignedVideoReturnCode
-sv_vendor_axis_communications_set_attestation_report(__attribute__((unused)) signed_video_t *self,
-    __attribute__((unused)) void *attestation,
-    __attribute__((unused)) size_t attestation_size,
-    __attribute__((unused)) char *certificate_chain)
+sv_vendor_axis_communications_set_attestation_report(signed_video_t *self,
+    void *attestation,
+    size_t attestation_size,
+    char *certificate_chain)
 {
+  self = NULL;
+  self = (signed_video_t *)calloc(1, sizeof(signed_video_t));
+
+  self->attestation = malloc(attestation_size);
+  memcpy(self->attestation, attestation, attestation_size);
+  strcpy(self->certificate_chain, certificate_chain);
   return SV_OK;
 }
