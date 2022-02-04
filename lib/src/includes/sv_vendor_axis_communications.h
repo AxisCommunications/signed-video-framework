@@ -24,7 +24,7 @@
 
 #include <stddef.h>
 
-#include "includes/signed_video_common.h"  // SignedVideoReturnCode, signed_video_t
+#include "signed_video_common.h"  // SignedVideoReturnCode, signed_video_t
 
 SignedVideoReturnCode
 sv_vendor_axis_communications_set_attestation_report(signed_video_t *self,

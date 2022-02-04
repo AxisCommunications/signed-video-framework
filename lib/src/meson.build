@@ -4,6 +4,7 @@ signedvideoframework_public_headers = files(
   'includes/signed_video_interfaces.h',
   'includes/signed_video_openssl.h',
   'includes/signed_video_sign.h',
+  'includes/sv_vendor_axis_communications.h',
 )
 
 signedvideoframework_sources = files(
@@ -25,7 +26,6 @@ signedvideoframework_sources = files(
 # Until plugin management is in place the plugin file(s) are added to the sources.
 signedvideoframework_sources += plugin_sources
 signedvideoframework_sources += vendor_sources
-signedvideoframework_public_headers += vendor_public_headers
 
 openssl_dep = dependency('openssl', required : true)
 
