@@ -2,9 +2,9 @@
 
 # Signed Video Framework plugins
 
-Signing using a private key is usually done in a secure part of a device. This usually requires device specific operations which cannot be generalized to an open source project. We therefore see a need to support signing through a concept of plugins.
+Signing using a private key is usually done in a secure part of a device. This usually requires device specific operations which cannot be generalized to an open source project. There is therefore a need to support signing through a concept of plugins.
 
-The Signed Video Framework comes with a plugin that uses OpenSSL APIs to generate a signature. This plugin is unthreaded and blocks until the signature has been generated.
+The Signed Video Framework comes with a plugin that uses OpenSSL APIs to generate a signature. This plugin is unthreaded and blocks until the signature has been generated. It is safe to use in a multi-threaded integration, where the same library is used to sign multiple streams.
 
 Note that the meson build environment adds this plugin to the library sources, hence there is no plugin management system present in Signed Video Framework to control which plugin to use.
 
