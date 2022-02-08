@@ -172,7 +172,7 @@ struct _signed_video_t {
   // sent through the ARBITRARY_DATA_TAG.
   size_t arbitrary_data_size;  // Size of |arbitrary_data|.
 
-  bool has_public_key;  // State to indicate if public key is received.
+  bool has_public_key;  // State to indicate if public key is received/added
 };
 
 typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;

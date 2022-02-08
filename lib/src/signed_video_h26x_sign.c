@@ -591,14 +591,17 @@ signed_video_set_recurrence_interval(signed_video_t *self, int recurrence)
   svi_rc status;
   SVI_TRY()
     SVI_THROW_IF_WITH_MSG(
-        recurrence < RECURRENCE_MIN, SVI_NOT_SUPPORTED, "Invalid recurrence interval");
+        recurrence < RECURRENCE_MIN, SVI_NOT_SUPPORTED, "Recurrence interval < RECURRENCE_MIN");
+    SVI_THROW_IF_WITH_MSG(
+        recurrence > MAX_GOP_LENGTH, SVI_NOT_SUPPORTED, "Recurrence interval > MAX_GOP_LENGTH");
     self->recurrence = recurrence;
   SVI_CATCH()
   SVI_DONE(status)
+
   return svi_rc_to_signed_video_rc(status);
 }
 
-#ifdef UNIT_TEST
+#ifdef SV_UNIT_TEST
 SignedVideoReturnCode
 signed_video_set_recurrence_offset(signed_video_t *self, int offset)
 {
@@ -606,10 +609,11 @@ signed_video_set_recurrence_offset(signed_video_t *self, int offset)
 
   svi_rc status;
   SVI_TRY()
-    SVI_THROW_IF_WITH_MSG(offset > self->recurrence, SVI_NOT_SUPPORTED, "Invalid offset");
+    SVI_THROW_IF_WITH_MSG(offset >= self->recurrence, SVI_NOT_SUPPORTED, "Invalid offset");
     self->recurrence_offset = offset;
   SVI_CATCH()
   SVI_DONE(status)
+
   return svi_rc_to_signed_video_rc(status);
 }
 #endif

@@ -152,21 +152,18 @@ read_byte(uint16_t *last_two_bytes, const uint8_t **payload, bool do_emulation_p
 /**
  * @brief Scans the TLV part of a SEI payload and decodes all tags dependent on recurrency.
  *
- * The data is assumed to have been written in a TLV format. tlv_find_tag_and_decode_recurrent_tags
- * parses data and finds all tags dependent on recurrency and decodes them. The function can handle
- * data both with and without emulation prevention bytes.
+ * The data is assumed to have been written in a TLV format. tlv_find_and_decode_recurrent_tags
+ * parses data and finds all tags dependent on recurrency and decodes them.
  *
  * @param signed_video Pointer to the signed_video_t session.
  * @param tlv_data Pointer to the TLV data to scan.
  * @param tlv_data_size Size of the TLV data.
- * @param with_ep Flag to indicate if emulation prevention bytes is on.
  *
  * @returns SVI_OK if find and decoding tag was successful, otherwise an error code.
  */
 svi_rc
-tlv_find_tag_and_decode_recurrent_tags(signed_video_t *self,
+tlv_find_and_decode_recurrent_tags(signed_video_t *self,
     const uint8_t *tlv_data,
-    size_t tlv_data_size,
-    bool with_ep);
+    size_t tlv_data_size);
 
 #endif  // __SIGNED_VIDEO_TLV_H__

@@ -721,6 +721,41 @@ prepare_for_validation(signed_video_t *self)
   return status;
 }
 
+// If public_key is not received then try to decode all recurrent tags.
+static bool
+is_recurrent_data_decoded(signed_video_t *self)
+{
+  gop_state_t *gop_state = &(self->gop_state);
+  gop_info_detected_t *gop_info_detected = &(self->gop_info_detected);
+  signed_video_latest_validation_t *latest = self->latest_validation;
+  h26x_nalu_list_t *nalu_list = self->nalu_list;
+
+  if (!self->has_public_key && gop_state->signing_present) {
+    bool recurrent_data_decoded = false;
+    h26x_nalu_list_item_t *item = nalu_list->first_item;
+
+    while (item && !recurrent_data_decoded) {
+      if (item->nalu && item->nalu->is_gop_sei && item->validation_status == 'P') {
+        const uint8_t *tlv_data = item->nalu->tlv_data;
+        size_t tlv_size = item->nalu->tlv_size;
+        recurrent_data_decoded =
+            tlv_find_and_decode_recurrent_tags(self, tlv_data, tlv_size) == SVI_OK;
+        if (!recurrent_data_decoded) {
+          DEBUG_LOG("Failed to find and decode recurrent tags");
+        }
+      }
+      item = item->next;
+    }
+    if (!recurrent_data_decoded) {
+      DEBUG_LOG("Public key missing");
+      gop_state_reset(gop_state, gop_info_detected);
+      latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+      return false;
+    }
+  }
+  return true;
+}
+
 /* Validates the authenticity of the video since last time if the state says so. After the
  * validation the gop state is reset w.r.t. a new GOP. */
 static svi_rc
@@ -740,39 +775,21 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
   // Copy gop_info_detected and gop_state to struct h26x_nalu_list_t. This is needed if the public
   // key arrives late. When public key eventually arrives correct gop_info_detected and gop_state
   // can be used for that specific gop.
-  if (nalu_list->gop_idx < NR_OF_PENDING_GOPS) {
+  if (nalu_list->gop_idx < MAX_PENDING_GOPS) {
     memcpy(&nalu_list->gop_state_pending[nalu_list->gop_idx], gop_state, sizeof(gop_state_t));
     memcpy(&nalu_list->gop_info_detected_pending[nalu_list->gop_idx], gop_info_detected,
         sizeof(gop_info_detected_t));
     nalu_list->gop_idx++;
   } else {
-    DEBUG_LOG("Warning: Number of pending gops exeeds limit > %d", NR_OF_PENDING_GOPS);
+    DEBUG_LOG("Warning: Number of pending gops exeeds limit > %d", MAX_PENDING_GOPS);
     return SVI_MEMORY;
   }
 
-  // Check if public_key has been received
-  if (!self->has_public_key && gop_state->signing_present) {
-    bool public_key_decoded = false;
-    h26x_nalu_list_item_t *item = nalu_list->first_item;
-
-    while (item && !public_key_decoded) {
-      if (item->nalu && item->nalu->is_gop_sei && item->validation_status == 'P') {
-        const uint8_t *tlv_data = item->nalu->tlv_data;
-        size_t tlv_size = item->nalu->tlv_size;
-        public_key_decoded =
-            tlv_find_tag_and_decode_recurrent_tags(self, tlv_data, tlv_size, false) == SVI_OK;
-        if (!public_key_decoded) {
-          DEBUG_LOG("Failed to find and decode recurrent tags");
-        }
-      }
-      item = item->next;
-    }
-    if (!public_key_decoded) {
-      DEBUG_LOG("Public key missing");
-      gop_state_reset(gop_state, gop_info_detected);
-      latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
-      return SVI_OK;
-    }
+  bool recurrent_data_decoded = false;
+  recurrent_data_decoded = is_recurrent_data_decoded(self);
+  if (!recurrent_data_decoded) {
+    DEBUG_LOG("Recurrent data not decoded");
+    return SVI_OK;
   }
 
   // Initialize latest validation.
@@ -783,15 +800,13 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    // |first_validation_check| keeps track of first validation when looping through pending gops
-    bool first_validation_check = true;
     // Loop through possible pending gops and validate them
     for (int i = 0; i < nalu_list->gop_idx; i++) {
       memcpy(gop_state, &nalu_list->gop_state_pending[i], sizeof(gop_state_t));
       memcpy(
           gop_info_detected, &nalu_list->gop_info_detected_pending[i], sizeof(gop_info_detected_t));
 
-      if (!first_validation_check) gop_state->is_first_validation = false;
+      if (i > 0) gop_state->is_first_validation = false;
 
       SVI_THROW(prepare_for_validation(self));
 
@@ -805,7 +820,6 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
       // The flag |is_first_validation| is used to ignore the first validation if we start the
       // validation in the middle of a stream. Now it is time to reset it.
       gop_state->is_first_validation = false;
-      first_validation_check = false;
 
       // Reset the gop_state_t and gop_info_detected_t.
       gop_state_reset(gop_state, gop_info_detected);

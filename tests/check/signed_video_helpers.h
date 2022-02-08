@@ -46,7 +46,7 @@ struct sv_setting {
   SignedVideoRecurrenceOffset recurrence_offset;
 };
 
-#define NUM_SETTINGS 32
+#define NUM_SETTINGS 24
 extern const struct sv_setting settings[NUM_SETTINGS];
 
 /* Creates a signed_video_t session and initialize it by setting

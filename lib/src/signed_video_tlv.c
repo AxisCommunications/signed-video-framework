@@ -20,7 +20,6 @@
  */
 #include "signed_video_tlv.h"
 
-#include <assert.h>  // assert
 #include <stdlib.h>  // free
 
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
@@ -905,51 +904,38 @@ tlv_find_tag(signed_video_t *self,
 }
 
 svi_rc
-tlv_find_tag_and_decode_recurrent_tags(signed_video_t *self,
+tlv_find_and_decode_recurrent_tags(signed_video_t *self,
     const uint8_t *tlv_data,
-    size_t tlv_data_size,
-    bool with_ep)
+    size_t tlv_data_size)
 {
   const uint8_t *tlv_data_ptr = tlv_data;
-  const uint8_t *latest_tag_location = NULL;
 
   if (!self || !tlv_data || tlv_data_size == 0) return SVI_INVALID_PARAMETER;
 
   svi_rc status = SVI_UNKNOWN;
-  uint16_t last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
+  bool recurrent_tags_found = false;
   while (tlv_data_ptr < tlv_data + tlv_data_size) {
-    latest_tag_location = tlv_data_ptr;
-    // Read the tag
-    sv_tlv_tag_t this_tag = read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
-    // If it is a recurrent tag then decode it
+    size_t tlv_header_size = 0;
+    size_t length = 0;
+    sv_tlv_tag_t this_tag = UNDEFINED_TAG;
+    status = decode_tlv_header(tlv_data_ptr, &tlv_header_size, &this_tag, &length);
+    if (status != SVI_OK) {
+      DEBUG_LOG("Could not decode tlv header");
+      break;
+    }
+    tlv_data_ptr += tlv_header_size;
     if (!tlv_tuples[this_tag].is_always_present) {
-      size_t tlv_header_size = 0;
-      size_t length = 0;
-      sv_tlv_tag_t tag_check = 0;
-      status = decode_tlv_header(latest_tag_location, &tlv_header_size, &tag_check, &length);
-      if (status != SVI_OK) {
-        DEBUG_LOG("Could not decode tlv header");
-        break;
-      }
+      recurrent_tags_found = true;
       sv_tlv_decoder_t decoder = get_decoder(this_tag);
-      status = decoder(self, latest_tag_location + tlv_header_size, length);
+      status = decoder(self, tlv_data_ptr, length);
       if (status != SVI_OK) {
         DEBUG_LOG("Could not decode");
         break;
       }
     }
-
-    // Read the length
-    uint16_t length = read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
-    if (tlv_tuples[this_tag].bytes_for_length == 2) {
-      length <<= 8;
-      length |= read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
-    }
-    // Scan past the data
-    for (int i = 0; i < length; i++) {
-      read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
-    }
+    tlv_data_ptr += length;
   }
+  if (!recurrent_tags_found) status = SVI_INVALID_PARAMETER;
 
   return status;
 }

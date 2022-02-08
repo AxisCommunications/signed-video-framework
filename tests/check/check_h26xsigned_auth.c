@@ -1045,12 +1045,6 @@ START_TEST(camera_reset_on_signing_side)
     expected.pending_nalus = 4;
   }
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_DEFAULT) {
-      expected.valid_gops = 2;
-      expected.invalid_gops = 2;
-      expected.missed_nalus = -3;
-      expected.pending_nalus = 4;
-    }
     if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
       expected.valid_gops = 0;
       expected.invalid_gops = 0;
