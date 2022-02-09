@@ -1134,7 +1134,8 @@ signed_video_create(SignedVideoCodec codec)
     self->recurrence = RECURRENCE_MIN;
 
     // Setup the plugin.
-    SVI_THROW(sv_rc_to_svi_rc(sv_interface_setup()));
+    self->plugin_handle = sv_interface_setup();
+    SVI_THROW_IF(!self->plugin_handle, SVI_EXTERNAL_FAILURE);
 
   SVI_CATCH()
   {
@@ -1184,7 +1185,7 @@ signed_video_free(signed_video_t *self)
   if (!self) return;
 
   // Teardown the plugin before closing.
-  sv_interface_teardown();
+  sv_interface_teardown(self->plugin_handle);
 
   // Free any NALUs left to prepend.
   free_and_reset_nalu_to_prepend_list(self);
