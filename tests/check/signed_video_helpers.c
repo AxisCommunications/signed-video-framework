@@ -262,3 +262,20 @@ modify_list_item(nalu_list_t *list, int item_number, const char *exp_str)
   nalu_list_item_check_str(item, exp_str);
   item->data[item->data_size - 2] += 1;  // Modifying id byte
 }
+
+/* Checks if a particular TLV tag is present in the NALU. */
+bool
+tag_is_present(nalu_list_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t tag)
+{
+  ck_assert(item);
+
+  bool found_tag = false;
+  h26x_nalu_t nalu = parse_nalu_info(item->data, item->data_size, codec, false);
+  if (!nalu.is_gop_sei) return false;
+
+  void *hash_list = (void *)tlv_find_tag(nalu.tlv_data, nalu.tlv_size, tag, false);
+  found_tag = (hash_list != NULL);
+  free(nalu.tmp_tlv_memory);
+
+  return found_tag;
+}

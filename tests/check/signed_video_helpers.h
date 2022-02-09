@@ -21,9 +21,12 @@
 #ifndef __SIGNED_VIDEO_HELPERS_H__
 #define __SIGNED_VIDEO_HELPERS_H__
 
+#include <stdbool.h>
+
 #include "lib/src/includes/signed_video_common.h"  // signed_video_t, SignedVideoCodec
 #include "lib/src/includes/signed_video_interfaces.h"  // sign_algo_t
 #include "lib/src/includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
+#include "lib/src/signed_video_tlv.h"  // sv_tlv_tag_t
 #include "nalu_list.h"  // nalu_list_t
 
 #define HW_ID "hardware_id"
@@ -102,5 +105,9 @@ remove_item_then_check_and_free(nalu_list_t *list, int item_number, const char *
  * |h26x_lists|. A sanity check on expected string of that item is done. */
 void
 modify_list_item(nalu_list_t *list, int item_number, const char *exp_str);
+
+/* Checks if a particular TLV tag is present in the NALU. */
+bool
+tag_is_present(nalu_list_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t tag);
 
 #endif  // __SIGNED_VIDEO_HELPERS_H__

@@ -29,6 +29,7 @@
 #include "lib/src/signed_video_defines.h"  // svi_rc
 #include "lib/src/signed_video_h26x_internal.h"  // signed_video_set_recurrence_interval()
 #include "lib/src/signed_video_internal.h"  // set_hash_list_size()
+#include "lib/src/signed_video_tlv.h"  // sv_tlv_tag_t, tlv_find_tag()
 #include "nalu_list.h"
 #include "signed_video_helpers.h"
 
@@ -124,12 +125,24 @@ START_TEST(api_inputs)
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Check setting attestation report
-  size_t attestation_size = 1;
-  void *attestation = calloc(1, attestation_size);
-  char *cert_chain = "certificate_chain";
-  sv_rc = sv_vendor_axis_communications_set_attestation_report(
-      sv, attestation, attestation_size, cert_chain);
-  ck_assert_int_eq(sv_rc, SV_OK);
+  // const size_t attestation_size = 2;
+  // void *attestation = calloc(1, attestation_size);
+  // char *cert_chain = "certificate_chain";
+  // sv_rc = sv_vendor_axis_communications_set_attestation_report(NULL, attestation,
+  // attestation_size, cert_chain); ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  // // Setting only the |attestation| is a valid operation.
+  // sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, attestation, 1, NULL);
+  // ck_assert_int_eq(sv_rc, SV_OK);
+  // // Setting only the |cert_chain| is a valid operation.
+  // sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, cert_chain);
+  // ck_assert_int_eq(sv_rc, SV_OK);
+  // // Setting a new |attestation| is not supported.
+  // sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, attestation, attestation_size,
+  // NULL); ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
+  // // Setting a new |cert_chain| is not supported.
+  // sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, cert_chain);
+  // ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
+  // free(attestation);
 
   // Check setting recurrence
   sv_rc = signed_video_set_recurrence_interval(sv, 1);
@@ -425,11 +438,14 @@ START_TEST(fallback_to_gop_level)
     nalu_list_item_check_str(sei_2, "G");
     nalu_list_item_t *sei_1 = nalu_list_remove_item(list, 1);
     nalu_list_item_check_str(sei_1, "G");
-    // Verify SEI sizes.
-    if (settings[_i].recurrence == SV_RECURRENCE_ONE) {
-      ck_assert_uint_lt(sei_1->data_size, sei_2->data_size);
-      ck_assert_uint_lt(sei_3->data_size, sei_1->data_size);
+
+    if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
+      // Verify that the HASH_LIST_TAG is present (or not) in the SEI.
+      ck_assert(tag_is_present(sei_1, settings[_i].codec, HASH_LIST_TAG));
+      ck_assert(tag_is_present(sei_2, settings[_i].codec, HASH_LIST_TAG));
+      ck_assert(!tag_is_present(sei_3, settings[_i].codec, HASH_LIST_TAG));
     }
+
     nalu_list_free_item(sei_1);
     nalu_list_free_item(sei_2);
     nalu_list_free_item(sei_3);
@@ -469,7 +485,7 @@ END_TEST
  * 3. Check size of every GOP SEI dependent on recurrence > 1
  *
  * G = GOP-info SEI-NALU, I = I-NALU and P = P-NALU.
- * Size is checked in 'G' Nalus because that's where the metadata is placed.
+ * PUBLIC_KEY_TAG is checked in 'G' NALUs because that is where the metadata is placed.
  */
 START_TEST(recurrence)
 {
@@ -478,18 +494,17 @@ START_TEST(recurrence)
   nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
 
   nalu_list_item_t *item;
-  int last_sei_size = 0;
   int gop_counter = 0;
   for (int i = 1; i <= (list->num_items); i++) {
     item = nalu_list_get_item(list, i);
     if (strncmp(item->str_code, "G", 1) == 0) {
-      if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
-        if (((gop_counter + settings[_i].recurrence_offset) % settings[_i].recurrence) == 0) {
-          ck_assert_int_gt(item->data_size, last_sei_size);
-        }
+      // if ((gop_counter % recurrence) == 0) {
+      if (((gop_counter + settings[_i].recurrence_offset) % settings[_i].recurrence) == 0) {
+        ck_assert(tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
+      } else {
+        ck_assert(!tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
       }
       gop_counter++;
-      last_sei_size = item->data_size;
     }
   }
   nalu_list_free(list);
