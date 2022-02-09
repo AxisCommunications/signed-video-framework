@@ -34,11 +34,14 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *self,
     size_t attestation_size,
     char *certificate_chain)
 {
-  self = NULL;
-  self = (signed_video_t *)calloc(1, sizeof(signed_video_t));
-
   self->attestation = malloc(attestation_size);
+  self->certificate_chain = calloc(1, strlen(certificate_chain) + 1);
+
   memcpy(self->attestation, attestation, attestation_size);
   strcpy(self->certificate_chain, certificate_chain);
+
+  free(self->attestation);
+  free(self->certificate_chain);
+
   return SV_OK;
 }

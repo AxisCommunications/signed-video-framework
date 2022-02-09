@@ -25,6 +25,7 @@
 #include "lib/src/includes/signed_video_common.h"
 #include "lib/src/includes/signed_video_openssl.h"
 #include "lib/src/includes/signed_video_sign.h"
+#include "lib/src/includes/sv_vendor_axis_communications.h"
 #include "lib/src/signed_video_defines.h"  // svi_rc
 #include "lib/src/signed_video_h26x_internal.h"  // signed_video_set_recurrence_interval()
 #include "lib/src/signed_video_internal.h"  // set_hash_list_size()
@@ -120,6 +121,14 @@ START_TEST(api_inputs)
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
   // Will set keys.
   sv_rc = signed_video_set_private_key(sv, algo, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Check setting attestation report
+  size_t attestation_size = 1;
+  void *attestation = calloc(1, attestation_size);
+  char *cert_chain = "certificate_chain";
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(
+      sv, attestation, attestation_size, cert_chain);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Check setting recurrence
