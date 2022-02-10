@@ -18,15 +18,30 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-
 #include "includes/sv_vendor_axis_communications.h"
 
-#include <stdlib.h>
+#include <stdbool.h>
+#include <stdlib.h>  // malloc, memcpy, calloc, free
 
 #include "signed_video_internal.h"
 
 /**
- * Function description
+ * Sets an attestation report, including a Public key |attestation| and a |certificate_chain|, to
+ * the Signed Video session. This report is added to the generated SEI for verification of the
+ * Public key. This should be called before the session starts.
+ *
+ * It is possible to set attestation and certificate_chain individually. Leave out one parameter
+ * with a NULL pointer.
+ *
+ * @param self Pointer to the Signed Video session.
+ * @param attestation Pointer to the key attestation. A NULL means that it will not be set.
+ *   SV_NOT_SUPPORTED is returned if an attempt to replace an existing attestation is made.
+ * @param attestation_size The size of the key attestation. Set to 0 if no attestation should be
+ *   set.
+ * @param certificate_chain Pointer to the certificate chain. A NULL means that it will not be set.
+ *   SV_NOT_SUPPORTED is returned if an attempt to replace an existing certificate_chain is made.
+ *
+ * @returns SV_OK upon success, otherwise an appropriate error.
  */
 SignedVideoReturnCode
 sv_vendor_axis_communications_set_attestation_report(signed_video_t *self,
@@ -34,11 +49,35 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *self,
     size_t attestation_size,
     char *certificate_chain)
 {
-  self->attestation = malloc(attestation_size);
-  self->certificate_chain = calloc(1, strlen(certificate_chain) + 1);
+  if (!self) return SV_INVALID_PARAMETER;
+  if (!attestation && !certificate_chain) return SV_INVALID_PARAMETER;
+  if ((attestation && attestation_size == 0) || (!attestation && attestation_size > 0)) {
+    return SV_INVALID_PARAMETER;
+  }
 
-  memcpy(self->attestation, attestation, attestation_size);
-  strcpy(self->certificate_chain, certificate_chain);
+  bool allocated_attestation = false;
+  bool allocated_certificate_chain = false;
+  if (attestation) {
+    if (self->attestation) return SV_NOT_SUPPORTED;
+    self->attestation = malloc(attestation_size);
+    allocated_attestation = true;
+    if (!self->attestation) goto catch_error;
+    memcpy(self->attestation, attestation, attestation_size);
+  }
+
+  if (certificate_chain) {
+    if (self->certificate_chain) return SV_NOT_SUPPORTED;
+    self->certificate_chain = calloc(1, strlen(certificate_chain) + 1);
+    allocated_certificate_chain = true;
+    if (!self->certificate_chain) goto catch_error;
+    strcpy(self->certificate_chain, certificate_chain);
+  }
 
   return SV_OK;
+
+catch_error:
+  if (allocated_attestation) free(self->attestation);
+  if (allocated_certificate_chain) free(self->certificate_chain);
+
+  return SV_MEMORY;
 }

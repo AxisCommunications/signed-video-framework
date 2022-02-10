@@ -124,26 +124,6 @@ START_TEST(api_inputs)
   sv_rc = signed_video_set_private_key(sv, algo, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  // Check setting attestation report
-  // const size_t attestation_size = 2;
-  // void *attestation = calloc(1, attestation_size);
-  // char *cert_chain = "certificate_chain";
-  // sv_rc = sv_vendor_axis_communications_set_attestation_report(NULL, attestation,
-  // attestation_size, cert_chain); ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  // // Setting only the |attestation| is a valid operation.
-  // sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, attestation, 1, NULL);
-  // ck_assert_int_eq(sv_rc, SV_OK);
-  // // Setting only the |cert_chain| is a valid operation.
-  // sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, cert_chain);
-  // ck_assert_int_eq(sv_rc, SV_OK);
-  // // Setting a new |attestation| is not supported.
-  // sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, attestation, attestation_size,
-  // NULL); ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
-  // // Setting a new |cert_chain| is not supported.
-  // sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, cert_chain);
-  // ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
-  // free(attestation);
-
   // Check setting recurrence
   sv_rc = signed_video_set_recurrence_interval(sv, 1);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -274,6 +254,91 @@ START_TEST(incorrect_operation)
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
   // Free nalu_list_item and session.
   nalu_list_free_item(p_nalu);
+  nalu_list_free_item(i_nalu);
+  signed_video_free(sv);
+  free(private_key);
+}
+END_TEST
+
+/* Test description
+ * All APIs in vendors/axis-communications are checked for invalid parameters, and valid NULL
+ * pointer inputs. */
+START_TEST(vendor_axis_communications_operation)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  SignedVideoReturnCode sv_rc;
+  SignedVideoCodec codec = settings[_i].codec;
+  sign_algo_t algo = settings[_i].algo;
+  SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
+  signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *sei = NULL;
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+
+  // Check generate private key.
+  signed_video_t *sv = signed_video_create(codec);
+  ck_assert(sv);
+  // Read and set content of private_key.
+  sv_rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_private_key(sv, algo, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Check setting attestation report.
+  const size_t attestation_size = 2;
+  void *attestation = calloc(1, attestation_size);
+  char *cert_chain = "certificate_chain";
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(
+      NULL, attestation, attestation_size, cert_chain);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  // Setting nothing is an ivalid operation.
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, NULL);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  // Setting a zero sized |attestation| is an ivalid operation.
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, attestation, 0, NULL);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, attestation_size, NULL);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  // Setting only the |attestation| is a valid operation.
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, attestation, 1, NULL);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  // Setting only the |cert_chain| is a valid operation.
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, cert_chain);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  // Setting a new |attestation| is not supported.
+  sv_rc =
+      sv_vendor_axis_communications_set_attestation_report(sv, attestation, attestation_size, NULL);
+  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
+  // Setting a new |cert_chain| is not supported.
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, cert_chain);
+  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
+  free(attestation);
+
+  // // Check setting recurrence.
+  // sv_rc = signed_video_set_recurrence_interval(sv, 1);
+  // ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Setting validation level.
+  sv_rc = signed_video_set_authenticity_level(sv, auth_level);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Add an I-NALU to trigger a SEI.
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sei = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec);
+  ck_assert(tag_is_present(sei, codec, PUBLIC_KEY_TAG));
+  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory.
+  sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NOTHING);
+
+  // Free nalu_list_item and session.
+  nalu_list_free_item(sei);
   nalu_list_free_item(i_nalu);
   signed_video_free(sv);
   free(private_key);
@@ -528,6 +593,7 @@ signed_video_suite(void)
   // Add tests
   tcase_add_loop_test(tc, api_inputs, s, e);
   tcase_add_loop_test(tc, incorrect_operation, s, e);
+  tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
   // tcase_add_loop_test(tc, correct_nalu_sequence_with_eos, s, e);
   // tcase_add_loop_test(tc, correct_multislice_sequence_with_eos, s, e);
   tcase_add_loop_test(tc, correct_nalu_sequence_without_eos, s, e);

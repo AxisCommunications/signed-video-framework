@@ -28,7 +28,6 @@
 #include "lib/src/includes/signed_video_openssl.h"
 #include "lib/src/includes/signed_video_sign.h"
 #include "lib/src/signed_video_h26x_internal.h"  // signed_video_set_recurrence_interval()
-#include "lib/src/signed_video_internal.h"  // _signed_video_t
 
 #define RSA_PRIVATE_KEY_ALLOC_BYTES 2000
 #define ECDSA_PRIVATE_KEY_ALLOC_BYTES 1000

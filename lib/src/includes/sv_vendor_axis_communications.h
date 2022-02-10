@@ -19,6 +19,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+/* This header file includes all Axis Communications specific APIs needed to sign and validate the
+ * authenticity of a video captured by an Axis Communications camera.
+ */
 #ifndef __SV_VENDOR_AXIS_COMMUNICATIONS_H__
 #define __SV_VENDOR_AXIS_COMMUNICATIONS_H__
 
