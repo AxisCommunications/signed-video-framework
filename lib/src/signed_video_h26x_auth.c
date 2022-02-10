@@ -792,9 +792,9 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
  * In this function we update the h26x_nalu_t member |hashable_data_size| w.r.t. that. The pointer
  * to the start is still the same. */
 static void
-update_hashable_data(signed_video_t *self, h26x_nalu_t *nalu)
+update_hashable_data(h26x_nalu_t *nalu)
 {
-  assert(self && nalu && (nalu->is_valid > 0));
+  assert(nalu && (nalu->is_valid > 0));
   if (!nalu->is_hashable || !nalu->is_gop_sei) return;
 
   // This is a Signed Video generated NALU of type SEI. As payload it holds TLV data where the last
@@ -803,7 +803,7 @@ update_hashable_data(signed_video_t *self, h26x_nalu_t *nalu)
   // emulation prevention bytes) coresponding to that tag. This is done by scanning the TLV for that
   // tag.
   const uint8_t *signature_tag_ptr =
-      tlv_find_tag(self, nalu->tlv_start_in_nalu_data, nalu->tlv_size, SIGNATURE_TAG, true);
+      tlv_find_tag(nalu->tlv_start_in_nalu_data, nalu->tlv_size, SIGNATURE_TAG, true);
 
   if (signature_tag_ptr) nalu->hashable_data_size = signature_tag_ptr - nalu->hashable_data;
 }
@@ -816,7 +816,7 @@ register_nalu(signed_video_t *self, h26x_nalu_t *nalu)
 
   if (nalu->is_valid == 0) return SVI_OK;
 
-  update_hashable_data(self, nalu);
+  update_hashable_data(nalu);
   return hash_and_add_for_auth(self, nalu);
 }
 
