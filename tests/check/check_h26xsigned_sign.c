@@ -358,7 +358,7 @@ START_TEST(sei_increase_with_gop_length)
   nalu_list_item_check_str(sei_2, "G");
   nalu_list_item_t *sei_1 = nalu_list_remove_item(list, 1);
   nalu_list_item_check_str(sei_1, "G");
-  if (settings[_i].recurrence == SV_RECURRENCE_DEFAULT) {
+  if (settings[_i].recurrence == SV_RECURRENCE_ONE) {
     if (auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
       // Verify constant size. Note that the size differs if more emulation prevention bytes have
       // been added in one SEI compared to the other. That is not the case here though.
@@ -411,7 +411,7 @@ START_TEST(fallback_to_gop_level)
     nalu_list_item_t *sei_1 = nalu_list_remove_item(list, 1);
     nalu_list_item_check_str(sei_1, "G");
     // Verify SEI sizes.
-    if (settings[_i].recurrence == SV_RECURRENCE_DEFAULT) {
+    if (settings[_i].recurrence == SV_RECURRENCE_ONE) {
       ck_assert_uint_lt(sei_1->data_size, sei_2->data_size);
       ck_assert_uint_lt(sei_3->data_size, sei_1->data_size);
     }

@@ -32,9 +32,9 @@
 #define MANUFACT "manufacturer"
 #define ADDR "address"
 
-typedef enum { SV_RECURRENCE_DEFAULT = 1, SV_RECURRENCE_THREE = 3 } SignedVideoRecurrence;
+typedef enum { SV_RECURRENCE_ONE = 1, SV_RECURRENCE_THREE = 3 } SignedVideoRecurrence;
 typedef enum {
-  SV_RECURRENCE_OFFSET_DEFAULT = 0,
+  SV_RECURRENCE_OFFSET_ZERO = 0,
   SV_RECURRENCE_OFFSET_ONE = 1
 } SignedVideoRecurrenceOffset;
 

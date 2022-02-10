@@ -49,6 +49,8 @@ static void
 validate_authenticity(signed_video_t *self);
 static svi_rc
 prepare_for_validation(signed_video_t *self);
+static bool
+is_recurrent_data_decoded(signed_video_t *self);
 
 static void
 remove_used_in_gop_hash(h26x_nalu_list_t *nalu_list);
@@ -708,7 +710,7 @@ prepare_for_validation(signed_video_t *self)
     }
 
     SVI_THROW_IF_WITH_MSG(
-        gop_state->signing_present && !self->has_public_key, SVI_UNKNOWN, "No public key found");
+        gop_state->signing_present && !self->has_public_key, SVI_UNKNOWN, "No public key present");
     // If we have received a SEI there is a signature to use for verification.
     if (self->gop_info_detected.has_gop_sei) {
       SVI_THROW(sv_rc_to_svi_rc(
@@ -730,30 +732,29 @@ is_recurrent_data_decoded(signed_video_t *self)
   signed_video_latest_validation_t *latest = self->latest_validation;
   h26x_nalu_list_t *nalu_list = self->nalu_list;
 
-  if (!self->has_public_key && gop_state->signing_present) {
-    bool recurrent_data_decoded = false;
-    h26x_nalu_list_item_t *item = nalu_list->first_item;
+  if (self->has_public_key || !gop_state->signing_present) return true;
 
-    while (item && !recurrent_data_decoded) {
-      if (item->nalu && item->nalu->is_gop_sei && item->validation_status == 'P') {
-        const uint8_t *tlv_data = item->nalu->tlv_data;
-        size_t tlv_size = item->nalu->tlv_size;
-        recurrent_data_decoded =
-            tlv_find_and_decode_recurrent_tags(self, tlv_data, tlv_size) == SVI_OK;
-        if (!recurrent_data_decoded) {
-          DEBUG_LOG("Failed to find and decode recurrent tags");
-        }
-      }
-      item = item->next;
+  bool recurrent_data_decoded = false;
+  h26x_nalu_list_item_t *item = nalu_list->first_item;
+
+  while (item && !recurrent_data_decoded) {
+    if (item->nalu && item->nalu->is_gop_sei && item->validation_status == 'P') {
+      const uint8_t *tlv_data = item->nalu->tlv_data;
+      size_t tlv_size = item->nalu->tlv_size;
+      recurrent_data_decoded =
+          tlv_find_and_decode_recurrent_tags(self, tlv_data, tlv_size) == SVI_OK;
     }
-    if (!recurrent_data_decoded) {
-      DEBUG_LOG("Public key missing");
-      gop_state_reset(gop_state, gop_info_detected);
-      latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
-      return false;
-    }
+    item = item->next;
   }
-  return true;
+  if (!recurrent_data_decoded) {
+    DEBUG_LOG("Public key missing");
+    // TODO: Investigate if it's needed to take any special actions when moving to the next GOP
+    gop_state_reset(gop_state, gop_info_detected);
+    latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+    return recurrent_data_decoded;
+  }
+
+  return recurrent_data_decoded;
 }
 
 /* Validates the authenticity of the video since last time if the state says so. After the
@@ -785,10 +786,8 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
     return SVI_MEMORY;
   }
 
-  bool recurrent_data_decoded = false;
-  recurrent_data_decoded = is_recurrent_data_decoded(self);
-  if (!recurrent_data_decoded) {
-    DEBUG_LOG("Recurrent data not decoded");
+  if (!is_recurrent_data_decoded(self)) {
+    DEBUG_LOG("No recurrent data yet received");
     return SVI_OK;
   }
 

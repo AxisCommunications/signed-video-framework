@@ -590,8 +590,8 @@ signed_video_set_recurrence_interval(signed_video_t *self, int recurrence)
 
   svi_rc status;
   SVI_TRY()
-    SVI_THROW_IF_WITH_MSG(
-        recurrence < RECURRENCE_MIN, SVI_NOT_SUPPORTED, "Recurrence interval < RECURRENCE_MIN");
+    SVI_THROW_IF_WITH_MSG(recurrence < RECURRENCE_ALWAYS, SVI_NOT_SUPPORTED,
+        "Recurrence interval < RECURRENCE_ALWAYS");
     SVI_THROW_IF_WITH_MSG(
         recurrence > MAX_GOP_LENGTH, SVI_NOT_SUPPORTED, "Recurrence interval > MAX_GOP_LENGTH");
     self->recurrence = recurrence;

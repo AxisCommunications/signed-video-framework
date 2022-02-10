@@ -261,15 +261,15 @@ START_TEST(intact_stream)
   // |settings|; See signed_video_helpers.h.
 
   // Create a list of NALUs given the input string.
-  nalu_list_t *list = create_signed_nalus("IPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "GIPPGIPPGI");
+  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
+  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
 
   // One pending NALU per GOP.
-  struct validation_stats expected = {.valid_gops = 3, .pending_nalus = 3};
+  struct validation_stats expected = {.valid_gops = 7, .pending_nalus = 7};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
     if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
-      expected.valid_gops = 1;
-      expected.pending_nalus = 1;
+      expected.valid_gops = 5;
+      expected.pending_nalus = 5;
       expected.has_signature = 2;
     }
   }
@@ -1038,7 +1038,7 @@ START_TEST(camera_reset_on_signing_side)
   // will be marked as invalid and compute 3 more NALUs than expected. In G it is communicated
   // there is only 2 NALUs present (GI). So missed NALUs equals -3 (IPP).
   struct validation_stats expected = {};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_DEFAULT) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
     expected.valid_gops = 2;
     expected.invalid_gops = 2;
     expected.missed_nalus = -3;
@@ -1115,8 +1115,8 @@ START_TEST(fast_forward_stream_with_reset)
   // We should get one GOP marked as SV_AUTH_RESULT_SIGNATURE_PRESENT right after the reset. One
   // pending NALU per GOP.
   struct validation_stats expected = {};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_DEFAULT) {
-    if (settings[_i].recurrence == SV_RECURRENCE_DEFAULT) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
+    if (settings[_i].recurrence == SV_RECURRENCE_ONE) {
       expected.valid_gops = 2;
       expected.pending_nalus = 3;
       expected.has_signature = 1;
@@ -1152,8 +1152,8 @@ START_TEST(fast_forward_stream_without_reset)
   // Start validating without resetting the session.  We will get an invalid GOP since the fast
   // forward is equivalent with dropping NALUs. One pending NALU per GOP.
   struct validation_stats expected = {};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_DEFAULT) {
-    if (settings[_i].recurrence == SV_RECURRENCE_DEFAULT) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
+    if (settings[_i].recurrence == SV_RECURRENCE_ONE) {
       expected.valid_gops = 2;
       expected.pending_nalus = 3;
       expected.has_signature = 1;
@@ -1225,7 +1225,7 @@ START_TEST(fast_forward_stream_with_delayed_seis)
   // Total number of pending NALUs = 2 + 2 + 2 = 6
 
   struct validation_stats expected = {.valid_gops = 2, .pending_nalus = 6, .has_signature = 1};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_DEFAULT) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
     if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
       expected.valid_gops = 2;
       expected.pending_nalus = 4;
@@ -1297,7 +1297,7 @@ START_TEST(file_export_with_dangling_end)
   // One pending NALU per GOP.
   struct validation_stats expected = {.valid_gops = 2, .pending_nalus = 3, .has_signature = 1};
   if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
-    if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_DEFAULT) {
+    if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
       expected.valid_gops = 1;
       expected.pending_nalus = 1;
       expected.has_signature = 2;
@@ -1328,7 +1328,7 @@ START_TEST(file_export_without_dangling_end)
   ck_assert(sv);
   // One pending NALU per GOP.
   struct validation_stats expected = {.valid_gops = 3, .pending_nalus = 4, .has_signature = 1};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_DEFAULT) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
     if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
       expected.valid_gops = 2;
       expected.pending_nalus = 2;
@@ -1398,34 +1398,6 @@ START_TEST(multislice_no_signature)
   // pending_nalus = 4 * 7 = 28
 
   const struct validation_stats expected = {.unsigned_gops = 4, .pending_nalus = 28};
-  validate_nalu_list(NULL, list, expected);
-
-  nalu_list_free(list);
-}
-END_TEST
-
-START_TEST(recurrence)
-{
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
-  ck_assert(list);
-  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
-
-  // --- SV_RECURRENCE_THREE, SV_RECURRENCE_OFFSET_ONE ---
-  // GIPPGIPPGI     valid & 2 has signature & 1 pending
-  // IPPGI          valid & 1 pending
-  // IPPGI          valid & 1 pending
-  // IPPGI          valid & 1 pending
-  // IPPGI          valid & 1 pending
-
-  // One pending NALU per GOP.
-  struct validation_stats expected = {.valid_gops = 7, .pending_nalus = 7};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
-      expected.valid_gops = 5;
-      expected.pending_nalus = 5;
-      expected.has_signature = 2;
-    }
-  }
   validate_nalu_list(NULL, list, expected);
 
   nalu_list_free(list);
@@ -1514,7 +1486,6 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, file_export_without_dangling_end, s, e);
   tcase_add_loop_test(tc, no_signature, s, e);
   tcase_add_loop_test(tc, multislice_no_signature, s, e);
-  tcase_add_loop_test(tc, recurrence, s, e);
   tcase_add_loop_test(tc, late_public_key_and_no_sei_before_key_arrives, s, e);
 
   // Add test case to suit

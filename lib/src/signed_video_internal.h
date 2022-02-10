@@ -52,7 +52,7 @@ typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 #define DEFAULT_AUTHENTICITY_LEVEL SV_AUTHENTICITY_LEVEL_FRAME
 
 #define DEFAULT_MAX_GOP_LENGTH 300
-#define RECURRENCE_MIN 1
+#define RECURRENCE_ALWAYS 1
 #define RECURRENCE_OFFSET_DEFAULT 0
 
 /* Compile time defined, otherwise set default value */
