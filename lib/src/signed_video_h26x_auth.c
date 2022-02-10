@@ -751,7 +751,6 @@ is_recurrent_data_decoded(signed_video_t *self)
     // TODO: Investigate if it's needed to take any special actions when moving to the next GOP
     gop_state_reset(gop_state, gop_info_detected);
     latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
-    return recurrent_data_decoded;
   }
 
   return recurrent_data_decoded;
