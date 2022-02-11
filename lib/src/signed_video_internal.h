@@ -123,8 +123,6 @@ struct _gop_info_detected_t {
 struct _signed_video_t {
   int code_version[SV_VERSION_BYTES];
   uint16_t last_two_bytes;
-  uint8_t *signature_payload_ptr;  // Pointer to signature payload
-  uint8_t *payload_ptr;  // Pointer to payload. Store payload pointer when SEI is delayed
   SignedVideoCodec codec;  // Codec used in this session.
 
   // Private structures
@@ -134,6 +132,11 @@ struct _signed_video_t {
   // Frames to prepend list
   signed_video_nalu_to_prepend_t nalus_to_prepend_list[MAX_NALUS_TO_PREPEND];
   int num_nalus_to_prepend;
+  // Buffer of payload pointer pairs. Each pair holds the memory for a SEI in preparation and to be
+  // added to the prepend list. The first location of the pair is pointing to the allocated memory
+  // of the payload and the second location to where the signature is about to be added.
+  uint8_t *payload_buffer[MAX_NALUS_TO_PREPEND * 2];
+  int payload_buffer_idx;  // Pointer to the current free location of the buffer.
 
   // TODO: Collect everything needed by the authentication part only in one struct/object, which
   // then is not needed to be created on the signing side, saving some memory.
@@ -245,5 +248,9 @@ product_info_free_members(signed_video_product_info_t *product_info);
 /* Defined in signed_video_h26x_sign.c */
 void
 free_and_reset_nalu_to_prepend_list(signed_video_t *signed_video);
+
+/* Frees all allocated memory of payload pointers in the buffer. */
+void
+free_payload_buffer(uint8_t *payload_buffer[]);
 
 #endif  // __SIGNED_VIDEO_INTERNAL__

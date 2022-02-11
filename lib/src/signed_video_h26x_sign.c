@@ -34,13 +34,21 @@
 static void
 h26x_set_nal_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDType uuid_type);
 static size_t
-get_sign_and_complete_sei_nalu(signed_video_t *self, uint8_t **payload);
+get_sign_and_complete_sei_nalu(signed_video_t *self,
+    uint8_t **payload,
+    uint8_t *payload_signature_ptr);
+
+/* Functions for payload_buffer. */
+static void
+add_payload_to_buffer(signed_video_t *self, uint8_t *payload_ptr, uint8_t *payload_signature_ptr);
+static svi_rc
+complete_sei_nalu_and_add_to_prepend(signed_video_t *self);
 
 /* Functions related to the list of NALUs to prepend. */
 static void
 reset_nalu_to_prepend(signed_video_nalu_to_prepend_t *nalu_to_prepend);
 static svi_rc
-generate_sei_nalu(signed_video_t *self, uint8_t **payload);
+generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_signature_ptr);
 static svi_rc
 add_nalu_to_prepend(signed_video_t *self,
     SignedVideoPrependInstruction prepend_instruction,
@@ -63,6 +71,92 @@ h26x_set_nal_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDT
   for (int i = 0; i < UUID_LEN; i++) {
     write_byte(&self->last_two_bytes, payload, uuid[i], true);
   }
+}
+
+/* Frees all payloads in the |payload_buffer|. Declared in signed_video_internal.h */
+void
+free_payload_buffer(uint8_t *payload_buffer[])
+{
+  for (int i = 0; i < MAX_NALUS_TO_PREPEND; i++) {
+    // Note that the first location of the payload pointer pair points to the location of the
+    // memory.
+    free(payload_buffer[2 * i]);
+    payload_buffer[2 * i] = NULL;
+    payload_buffer[2 * i + 1] = NULL;
+  }
+}
+
+/* Adds the |payload| to the next available slot in |payload_buffer|. */
+static void
+add_payload_to_buffer(signed_video_t *self, uint8_t *payload, uint8_t *payload_signature_ptr)
+{
+  assert(self);
+
+  if (self->payload_buffer_idx >= MAX_NALUS_TO_PREPEND) {
+    // Not enough space for this payload. Free the memory and return.
+    free(payload);
+    return;
+  }
+
+  self->payload_buffer[2 * self->payload_buffer_idx] = payload;
+  self->payload_buffer[2 * self->payload_buffer_idx + 1] = payload_signature_ptr;
+  self->payload_buffer_idx += 1;
+}
+
+/* Picks the oldest payload from the payload_buffer and completes it with the generated signature.
+ * If we have no signature the SEI payload is freed and not added to the video session. */
+static svi_rc
+complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
+{
+  assert(self);
+
+  // Get the oldest payload.
+  uint8_t *payload = self->payload_buffer[0];
+  uint8_t *payload_signature_ptr = self->payload_buffer[1];
+  SignedVideoPrependInstruction prepend_instruction = SIGNED_VIDEO_PREPEND_NOTHING;
+  size_t data_size = 0;
+  svi_rc status = SVI_UNKNOWN;
+
+  // If the signature could not be generated |signature_size| equals zero. Free the started SEI and
+  // move on. This is a valid operation. What will happen is that the video will have an unsigned
+  // GOP.
+  if (self->signature_info->signature_size == 0) {
+    signed_video_nalu_data_free(payload);
+    payload = NULL;
+    status = SVI_OK;
+    goto done;
+  } else if (!payload) {
+    // No more pending payloads. Already freed due to too many unsigned SEIs.
+    status = SVI_OK;
+    goto done;
+  }
+
+  SVI_TRY()
+    // Add the signature to the SEI payload.
+    data_size = get_sign_and_complete_sei_nalu(self, &payload, payload_signature_ptr);
+    SVI_THROW_IF(!data_size, SVI_UNKNOWN);
+    // Add created SEI to the prepend list.
+    prepend_instruction = SIGNED_VIDEO_PREPEND_NALU;
+    signed_video_nalu_to_prepend_t *nalu_to_prepend =
+        &(self->nalus_to_prepend_list[self->num_nalus_to_prepend]);
+    nalu_to_prepend->nalu_data = payload;
+    SVI_THROW(add_nalu_to_prepend(self, prepend_instruction, data_size));
+
+  SVI_CATCH()
+  SVI_DONE(status)
+
+done:
+  // Done with the SEI payload. Move |payload_buffer|. This should be done even if we caught a
+  // failure.
+  self->payload_buffer[0] = NULL;
+  self->payload_buffer[1] = NULL;
+  for (int i = 2; i < MAX_NALUS_TO_PREPEND; i++) {
+    self->payload_buffer[2 * (i - 1)] = self->payload_buffer[2 * i];
+    self->payload_buffer[2 * (i - 1) + 1] = self->payload_buffer[2 * i + 1];
+  }
+  if (self->payload_buffer_idx > 0) self->payload_buffer_idx -= 1;
+
+  return status;
 }
 
 /* Resets a signed_video_nalu_to_prepend_t object. It is assumed that any nalu_data has been freed
@@ -98,7 +192,7 @@ free_and_reset_nalu_to_prepend_list(signed_video_t *self)
  * any NALU hash and added to the gop_hash. For SV_AUTHENTICITY_LEVEL_FRAME we sign this hash
  * instead of the gop_hash, which is the traditional principle of signing. */
 static svi_rc
-generate_sei_nalu(signed_video_t *self, uint8_t **payload)
+generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_signature_ptr)
 {
   signature_info_t *signature_info = self->signature_info;
   sign_algo_t algo = signature_info->algo;
@@ -263,19 +357,21 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload)
   SVI_DONE(status)
 
   // Store offset so that we can append the signature once it has been generated.
-  self->signature_payload_ptr = payload_ptr;
+  *payload_signature_ptr = payload_ptr;
 
   return status;
 }
 
 static size_t
-get_sign_and_complete_sei_nalu(signed_video_t *self, uint8_t **payload)
+get_sign_and_complete_sei_nalu(signed_video_t *self,
+    uint8_t **payload,
+    uint8_t *payload_signature_ptr)
 {
   const sv_tlv_tag_t gop_info_encoders[] = {
       SIGNATURE_TAG,
   };
   uint16_t *last_two_bytes = &self->last_two_bytes;
-  uint8_t *payload_ptr = self->signature_payload_ptr;
+  uint8_t *payload_ptr = payload_signature_ptr;
   if (!payload_ptr) {
     DEBUG_LOG("No SEI to finalize");
     return 0;
@@ -389,13 +485,13 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
       // An I-NALU indicates the start of a new GOP, hence prepend with SEI-NALUs. This also means
       // that the signing feature is present.
 
-      self->payload_ptr = NULL;
+      uint8_t *payload = NULL;
+      uint8_t *payload_signature_ptr = NULL;
       signing_present = 0;  // About to add SEI NALUs.
-      signed_video_nalu_to_prepend_t *nalu_to_prepend =
-          &(self->nalus_to_prepend_list[self->num_nalus_to_prepend]);
 
-      SVI_THROW(generate_sei_nalu(self, &(self->payload_ptr)));
-      nalu_to_prepend->nalu_data = self->payload_ptr;
+      SVI_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
+      // Add |payload| to buffer. Will be picked up again when the signature has been generated.
+      add_payload_to_buffer(self, payload, payload_signature_ptr);
       // Now we are done with the previous GOP. The gop_hash was reset right after signing and
       // adding it to the SEI NALU. Now it is time to start a new GOP, that is, hash and add this
       // first NALU of the GOP.
@@ -405,26 +501,21 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
     // Only add a SEI if the current NALU is the primary picture NALU and of course if signing is
     // completed.
     if ((nalu.nalu_type == NALU_TYPE_I || nalu.nalu_type == NALU_TYPE_P) && nalu.is_primary_slice &&
-        signature_info->signature &&
-        sv_interface_get_signature(self->plugin_handle, signature_info->signature,
-            signature_info->max_signature_size, &signature_info->signature_size)) {
+        signature_info->signature) {
+      while (sv_interface_get_signature(self->plugin_handle, signature_info->signature,
+          signature_info->max_signature_size, &signature_info->signature_size)) {
 #ifdef SIGNED_VIDEO_DEBUG
-      // Verify the just signed hash
-      int verified = -1;
-      SVI_THROW_WITH_MSG(sv_rc_to_svi_rc(openssl_verify_hash(signature_info, &verified)),
-          "Verification test had errors");
-      SVI_THROW_IF_WITH_MSG(verified != 1, SVI_EXTERNAL_FAILURE, "Verification test failed");
+        // TODO: This might not work for blocked signatures, that is if the hash in
+        // |signature_info| does not correspond to the copied |signature|.
+        // Verify the just signed hash.
+        int verified = -1;
+        SVI_THROW_WITH_MSG(sv_rc_to_svi_rc(openssl_verify_hash(signature_info, &verified)),
+            "Verification test had errors");
+        SVI_THROW_IF_WITH_MSG(verified != 1, SVI_EXTERNAL_FAILURE, "Verification test failed");
 #endif
-      int num_nalus_to_prepend = self->num_nalus_to_prepend;
-      signed_video_nalu_to_prepend_t *nalu_to_prepend =
-          &(self->nalus_to_prepend_list[num_nalus_to_prepend]);
-      // Add the signature
-      size_t data_size = get_sign_and_complete_sei_nalu(self, &(nalu_to_prepend->nalu_data));
-      SVI_THROW_IF(!data_size, SVI_UNKNOWN);
-
-      SVI_THROW(add_nalu_to_prepend(self, SIGNED_VIDEO_PREPEND_NALU, data_size));
-
-      signing_present = 1;  // At least one SEI NALU present.
+        SVI_THROW(complete_sei_nalu_and_add_to_prepend(self));
+        signing_present = 1;  // At least one SEI NALU present.
+      }
     }
 
   SVI_CATCH()
@@ -474,26 +565,19 @@ signed_video_set_end_of_stream(signed_video_t *self)
 {
   if (!self) return SV_INVALID_PARAMETER;
 
+  uint8_t *payload = NULL;
+  uint8_t *payload_signature_ptr = NULL;
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     SVI_THROW(prepare_for_nalus_to_prepend(self));
-    int num_nalus_to_prepend = self->num_nalus_to_prepend;
-    signed_video_nalu_to_prepend_t *nalu_to_prepend =
-        &(self->nalus_to_prepend_list[num_nalus_to_prepend]);
-
-    SVI_THROW(generate_sei_nalu(self, &(nalu_to_prepend->nalu_data)));
+    SVI_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
+    add_payload_to_buffer(self, payload, payload_signature_ptr);
     // Fetch the signature. If it is not ready we exit without generating the SEI.
-    SVI_THROW_IF(
-        !sv_interface_get_signature(self->plugin_handle, self->signature_info->signature,
-            self->signature_info->max_signature_size, &self->signature_info->signature_size),
-        SVI_NOT_SUPPORTED);
-
-    size_t data_size = get_sign_and_complete_sei_nalu(self, &(nalu_to_prepend->nalu_data));
-    SVI_THROW_IF(!data_size, SVI_UNKNOWN);
-    nalu_to_prepend->nalu_data_size = data_size;
-
-    // Generate a GOP-info SEI-NALU to complete the stream.
-    SVI_THROW(add_nalu_to_prepend(self, SIGNED_VIDEO_PREPEND_NALU, data_size));
+    signature_info_t *signature_info = self->signature_info;
+    while (sv_interface_get_signature(self->plugin_handle, signature_info->signature,
+        signature_info->max_signature_size, &signature_info->signature_size)) {
+      SVI_THROW(complete_sei_nalu_and_add_to_prepend(self));
+    }
 
   SVI_CATCH()
   SVI_DONE(status)

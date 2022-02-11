@@ -1107,7 +1107,6 @@ signed_video_create(SignedVideoCodec codec)
 
     version_str_to_bytes(self->code_version, SIGNED_VIDEO_VERSION);
     self->codec = codec;
-    self->payload_ptr = NULL;
 
     // Allocate memory for the signature_info struct.
     self->signature_info = signature_create();
@@ -1169,8 +1168,6 @@ signed_video_reset(signed_video_t *self)
     // Empty the |nalu_list|.
     h26x_nalu_list_free_items(self->nalu_list);
 
-    self->payload_ptr = NULL;
-
     SVI_THROW(reset_gop_hash(self));
   SVI_CATCH()
   SVI_DONE(status)
@@ -1189,6 +1186,7 @@ signed_video_free(signed_video_t *self)
 
   // Free any NALUs left to prepend.
   free_and_reset_nalu_to_prepend_list(self);
+  free_payload_buffer(self->payload_buffer);
 
   h26x_nalu_list_free(self->nalu_list);
 
