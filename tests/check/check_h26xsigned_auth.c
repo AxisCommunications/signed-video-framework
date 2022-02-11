@@ -1026,6 +1026,9 @@ START_TEST(camera_reset_on_signing_side)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  // This test is not applicable for recurrence offset 1
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) return;
+
   // Generate 2 GOPs
   nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i]);
   nalu_list_check_str(list, "GIPPGIPP");
@@ -1042,24 +1045,11 @@ START_TEST(camera_reset_on_signing_side)
   // there is only 2 NALUs present (GI). So missed NALUs equals -3 (IPP).
   // TODO: public_key_has_changed is expected to be true now when we have changed the behavior in
   // generate private key.
-  struct validation_stats expected = {};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
-    expected.valid_gops = 2;
-    expected.invalid_gops = 2;
-    expected.missed_nalus = -3;
-    expected.pending_nalus = 4;
-    expected.public_key_has_changed = true;
-  }
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
-      expected.valid_gops = 0;
-      expected.invalid_gops = 0;
-      expected.missed_nalus = 0;
-      expected.pending_nalus = 0;
-      expected.has_signature = 4;
-      expected.public_key_has_changed = true;
-    }
-  }
+  const struct validation_stats expected = {.valid_gops = 2,
+      .invalid_gops = 2,
+      .missed_nalus = -3,
+      .pending_nalus = 4,
+      .public_key_has_changed = true};
 
   validate_nalu_list(NULL, list, expected);
   nalu_list_free(list);
@@ -1072,6 +1062,9 @@ START_TEST(detect_change_of_public_key)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  // This test is not applicable for recurrence offset 1
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) return;
 
   // Generate 2 GOPs
   nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i]);
@@ -1354,7 +1347,7 @@ START_TEST(file_export_with_dangling_end)
       expected.has_signature = 1;
     }
   }
-  
+
   validate_nalu_list(sv, list, expected);
 
   // Free list and session.
