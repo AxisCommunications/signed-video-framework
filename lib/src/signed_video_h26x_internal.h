@@ -37,6 +37,7 @@ typedef enum {
   NALU_TYPE_I = 2,
   NALU_TYPE_P = 3,
   NALU_TYPE_PS = 4,  // Parameter Set: PPS/SPS/VPS
+  NALU_TYPE_OTHER = 5,
 } SignedVideoFrameType;
 
 typedef enum {
@@ -80,10 +81,10 @@ struct _h26x_nalu_list_item_t {
   char validation_status;  // The authentication status which can take on the following characters:
   // 'P' : Pending validation. This is the initial value. The NALU has been registered and waiting
   //       for validating the authenticity.
-  // 'U' : The NALU has an unknown authenticity. This occurs for NALUs that are not used in signing
-  //       the video, or an initial SEI representing a GOP not present in the video. A NALU with an
-  //       authenticity status marked as U can be considered authentic since it has no impact on the
-  //       video.
+  // 'U' : The NALU has an unknown authenticity. This occurs if the NALU could not be parsed, or if
+  //     : the SEI is associated with NALUs not part of the validating segment.
+  // '_' : The NALU is ignored and therefore not part of the signature. The NALU has no impact on
+  //       the video and can be considered authentic.
   // '.' : The NALU has been validated authentic.
   // 'N' : The NALU has been validated not authentic.
   // 'M' : The validation has detected one or more missing NALUs at this position. Note that

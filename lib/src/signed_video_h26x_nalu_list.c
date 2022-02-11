@@ -72,7 +72,7 @@ get_validation_status_from_nalu(const h26x_nalu_t *nalu)
   if (nalu->is_hashable) {
     return 'P';
   } else {
-    return 'U';
+    return '_';
   }
 }
 

@@ -17,7 +17,7 @@ The check tests are built with the unthreaded signing plugin.
 ## Build and run check tests
 The tests can be built with meson/ninja from the top-level as
 ```
-meson -Dtest-settings=true . build
+meson . build
 ninja -C build test
 ```
 Alternatively, you can run the script `test_checks.sh` from either this folder or the top-level. The script builds and runs the tests both with and without debug prints.

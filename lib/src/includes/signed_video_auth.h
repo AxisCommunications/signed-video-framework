@@ -75,9 +75,10 @@ typedef struct {
   // NALU's authenticity individually. Each NALU is marked by one of these characters:
   // 'P' : Pending validation. This is the initial value. The NALU has been registered and waiting
   //       for authenticity validation.
-  // 'U' : The NALU has an unknown authenticity. This occurs for NALUs that are not used in signing
-  //       the video. A NALU with an authenticity status marked as 'U' can be considered authentic
-  //       since it has no impact on the video.
+  // 'U' : The NALU has an unknown authenticity. This occurs if the NALU could not be parsed, or if
+  //     : the SEI is associated with NALUs not part of the validating segment.
+  // '_' : The NALU is ignored and therefore not part of the signature. The NALU has no impact on
+  //       the video and can be considered authentic.
   // '.' : The NALU has been validated as authentic.
   // 'N' : The NALU has been validated as not authentic.
   // 'M' : The validation has detected one or more missing NALUs at this position.
@@ -85,12 +86,14 @@ typedef struct {
   //       invalid NALU.
 
   // Example:
-  // Two consecutive |validation_str|. Five NALUs were added between them and the first two of them
-  // could successfully be validated, whereas the last three are still pending. The previous
-  // validation left three pending and one unknown NALU for the next validation. These were
-  // successfully validate, and the unknown is still 'U'.
-  //   ...U..PPUP
-  //         ..U...PPP
+  // Two consecutive |validation_str|. After 10 NALUs a authentication result was received
+  // generating the first string. Left for next validation are the three pending NALUs (P's) and
+  // the ignored NALU ('_'). Five new NALUs were added before the authentication result was
+  // updated. A new string has been generated (second line) and now the pending NALUs have been
+  // validated successfully (the P's have been turned into '.'). Note that the ignored NALU ('_')
+  // is still ignored.
+  //   ..._..PP_P
+  //         .._...PPP
 } signed_video_latest_validation_t;
 
 /**

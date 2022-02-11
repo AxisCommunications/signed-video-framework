@@ -542,6 +542,10 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     SVI_THROW(sv_rc_to_svi_rc(openssl_key_memory_allocated(
         &signature_info->public_key, &signature_info->public_key_size, pubkey_size)));
 
+    if (memcmp(data_ptr, signature_info->public_key, pubkey_size) &&
+        self->gop_state.has_public_key) {
+      self->latest_validation->public_key_has_changed = true;
+    }
     memcpy(signature_info->public_key, data_ptr, pubkey_size);
     self->has_public_key = true;
     data_ptr += pubkey_size;
@@ -869,16 +873,12 @@ tlv_decode(signed_video_t *self, const uint8_t *data, size_t data_size)
 }
 
 const uint8_t *
-tlv_find_tag(signed_video_t *self,
-    const uint8_t *tlv_data,
-    size_t tlv_data_size,
-    sv_tlv_tag_t tag,
-    bool with_ep)
+tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bool with_ep)
 {
   const uint8_t *tlv_data_ptr = tlv_data;
   const uint8_t *latest_tag_location = NULL;
 
-  if (!self || !tlv_data || tlv_data_size == 0) return 0;
+  if (!tlv_data || tlv_data_size == 0) return 0;
 
   uint16_t last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
   while (tlv_data_ptr < tlv_data + tlv_data_size) {

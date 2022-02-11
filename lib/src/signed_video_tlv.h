@@ -87,7 +87,6 @@ tlv_decode(signed_video_t *signed_video, const uint8_t *data, size_t data_size);
  * there are new tags, but never decodes it. The function can handle data both with and without
  * emulation prevention bytes.
  *
- * @param signed_video Pointer to the signed_video_t session.
  * @param tlv_data Pointer to the TLV data to scan.
  * @param tlv_data_size Size of the TLV data.
  * @param tag The tag to search for and when detected returns its location.
@@ -96,11 +95,7 @@ tlv_decode(signed_video_t *signed_video, const uint8_t *data, size_t data_size);
  * @returns A pointer to the location of the tag to scan for. Returns NULL if the tag was not found.
  */
 const uint8_t *
-tlv_find_tag(signed_video_t *signed_video,
-    const uint8_t *tlv_data,
-    size_t tlv_data_size,
-    sv_tlv_tag_t tag,
-    bool with_ep);
+tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bool with_ep);
 
 /**
  * @brief Reads bits from p into val.
