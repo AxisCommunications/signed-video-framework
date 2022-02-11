@@ -79,6 +79,14 @@ get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo);
 nalu_list_t *
 create_signed_nalus(const char *str, struct sv_setting settings);
 
+/* Generates a signed video stream of NALUs for a user-owned signed_video_t session.
+ *
+ * Takes a string of NALU characters ('I', 'i', 'P', 'p', 'S', 'X') as input and generates NALU
+ * data for these. Then adds these NALUs to the input session. The generated sei-nalus are added to
+ * the stream. */
+nalu_list_t *
+create_signed_nalus_with_sv(signed_video_t *sv, const char *str);
+
 /* Removes the NALU list items with position |item_number| from the |list|. The item is, after a
  * check against the expected |str|, then freed. */
 void
