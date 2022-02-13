@@ -1,7 +1,7 @@
 *Copyright (C) 2021, Axis Communications AB, Lund, Sweden. All Rights Reserved.*
 
 # Signed Video Framework
-This repository holds the framework code of the feature Signed Video. The Signed Video feature secures the video from tampering after signing by adding cryptographic signatures to the video. Each video frame is hashed and signatures are generated repeatedly based on these hashes using a private key set by the signer. The signature data added to the video does not affect the video rendering.
+This repository holds the framework code of the feature Signed Video. The Signed Video feature secures the video from tampering after signing by adding cryptographic signatures to the video. Each video frame is hashed and signatures are generated repeatedly based on these hashes using a private key set by the signer. The signature data added to the video does not affect the video rendering. The data is added in a Supplemental Enhancement Information (SEI) NALU with type "user data unregistered". This SEI has a UUID of `53, 69, 67, 6e, 65, 64, 20, 56, 69, 64, 65, 6f, 2e, 2e, 2e, 30` in hexadecimal.
 
 A more detailed description of the Signed Video feature is found in [feature-description](./feature-description.md).
 
