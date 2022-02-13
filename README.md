@@ -28,7 +28,7 @@ For instructions on how to use the APIs to integrate the Signed Video Framework 
 # Releases
 There are no pre-built releases. The user is encouraged to build the library from a [release tag](https://github.com/AxisCommunications/signed-video-framework/tags).
 
-The source code is tested on a Linux platform.
+The check tests here in Github run on a Linux platform. Further, integration of the shared library is tested on a Linux platform for both signing and validation, whereas on Windows only validation is tested.
 
 # Getting started
 The repository uses meson + ninja as default build method. Further, OpenSSL is used for cryptographic operations and to run unittests you need libcheck.
