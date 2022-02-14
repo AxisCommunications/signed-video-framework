@@ -20,8 +20,9 @@
  */
 #include "signed_video_helpers.h"
 
+#include <assert.h>  // assert
 #include <check.h>
-#include <stdlib.h>  // calloc, size_t
+#include <stdlib.h>  // size_t
 
 #include "lib/src/includes/signed_video_common.h"
 #include "lib/src/includes/signed_video_openssl.h"
@@ -29,10 +30,10 @@
 #include "lib/src/signed_video_h26x_internal.h"  // signed_video_set_recurrence_interval()
 #include "lib/src/signed_video_internal.h"  // _signed_video_t
 
-char *global_private_key_rsa;
+char global_private_key_rsa[RSA_PRIVATE_KEY_ALLOC_BYTES];
 size_t global_private_key_size_rsa;
 sign_algo_t global_algo_rsa;
-char *global_private_key_ecdsa;
+char global_private_key_ecdsa[ECDSA_PRIVATE_KEY_ALLOC_BYTES];
 size_t global_private_key_size_ecdsa;
 sign_algo_t global_algo_ecdsa;
 
@@ -177,13 +178,14 @@ get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_
   size_t private_key_size = 0;
   SignedVideoReturnCode rc;
 
+  // Generating private keys takes long time. In unit_tests a new private key is only generated if
+  // it's really needed. One RSA key and one ECDSA key is stored globally to handle the scenario.
   if (algo == SIGN_ALGO_RSA) {
-    if (!global_private_key_rsa || global_private_key_size_rsa == 0 || new_priv_key) {
+    if (global_private_key_size_rsa == 0 || new_priv_key) {
       rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
       ck_assert_int_eq(rc, SV_OK);
 
-      global_private_key_rsa = NULL;
-      global_private_key_rsa = malloc(private_key_size);
+      assert(private_key_size < RSA_PRIVATE_KEY_ALLOC_BYTES);
       memcpy(global_private_key_rsa, private_key, private_key_size);
       global_private_key_size_rsa = private_key_size;
       global_algo_rsa = algo;
@@ -193,12 +195,11 @@ get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_
     ck_assert_int_eq(rc, SV_OK);
   }
   if (algo == SIGN_ALGO_ECDSA) {
-    if (!global_private_key_ecdsa || global_private_key_size_ecdsa == 0 || new_priv_key) {
+    if (global_private_key_size_ecdsa == 0 || new_priv_key) {
       rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
       ck_assert_int_eq(rc, SV_OK);
 
-      global_private_key_ecdsa = NULL;
-      global_private_key_ecdsa = malloc(private_key_size);
+      assert(private_key_size < ECDSA_PRIVATE_KEY_ALLOC_BYTES);
       memcpy(global_private_key_ecdsa, private_key, private_key_size);
       global_private_key_size_ecdsa = private_key_size;
       global_algo_ecdsa = algo;

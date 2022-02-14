@@ -32,6 +32,9 @@
 #define MANUFACT "manufacturer"
 #define ADDR "address"
 
+#define RSA_PRIVATE_KEY_ALLOC_BYTES 2000
+#define ECDSA_PRIVATE_KEY_ALLOC_BYTES 1000
+
 struct sv_setting {
   SignedVideoCodec codec;
   SignedVideoAuthenticityLevel auth_level;
