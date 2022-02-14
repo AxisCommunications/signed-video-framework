@@ -26,10 +26,10 @@
 #include "lib/src/includes/signed_video_openssl.h"
 #include "lib/src/includes/signed_video_sign.h"
 #include "lib/src/includes/sv_vendor_axis_communications.h"
-#include "lib/src/signed_video_defines.h"  // svi_rc
+#include "lib/src/signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
 #include "lib/src/signed_video_h26x_internal.h"  // signed_video_set_recurrence_interval()
 #include "lib/src/signed_video_internal.h"  // set_hash_list_size()
-#include "lib/src/signed_video_tlv.h"  // sv_tlv_tag_t, tlv_find_tag()
+#include "lib/src/signed_video_tlv.h"  // tlv_find_tag()
 #include "nalu_list.h"
 #include "signed_video_helpers.h"
 

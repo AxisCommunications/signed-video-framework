@@ -23,7 +23,13 @@
 #include <stdbool.h>
 #include <stdlib.h>  // malloc, memcpy, calloc, free
 
+#include "signed_video_defines.h"  // sv_tlv_tag_t
 #include "signed_video_internal.h"
+
+#define AXIS_COMMUNICATIONS_NUM_ENCODERS 1
+static const sv_tlv_tag_t axis_communications_encoders[AXIS_COMMUNICATIONS_NUM_ENCODERS] = {
+    VENDOR_AXIS_COMMUNICATIONS_TAG,
+};
 
 /**
  * Sets an attestation report, including a Public key |attestation| and a |certificate_chain|, to
@@ -63,6 +69,7 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *self,
     allocated_attestation = true;
     if (!self->attestation) goto catch_error;
     memcpy(self->attestation, attestation, attestation_size);
+    self->attestation_size = attestation_size;
   }
 
   if (certificate_chain) {
@@ -73,11 +80,21 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *self,
     strcpy(self->certificate_chain, certificate_chain);
   }
 
+  self->vendor_encoders = axis_communications_encoders;
+  self->num_vendor_encoders = AXIS_COMMUNICATIONS_NUM_ENCODERS;
+
   return SV_OK;
 
 catch_error:
-  if (allocated_attestation) free(self->attestation);
-  if (allocated_certificate_chain) free(self->certificate_chain);
+  if (allocated_attestation) {
+    free(self->attestation);
+    self->attestation = NULL;
+    self->attestation_size = 0;
+  }
+  if (allocated_certificate_chain) {
+    free(self->certificate_chain);
+    self->certificate_chain = NULL;
+  }
 
   return SV_MEMORY;
 }

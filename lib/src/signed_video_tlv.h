@@ -26,25 +26,7 @@
 #include <string.h>  // size_t
 
 #include "includes/signed_video_common.h"  // signed_video_t
-#include "signed_video_defines.h"  // svi_rc
-
-/**
- * Definition of available TLV tags.
- * The list begins and ends with invalid tags (UNDEFINED_TAG and NUMBER_OF_TLV_TAGS).
- *
- * NOTE: When a new tag is added simply append the list of valid tags. Changing the number of
- * existing tags will break backwards compatibility!
- */
-typedef enum {
-  UNDEFINED_TAG = 0,  // Should always be zero
-  GENERAL_TAG = 1,
-  PUBLIC_KEY_TAG = 2,
-  PRODUCT_INFO_TAG = 3,
-  HASH_LIST_TAG = 4,
-  SIGNATURE_TAG = 5,
-  ARBITRARY_DATA_TAG = 6,
-  NUMBER_OF_TLV_TAGS = 7,
-} sv_tlv_tag_t;
+#include "signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
 
 /**
  * @brief Encodes a SEI-nalu payload defined by a list of tags.

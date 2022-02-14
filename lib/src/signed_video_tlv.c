@@ -85,6 +85,12 @@ encode_signature(signed_video_t *self, uint8_t *data);
 static svi_rc
 decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size);
 
+// Vendor specific encoders and decoders.
+static size_t
+encode_axis_communications(signed_video_t *self, uint8_t *data);
+static svi_rc
+decode_axis_communications(signed_video_t *self, const uint8_t *data, size_t data_size);
+
 /**
  * Definition of a TLV tuple associating the TLV Tag with an encoder, a decoder and the number of
  * bytes to represent the Length.
@@ -117,17 +123,52 @@ static const sv_tlv_tuple_t tlv_tuples[] = {
 };
 
 /**
+ * This is an array of all available Vendor TLV tuples. The first and last tuples, which are
+ * invalid tags, have dummy values to avoid the risk of reading outside memory.
+ * The tuples are offset with UNDEFINED_VENDOR_TAG since they start at UNDEFINED_VENDOR_TAG in
+ * sv_tlv_tag_t.
+ *
+ * NOTE: They HAVE TO be in the same order as the available tags!
+ *
+ * When you add a new vendor tag you have to add the tuple to this array as well.
+ */
+static const sv_tlv_tuple_t vendor_tlv_tuples[] = {
+    {UNDEFINED_VENDOR_TAG, 0, NULL, NULL, true},
+    {VENDOR_AXIS_COMMUNICATIONS_TAG, 2, encode_axis_communications, decode_axis_communications,
+        true},
+    {NUMBER_OF_VENDOR_TLV_TAGS, 0, NULL, NULL, true},
+};
+
+/**
  * Declarations of STATIC functions.
  */
 static sv_tlv_decoder_t
 get_decoder(sv_tlv_tag_t tag);
+static sv_tlv_tuple_t
+get_tlv_tuple(sv_tlv_tag_t tag);
 static svi_rc
 decode_tlv_header(const uint8_t *data, size_t *read_data_bytes, sv_tlv_tag_t *tag, size_t *length);
 
 static sv_tlv_decoder_t
 get_decoder(sv_tlv_tag_t tag)
 {
-  return tlv_tuples[tag].decoder;
+  if (tag > UNDEFINED_VENDOR_TAG) {
+    return vendor_tlv_tuples[tag - UNDEFINED_VENDOR_TAG].decoder;
+  } else {
+    return tlv_tuples[tag].decoder;
+  }
+}
+
+static sv_tlv_tuple_t
+get_tlv_tuple(sv_tlv_tag_t tag)
+{
+  if ((tag > UNDEFINED_TAG) && (tag < NUMBER_OF_TLV_TAGS)) {
+    return tlv_tuples[tag];
+  } else if ((tag > UNDEFINED_VENDOR_TAG) && (tag < NUMBER_OF_VENDOR_TLV_TAGS)) {
+    return vendor_tlv_tuples[tag - UNDEFINED_VENDOR_TAG];
+  } else {
+    return tlv_tuples[UNDEFINED_TAG];
+  }
 }
 
 /**
@@ -738,6 +779,54 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
   return status;
 }
 
+// Vendor specific encoders and decoders.
+/**
+ * @brief Encodes the VENDOR_AXIS_COMMUNICATIONS_TAG into data
+ *
+ */
+static size_t
+encode_axis_communications(signed_video_t *self, uint8_t *data)
+{
+  size_t data_size = 0;
+  const uint8_t version = 1;  // Increment when the change breaks the format
+
+  // Version 1:
+  //  - version (1 byte)
+
+  data_size += sizeof(version);
+
+  if (!data) return data_size;
+
+  uint8_t *data_ptr = data;
+  uint16_t *last_two_bytes = &self->last_two_bytes;
+  // Write version
+  write_byte(last_two_bytes, &data_ptr, version, true);
+
+  return (data_ptr - data);
+}
+
+/**
+ * @brief Decodes the VENDOR_AXIS_COMMUNICATIONS_TAG from data
+ *
+ */
+static svi_rc
+decode_axis_communications(signed_video_t __attribute__((unused)) * self,
+    const uint8_t *data,
+    size_t data_size)
+{
+  const uint8_t *data_ptr = data;
+  uint8_t version = *data_ptr++;
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
+    SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  return status;
+}
+
 static size_t
 tlv_encode_or_get_size_generic(signed_video_t *self, const sv_tlv_tuple_t tlv, uint8_t *data)
 {
@@ -800,7 +889,11 @@ tlv_list_encode_or_get_size(signed_video_t *self,
 
   for (size_t ii = 0; ii < num_tags; ++ii) {
     sv_tlv_tag_t tag = tags[ii];
-    sv_tlv_tuple_t tlv = tlv_tuples[tag];
+    sv_tlv_tuple_t tlv = get_tlv_tuple(tag);
+    if (tlv.tag != tag) {
+      DEBUG_LOG("Did not find TLV tuple from tag (%d)", tag);
+      continue;
+    }
 
     if (tlv.is_always_present ||
         ((gop_counter + self->recurrence_offset) % self->recurrence) == 0) {
@@ -822,13 +915,13 @@ decode_tlv_header(const uint8_t *data, size_t *read_data_bytes, sv_tlv_tag_t *ta
   const uint8_t *data_ptr = data;
   sv_tlv_tag_t tag_from_data = (sv_tlv_tag_t)(*data_ptr++);
   *read_data_bytes = 0;
-  if (tag_from_data <= UNDEFINED_TAG || tag_from_data >= NUMBER_OF_TLV_TAGS) {
+  sv_tlv_tuple_t tlv = get_tlv_tuple(tag_from_data);
+  if (tlv.tag != tag_from_data) {
     DEBUG_LOG("Parsed an invalid tag (%d) in the data", tag_from_data);
     return SVI_INVALID_PARAMETER;
   }
   *tag = tag_from_data;
 
-  sv_tlv_tuple_t tlv = tlv_tuples[tag_from_data];
   if (tlv.bytes_for_length == 2) {
     data_ptr += read_16bits(data_ptr, (uint16_t *)length);
   } else {
@@ -888,7 +981,8 @@ tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bo
 
     // Read the length
     uint16_t length = read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
-    if (tlv_tuples[this_tag].bytes_for_length == 2) {
+    sv_tlv_tuple_t tlv = get_tlv_tuple(this_tag);
+    if (tlv.bytes_for_length == 2) {
       length <<= 8;
       length |= read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
     }

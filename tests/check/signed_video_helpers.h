@@ -26,7 +26,7 @@
 #include "lib/src/includes/signed_video_common.h"  // signed_video_t, SignedVideoCodec
 #include "lib/src/includes/signed_video_interfaces.h"  // sign_algo_t
 #include "lib/src/includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
-#include "lib/src/signed_video_tlv.h"  // sv_tlv_tag_t
+#include "lib/src/signed_video_defines.h"  // sv_tlv_tag_t
 #include "nalu_list.h"  // nalu_list_t
 
 #define HW_ID "hardware_id"
