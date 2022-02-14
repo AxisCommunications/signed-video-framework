@@ -21,8 +21,8 @@
 #ifndef __SIGNED_VIDEO_HELPERS_H__
 #define __SIGNED_VIDEO_HELPERS_H__
 
-#include "lib/src/includes/signed_video_interfaces.h"  // sign_algo_t
 #include "lib/src/includes/signed_video_common.h"  // signed_video_t, SignedVideoCodec
+#include "lib/src/includes/signed_video_interfaces.h"  // sign_algo_t
 #include "lib/src/includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
 #include "nalu_list.h"  // nalu_list_t
 
@@ -45,9 +45,10 @@ extern const struct sv_setting settings[NUM_SETTINGS];
  * 1. a path to openssl keys
  * 2. product info strings
  *
+ * new_priv_key = Generate a new private key or not.
  * This is useful for testing the signing part and generating a signed stream of nalus. */
 signed_video_t *
-get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo);
+get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_priv_key);
 
 /* Creates a nalu_list_t with all the NALUs produced after signing. This mimic what leaves the
  * camera.
@@ -67,16 +68,19 @@ get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo);
  *   X: Invalid nalu, i.e., not a H26x nalu.
  *
  * settings = the session setup for this test.
+ * new_priv_key = Generate a new private key or not.
  */
 nalu_list_t *
-create_signed_nalus(const char *str, struct sv_setting settings);
+create_signed_nalus(const char *str, struct sv_setting settings, bool new_priv_key);
 
 /* Creates a nalu_list_t with all the NALUs produced after signing. This mimic what leaves the
  * camera. Content in sei-nalus is dependent on the recurrence value.
  */
 nalu_list_t *
-create_signed_nalus_recurrence(const char *str, struct sv_setting settings,
-    int recurrence);
+create_signed_nalus_recurrence(const char *str,
+    struct sv_setting settings,
+    int recurrence,
+    bool new_priv_key);
 
 /* Generates a signed video stream of NALUs for a user-owned signed_video_t session.
  *
@@ -89,8 +93,7 @@ create_signed_nalus_with_sv(signed_video_t *sv, const char *str);
 /* Removes the NALU list items with position |item_number| from the |list|. The item is, after a
  * check against the expected |str|, then freed. */
 void
-remove_item_then_check_and_free(nalu_list_t *list, int item_number,
-    const char *str);
+remove_item_then_check_and_free(nalu_list_t *list, int item_number, const char *str);
 
 /* Modifies the id of |item_number| by incrementing the value by one. Applies to both codecs in
  * |h26x_lists|. A sanity check on expected string of that item is done. */

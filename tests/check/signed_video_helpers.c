@@ -29,6 +29,13 @@
 #include "lib/src/signed_video_h26x_internal.h"  // signed_video_set_recurrence_interval()
 #include "lib/src/signed_video_internal.h"  // _signed_video_t
 
+char *global_private_key_rsa;
+size_t global_private_key_size_rsa;
+sign_algo_t global_algo_rsa;
+char *global_private_key_ecdsa;
+size_t global_private_key_size_ecdsa;
+sign_algo_t global_algo_ecdsa;
+
 const struct sv_setting settings[NUM_SETTINGS] = {
     {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA},
     {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA},
@@ -55,12 +62,11 @@ pull_nalus(signed_video_t *sv, nalu_list_item_t *item)
   // Loop through all nalus_to_prepend.
   SignedVideoReturnCode sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
   ck_assert_int_eq(sv_rc, SV_OK);
-  while (sv_rc == SV_OK &&
-      nalu_to_prepend.prepend_instruction != SIGNED_VIDEO_PREPEND_NOTHING) {
+  while (sv_rc == SV_OK && nalu_to_prepend.prepend_instruction != SIGNED_VIDEO_PREPEND_NOTHING) {
 
     // Generate a new nalu_list_item with this NALU data.
-    nalu_list_item_t *new_item = nalu_list_create_item(
-        nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, sv->codec);
+    nalu_list_item_t *new_item =
+        nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, sv->codec);
     // Prepend, or append, the nalu_list_item with this new item.
     if (nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NALU) {
       nalu_list_item_prepend_item(cur_item, new_item);
@@ -122,10 +128,10 @@ create_signed_nalus_with_sv(signed_video_t *sv, const char *str)
  * generated NALUs are then passed through the signing process and corresponding generated
  * sei-nalus are added to the stream. */
 nalu_list_t *
-create_signed_nalus(const char *str, struct sv_setting settings)
+create_signed_nalus(const char *str, struct sv_setting settings, bool new_priv_key)
 {
   if (!str) return NULL;
-  signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo);
+  signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo, new_priv_key);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
 
@@ -145,10 +151,11 @@ create_signed_nalus(const char *str, struct sv_setting settings)
 nalu_list_t *
 create_signed_nalus_recurrence(const char *str,
     struct sv_setting settings,
-    int recurrence)
+    int recurrence,
+    bool new_priv_key)
 {
   if (!str) return NULL;
-  signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo);
+  signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo, new_priv_key);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
   ck_assert_int_eq(signed_video_set_recurrence_interval(sv, recurrence), SV_OK);
@@ -162,17 +169,45 @@ create_signed_nalus_recurrence(const char *str,
 
 /* Creates and initializes a signed video session. */
 signed_video_t *
-get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo)
+get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_priv_key)
 {
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
   char *private_key = NULL;
   size_t private_key_size = 0;
-  SignedVideoReturnCode rc =
-      signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
-  ck_assert_int_eq(rc, SV_OK);
-  rc = signed_video_set_private_key(sv, algo, private_key, private_key_size);
-  ck_assert_int_eq(rc, SV_OK);
+  SignedVideoReturnCode rc;
+
+  if (algo == SIGN_ALGO_RSA) {
+    if (!global_private_key_rsa || global_private_key_size_rsa == 0 || new_priv_key) {
+      rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
+      ck_assert_int_eq(rc, SV_OK);
+
+      global_private_key_rsa = NULL;
+      global_private_key_rsa = malloc(private_key_size);
+      memcpy(global_private_key_rsa, private_key, private_key_size);
+      global_private_key_size_rsa = private_key_size;
+      global_algo_rsa = algo;
+    }
+    rc = signed_video_set_private_key(
+        sv, global_algo_rsa, global_private_key_rsa, global_private_key_size_rsa);
+    ck_assert_int_eq(rc, SV_OK);
+  }
+  if (algo == SIGN_ALGO_ECDSA) {
+    if (!global_private_key_ecdsa || global_private_key_size_ecdsa == 0 || new_priv_key) {
+      rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
+      ck_assert_int_eq(rc, SV_OK);
+
+      global_private_key_ecdsa = NULL;
+      global_private_key_ecdsa = malloc(private_key_size);
+      memcpy(global_private_key_ecdsa, private_key, private_key_size);
+      global_private_key_size_ecdsa = private_key_size;
+      global_algo_ecdsa = algo;
+    }
+    rc = signed_video_set_private_key(
+        sv, global_algo_ecdsa, global_private_key_ecdsa, global_private_key_size_ecdsa);
+    ck_assert_int_eq(rc, SV_OK);
+  }
+
   rc = signed_video_set_product_info(sv, HW_ID, FW_VER, SER_NO, MANUFACT, ADDR);
   ck_assert_int_eq(rc, SV_OK);
 
