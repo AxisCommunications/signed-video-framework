@@ -6,3 +6,7 @@ option('signingplugin',
   type : 'string',
   value : 'unthreaded',
   description : 'Select signing plugin; \'unthreaded\' (default), \'threaded\' or \'threaded_unless_check_dep\'')
+option('vendors',
+  type : 'string',
+  value : 'axis-communications',
+  description : 'Select vendor(s) to support')

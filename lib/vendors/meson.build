@@ -1,3 +1,3 @@
-vendor_sources = files(
-  'axis-communications/sv_vendor_axis_communications.c',
-)
+if get_option('vendors') == 'axis-communications'
+  subdir('axis-communications')
+endif

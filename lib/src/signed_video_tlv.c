@@ -22,6 +22,7 @@
 
 #include <stdlib.h>  // free
 
+#include "../vendors/axis-communications/sv_vendor_axis_communications_internal.h"
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
 #include "includes/signed_video_interfaces.h"  // signature_info_t, sign_algo_t
 #include "includes/signed_video_openssl.h"  // openssl_key_memory_allocated()
@@ -135,7 +136,7 @@ static const sv_tlv_tuple_t tlv_tuples[] = {
 static const sv_tlv_tuple_t vendor_tlv_tuples[] = {
     {UNDEFINED_VENDOR_TAG, 0, NULL, NULL, true},
     {VENDOR_AXIS_COMMUNICATIONS_TAG, 2, encode_axis_communications, decode_axis_communications,
-        true},
+        false},
     {NUMBER_OF_VENDOR_TLV_TAGS, 0, NULL, NULL, true},
 };
 
@@ -787,22 +788,7 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
 static size_t
 encode_axis_communications(signed_video_t *self, uint8_t *data)
 {
-  size_t data_size = 0;
-  const uint8_t version = 1;  // Increment when the change breaks the format
-
-  // Version 1:
-  //  - version (1 byte)
-
-  data_size += sizeof(version);
-
-  if (!data) return data_size;
-
-  uint8_t *data_ptr = data;
-  uint16_t *last_two_bytes = &self->last_two_bytes;
-  // Write version
-  write_byte(last_two_bytes, &data_ptr, version, true);
-
-  return (data_ptr - data);
+  return encode_axis_communications_handle(self->vendor_handle, &self->last_two_bytes, data);
 }
 
 /**
@@ -814,17 +800,7 @@ decode_axis_communications(signed_video_t __attribute__((unused)) * self,
     const uint8_t *data,
     size_t data_size)
 {
-  const uint8_t *data_ptr = data;
-  uint8_t version = *data_ptr++;
-
-  svi_rc status = SVI_UNKNOWN;
-  SVI_TRY()
-    SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
-    SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
-  SVI_CATCH()
-  SVI_DONE(status)
-
-  return status;
+  return decode_axis_communications_handle(self->vendor_handle, data, data_size);
 }
 
 static size_t

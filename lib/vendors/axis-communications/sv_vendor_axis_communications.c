@@ -23,65 +23,134 @@
 #include <stdbool.h>
 #include <stdlib.h>  // malloc, memcpy, calloc, free
 
-#include "signed_video_defines.h"  // sv_tlv_tag_t
 #include "signed_video_internal.h"
+#include "signed_video_tlv.h"
+#include "sv_vendor_axis_communications_internal.h"
 
 #define AXIS_COMMUNICATIONS_NUM_ENCODERS 1
 static const sv_tlv_tag_t axis_communications_encoders[AXIS_COMMUNICATIONS_NUM_ENCODERS] = {
     VENDOR_AXIS_COMMUNICATIONS_TAG,
 };
 
-/**
- * Sets an attestation report, including a Public key |attestation| and a |certificate_chain|, to
- * the Signed Video session. This report is added to the generated SEI for verification of the
- * Public key. This should be called before the session starts.
- *
- * It is possible to set attestation and certificate_chain individually. Leave out one parameter
- * with a NULL pointer.
- *
- * @param self Pointer to the Signed Video session.
- * @param attestation Pointer to the key attestation. A NULL means that it will not be set.
- *   SV_NOT_SUPPORTED is returned if an attempt to replace an existing attestation is made.
- * @param attestation_size The size of the key attestation. Set to 0 if no attestation should be
- *   set.
- * @param certificate_chain Pointer to the certificate chain. A NULL means that it will not be set.
- *   SV_NOT_SUPPORTED is returned if an attempt to replace an existing certificate_chain is made.
- *
- * @returns SV_OK upon success, otherwise an appropriate error.
- */
+typedef struct _sv_vendor_axis_communications_t {
+  void *attestation;
+  size_t attestation_size;
+  char *certificate_chain;
+} sv_vendor_axis_communications_t;
+
+void *
+sv_vendor_axis_communications_setup(void)
+{
+  return calloc(1, sizeof(sv_vendor_axis_communications_t));
+}
+
+void
+sv_vendor_axis_communications_teardown(void *handle)
+{
+  sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
+  if (!self) return;
+
+  free(self->attestation);
+  free(self->certificate_chain);
+  free(self);
+}
+
+size_t
+encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, uint8_t *data)
+{
+  sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
+  if (!self) return 0;
+
+  size_t data_size = 0;
+  const uint8_t version = 1;  // Increment when the change breaks the format
+
+  // Version 1:
+  //  - version (1 byte)
+
+  data_size += sizeof(version);
+
+  if (!data) return data_size;
+
+  uint8_t *data_ptr = data;
+  // Write version
+  write_byte(last_two_bytes, &data_ptr, version, true);
+
+  return (data_ptr - data);
+}
+
+svi_rc
+decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data_size)
+{
+  sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
+  if (!self) return SVI_INVALID_PARAMETER;
+
+  const uint8_t *data_ptr = data;
+  uint8_t version = *data_ptr++;
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
+    SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  return status;
+}
+
 SignedVideoReturnCode
-sv_vendor_axis_communications_set_attestation_report(signed_video_t *self,
+sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
     void *attestation,
     size_t attestation_size,
     char *certificate_chain)
 {
-  if (!self) return SV_INVALID_PARAMETER;
+  // Sanity check inputs. It is allowed to set either one of |attestation| and |certificate_chain|,
+  // but a mismatch between |attestation| and |attestation_size| returns SV_INVALID_PARAMETER.
+  if (!sv) return SV_INVALID_PARAMETER;
   if (!attestation && !certificate_chain) return SV_INVALID_PARAMETER;
   if ((attestation && attestation_size == 0) || (!attestation && attestation_size > 0)) {
     return SV_INVALID_PARAMETER;
   }
+  if (!sv->vendor_handle) return SV_NOT_SUPPORTED;
 
+  sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)sv->vendor_handle;
   bool allocated_attestation = false;
   bool allocated_certificate_chain = false;
+  // The user wants to set the |attestation|.
   if (attestation) {
-    if (self->attestation) return SV_NOT_SUPPORTED;
+    // If |attestation| already exists, return error.
+    if (self->attestation || sv->attestation) return SV_NOT_SUPPORTED;
+    // Allocate memory and copy to |self|.
     self->attestation = malloc(attestation_size);
     allocated_attestation = true;
     if (!self->attestation) goto catch_error;
     memcpy(self->attestation, attestation, attestation_size);
     self->attestation_size = attestation_size;
+
+    // Allocate memory and copy to temporary location in |sv|.
+    sv->attestation = malloc(attestation_size);
+    if (!sv->attestation) goto catch_error;
+    memcpy(sv->attestation, attestation, attestation_size);
+    sv->attestation_size = attestation_size;
   }
 
+  // The user wants to set the |certificate_chain|.
   if (certificate_chain) {
-    if (self->certificate_chain) return SV_NOT_SUPPORTED;
+    // If |certificate_chain| already exists, return error.
+    if (self->certificate_chain || sv->certificate_chain) return SV_NOT_SUPPORTED;
+    // Allocate memory and copy to |self|.
     self->certificate_chain = calloc(1, strlen(certificate_chain) + 1);
     allocated_certificate_chain = true;
     if (!self->certificate_chain) goto catch_error;
     strcpy(self->certificate_chain, certificate_chain);
+
+    // Allocate memory and copy to temporary location in |sv|.
+    sv->certificate_chain = calloc(1, strlen(certificate_chain) + 1);
+    if (!sv->certificate_chain) goto catch_error;
+    strcpy(sv->certificate_chain, certificate_chain);
   }
 
-  self->vendor_encoders = axis_communications_encoders;
-  self->num_vendor_encoders = AXIS_COMMUNICATIONS_NUM_ENCODERS;
+  sv->vendor_encoders = axis_communications_encoders;
+  sv->num_vendor_encoders = AXIS_COMMUNICATIONS_NUM_ENCODERS;
 
   return SV_OK;
 
@@ -90,10 +159,15 @@ catch_error:
     free(self->attestation);
     self->attestation = NULL;
     self->attestation_size = 0;
+    free(sv->attestation);
+    sv->attestation = NULL;
+    sv->attestation_size = 0;
   }
   if (allocated_certificate_chain) {
     free(self->certificate_chain);
     self->certificate_chain = NULL;
+    free(sv->certificate_chain);
+    sv->certificate_chain = NULL;
   }
 
   return SV_MEMORY;

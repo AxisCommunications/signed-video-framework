@@ -179,6 +179,8 @@ struct _signed_video_t {
 
   bool has_public_key;  // State to indicate if public key is received/added
 
+  // Handle for vendor specific data. Only works with one vendor.
+  void *vendor_handle;
   // Vendor encoders for signing. Only works with one vendor.
   const sv_tlv_tag_t *vendor_encoders;
   size_t num_vendor_encoders;

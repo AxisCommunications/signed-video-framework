@@ -25,6 +25,7 @@
 #include <stdlib.h>  // free, calloc, malloc
 #include <string.h>  // size_t
 
+#include "../vendors/axis-communications/sv_vendor_axis_communications_internal.h"
 #include "includes/signed_video_common.h"
 #include "includes/signed_video_interfaces.h"  // signature_info_t
 #include "includes/signed_video_openssl.h"  // openssl_hash_data()
@@ -1136,6 +1137,9 @@ signed_video_create(SignedVideoCodec codec)
     // Setup the plugin.
     self->plugin_handle = sv_interface_setup();
     SVI_THROW_IF(!self->plugin_handle, SVI_EXTERNAL_FAILURE);
+    // Setup vendor handle.
+    self->vendor_handle = sv_vendor_axis_communications_setup();
+    SVI_THROW_IF(!self->vendor_handle, SVI_MEMORY);
 
   SVI_CATCH()
   {
@@ -1184,6 +1188,8 @@ signed_video_free(signed_video_t *self)
 
   // Teardown the plugin before closing.
   sv_interface_teardown(self->plugin_handle);
+  // Teardown the vendor handle.
+  sv_vendor_axis_communications_teardown(self->vendor_handle);
 
   // Free any NALUs left to prepend.
   free_and_reset_nalu_to_prepend_list(self);
