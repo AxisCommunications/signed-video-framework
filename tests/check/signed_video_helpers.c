@@ -30,6 +30,9 @@
 #include "lib/src/signed_video_h26x_internal.h"  // signed_video_set_recurrence_interval()
 #include "lib/src/signed_video_internal.h"  // _signed_video_t
 
+#define RSA_PRIVATE_KEY_ALLOC_BYTES 2000
+#define ECDSA_PRIVATE_KEY_ALLOC_BYTES 1000
+
 char global_private_key_rsa[RSA_PRIVATE_KEY_ALLOC_BYTES];
 size_t global_private_key_size_rsa;
 sign_algo_t global_algo_rsa;
@@ -121,6 +124,13 @@ create_signed_nalus_with_sv(signed_video_t *sv, const char *str)
   return list;
 }
 
+/* See function create_signed_nalus_int */
+nalu_list_t *
+create_signed_nalus(const char *str, struct sv_setting settings)
+{
+  return create_signed_nalus_int(str, settings, false);
+}
+
 /* Generates a signed video stream for the selected setting. The stream is returned as a
  * nalu_list_t.
  *
@@ -129,7 +139,7 @@ create_signed_nalus_with_sv(signed_video_t *sv, const char *str)
  * generated NALUs are then passed through the signing process and corresponding generated
  * sei-nalus are added to the stream. */
 nalu_list_t *
-create_signed_nalus(const char *str, struct sv_setting settings, bool new_priv_key)
+create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_priv_key)
 {
   if (!str) return NULL;
   signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo, new_priv_key);

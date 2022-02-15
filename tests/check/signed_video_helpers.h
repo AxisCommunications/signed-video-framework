@@ -32,9 +32,6 @@
 #define MANUFACT "manufacturer"
 #define ADDR "address"
 
-#define RSA_PRIVATE_KEY_ALLOC_BYTES 2000
-#define ECDSA_PRIVATE_KEY_ALLOC_BYTES 1000
-
 struct sv_setting {
   SignedVideoCodec codec;
   SignedVideoAuthenticityLevel auth_level;
@@ -52,6 +49,10 @@ extern const struct sv_setting settings[NUM_SETTINGS];
  * This is useful for testing the signing part and generating a signed stream of nalus. */
 signed_video_t *
 get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_priv_key);
+
+/* See function create_signed_nalus_int */
+nalu_list_t *
+create_signed_nalus(const char *str, struct sv_setting settings);
 
 /* Creates a nalu_list_t with all the NALUs produced after signing. This mimic what leaves the
  * camera.
@@ -74,7 +75,7 @@ get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_
  * new_priv_key = Generate a new private key or not.
  */
 nalu_list_t *
-create_signed_nalus(const char *str, struct sv_setting settings, bool new_priv_key);
+create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_priv_key);
 
 /* Creates a nalu_list_t with all the NALUs produced after signing. This mimic what leaves the
  * camera. Content in sei-nalus is dependent on the recurrence value.

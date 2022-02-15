@@ -276,7 +276,7 @@ START_TEST(correct_nalu_sequence_with_eos)
   /* This test runs in a loop with loop index _i, corresponding to struct sv_setting _i
    * in |settings|; See signed_video_helpers.h. */
 
-  nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i]);
   nalu_list_check_str(list, "GIPPGIPPG");
   nalu_list_free(list);
 }
@@ -288,7 +288,7 @@ START_TEST(correct_nalu_sequence_without_eos)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i]);
   nalu_list_check_str(list, "GIPPGIPP");
   nalu_list_free(list);
 }
@@ -315,7 +315,7 @@ START_TEST(correct_multislice_sequence_with_eos)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i
   // in |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i]);
   nalu_list_check_str(list, "GIiPpPpGIiPpPpG");
   nalu_list_free(list);
 }
@@ -327,7 +327,7 @@ START_TEST(correct_multislice_nalu_sequence_without_eos)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i]);
   nalu_list_check_str(list, "GIiPpPpGIiPpPp");
   nalu_list_free(list);
 }
@@ -352,7 +352,7 @@ START_TEST(sei_increase_with_gop_length)
 
   SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPPPPI", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPPIPPPPPI", settings[_i]);
   nalu_list_check_str(list, "GIPPGIPPPPPGI");
   nalu_list_item_t *sei_3 = nalu_list_remove_item(list, 12);
   nalu_list_item_check_str(sei_3, "G");
@@ -443,7 +443,7 @@ START_TEST(undefined_nalu_in_sequence)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPXPIPPI", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
   nalu_list_check_str(list, "GIPXPGIPPGI");
   nalu_list_free(list);
 }

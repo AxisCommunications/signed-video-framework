@@ -264,7 +264,7 @@ START_TEST(intact_stream)
   // |settings|; See signed_video_helpers.h.
 
   // Create a list of NALUs given the input string.
-  nalu_list_t *list = create_signed_nalus("IPPIPPI", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPPIPPI", settings[_i]);
   nalu_list_check_str(list, "GIPPGIPPGI");
 
   // One pending NALU per GOP.
@@ -280,7 +280,7 @@ START_TEST(intact_multislice_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IiPpPpIiPpPpIi", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IiPpPpIiPpPpIi", settings[_i]);
   nalu_list_check_str(list, "GIiPpPpGIiPpPpGIi");
 
   // One pending NALU per GOP.
@@ -299,7 +299,7 @@ START_TEST(intact_stream_with_pps_nalu_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("VIPPIPPI", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("VIPPIPPI", settings[_i]);
   nalu_list_check_str(list, "VGIPPGIPPGI");
 
   // One pending NALU per GOP.
@@ -315,7 +315,7 @@ START_TEST(intact_stream_with_pps_bytestream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("VIPPIPPI", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("VIPPIPPI", settings[_i]);
   nalu_list_check_str(list, "VGIPPGIPPGI");
 
   // Pop the PPS NALU and inject it before the I-NALU.
@@ -338,7 +338,7 @@ START_TEST(intact_ms_stream_with_pps_nalu_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("VIiPpPpIiPpPpIi", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("VIiPpPpIiPpPpIi", settings[_i]);
   nalu_list_check_str(list, "VGIiPpPpGIiPpPpGIi");
 
   // One pending NALU per GOP.
@@ -354,7 +354,7 @@ START_TEST(intact_ms_stream_with_pps_bytestream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("VIiPpPpIiPpPpIi", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("VIiPpPpIiPpPpIi", settings[_i]);
   nalu_list_check_str(list, "VGIiPpPpGIiPpPpGIi");
 
   // Pop the PPS NALU and inject it before the I-NALU.
@@ -385,7 +385,7 @@ START_TEST(intact_with_undefined_nalu_in_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPXPIPPI", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
   nalu_list_check_str(list, "GIPXPGIPPGI");
 
   // One pending NALU per GOP.
@@ -401,7 +401,7 @@ START_TEST(intact_with_undefined_multislice_nalu_in_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IiPpXPpIiPpPpIi", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IiPpXPpIiPpPpIi", settings[_i]);
   nalu_list_check_str(list, "GIiPpXPpGIiPpPpGIi");
 
   // One pending NALU per GOP.
@@ -423,7 +423,7 @@ START_TEST(remove_one_p_nalu)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
   nalu_list_check_str(list, "GIPPGIPPPGIPPGI");
 
   // Item counting starts at 1.  Middle P-NALU in second non-empty GOP: GIPPGIP P PGIPPGI
@@ -454,7 +454,7 @@ START_TEST(interchange_two_p_nalus)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
   nalu_list_check_str(list, "GIPPGIPPPGIPPGI");
 
   // Item counting starts at 1.  Middle P-NALU in second non-empty GOP: GIPPGIP P PGIPPGI
@@ -489,7 +489,7 @@ START_TEST(modify_one_p_nalu)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
   nalu_list_check_str(list, "GIPPGIPPPGIPPGI");
 
   // Second P-NALU in first non-empty GOP: GIP P GIPPPGIPPGI
@@ -514,7 +514,7 @@ START_TEST(modify_one_i_nalu)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
   nalu_list_check_str(list, "GIPPGIPPPGIPPGI");
 
   // Modify the I-NALU in second non-empty GOP: GIPPG I PPPGIPPGI
@@ -549,7 +549,7 @@ START_TEST(remove_the_g_nalu)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
   nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGI");
 
   // G-NALU of second non-empty GOP: GIPPGIPP G IPPGIPPGI.
@@ -577,7 +577,7 @@ START_TEST(remove_the_i_nalu)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
   nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGI");
 
   // I-NALU of third non-empty GOP: GIPPGIPPG I PPGIPPGI.
@@ -606,7 +606,7 @@ START_TEST(remove_the_gi_nalus)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
   nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGI");
 
   // G-NALU of second non-empty GOP: GIPPGIPP G IPPGIPPGI.
@@ -640,7 +640,7 @@ START_TEST(sei_arrives_late)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPI", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPI", settings[_i]);
   nalu_list_check_str(list, "GIPPPGIPPPGIPPPGI");
 
   // Remove the second SEI, that is, number 6 in the list: GIPPP (G) IPPPGIPPPGI.
@@ -667,7 +667,7 @@ END_TEST
 static nalu_list_t *
 generate_delayed_sei_list(struct sv_setting setting)
 {
-  nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPIPPPIP", setting, false);
+  nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPIPPPIP", setting);
   nalu_list_check_str(list, "GIPPPGIPPPGIPPPGIPPPGIP");
 
   // Remove each SEI in the list and append it 2 items later (which in practice becomes 1 item later
@@ -722,7 +722,7 @@ START_TEST(lost_g_before_late_sei_arrival)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPIPPI", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPIPPI", settings[_i]);
   nalu_list_check_str(list, "GIPPPGIPPPGIPPPGIPPGI");
 
   // Remove the third SEI, that is, number 11 in the list: GIPPPGIPPP (G) IPPPGIPPGI.
@@ -765,7 +765,7 @@ START_TEST(lost_all_nalus_between_two_seis)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPIPPI", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPIPPI", settings[_i]);
   nalu_list_check_str(list, "GIPPPGIPPPGIPPPGIPPGI");
 
   // Remove IPPP between the second and third G.
@@ -801,7 +801,7 @@ START_TEST(add_one_sei_nalu_after_signing)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
   nalu_list_check_str(list, "GIPPGIPPPGIPPGI");
 
   const uint8_t id = 0;
@@ -835,11 +835,11 @@ START_TEST(camera_reset_on_signing_side)
   // |settings|; See signed_video_helpers.h.
 
   // Generate 2 GOPs
-  nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i]);
   nalu_list_check_str(list, "GIPPGIPP");
 
   // Generate another GOP from scratch
-  nalu_list_t *list_after_reset = create_signed_nalus("IPPPI", settings[_i], true);
+  nalu_list_t *list_after_reset = create_signed_nalus_int("IPPPI", settings[_i], true);
   nalu_list_check_str(list_after_reset, "GIPPPGI");
 
   nalu_list_append_and_free(list, list_after_reset);
@@ -868,12 +868,12 @@ START_TEST(detect_change_of_public_key)
   // |settings|; See signed_video_helpers.h.
 
   // Generate 2 GOPs
-  nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i], false);
+  nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i]);
   nalu_list_check_str(list, "GIPPGIPP");
 
   // Generate another GOP from scratch
   // This will generate a new private key, hence transmit a different public key.
-  nalu_list_t *list_with_new_public_key = create_signed_nalus("IPPPI", settings[_i], true);
+  nalu_list_t *list_with_new_public_key = create_signed_nalus_int("IPPPI", settings[_i], true);
   nalu_list_check_str(list_with_new_public_key, "GIPPPGI");
 
   nalu_list_append_and_free(list, list_with_new_public_key);
@@ -915,7 +915,7 @@ END_TEST
 static nalu_list_t *
 mimic_au_fast_forward_and_get_list(signed_video_t *sv, struct sv_setting setting)
 {
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", setting, false);
+  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", setting);
   nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGI");
 
   // Extract the first 3 NALUs from the list. This should be the empty GOP and in the middle of the
@@ -1060,7 +1060,7 @@ END_TEST
 static nalu_list_t *
 mimic_file_export(struct sv_setting setting, bool include_i_nalu_at_end)
 {
-  nalu_list_t *list = create_signed_nalus("VIPPIPPIPPIPPIPP", setting, false);
+  nalu_list_t *list = create_signed_nalus("VIPPIPPIPPIPPIPP", setting);
   nalu_list_check_str(list, "VGIPPGIPPGIPPGIPPGIPP");
 
   // Remove the initial PPS/SPS/VPS NALU to add back later
