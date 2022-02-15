@@ -1,7 +1,7 @@
 *Copyright (C) 2021, Axis Communications AB, Lund, Sweden. All Rights Reserved.*
 
 # Signed Video Framework
-This repository holds the framework code of the feature Signed Video. The Signed Video feature secures the video from tampering after signing by adding cryptographic signatures to the video. Each video frame is hashed and signatures are generated repeatedly based on these hashes using a private key set by the signer. The signature data added to the video does not affect the video rendering.
+This repository holds the framework code of the feature Signed Video. The Signed Video feature secures the video from tampering after signing by adding cryptographic signatures to the video. Each video frame is hashed and signatures are generated repeatedly based on these hashes using a private key set by the signer. The signature data added to the video does not affect the video rendering. The data is added in a Supplemental Enhancement Information (SEI) NALU with type "user data unregistered". This SEI has a UUID of `53, 69, 67, 6e, 65, 64, 20, 56, 69, 64, 65, 6f, 2e, 2e, 2e, 30` in hexadecimal.
 
 A more detailed description of the Signed Video feature is found in [feature-description](./feature-description.md).
 
@@ -28,7 +28,7 @@ For instructions on how to use the APIs to integrate the Signed Video Framework 
 # Releases
 There are no pre-built releases. The user is encouraged to build the library from a [release tag](https://github.com/AxisCommunications/signed-video-framework/tags).
 
-The source code is tested on a Linux platform.
+The check tests here in Github run on a Linux platform. Further, integration of the shared library is tested on a Linux platform for both signing and validation, whereas on Windows only validation is tested.
 
 # Getting started
 The repository uses meson + ninja as default build method. Further, OpenSSL is used for cryptographic operations and to run unittests you need libcheck.

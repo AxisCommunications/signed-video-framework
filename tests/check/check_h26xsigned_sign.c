@@ -404,7 +404,7 @@ START_TEST(fallback_to_gop_level)
   // By construction, run the test for SV_AUTHENTICITY_LEVEL_FRAME only.
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
     const size_t kFallbackSize = 10;
-    signed_video_t *sv = get_initialized_signed_video(settings[_i].codec, settings[_i].algo);
+    signed_video_t *sv = get_initialized_signed_video(settings[_i].codec, settings[_i].algo, false);
     ck_assert(sv);
     ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
     ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * HASH_DIGEST_SIZE), SVI_OK);

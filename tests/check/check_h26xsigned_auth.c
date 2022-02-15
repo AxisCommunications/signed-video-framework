@@ -1034,7 +1034,7 @@ START_TEST(camera_reset_on_signing_side)
   nalu_list_check_str(list, "GIPPGIPP");
 
   // Generate another GOP from scratch
-  nalu_list_t *list_after_reset = create_signed_nalus("IPPPI", settings[_i]);
+  nalu_list_t *list_after_reset = create_signed_nalus_int("IPPPI", settings[_i], true);
   nalu_list_check_str(list_after_reset, "GIPPPGI");
 
   nalu_list_append_and_free(list, list_after_reset);
@@ -1072,7 +1072,7 @@ START_TEST(detect_change_of_public_key)
 
   // Generate another GOP from scratch
   // This will generate a new private key, hence transmit a different public key.
-  nalu_list_t *list_with_new_public_key = create_signed_nalus("IPPPI", settings[_i]);
+  nalu_list_t *list_with_new_public_key = create_signed_nalus_int("IPPPI", settings[_i], true);
   nalu_list_check_str(list_with_new_public_key, "GIPPPGI");
 
   nalu_list_append_and_free(list, list_with_new_public_key);

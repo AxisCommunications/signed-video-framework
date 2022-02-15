@@ -53,9 +53,14 @@ extern const struct sv_setting settings[NUM_SETTINGS];
  * 1. a path to openssl keys
  * 2. product info strings
  *
+ * new_private_key = Generate a new private key or not.
  * This is useful for testing the signing part and generating a signed stream of nalus. */
 signed_video_t *
-get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo);
+get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_private_key);
+
+/* See function create_signed_nalus_int */
+nalu_list_t *
+create_signed_nalus(const char *str, struct sv_setting settings);
 
 /* Creates a nalu_list_t with all the NALUs produced after signing. This mimic what leaves the
  * camera.
@@ -75,9 +80,10 @@ get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo);
  *   X: Invalid nalu, i.e., not a H26x nalu.
  *
  * settings = the session setup for this test.
+ * new_private_key = Generate a new private key or not.
  */
 nalu_list_t *
-create_signed_nalus(const char *str, struct sv_setting settings);
+create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_private_key);
 
 /* Generates a signed video stream of NALUs for a user-owned signed_video_t session.
  *

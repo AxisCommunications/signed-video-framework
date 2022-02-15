@@ -406,8 +406,8 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
     // completed.
     if ((nalu.nalu_type == NALU_TYPE_I || nalu.nalu_type == NALU_TYPE_P) && nalu.is_primary_slice &&
         signature_info->signature &&
-        sv_interface_get_signature(
-            self->plugin_handle, signature_info->signature, &signature_info->signature_size)) {
+        sv_interface_get_signature(self->plugin_handle, signature_info->signature,
+            signature_info->max_signature_size, &signature_info->signature_size)) {
 #ifdef SIGNED_VIDEO_DEBUG
       // Verify the just signed hash
       int verified = -1;
@@ -483,8 +483,9 @@ signed_video_set_end_of_stream(signed_video_t *self)
 
     SVI_THROW(generate_sei_nalu(self, &(nalu_to_prepend->nalu_data)));
     // Fetch the signature. If it is not ready we exit without generating the SEI.
-    SVI_THROW_IF(!sv_interface_get_signature(self->plugin_handle, self->signature_info->signature,
-                     &self->signature_info->signature_size),
+    SVI_THROW_IF(
+        !sv_interface_get_signature(self->plugin_handle, self->signature_info->signature,
+            self->signature_info->max_signature_size, &self->signature_info->signature_size),
         SVI_NOT_SUPPORTED);
 
     size_t data_size = get_sign_and_complete_sei_nalu(self, &(nalu_to_prepend->nalu_data));

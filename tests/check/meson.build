@@ -48,5 +48,5 @@ foreach t : tests
   # run tests in own directories
   workdir = join_paths(meson.current_build_dir(), t[0] + '@workdir')
   run_command('sh', '-c', 'mkdir -p ' + workdir)
-  test(t[0], testexe, env:test_env, workdir: workdir, timeout: 10 * 60)
+  test(t[0], testexe, env:test_env, workdir: workdir, timeout: 5 * 60)
 endforeach

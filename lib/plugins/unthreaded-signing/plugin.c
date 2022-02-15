@@ -76,7 +76,8 @@ sv_interface_sign_hash(void *plugin_handle, signature_info_t *signature_info)
 bool
 sv_interface_get_signature(void *plugin_handle,
     uint8_t ATTR_UNUSED *signature,
-    size_t ATTR_UNUSED *signature_size)
+    size_t ATTR_UNUSED max_signature_size,
+    size_t ATTR_UNUSED *written_signature_size)
 {
   sv_unthreaded_plugin_t *self = (sv_unthreaded_plugin_t *)plugin_handle;
 
