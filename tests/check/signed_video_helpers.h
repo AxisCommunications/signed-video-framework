@@ -81,10 +81,7 @@ create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_pr
  * camera. Content in sei-nalus is dependent on the recurrence value.
  */
 nalu_list_t *
-create_signed_nalus_recurrence(const char *str,
-    struct sv_setting settings,
-    int recurrence,
-    bool new_private_key);
+create_signed_nalus_recurrence(const char *str, struct sv_setting settings, int recurrence);
 
 /* Generates a signed video stream of NALUs for a user-owned signed_video_t session.
  *

@@ -161,13 +161,10 @@ create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_pr
  * generated sei-nalus are added to the stream. Content in sei-nalus is dependent on the recurrence
  * value. */
 nalu_list_t *
-create_signed_nalus_recurrence(const char *str,
-    struct sv_setting settings,
-    int recurrence,
-    bool new_private_key)
+create_signed_nalus_recurrence(const char *str, struct sv_setting settings, int recurrence)
 {
   if (!str) return NULL;
-  signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo, new_private_key);
+  signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo, false);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
   ck_assert_int_eq(signed_video_set_recurrence_interval(sv, recurrence), SV_OK);

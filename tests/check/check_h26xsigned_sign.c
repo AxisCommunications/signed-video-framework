@@ -467,7 +467,7 @@ START_TEST(recurrence)
   int recurrence = 3;
 
   nalu_list_t *list =
-      create_signed_nalus_recurrence("IPPIPPIPPIPPIPPIPPI", settings[_i], recurrence, false);
+      create_signed_nalus_recurrence("IPPIPPIPPIPPIPPIPPI", settings[_i], recurrence);
   ck_assert(list);
   nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
 
