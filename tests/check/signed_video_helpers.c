@@ -137,12 +137,13 @@ create_signed_nalus(const char *str, struct sv_setting settings)
  * Takes a string of NALU characters ('I', 'i', 'P', 'p', 'S', 'X') as input and generates NALU
  * data for these. Then a signed_video_t session is created given the input |settings|. The
  * generated NALUs are then passed through the signing process and corresponding generated
- * sei-nalus are added to the stream. */
+ * sei-nalus are added to the stream. If |new_private_key| is 'true' then a new private key is
+ * generated else an already generated private key is used. */
 nalu_list_t *
-create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_priv_key)
+create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_private_key)
 {
   if (!str) return NULL;
-  signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo, new_priv_key);
+  signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo, new_private_key);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
 
@@ -163,10 +164,10 @@ nalu_list_t *
 create_signed_nalus_recurrence(const char *str,
     struct sv_setting settings,
     int recurrence,
-    bool new_priv_key)
+    bool new_private_key)
 {
   if (!str) return NULL;
-  signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo, new_priv_key);
+  signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo, new_private_key);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
   ck_assert_int_eq(signed_video_set_recurrence_interval(sv, recurrence), SV_OK);
@@ -180,7 +181,7 @@ create_signed_nalus_recurrence(const char *str,
 
 /* Creates and initializes a signed video session. */
 signed_video_t *
-get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_priv_key)
+get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_private_key)
 {
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
@@ -191,7 +192,7 @@ get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_
   // Generating private keys takes long time. In unit_tests a new private key is only generated if
   // it's really needed. One RSA key and one ECDSA key is stored globally to handle the scenario.
   if (algo == SIGN_ALGO_RSA) {
-    if (global_private_key_size_rsa == 0 || new_priv_key) {
+    if (global_private_key_size_rsa == 0 || new_private_key) {
       rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
       ck_assert_int_eq(rc, SV_OK);
 
@@ -205,7 +206,7 @@ get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_
     ck_assert_int_eq(rc, SV_OK);
   }
   if (algo == SIGN_ALGO_ECDSA) {
-    if (global_private_key_size_ecdsa == 0 || new_priv_key) {
+    if (global_private_key_size_ecdsa == 0 || new_private_key) {
       rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
       ck_assert_int_eq(rc, SV_OK);
 
