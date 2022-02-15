@@ -20,14 +20,23 @@
  */
 #include "signed_video_helpers.h"
 
+#include <assert.h>  // assert
 #include <check.h>
-#include <stdlib.h>  // calloc, size_t
+#include <stdlib.h>  // size_t
 
 #include "lib/src/includes/signed_video_common.h"
 #include "lib/src/includes/signed_video_openssl.h"
 #include "lib/src/includes/signed_video_sign.h"
 #include "lib/src/signed_video_h26x_internal.h"  // signed_video_set_recurrence_interval()
 #include "lib/src/signed_video_internal.h"  // _signed_video_t
+
+#define RSA_PRIVATE_KEY_ALLOC_BYTES 2000
+#define ECDSA_PRIVATE_KEY_ALLOC_BYTES 1000
+
+char private_key_rsa[RSA_PRIVATE_KEY_ALLOC_BYTES];
+size_t private_key_size_rsa;
+char private_key_ecdsa[ECDSA_PRIVATE_KEY_ALLOC_BYTES];
+size_t private_key_size_ecdsa;
 
 const struct sv_setting settings[NUM_SETTINGS] = {
     {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA},
@@ -55,12 +64,11 @@ pull_nalus(signed_video_t *sv, nalu_list_item_t *item)
   // Loop through all nalus_to_prepend.
   SignedVideoReturnCode sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
   ck_assert_int_eq(sv_rc, SV_OK);
-  while (sv_rc == SV_OK &&
-      nalu_to_prepend.prepend_instruction != SIGNED_VIDEO_PREPEND_NOTHING) {
+  while (sv_rc == SV_OK && nalu_to_prepend.prepend_instruction != SIGNED_VIDEO_PREPEND_NOTHING) {
 
     // Generate a new nalu_list_item with this NALU data.
-    nalu_list_item_t *new_item = nalu_list_create_item(
-        nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, sv->codec);
+    nalu_list_item_t *new_item =
+        nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, sv->codec);
     // Prepend, or append, the nalu_list_item with this new item.
     if (nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NALU) {
       nalu_list_item_prepend_item(cur_item, new_item);
@@ -114,18 +122,26 @@ create_signed_nalus_with_sv(signed_video_t *sv, const char *str)
   return list;
 }
 
+/* See function create_signed_nalus_int */
+nalu_list_t *
+create_signed_nalus(const char *str, struct sv_setting settings)
+{
+  return create_signed_nalus_int(str, settings, false);
+}
+
 /* Generates a signed video stream for the selected setting. The stream is returned as a
  * nalu_list_t.
  *
  * Takes a string of NALU characters ('I', 'i', 'P', 'p', 'S', 'X') as input and generates NALU
  * data for these. Then a signed_video_t session is created given the input |settings|. The
  * generated NALUs are then passed through the signing process and corresponding generated
- * sei-nalus are added to the stream. */
+ * sei-nalus are added to the stream. If |new_private_key| is 'true' then a new private key is
+ * generated else an already generated private key is used. */
 nalu_list_t *
-create_signed_nalus(const char *str, struct sv_setting settings)
+create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_private_key)
 {
   if (!str) return NULL;
-  signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo);
+  signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo, new_private_key);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
 
@@ -143,12 +159,10 @@ create_signed_nalus(const char *str, struct sv_setting settings)
  * generated sei-nalus are added to the stream. Content in sei-nalus is dependent on the recurrence
  * value. */
 nalu_list_t *
-create_signed_nalus_recurrence(const char *str,
-    struct sv_setting settings,
-    int recurrence)
+create_signed_nalus_recurrence(const char *str, struct sv_setting settings, int recurrence)
 {
   if (!str) return NULL;
-  signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo);
+  signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo, false);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
   ck_assert_int_eq(signed_video_set_recurrence_interval(sv, recurrence), SV_OK);
@@ -162,17 +176,41 @@ create_signed_nalus_recurrence(const char *str,
 
 /* Creates and initializes a signed video session. */
 signed_video_t *
-get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo)
+get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_private_key)
 {
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
   char *private_key = NULL;
   size_t private_key_size = 0;
-  SignedVideoReturnCode rc =
-      signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
-  ck_assert_int_eq(rc, SV_OK);
-  rc = signed_video_set_private_key(sv, algo, private_key, private_key_size);
-  ck_assert_int_eq(rc, SV_OK);
+  SignedVideoReturnCode rc;
+
+  // Generating private keys takes long time. In unit_tests a new private key is only generated if
+  // it's really needed. One RSA key and one ECDSA key is stored globally to handle the scenario.
+  if (algo == SIGN_ALGO_RSA) {
+    if (private_key_size_rsa == 0 || new_private_key) {
+      rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
+      ck_assert_int_eq(rc, SV_OK);
+
+      assert(private_key_size < RSA_PRIVATE_KEY_ALLOC_BYTES);
+      memcpy(private_key_rsa, private_key, private_key_size);
+      private_key_size_rsa = private_key_size;
+    }
+    rc = signed_video_set_private_key(sv, algo, private_key_rsa, private_key_size_rsa);
+    ck_assert_int_eq(rc, SV_OK);
+  }
+  if (algo == SIGN_ALGO_ECDSA) {
+    if (private_key_size_ecdsa == 0 || new_private_key) {
+      rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
+      ck_assert_int_eq(rc, SV_OK);
+
+      assert(private_key_size < ECDSA_PRIVATE_KEY_ALLOC_BYTES);
+      memcpy(private_key_ecdsa, private_key, private_key_size);
+      private_key_size_ecdsa = private_key_size;
+    }
+    rc = signed_video_set_private_key(sv, algo, private_key_ecdsa, private_key_size_ecdsa);
+    ck_assert_int_eq(rc, SV_OK);
+  }
+
   rc = signed_video_set_product_info(sv, HW_ID, FW_VER, SER_NO, MANUFACT, ADDR);
   ck_assert_int_eq(rc, SV_OK);
 
