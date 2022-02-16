@@ -7,12 +7,24 @@ fi
 
 # Remove any existing build directory
 rm -rf build
-meson -Dbuildtype=debug . build
+
+echo ""
+echo "=== Runs check tests with default (unthreaded) signing plugin ==="
+echo ""
+
+meson -Dbuildtype=debug -Dsigningplugin=threaded_unless_check_dep . build
 ninja -C build test
 
 echo ""
 echo "=== Now Runs check tests with SIGNED_VIDEO_DEBUG ==="
 echo ""
 
-meson -Ddebugprints=true -Dbuildtype=debug --reconfigure . build
+meson -Ddebugprints=true -Dbuildtype=debug -Dsigningplugin=unthreaded --reconfigure . build
+ninja -C build test
+
+echo ""
+echo "=== Run with threaded signing plugin (should not do anything) ==="
+echo ""
+
+meson -Ddebugprints=false -Dbuildtype=debug -Dsigningplugin=threaded --reconfigure . build
 ninja -C build test

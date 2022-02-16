@@ -19,6 +19,8 @@ if get_option('debugprints')
   add_global_arguments('-DSIGNED_VIDEO_DEBUG', language : 'c')
 endif
 
+signing_plugin = get_option('signingplugin')
+
 cdata = configuration_data()
 cdata.set_quoted('VERSION', meson.project_version())
 configure_file(output : 'signed-video-framework.pc', configuration : cdata)
