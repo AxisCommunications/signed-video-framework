@@ -5,7 +5,7 @@
 
 if (signing_plugin == 'unthreaded') or (signing_plugin == 'threaded_unless_check_dep' and check_dep.found())
   subdir('unthreaded-signing')
-elif signing_plugin == 'threaded'
+elif signing_plugin ['threaded', 'threaded_unless_check_dep']
   subdir('threaded-signing')
 else
   message('Unknown signing plugin: \'' + signing_plugin + '\'')
