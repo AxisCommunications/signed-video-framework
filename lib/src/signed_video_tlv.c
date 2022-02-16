@@ -542,12 +542,11 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     SVI_THROW(sv_rc_to_svi_rc(openssl_key_memory_allocated(
         &signature_info->public_key, &signature_info->public_key_size, pubkey_size)));
 
-    if (memcmp(data_ptr, signature_info->public_key, pubkey_size) &&
-        self->gop_state.has_public_key) {
+    if (memcmp(data_ptr, signature_info->public_key, pubkey_size) && self->has_public_key) {
       self->latest_validation->public_key_has_changed = true;
     }
     memcpy(signature_info->public_key, data_ptr, pubkey_size);
-    self->gop_state.has_public_key = true;
+    self->has_public_key = true;
     data_ptr += pubkey_size;
 
     SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
@@ -803,7 +802,8 @@ tlv_list_encode_or_get_size(signed_video_t *self,
     sv_tlv_tag_t tag = tags[ii];
     sv_tlv_tuple_t tlv = tlv_tuples[tag];
 
-    if (tlv.is_always_present || (gop_counter % self->recurrence) == 0) {
+    if (tlv.is_always_present ||
+        ((gop_counter + self->recurrence_offset) % self->recurrence) == 0) {
       size_t tlv_size = tlv_encode_or_get_size_generic(self, tlv, data_ptr);
       tlv_list_size += tlv_size;
       // Increment data_ptr if we're writing data
@@ -900,6 +900,42 @@ tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bo
   DEBUG_LOG("Never found the tag");
 
   return NULL;
+}
+
+bool
+tlv_find_and_decode_recurrent_tags(signed_video_t *self,
+    const uint8_t *tlv_data,
+    size_t tlv_data_size)
+{
+  const uint8_t *tlv_data_ptr = tlv_data;
+
+  if (!self || !tlv_data || tlv_data_size == 0) return false;
+
+  svi_rc status = SVI_UNKNOWN;
+  bool recurrent_tags_decoded = false;
+  while (tlv_data_ptr < tlv_data + tlv_data_size) {
+    size_t tlv_header_size = 0;
+    size_t length = 0;
+    sv_tlv_tag_t this_tag = UNDEFINED_TAG;
+    status = decode_tlv_header(tlv_data_ptr, &tlv_header_size, &this_tag, &length);
+    if (status != SVI_OK) {
+      DEBUG_LOG("Could not decode tlv header");
+      break;
+    }
+    tlv_data_ptr += tlv_header_size;
+    if (!tlv_tuples[this_tag].is_always_present) {
+      sv_tlv_decoder_t decoder = get_decoder(this_tag);
+      status = decoder(self, tlv_data_ptr, length);
+      if (status != SVI_OK) {
+        DEBUG_LOG("Could not decode");
+        break;
+      }
+      recurrent_tags_decoded = true;
+    }
+    tlv_data_ptr += length;
+  }
+
+  return recurrent_tags_decoded;
 }
 
 size_t

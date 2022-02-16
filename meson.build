@@ -9,6 +9,12 @@ cc = meson.get_compiler('c')
 
 check_dep = dependency('check', required : false)
 
+if check_dep.found()
+  # Option for code related to unit tests
+  # Compile flag should not be used to change defines and settings in the lib
+  add_global_arguments('-DSV_UNIT_TEST', language : 'c')
+endif
+
 if get_option('debugprints')
   add_global_arguments('-DSIGNED_VIDEO_DEBUG', language : 'c')
 endif

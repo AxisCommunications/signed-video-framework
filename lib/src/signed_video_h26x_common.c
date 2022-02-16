@@ -707,7 +707,6 @@ gop_state_print(const gop_state_t *gop_state)
   DEBUG_LOG("             auth_state: %d", gop_state->auth_state);
   DEBUG_LOG("         cur_auth_state: %d", gop_state->cur_auth_state);
   DEBUG_LOG("        prev_auth_state: %d", gop_state->prev_auth_state);
-  DEBUG_LOG("         has_public_key: %u", gop_state->has_public_key);
   DEBUG_LOG("");
 }
 
@@ -1130,7 +1129,9 @@ signed_video_create(SignedVideoCodec codec)
 
     self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
 
-    self->recurrence = RECURRENCE_MIN;
+    self->recurrence = RECURRENCE_ALWAYS;
+    self->recurrence_offset = RECURRENCE_OFFSET_DEFAULT;
+    self->has_public_key = false;
 
     // Setup the plugin.
     self->plugin_handle = sv_interface_setup();

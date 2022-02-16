@@ -39,14 +39,54 @@ char private_key_ecdsa[ECDSA_PRIVATE_KEY_ALLOC_BYTES];
 size_t private_key_size_ecdsa;
 
 const struct sv_setting settings[NUM_SETTINGS] = {
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_RSA},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_RSA},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA, SV_RECURRENCE_ONE,
+        SV_RECURRENCE_OFFSET_ZERO},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA, SV_RECURRENCE_ONE,
+        SV_RECURRENCE_OFFSET_ZERO},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_RSA, SV_RECURRENCE_ONE,
+        SV_RECURRENCE_OFFSET_ZERO},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_RSA, SV_RECURRENCE_ONE,
+        SV_RECURRENCE_OFFSET_ZERO},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA, SV_RECURRENCE_ONE,
+        SV_RECURRENCE_OFFSET_ZERO},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA, SV_RECURRENCE_ONE,
+        SV_RECURRENCE_OFFSET_ZERO},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, SV_RECURRENCE_ONE,
+        SV_RECURRENCE_OFFSET_ZERO},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, SV_RECURRENCE_ONE,
+        SV_RECURRENCE_OFFSET_ZERO},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA, SV_RECURRENCE_THREE,
+        SV_RECURRENCE_OFFSET_ZERO},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA, SV_RECURRENCE_THREE,
+        SV_RECURRENCE_OFFSET_ZERO},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_RSA, SV_RECURRENCE_THREE,
+        SV_RECURRENCE_OFFSET_ZERO},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_RSA, SV_RECURRENCE_THREE,
+        SV_RECURRENCE_OFFSET_ZERO},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA, SV_RECURRENCE_THREE,
+        SV_RECURRENCE_OFFSET_ZERO},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA, SV_RECURRENCE_THREE,
+        SV_RECURRENCE_OFFSET_ZERO},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, SV_RECURRENCE_THREE,
+        SV_RECURRENCE_OFFSET_ZERO},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, SV_RECURRENCE_THREE,
+        SV_RECURRENCE_OFFSET_ZERO},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA, SV_RECURRENCE_THREE,
+        SV_RECURRENCE_OFFSET_ONE},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA, SV_RECURRENCE_THREE,
+        SV_RECURRENCE_OFFSET_ONE},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_RSA, SV_RECURRENCE_THREE,
+        SV_RECURRENCE_OFFSET_ONE},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_RSA, SV_RECURRENCE_THREE,
+        SV_RECURRENCE_OFFSET_ONE},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA, SV_RECURRENCE_THREE,
+        SV_RECURRENCE_OFFSET_ONE},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA, SV_RECURRENCE_THREE,
+        SV_RECURRENCE_OFFSET_ONE},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, SV_RECURRENCE_THREE,
+        SV_RECURRENCE_OFFSET_ONE},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, SV_RECURRENCE_THREE,
+        SV_RECURRENCE_OFFSET_ONE},
 };
 
 /* Pull NALUs to prepend from the signed_video_t session (sv) and prepend, or append, them to the
@@ -144,28 +184,10 @@ create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_pr
   signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo, new_private_key);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
-
-  // Create a list of NALUs given the input string.
-  nalu_list_t *list = create_signed_nalus_with_sv(sv, str);
-  signed_video_free(sv);
-
-  return list;
-}
-
-/* Generates a signed video stream for the selected codec. The stream is returned as a nalu_list_t.
- *
- * Takes a string of NALU characters ('I', 'i', 'P', 'p', 'S', 'X') as input and generates NALU
- * data for these. Then these NALUs are passed through the signing process and corresponding
- * generated sei-nalus are added to the stream. Content in sei-nalus is dependent on the recurrence
- * value. */
-nalu_list_t *
-create_signed_nalus_recurrence(const char *str, struct sv_setting settings, int recurrence)
-{
-  if (!str) return NULL;
-  signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo, false);
-  ck_assert(sv);
-  ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
-  ck_assert_int_eq(signed_video_set_recurrence_interval(sv, recurrence), SV_OK);
+  ck_assert_int_eq(signed_video_set_recurrence_interval(sv, settings.recurrence), SV_OK);
+#ifdef SV_UNIT_TEST
+  ck_assert_int_eq(signed_video_set_recurrence_offset(sv, settings.recurrence_offset), SV_OK);
+#endif
 
   // Create a list of NALUs given the input string.
   nalu_list_t *list = create_signed_nalus_with_sv(sv, str);
