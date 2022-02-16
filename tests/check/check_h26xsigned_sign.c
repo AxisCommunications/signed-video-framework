@@ -129,8 +129,6 @@ START_TEST(api_inputs)
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   sv_rc = signed_video_set_recurrence_interval(sv, 0);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
-  sv_rc = signed_video_set_recurrence_interval(sv, -1);
-  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
 
   // Setting validation level.
   sv_rc = signed_video_set_authenticity_level(NULL, SV_AUTHENTICITY_LEVEL_GOP);

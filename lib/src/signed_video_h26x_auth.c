@@ -742,8 +742,7 @@ is_recurrent_data_decoded(signed_video_t *self)
     if (item->nalu && item->nalu->is_gop_sei && item->validation_status == 'P') {
       const uint8_t *tlv_data = item->nalu->tlv_data;
       size_t tlv_size = item->nalu->tlv_size;
-      recurrent_data_decoded =
-          tlv_find_and_decode_recurrent_tags(self, tlv_data, tlv_size) == SVI_OK;
+      recurrent_data_decoded = tlv_find_and_decode_recurrent_tags(self, tlv_data, tlv_size);
     }
     item = item->next;
   }
@@ -773,9 +772,9 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
   // We cannot end up in AUTH_STATE_VALIDATE if the NALU is not hashable.
   assert(nalu->is_hashable);
 
-  // Copy gop_info_detected and gop_state to struct h26x_nalu_list_t. This is needed if the public
-  // key arrives late. When public key eventually arrives correct gop_info_detected and gop_state
-  // can be used for that specific gop.
+  // Copy |gop_info_detected| and |gop_state| to struct |nalu_list|. This is needed if the public
+  // key arrives late. When public key eventually arrives, correct |gop_info_detected| and
+  // |gop_state| can be used for that specific gop.
   if (nalu_list->gop_idx < MAX_PENDING_GOPS) {
     memcpy(&nalu_list->gop_state_pending[nalu_list->gop_idx], gop_state, sizeof(gop_state_t));
     memcpy(&nalu_list->gop_info_detected_pending[nalu_list->gop_idx], gop_info_detected,
@@ -806,6 +805,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
       memcpy(
           gop_info_detected, &nalu_list->gop_info_detected_pending[i], sizeof(gop_info_detected_t));
 
+      // Need to force setting of |is_first validation| since it is overwritten in the memcpy above
       if (i > 0) gop_state->is_first_validation = false;
 
       SVI_THROW(prepare_for_validation(self));

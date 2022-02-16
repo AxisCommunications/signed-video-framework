@@ -146,8 +146,8 @@ struct _signed_video_t {
 
   gop_state_t gop_state;
   gop_info_detected_t gop_info_detected;
-  int recurrence;
-  int recurrence_offset;
+  unsigned recurrence;
+  unsigned recurrence_offset;
 
   int signing_present;
   // State to indicate if Signed Video is present or not. Used for signing, and can only move

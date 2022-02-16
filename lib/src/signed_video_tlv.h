@@ -150,13 +150,13 @@ read_byte(uint16_t *last_two_bytes, const uint8_t **payload, bool do_emulation_p
  * The data is assumed to have been written in a TLV format. tlv_find_and_decode_recurrent_tags
  * parses data and finds all tags dependent on recurrency and decodes them.
  *
- * @param signed_video Pointer to the signed_video_t session.
+ * @param self Pointer to the signed_video_t session.
  * @param tlv_data Pointer to the TLV data to scan.
  * @param tlv_data_size Size of the TLV data.
  *
- * @returns SVI_OK if find and decoding tag was successful, otherwise an error code.
+ * @returns True if find and decoding tag was successful.
  */
-svi_rc
+bool
 tlv_find_and_decode_recurrent_tags(signed_video_t *self,
     const uint8_t *tlv_data,
     size_t tlv_data_size);

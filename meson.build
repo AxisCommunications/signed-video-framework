@@ -11,7 +11,7 @@ check_dep = dependency('check', required : false)
 
 if check_dep.found()
   # Option for code related to unit tests
-  # Can't be used to change defines/settings in the lib
+  # Compile flag should not be used to change defines and settings in the lib
   add_global_arguments('-DSV_UNIT_TEST', language : 'c')
 endif
 

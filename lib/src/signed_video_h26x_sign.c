@@ -589,7 +589,7 @@ signed_video_set_authenticity_level(signed_video_t *self,
 }
 
 SignedVideoReturnCode
-signed_video_set_recurrence_interval(signed_video_t *self, int recurrence)
+signed_video_set_recurrence_interval(signed_video_t *self, unsigned recurrence)
 {
   if (!self) return SV_INVALID_PARAMETER;
   if (recurrence < RECURRENCE_ALWAYS) return SV_NOT_SUPPORTED;
@@ -601,7 +601,7 @@ signed_video_set_recurrence_interval(signed_video_t *self, int recurrence)
 
 #ifdef SV_UNIT_TEST
 SignedVideoReturnCode
-signed_video_set_recurrence_offset(signed_video_t *self, int offset)
+signed_video_set_recurrence_offset(signed_video_t *self, unsigned offset)
 {
   if (!self) return SV_INVALID_PARAMETER;
   if (offset >= self->recurrence) return SV_NOT_SUPPORTED;

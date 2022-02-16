@@ -211,7 +211,7 @@ parse_nalu_info(const uint8_t *nalu_data,
  *          SV_NOT_SUPPORTED Recurrence interval is not supported.
  */
 SignedVideoReturnCode
-signed_video_set_recurrence_interval(signed_video_t *self, int recurrence);
+signed_video_set_recurrence_interval(signed_video_t *self, unsigned recurrence);
 
 #ifdef SV_UNIT_TEST
 /**
@@ -230,7 +230,7 @@ signed_video_set_recurrence_interval(signed_video_t *self, int recurrence);
  *          SV_NOT_SUPPORTED Recurrence interval is not supported.
  */
 SignedVideoReturnCode
-signed_video_set_recurrence_offset(signed_video_t *self, int offset);
+signed_video_set_recurrence_offset(signed_video_t *self, unsigned offset);
 #endif
 
 #endif  // __SIGNED_VIDEO_H26X_INTERNAL__
