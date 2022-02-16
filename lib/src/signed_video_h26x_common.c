@@ -199,7 +199,7 @@ static bool
 version_str_to_bytes(int *arr, const char *str)
 {
   bool status = false;
-  int ret = sscanf(str, "R%d.%d.%d", &arr[0], &arr[1], &arr[2]);
+  int ret = sscanf(str, "v%d.%d.%d", &arr[0], &arr[1], &arr[2]);
   if (ret == 3) status = true;  // All three elements read
 
   return status;
@@ -210,7 +210,7 @@ void
 bytes_to_version_str(const int *arr, char *str)
 {
   if (!arr || !str) return;
-  sprintf(str, "R%d.%d.%d", arr[0], arr[1], arr[2]);
+  sprintf(str, "v%d.%d.%d", arr[0], arr[1], arr[2]);
 }
 
 static void
