@@ -805,7 +805,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
       memcpy(
           gop_info_detected, &nalu_list->gop_info_detected_pending[i], sizeof(gop_info_detected_t));
 
-      // Need to force setting of |is_first validation| since it is overwritten in the memcpy above
+      // Need to force setting |is_first validation| since it is overwritten in the memcpy above
       if (i > 0) gop_state->is_first_validation = false;
 
       SVI_THROW(prepare_for_validation(self));

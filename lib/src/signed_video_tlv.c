@@ -912,7 +912,7 @@ tlv_find_and_decode_recurrent_tags(signed_video_t *self,
   if (!self || !tlv_data || tlv_data_size == 0) return false;
 
   svi_rc status = SVI_UNKNOWN;
-  bool recurrent_tags_found = false;
+  bool recurrent_tags_decoded = false;
   while (tlv_data_ptr < tlv_data + tlv_data_size) {
     size_t tlv_header_size = 0;
     size_t length = 0;
@@ -924,18 +924,18 @@ tlv_find_and_decode_recurrent_tags(signed_video_t *self,
     }
     tlv_data_ptr += tlv_header_size;
     if (!tlv_tuples[this_tag].is_always_present) {
-      recurrent_tags_found = true;
       sv_tlv_decoder_t decoder = get_decoder(this_tag);
       status = decoder(self, tlv_data_ptr, length);
       if (status != SVI_OK) {
         DEBUG_LOG("Could not decode");
         break;
       }
+      recurrent_tags_decoded = true;
     }
     tlv_data_ptr += length;
   }
 
-  return recurrent_tags_found;
+  return recurrent_tags_decoded;
 }
 
 size_t
