@@ -9,6 +9,7 @@ cc = meson.get_compiler('c')
 
 check_dep = dependency('check', required : false)
 
+signing_plugin = get_option('signingplugin')
 if get_option('debugprints')
   add_global_arguments('-DSIGNED_VIDEO_DEBUG', language : 'c')
 endif

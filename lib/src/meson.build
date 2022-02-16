@@ -31,7 +31,7 @@ install_headers(
     signedvideoframework_public_headers,
     install_dir : '@0@/signed-video-framework'.format(get_option('includedir')))
 
-signedvideoframework_deps = [ openssl_dep ]
+signedvideoframework_deps = [ openssl_dep, plugin_deps ]
 
 signedvideoframework = shared_library(
     'signed-video-framework',
