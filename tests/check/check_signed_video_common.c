@@ -24,13 +24,14 @@
 #include "lib/src/includes/signed_video_common.h"
 
 static void
-setup() {
+setup()
+{
 }
 
 static void
-teardown() {
+teardown()
+{
 }
-
 
 /* Test description
  * All public APIs are checked for invalid parameters.
@@ -70,9 +71,9 @@ END_TEST
 START_TEST(correct_version)
 {
   // Check output for different versions.
-  const char *kVer1 = "R0.1.0";
-  const char *kVer2 = "R0.10.0";
-  const char *kVer3 = "Q0.1.0";
+  const char *kVer1 = "v0.1.0";
+  const char *kVer2 = "v0.10.0";
+  const char *kVer3 = "R0.1.0";
   int check = 0;
   check = signed_video_compare_versions(kVer1, kVer1);
   ck_assert_int_eq(check, 0);
@@ -89,7 +90,7 @@ START_TEST(correct_version)
 
   const char *checkptr = signed_video_get_version();
   ck_assert(checkptr);
-  ck_assert(checkptr[0] == 'R');
+  ck_assert(checkptr[0] == 'v');
 }
 END_TEST
 
@@ -120,10 +121,10 @@ main(void)
 {
   // Create suite runner and run
   int failed_tests = 0;
-  SRunner *sr = srunner_create (NULL);
-  srunner_add_suite (sr, signed_video_suite());
-  srunner_run_all (sr, CK_ENV);
-  failed_tests = srunner_ntests_failed (sr);
-  srunner_free (sr);
+  SRunner *sr = srunner_create(NULL);
+  srunner_add_suite(sr, signed_video_suite());
+  srunner_run_all(sr, CK_ENV);
+  failed_tests = srunner_ntests_failed(sr);
+  srunner_free(sr);
   return (failed_tests == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
