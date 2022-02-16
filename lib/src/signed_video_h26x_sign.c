@@ -122,7 +122,6 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   // GOP.
   if (self->signature_info->signature_size == 0) {
     signed_video_nalu_data_free(payload);
-    payload = NULL;
     status = SVI_OK;
     goto done;
   } else if (!payload) {
