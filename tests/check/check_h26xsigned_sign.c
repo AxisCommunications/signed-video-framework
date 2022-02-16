@@ -25,7 +25,9 @@
 #include "lib/src/includes/signed_video_common.h"
 #include "lib/src/includes/signed_video_openssl.h"
 #include "lib/src/includes/signed_video_sign.h"
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "lib/src/includes/sv_vendor_axis_communications.h"
+#endif
 #include "lib/src/signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
 #include "lib/src/signed_video_h26x_internal.h"  // signed_video_set_recurrence_interval()
 #include "lib/src/signed_video_internal.h"  // set_hash_list_size()
@@ -260,6 +262,7 @@ START_TEST(incorrect_operation)
 }
 END_TEST
 
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 /* Test description
  * All APIs in vendors/axis-communications are checked for invalid parameters, and valid NULL
  * pointer inputs. */
@@ -331,7 +334,7 @@ START_TEST(vendor_axis_communications_operation)
   sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
   ck_assert_int_eq(sv_rc, SV_OK);
   sei = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec);
-  ck_assert(tag_is_present(sei, codec, PUBLIC_KEY_TAG));
+  ck_assert(tag_is_present(sei, codec, VENDOR_AXIS_COMMUNICATIONS_TAG));
   // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory.
   sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -344,6 +347,7 @@ START_TEST(vendor_axis_communications_operation)
   free(private_key);
 }
 END_TEST
+#endif
 
 /* Test description
  * In this test we check for number of NALUs to prepend during two GOPs.
@@ -593,7 +597,9 @@ signed_video_suite(void)
   // Add tests
   tcase_add_loop_test(tc, api_inputs, s, e);
   tcase_add_loop_test(tc, incorrect_operation, s, e);
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
+#endif
   // tcase_add_loop_test(tc, correct_nalu_sequence_with_eos, s, e);
   // tcase_add_loop_test(tc, correct_multislice_sequence_with_eos, s, e);
   tcase_add_loop_test(tc, correct_nalu_sequence_without_eos, s, e);

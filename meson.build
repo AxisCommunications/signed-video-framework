@@ -18,6 +18,9 @@ endif
 if get_option('debugprints')
   add_global_arguments('-DSIGNED_VIDEO_DEBUG', language : 'c')
 endif
+if 'axis-communications' in get_option('vendors')
+  add_global_arguments('-DSV_VENDOR_AXIS_COMMUNICATIONS', language : 'c')
+endif
 
 signing_plugin = get_option('signingplugin')
 # Determine if 'threaded_unless_check_dep' should use 'threaded' or 'unthreaded'

@@ -22,7 +22,7 @@
 
 #include <stdlib.h>  // free
 
-#include "../vendors/axis-communications/sv_vendor_axis_communications_internal.h"
+#include "axis-communications/sv_vendor_axis_communications_internal.h"
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
 #include "includes/signed_video_interfaces.h"  // signature_info_t, sign_algo_t
 #include "includes/signed_video_openssl.h"  // openssl_key_memory_allocated()
@@ -821,23 +821,43 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
  * @brief Encodes the VENDOR_AXIS_COMMUNICATIONS_TAG into data
  *
  */
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 static size_t
 encode_axis_communications(signed_video_t *self, uint8_t *data)
 {
   return encode_axis_communications_handle(self->vendor_handle, &self->last_two_bytes, data);
+  // Vendor Axis Communications not selected.
+  return 0;
 }
+#else
+static size_t
+encode_axis_communications(signed_video_t ATTR_UNUSED *self, uint8_t ATTR_UNUSED *data)
+{
+  // Vendor Axis Communications not selected.
+  return 0;
+}
+#endif
 
 /**
  * @brief Decodes the VENDOR_AXIS_COMMUNICATIONS_TAG from data
  *
  */
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 static svi_rc
-decode_axis_communications(signed_video_t __attribute__((unused)) * self,
-    const uint8_t *data,
-    size_t data_size)
+decode_axis_communications(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
   return decode_axis_communications_handle(self->vendor_handle, data, data_size);
 }
+#else
+static svi_rc
+decode_axis_communications(signed_video_t ATTR_UNUSED *self,
+    const uint8_t ATTR_UNUSED *data,
+    size_t ATTR_UNUSED data_size)
+{
+  // Vendor Axis Communications not selected.
+  return SVI_NOT_SUPPORTED;
+}
+#endif
 
 static size_t
 tlv_encode_or_get_size_generic(signed_video_t *self, const sv_tlv_tuple_t tlv, uint8_t *data)

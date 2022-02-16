@@ -27,7 +27,9 @@
 #include "lib/src/includes/signed_video_common.h"  // signed_video_t
 #include "lib/src/includes/signed_video_openssl.h"  // signed_video_generate_private_key()
 #include "lib/src/includes/signed_video_sign.h"  // signed_video_set_authenticity_level()
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "lib/src/includes/sv_vendor_axis_communications.h"
+#endif
 #include "nalu_list.h"  // nalu_list_create()
 #include "signed_video_helpers.h"  // sv_setting, create_signed_nalus()
 
@@ -1485,6 +1487,7 @@ START_TEST(late_public_key_and_no_sei_before_key_arrives)
 }
 END_TEST
 
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 /* Test description
  * APIs in vendors/axis-communications are used and tests both signing and validation parts. */
 START_TEST(vendor_axis_communications_operation)
@@ -1574,6 +1577,7 @@ START_TEST(vendor_axis_communications_operation)
   signed_video_free(sv);
 }
 END_TEST
+#endif
 
 static Suite *
 signed_video_suite(void)
@@ -1621,7 +1625,9 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, no_signature, s, e);
   tcase_add_loop_test(tc, multislice_no_signature, s, e);
   tcase_add_loop_test(tc, late_public_key_and_no_sei_before_key_arrives, s, e);
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
+#endif
 
   // Add test case to suit
   suite_add_tcase(suite, tc);
