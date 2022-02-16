@@ -29,6 +29,8 @@
 typedef struct _h26x_nalu_list_item_t h26x_nalu_list_item_t;
 typedef struct _h26x_nalu_t h26x_nalu_t;
 
+#define MAX_PENDING_GOPS 120
+
 typedef enum {
   NALU_TYPE_UNDEFINED = 0,
   NALU_TYPE_SEI = 1,
@@ -63,6 +65,11 @@ struct _h26x_nalu_list_t {
   h26x_nalu_list_item_t *last_item;  // Points to the last item in the linked list, that is, the
   // latest NALU added for validation.
   int num_items;  // The number of items linked together in the list.
+
+  // Keep pending gop data needed for validation if public_key is late
+  gop_state_t gop_state_pending[MAX_PENDING_GOPS];
+  gop_info_detected_t gop_info_detected_pending[MAX_PENDING_GOPS];
+  int gop_idx;
 };
 
 /**
@@ -204,6 +211,26 @@ parse_nalu_info(const uint8_t *nalu_data,
  *          SV_NOT_SUPPORTED Recurrence interval is not supported.
  */
 SignedVideoReturnCode
-signed_video_set_recurrence_interval(signed_video_t *self, int recurrence);
+signed_video_set_recurrence_interval(signed_video_t *self, unsigned recurrence);
+
+#ifdef SV_UNIT_TEST
+/**
+ * @brief Sets the recurrence offset for the signed video session
+ *
+ * Without an offset the recurrent tags are included in the first SEI. But with an offset the
+ * recurrent tags are included later dependent on offset.
+ *
+ * This API is only possible to use when executing unit tests.
+ *
+ * @param self Session struct pointer
+ * @param offset Recurrence offset
+ *
+ * @returns SV_OK Recurrence offset was successfully set,
+ *          SV_INVALID_PARAMETER Invalid parameter,
+ *          SV_NOT_SUPPORTED Recurrence interval is not supported.
+ */
+SignedVideoReturnCode
+signed_video_set_recurrence_offset(signed_video_t *self, unsigned offset);
+#endif
 
 #endif  // __SIGNED_VIDEO_H26X_INTERNAL__

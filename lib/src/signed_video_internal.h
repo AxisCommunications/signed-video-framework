@@ -52,7 +52,8 @@ typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 #define DEFAULT_AUTHENTICITY_LEVEL SV_AUTHENTICITY_LEVEL_FRAME
 
 #define DEFAULT_MAX_GOP_LENGTH 300
-#define RECURRENCE_MIN 1
+#define RECURRENCE_ALWAYS 1
+#define RECURRENCE_OFFSET_DEFAULT 0
 
 /* Compile time defined, otherwise set default value */
 #ifndef MAX_GOP_LENGTH
@@ -108,7 +109,6 @@ struct _gop_state_t {
   // states of |auth_state|, after calling gop_state_pre_actions(), are stored.
   auth_state_t cur_auth_state;  // Current |auth_state| after gop_state_pre_actions().
   auth_state_t prev_auth_state;  // Previous |cur_auth_state|.
-  bool has_public_key;  // State to indicate if public key is received.
 };
 
 struct _gop_info_detected_t {
@@ -149,7 +149,8 @@ struct _signed_video_t {
 
   gop_state_t gop_state;
   gop_info_detected_t gop_info_detected;
-  int recurrence;
+  unsigned recurrence;
+  unsigned recurrence_offset;
 
   int signing_present;
   // State to indicate if Signed Video is present or not. Used for signing, and can only move
@@ -175,6 +176,8 @@ struct _signed_video_t {
   uint8_t *arbitrary_data;  // Enables the user to transmit user specific data and is automatically
   // sent through the ARBITRARY_DATA_TAG.
   size_t arbitrary_data_size;  // Size of |arbitrary_data|.
+
+  bool has_public_key;  // State to indicate if public key is received/added
 };
 
 typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;

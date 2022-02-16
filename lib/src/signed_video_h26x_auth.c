@@ -49,6 +49,8 @@ static void
 validate_authenticity(signed_video_t *self);
 static svi_rc
 prepare_for_validation(signed_video_t *self);
+static bool
+is_recurrent_data_decoded(signed_video_t *self);
 
 static void
 remove_used_in_gop_hash(h26x_nalu_list_t *nalu_list);
@@ -707,8 +709,9 @@ prepare_for_validation(signed_video_t *self)
       // TODO: Is it possible to avoid a memcpy by using a pointer strategy?
       memcpy(signature_info->hash, self->gop_info->gop_hash, HASH_DIGEST_SIZE);
     }
-    SVI_THROW_IF_WITH_MSG(gop_state->signing_present && !gop_state->has_public_key, SVI_UNKNOWN,
-        "No public key found");
+
+    SVI_THROW_IF_WITH_MSG(
+        gop_state->signing_present && !self->has_public_key, SVI_UNKNOWN, "No public key present");
     // If we have received a SEI there is a signature to use for verification.
     if (self->gop_info_detected.has_gop_sei) {
       SVI_THROW(sv_rc_to_svi_rc(
@@ -719,6 +722,38 @@ prepare_for_validation(signed_video_t *self)
   SVI_DONE(status)
 
   return status;
+}
+
+// If public_key is not received then try to decode all recurrent tags.
+static bool
+is_recurrent_data_decoded(signed_video_t *self)
+{
+  gop_state_t *gop_state = &(self->gop_state);
+  gop_info_detected_t *gop_info_detected = &(self->gop_info_detected);
+  signed_video_latest_validation_t *latest = self->latest_validation;
+  h26x_nalu_list_t *nalu_list = self->nalu_list;
+
+  if (self->has_public_key || !gop_state->signing_present) return true;
+
+  bool recurrent_data_decoded = false;
+  h26x_nalu_list_item_t *item = nalu_list->first_item;
+
+  while (item && !recurrent_data_decoded) {
+    if (item->nalu && item->nalu->is_gop_sei && item->validation_status == 'P') {
+      const uint8_t *tlv_data = item->nalu->tlv_data;
+      size_t tlv_size = item->nalu->tlv_size;
+      recurrent_data_decoded = tlv_find_and_decode_recurrent_tags(self, tlv_data, tlv_size);
+    }
+    item = item->next;
+  }
+  if (!recurrent_data_decoded) {
+    DEBUG_LOG("Public key missing");
+    // TODO: Investigate if it's needed to take any special actions when moving to the next GOP
+    gop_state_reset(gop_state, gop_info_detected);
+    latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+  }
+
+  return recurrent_data_decoded;
 }
 
 /* Validates the authenticity of the video since last time if the state says so. After the
@@ -737,6 +772,24 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
   // We cannot end up in AUTH_STATE_VALIDATE if the NALU is not hashable.
   assert(nalu->is_hashable);
 
+  // Copy |gop_info_detected| and |gop_state| to struct |nalu_list|. This is needed if the public
+  // key arrives late. When public key eventually arrives, correct |gop_info_detected| and
+  // |gop_state| can be used for that specific gop.
+  if (nalu_list->gop_idx < MAX_PENDING_GOPS) {
+    memcpy(&nalu_list->gop_state_pending[nalu_list->gop_idx], gop_state, sizeof(gop_state_t));
+    memcpy(&nalu_list->gop_info_detected_pending[nalu_list->gop_idx], gop_info_detected,
+        sizeof(gop_info_detected_t));
+    nalu_list->gop_idx++;
+  } else {
+    DEBUG_LOG("Warning: Number of pending gops exeeds limit > %d", MAX_PENDING_GOPS);
+    return SVI_MEMORY;
+  }
+
+  if (!is_recurrent_data_decoded(self)) {
+    DEBUG_LOG("No recurrent data yet received");
+    return SVI_OK;
+  }
+
   // Initialize latest validation.
   latest->authenticity = SV_AUTH_RESULT_NOT_OK;
   latest->number_of_expected_picture_nalus = -1;
@@ -746,30 +799,41 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    SVI_THROW(prepare_for_validation(self));
+    // Loop through possible pending gops and validate them
+    for (int i = 0; i < nalu_list->gop_idx; i++) {
+      memcpy(gop_state, &nalu_list->gop_state_pending[i], sizeof(gop_state_t));
+      memcpy(
+          gop_info_detected, &nalu_list->gop_info_detected_pending[i], sizeof(gop_info_detected_t));
 
-    if (!gop_state->signing_present) {
-      verify_hashes_without_sei(self);
-      latest->authenticity = SV_AUTH_RESULT_NOT_SIGNED;
-    } else {
-      validate_authenticity(self);
+      // Need to force setting |is_first validation| since it is overwritten in the memcpy above
+      if (i > 0) gop_state->is_first_validation = false;
+
+      SVI_THROW(prepare_for_validation(self));
+
+      if (!gop_state->signing_present) {
+        verify_hashes_without_sei(self);
+        latest->authenticity = SV_AUTH_RESULT_NOT_SIGNED;
+      } else {
+        validate_authenticity(self);
+      }
+
+      // The flag |is_first_validation| is used to ignore the first validation if we start the
+      // validation in the middle of a stream. Now it is time to reset it.
+      gop_state->is_first_validation = false;
+
+      // Reset the gop_state_t and gop_info_detected_t.
+      gop_state_reset(gop_state, gop_info_detected);
+      // If we find a pending SEI and it is the latest NALU the state should be
+      // AUTH_STATE_WAIT_FOR_NEXT_NALU.
+      h26x_nalu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(nalu_list);
+      if (sei && (sei == self->nalu_list->last_item)) {
+        gop_info_detected->has_gop_sei = true;
+        gop_state->auth_state = AUTH_STATE_WAIT_FOR_NEXT_NALU;
+      }
+      // The current signature is no longer valid.
+      self->gop_info->verified_signature_hash = -1;
     }
-
-    // The flag |is_first_validation| is used to ignore the first validation if we start the
-    // validation in the middle of a stream. Now it is time to reset it.
-    gop_state->is_first_validation = false;
-
-    // Reset the gop_state_t and gop_info_detected_t.
-    gop_state_reset(gop_state, gop_info_detected);
-    // If we find a pending SEI and it is the latest NALU the state should be
-    // AUTH_STATE_WAIT_FOR_NEXT_NALU.
-    h26x_nalu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(nalu_list);
-    if (sei && (sei == self->nalu_list->last_item)) {
-      gop_info_detected->has_gop_sei = true;
-      gop_state->auth_state = AUTH_STATE_WAIT_FOR_NEXT_NALU;
-    }
-    // The current signature is no longer valid.
-    self->gop_info->verified_signature_hash = -1;
+    nalu_list->gop_idx = 0;
 
   SVI_CATCH()
   SVI_DONE(status)
