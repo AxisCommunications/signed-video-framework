@@ -1208,8 +1208,6 @@ signed_video_free(signed_video_t *self)
   gop_info_free(self->gop_info);
   signature_free(self->signature_info);
 
-  free(self->attestation);
-  free(self->certificate_chain);
   free(self);
 }
 

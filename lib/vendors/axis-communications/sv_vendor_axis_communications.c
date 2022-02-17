@@ -171,35 +171,24 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
   // The user wants to set the |attestation|.
   if (attestation) {
     // If |attestation| already exists, return error.
-    if (self->attestation || sv->attestation) return SV_NOT_SUPPORTED;
+    if (self->attestation) return SV_NOT_SUPPORTED;
     // Allocate memory and copy to |self|.
     self->attestation = malloc(attestation_size);
     allocated_attestation = true;
     if (!self->attestation) goto catch_error;
     memcpy(self->attestation, attestation, attestation_size);
     self->attestation_size = attestation_size;
-
-    // Allocate memory and copy to temporary location in |sv|.
-    sv->attestation = malloc(attestation_size);
-    if (!sv->attestation) goto catch_error;
-    memcpy(sv->attestation, attestation, attestation_size);
-    sv->attestation_size = attestation_size;
   }
 
   // The user wants to set the |certificate_chain|.
   if (certificate_chain) {
     // If |certificate_chain| already exists, return error.
-    if (self->certificate_chain || sv->certificate_chain) return SV_NOT_SUPPORTED;
+    if (self->certificate_chain) return SV_NOT_SUPPORTED;
     // Allocate memory and copy to |self|.
     self->certificate_chain = calloc(1, strlen(certificate_chain) + 1);
     allocated_certificate_chain = true;
     if (!self->certificate_chain) goto catch_error;
     strcpy(self->certificate_chain, certificate_chain);
-
-    // Allocate memory and copy to temporary location in |sv|.
-    sv->certificate_chain = calloc(1, strlen(certificate_chain) + 1);
-    if (!sv->certificate_chain) goto catch_error;
-    strcpy(sv->certificate_chain, certificate_chain);
   }
 
   sv->vendor_encoders = axis_communications_encoders;
@@ -213,15 +202,10 @@ catch_error:
     free(self->attestation);
     self->attestation = NULL;
     self->attestation_size = 0;
-    free(sv->attestation);
-    sv->attestation = NULL;
-    sv->attestation_size = 0;
   }
   if (allocated_certificate_chain) {
     free(self->certificate_chain);
     self->certificate_chain = NULL;
-    free(sv->certificate_chain);
-    sv->certificate_chain = NULL;
   }
 
   return SV_MEMORY;

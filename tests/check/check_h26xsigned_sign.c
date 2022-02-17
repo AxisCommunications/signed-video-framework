@@ -554,7 +554,7 @@ END_TEST
  * 3. Check size of every GOP SEI dependent on recurrence > 1
  *
  * G = GOP-info SEI-NALU, I = I-NALU and P = P-NALU.
- * PUBLIC_KEY_TAG is checked in 'G' NALUs because that is where the metadata is placed.
+ * PUBLIC_KEY_TAG is checked in 'G' because that is where the metadata is located.
  */
 START_TEST(recurrence)
 {

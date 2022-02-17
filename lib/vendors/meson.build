@@ -1,6 +1,7 @@
 vendor_sources = []
 vendorinc = include_directories('.')
 
-if 'axis-communications' in get_option('vendors')
+if build_with_axis
+  message('build with axis-communications')
   subdir('axis-communications')
 endif

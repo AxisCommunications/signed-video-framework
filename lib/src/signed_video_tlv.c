@@ -545,7 +545,8 @@ encode_public_key(signed_video_t *self, uint8_t *data)
   //  - version (1 byte)
   //  - public_key
   //
-  // Note that we don't have to store the size of the public. We already know it from the TLV Length
+  // Note that we do not have to store the size of the public. We already know it from the TLV
+  // length.
 
   data_size += sizeof(version);
   // Casting enum to uint8_t
@@ -554,52 +555,16 @@ encode_public_key(signed_video_t *self, uint8_t *data)
   // Size of pubkey
   data_size += signature_info->public_key_size;
 
-  // Size of attestation report
-  data_size += self->attestation_size;
-  data_size += 1;
-
-  // Size of certificate chain
-  if (self->certificate_chain != NULL) {
-    data_size += strlen(self->certificate_chain) + 2;
-  } else {
-    data_size += 2;
-  }
-
   if (!data) return data_size;
 
   uint8_t *data_ptr = data;
   uint16_t *last_two_bytes = &self->last_two_bytes;
   uint8_t *public_key = signature_info->public_key;
 
-  uint8_t *attestation = self->attestation;
-
-  DEBUG_LOG(
-      "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA Attestation_size = %zu", self->attestation_size);
-
   // Fill Camera Info data
   // Version
   write_byte(last_two_bytes, &data_ptr, version, true);
   write_byte(last_two_bytes, &data_ptr, signature_info->algo, true);
-
-  // Write |certificate_chain|
-  if (self->certificate_chain != NULL) {
-    write_byte(last_two_bytes, &data_ptr, strlen(self->certificate_chain) + 1, true);
-  } else {
-    write_byte(last_two_bytes, &data_ptr, 1, true);
-  }
-
-  // Write all but the last character.
-  if (self->certificate_chain != NULL) {
-    write_byte_many(&data_ptr, self->certificate_chain, strlen(self->certificate_chain) + 1,
-        last_two_bytes, true);
-  } else {
-    write_byte(last_two_bytes, &data_ptr, 0, true);
-  }
-
-  write_byte(last_two_bytes, &data_ptr, self->attestation_size, true);
-  for (size_t jj = 0; jj < self->attestation_size; ++jj) {
-    write_byte(last_two_bytes, &data_ptr, attestation[jj], true);
-  }
 
   // public_key; public_key_size (451) bytes
   for (size_t ii = 0; ii < signature_info->public_key_size; ++ii) {
