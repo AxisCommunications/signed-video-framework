@@ -28,16 +28,20 @@
 #include "sv_vendor_axis_communications_internal.h"
 #include "signed_video_authenticity.h"  // allocate_memory_and_copy_string
 
+// List of TLV encoders to include in SEI.
 #define AXIS_COMMUNICATIONS_NUM_ENCODERS 1
 static const sv_tlv_tag_t axis_communications_encoders[AXIS_COMMUNICATIONS_NUM_ENCODERS] = {
     VENDOR_AXIS_COMMUNICATIONS_TAG,
 };
 
+// Definition of |vendor_handle|.
 typedef struct _sv_vendor_axis_communications_t {
   void *attestation;
   size_t attestation_size;
   char *certificate_chain;
 } sv_vendor_axis_communications_t;
+
+// Definitions of non-public APIs, declared in sv_vendor_axis_communications_internal.h.
 
 void *
 sv_vendor_axis_communications_setup(void)
@@ -144,6 +148,8 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
   return status;
 }
 
+// Definitions of public APIs in declared in sv_vendor_axis_communications.h.
+
 SignedVideoReturnCode
 sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
     void *attestation,
@@ -202,6 +208,7 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
   return SV_OK;
 
 catch_error:
+  // Free all memory.
   if (allocated_attestation) {
     free(self->attestation);
     self->attestation = NULL;

@@ -25,7 +25,9 @@
 #include <stdlib.h>  // free, calloc, malloc
 #include <string.h>  // size_t
 
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "axis-communications/sv_vendor_axis_communications_internal.h"
+#endif
 #include "includes/signed_video_common.h"
 #include "includes/signed_video_interfaces.h"  // signature_info_t
 #include "includes/signed_video_openssl.h"  // openssl_hash_data()

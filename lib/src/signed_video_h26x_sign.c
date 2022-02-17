@@ -257,7 +257,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     // generated. Add extra space for potential emulation prevention bytes.
     document_size = tlv_list_encode_or_get_size(self, document_encoders, num_doc_encoders, NULL);
     gop_info_size = tlv_list_encode_or_get_size(self, gop_info_encoders, num_gop_encoders, NULL);
-    if (self->num_vendor_encoders > 0) {
+    if (self->num_vendor_encoders > 0 && self->vendor_encoders) {
       vendor_size =
           tlv_list_encode_or_get_size(self, self->vendor_encoders, self->num_vendor_encoders, NULL);
     }

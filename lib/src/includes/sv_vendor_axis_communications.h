@@ -29,10 +29,16 @@
 
 #include "signed_video_common.h"  // SignedVideoReturnCode, signed_video_t
 
+// APIs for signing a video.
+
 /**
- * Sets an attestation report, including a Public key |attestation| and a |certificate_chain|, to
- * the Signed Video session. This report is added to the generated SEI for verification of the
- * Public key. This should be called before the session starts.
+ * @brief Sets an attestation report to the Signed Video session
+ *
+ * The attestation report is defined as the Public key |attestation| and a |certificate_chain|. This
+ * attestation report is stored and added to the generated SEI as reccurence metadata, that is,
+ * metadata that is not always present.
+ *
+ * This API must be called before the session starts to have an impact.
  *
  * It is possible to set |attestation| and |certificate_chain| individually. Leave out one
  * parameter with a NULL pointer.
@@ -52,5 +58,7 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
     void *attestation,
     size_t attestation_size,
     char *certificate_chain);
+
+// APIs for validating a signed video.
 
 #endif  // __SV_VENDOR_AXIS_COMMUNICATIONS_H__

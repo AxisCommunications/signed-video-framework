@@ -65,7 +65,7 @@ encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, uint8_
  * @param data Pointer to the data to read.
  * @param data_size Size of data to read.
  *
- * @returns an internal return code to catch potential errors.
+ * @returns An internal return code to catch potential errors.
  */
 svi_rc
 decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data_size);

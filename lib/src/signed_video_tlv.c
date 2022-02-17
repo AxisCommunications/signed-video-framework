@@ -22,7 +22,9 @@
 
 #include <stdlib.h>  // free
 
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "axis-communications/sv_vendor_axis_communications_internal.h"
+#endif
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
 #include "includes/signed_video_interfaces.h"  // signature_info_t, sign_algo_t
 #include "includes/signed_video_openssl.h"  // openssl_key_memory_allocated()
@@ -86,7 +88,8 @@ encode_signature(signed_video_t *self, uint8_t *data);
 static svi_rc
 decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size);
 
-// Vendor specific encoders and decoders.
+// Vendor specific encoders and decoders. Serves as wrappers of vendor specific calls with
+// |vendor_handle| as input.
 static size_t
 encode_axis_communications(signed_video_t *self, uint8_t *data);
 static svi_rc
@@ -150,24 +153,31 @@ get_tlv_tuple(sv_tlv_tag_t tag);
 static svi_rc
 decode_tlv_header(const uint8_t *data, size_t *read_data_bytes, sv_tlv_tag_t *tag, size_t *length);
 
+/* Selects and returns the correct decoder from either |tlv_tuples| or |vendor_tlv_tuples|. */
 static sv_tlv_decoder_t
 get_decoder(sv_tlv_tag_t tag)
 {
   if (tag > UNDEFINED_VENDOR_TAG) {
+    // Vendor tag.
     return vendor_tlv_tuples[tag - UNDEFINED_VENDOR_TAG].decoder;
   } else {
+    // Library tag.
     return tlv_tuples[tag].decoder;
   }
 }
 
+/* Selects and returns the correct tlv_tuple from either |tlv_tuples| or |vendor_tlv_tuples|. */
 static sv_tlv_tuple_t
 get_tlv_tuple(sv_tlv_tag_t tag)
 {
   if ((tag > UNDEFINED_TAG) && (tag < NUMBER_OF_TLV_TAGS)) {
+    // Library tag.
     return tlv_tuples[tag];
   } else if ((tag > UNDEFINED_VENDOR_TAG) && (tag < NUMBER_OF_VENDOR_TLV_TAGS)) {
+    // Vendor tag.
     return vendor_tlv_tuples[tag - UNDEFINED_VENDOR_TAG];
   } else {
+    // Unknown tag.
     return tlv_tuples[UNDEFINED_TAG];
   }
 }
@@ -563,7 +573,8 @@ encode_public_key(signed_video_t *self, uint8_t *data)
 
   uint8_t *attestation = self->attestation;
 
-  DEBUG_LOG("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA Attestation_size = %zu", self->attestation_size);
+  DEBUG_LOG(
+      "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA Attestation_size = %zu", self->attestation_size);
 
   // Fill Camera Info data
   // Version
@@ -579,7 +590,8 @@ encode_public_key(signed_video_t *self, uint8_t *data)
 
   // Write all but the last character.
   if (self->certificate_chain != NULL) {
-    write_byte_many(&data_ptr, self->certificate_chain, strlen(self->certificate_chain) + 1, last_two_bytes, true);
+    write_byte_many(&data_ptr, self->certificate_chain, strlen(self->certificate_chain) + 1,
+        last_two_bytes, true);
   } else {
     write_byte(last_two_bytes, &data_ptr, 0, true);
   }
@@ -817,47 +829,42 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
 }
 
 // Vendor specific encoders and decoders.
+
 /**
  * @brief Encodes the VENDOR_AXIS_COMMUNICATIONS_TAG into data
  *
  */
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 static size_t
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 encode_axis_communications(signed_video_t *self, uint8_t *data)
 {
   return encode_axis_communications_handle(self->vendor_handle, &self->last_two_bytes, data);
-  // Vendor Axis Communications not selected.
-  return 0;
-}
 #else
-static size_t
 encode_axis_communications(signed_video_t ATTR_UNUSED *self, uint8_t ATTR_UNUSED *data)
 {
   // Vendor Axis Communications not selected.
   return 0;
-}
 #endif
+}
 
 /**
  * @brief Decodes the VENDOR_AXIS_COMMUNICATIONS_TAG from data
  *
  */
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 static svi_rc
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 decode_axis_communications(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
   return decode_axis_communications_handle(self->vendor_handle, data, data_size);
-}
 #else
-static svi_rc
 decode_axis_communications(signed_video_t ATTR_UNUSED *self,
     const uint8_t ATTR_UNUSED *data,
     size_t ATTR_UNUSED data_size)
 {
   // Vendor Axis Communications not selected.
   return SVI_NOT_SUPPORTED;
-}
 #endif
+}
 
 static size_t
 tlv_encode_or_get_size_generic(signed_video_t *self, const sv_tlv_tuple_t tlv, uint8_t *data)
