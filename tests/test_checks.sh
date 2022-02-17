@@ -12,14 +12,14 @@ echo ""
 echo "=== Runs check tests with default (unthreaded) signing plugin ==="
 echo ""
 
-meson -Dbuildtype=debug -Dsigningplugin=threaded_unless_check_dep . build
+meson -Dbuildtype=debug . build
 ninja -C build test
 
 echo ""
 echo "=== Now Runs check tests with SIGNED_VIDEO_DEBUG ==="
 echo ""
 
-meson -Ddebugprints=true -Dbuildtype=debug -Dsigningplugin=unthreaded --reconfigure . build
+meson -Ddebugprints=true -Dbuildtype=debug -Dsigningplugin=threaded_unless_check_dep --reconfigure . build
 ninja -C build test
 
 echo ""

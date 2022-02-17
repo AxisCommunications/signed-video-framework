@@ -425,24 +425,20 @@ openssl_key_memory_allocated(void **key, size_t *key_size, size_t new_key_size)
   // Return if memory size match.
   if (*key_size == new_key_size) return SV_OK;
 
-  void *new_key = NULL;
-  svi_rc status = SVI_UNKNOWN;
-  SVI_TRY()
-    // Re-allocate memory.
-    new_key = realloc(*key, new_key_size);
-    SVI_THROW_IF(!new_key, SVI_MEMORY);
-  SVI_CATCH()
-  {
-    free(*key);
+  // Free existing key.
+  free(*key);
+  *key = NULL;
+
+  // Allocate memory for a new one.
+  void *new_key = calloc(1, new_key_size);
+  if (!new_key) {
     new_key_size = 0;
   }
-  SVI_DONE(status)
-
   // Set key also upon failure, for which it will be a null pointer.
   *key_size = new_key_size;
   *key = new_key;
 
-  return svi_rc_to_signed_video_rc(status);
+  return new_key ? SV_OK : SV_MEMORY;
 }
 
 /* Reads the public key from the private key. */

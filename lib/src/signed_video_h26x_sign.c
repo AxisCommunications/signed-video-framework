@@ -111,11 +111,16 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   assert(self);
 
   // Get the oldest payload.
-  uint8_t *payload = self->payload_buffer[0];
-  uint8_t *payload_signature_ptr = self->payload_buffer[1];
+  const int buffer_end = self->payload_buffer_idx;
+  assert(buffer_end <= MAX_NALUS_TO_PREPEND);
   SignedVideoPrependInstruction prepend_instruction = SIGNED_VIDEO_PREPEND_NOTHING;
   size_t data_size = 0;
   svi_rc status = SVI_UNKNOWN;
+  // Transfer oldest pointer in |payload_buffer| to local |payload|
+  uint8_t *payload = self->payload_buffer[0];
+  uint8_t *payload_signature_ptr = self->payload_buffer[1];
+  self->payload_buffer[0] = NULL;  // Set to NULL since pointer has been transferred.
+  self->payload_buffer[1] = NULL;  // Set to NULL since pointer has been transferred.
 
   // If the signature could not be generated |signature_size| equals zero. Free the started SEI and
   // move on. This is a valid operation. What will happen is that the video will have an unsigned
@@ -138,6 +143,8 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
     prepend_instruction = SIGNED_VIDEO_PREPEND_NALU;
     signed_video_nalu_to_prepend_t *nalu_to_prepend =
         &(self->nalus_to_prepend_list[self->num_nalus_to_prepend]);
+    // TODO: Include setting |nalu_data| in add_nalu_to_prepend().
+    // Transfer |payload| to |nalu_to_prepend|.
     nalu_to_prepend->nalu_data = payload;
     SVI_THROW(add_nalu_to_prepend(self, prepend_instruction, data_size));
 
@@ -147,13 +154,15 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
 done:
   // Done with the SEI payload. Move |payload_buffer|. This should be done even if we caught a
   // failure.
-  self->payload_buffer[0] = NULL;
-  self->payload_buffer[1] = NULL;
-  for (int i = 2; i < MAX_NALUS_TO_PREPEND; i++) {
-    self->payload_buffer[2 * (i - 1)] = self->payload_buffer[2 * i];
-    self->payload_buffer[2 * (i - 1) + 1] = self->payload_buffer[2 * i + 1];
+  if (buffer_end > 0) {
+    for (int i = 2; i < buffer_end; i++) {
+      self->payload_buffer[2 * (i - 1)] = self->payload_buffer[2 * i];
+      self->payload_buffer[2 * (i - 1) + 1] = self->payload_buffer[2 * i + 1];
+    }
+    self->payload_buffer[2 * (buffer_end - 1)] = NULL;
+    self->payload_buffer[2 * (buffer_end - 1) + 1] = NULL;
+    self->payload_buffer_idx -= 1;
   }
-  if (self->payload_buffer_idx > 0) self->payload_buffer_idx -= 1;
 
   return status;
 }
