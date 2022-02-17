@@ -1,5 +1,5 @@
 project('signed-video-framework', 'c',
-  version : '1.1.1',
+  version : '1.1.2',
   meson_version : '>= 0.47.0',
   default_options : [ 'warning_level=2',
                       'werror=true',
@@ -23,7 +23,7 @@ signing_plugin = get_option('signingplugin')
 # Determine if 'threaded_unless_check_dep' should use 'threaded' or 'unthreaded'
 if (signing_plugin == 'threaded_unless_check_dep' and check_dep.found())
   signing_plugin = 'unthreaded'
-else
+elif (signing_plugin == 'threaded_unless_check_dep')
   signing_plugin = 'threaded'
 endif
 
