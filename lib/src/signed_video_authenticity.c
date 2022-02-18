@@ -26,7 +26,6 @@
 #include <string.h>  // strlen, strcpy
 
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_get_validation_str()
-#include "signed_video_authenticity.h"  // allocate_memory_and_copy_string
 
 // Adding accumulated authenticity results, valuable for screening a file, is work in progress.
 // #define ACCUMULATED_VALIDATION

@@ -29,7 +29,7 @@ signedvideoframework_sources += vendor_sources
 openssl_dep = dependency('openssl', required : true)
 
 # Add vendor specific public headers
-if 'axis-communications' in get_option('vendors')
+if build_with_axis
   signedvideoframework_public_headers += files('includes/sv_vendor_axis_communications.h')
 endif
 
