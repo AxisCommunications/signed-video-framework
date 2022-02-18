@@ -26,6 +26,10 @@
 #include "lib/src/includes/signed_video_auth.h"  // signed_video_authenticity_t
 #include "lib/src/includes/signed_video_common.h"  // signed_video_t
 #include "lib/src/includes/signed_video_sign.h"  // signed_video_set_authenticity_level()
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
+#include "lib/src/includes/signed_video_openssl.h"  // signed_video_generate_private_key()
+#include "lib/src/includes/sv_vendor_axis_communications.h"
+#endif
 #include "nalu_list.h"  // nalu_list_create()
 #include "signed_video_helpers.h"  // sv_setting, create_signed_nalus()
 
@@ -1483,6 +1487,98 @@ START_TEST(late_public_key_and_no_sei_before_key_arrives)
 }
 END_TEST
 
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
+/* Test description
+ * APIs in vendors/axis-communications are used and tests both signing and validation parts. */
+START_TEST(vendor_axis_communications_operation)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  SignedVideoReturnCode sv_rc;
+  SignedVideoCodec codec = settings[_i].codec;
+  sign_algo_t algo = settings[_i].algo;
+  SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
+  signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *sei = NULL;
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+
+  // Check generate private key.
+  signed_video_t *sv = signed_video_create(codec);
+  ck_assert(sv);
+  // Read and set content of private_key.
+  sv_rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_private_key(sv, algo, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Check setting attestation report.
+  const size_t attestation_size = 2;
+  void *attestation = calloc(1, attestation_size);
+  char *cert_chain = "certificate_chain";
+  // Setting |attestation| and |certificate_chain|.
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(
+      sv, attestation, attestation_size, cert_chain);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  free(attestation);
+
+  // // Check setting recurrence.
+  // sv_rc = signed_video_set_recurrence_interval(sv, 1);
+  // ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Setting validation level.
+  sv_rc = signed_video_set_authenticity_level(sv, auth_level);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Add an I-NALU to trigger a SEI.
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sei = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec);
+  ck_assert(tag_is_present(sei, codec, VENDOR_AXIS_COMMUNICATIONS_TAG));
+  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory.
+  sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NOTHING);
+
+  signed_video_free(sv);
+  free(private_key);
+
+  // End of validation side. Start a new session on the validation side.
+  sv = signed_video_create(codec);
+  ck_assert(sv);
+
+  // Validate this first GOP.
+  signed_video_authenticity_t *auth_report = NULL;
+  signed_video_latest_validation_t *latest = NULL;
+
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, sei->data, sei->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(!auth_report);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, i_nalu->data, i_nalu->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  if (auth_report) {
+    latest = &(auth_report->latest_validation);
+    ck_assert(latest);
+    ck_assert_int_eq(strcmp(latest->validation_str, ".P"), 0);
+    // We are done with auth_report.
+    latest = NULL;
+    signed_video_authenticity_report_free(auth_report);
+  } else {
+    ck_assert(false);
+  }
+
+  // Free nalu_list_item and session.
+  nalu_list_free_item(sei);
+  nalu_list_free_item(i_nalu);
+  signed_video_free(sv);
+}
+END_TEST
+#endif
+
 static Suite *
 signed_video_suite(void)
 {
@@ -1529,6 +1625,9 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, no_signature, s, e);
   tcase_add_loop_test(tc, multislice_no_signature, s, e);
   tcase_add_loop_test(tc, late_public_key_and_no_sei_before_key_arrives, s, e);
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
+  tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
+#endif
 
   // Add test case to suit
   suite_add_tcase(suite, tc);

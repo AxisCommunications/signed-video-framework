@@ -24,8 +24,14 @@ signedvideoframework_sources = files(
 
 # Until plugin management is in place the plugin file(s) are added to the sources.
 signedvideoframework_sources += plugin_sources
+signedvideoframework_sources += vendor_sources
 
 openssl_dep = dependency('openssl', required : true)
+
+# Add vendor specific public headers
+if build_with_axis
+  signedvideoframework_public_headers += files('includes/sv_vendor_axis_communications.h')
+endif
 
 install_headers(
     signedvideoframework_public_headers,
@@ -36,6 +42,7 @@ signedvideoframework_deps = [ openssl_dep, plugin_deps ]
 signedvideoframework = shared_library(
     'signed-video-framework',
     signedvideoframework_sources,
+    include_directories : [ vendorinc ],
     version : meson.project_version(),
     dependencies : signedvideoframework_deps,
     install : true,

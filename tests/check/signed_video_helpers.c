@@ -28,7 +28,7 @@
 #include "lib/src/includes/signed_video_openssl.h"
 #include "lib/src/includes/signed_video_sign.h"
 #include "lib/src/signed_video_h26x_internal.h"  // signed_video_set_recurrence_interval()
-#include "lib/src/signed_video_internal.h"  // _signed_video_t
+#include "lib/src/signed_video_tlv.h"  // tlv_find_tag()
 
 #define RSA_PRIVATE_KEY_ALLOC_BYTES 2000
 #define ECDSA_PRIVATE_KEY_ALLOC_BYTES 1000
@@ -261,4 +261,22 @@ modify_list_item(nalu_list_t *list, int item_number, const char *exp_str)
   nalu_list_item_t *item = nalu_list_get_item(list, item_number);
   nalu_list_item_check_str(item, exp_str);
   item->data[item->data_size - 2] += 1;  // Modifying id byte
+}
+
+/* Checks if a particular TLV tag is present in the NALU. */
+bool
+tag_is_present(nalu_list_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t tag)
+{
+  ck_assert(item);
+
+  bool found_tag = false;
+  h26x_nalu_t nalu = parse_nalu_info(item->data, item->data_size, codec, false);
+  if (!nalu.is_gop_sei) return false;
+
+  void *tag_ptr = (void *)tlv_find_tag(nalu.tlv_data, nalu.tlv_size, tag, false);
+  found_tag = (tag_ptr != NULL);
+  // Free tempory data slot used if emulation prevention bytes are present.
+  free(nalu.tmp_tlv_memory);
+
+  return found_tag;
 }

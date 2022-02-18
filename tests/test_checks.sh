@@ -15,6 +15,19 @@ echo ""
 meson -Dbuildtype=debug . build
 ninja -C build test
 
+echo "=== Run check tests without any vendors ==="
+echo ""
+
+meson -Dbuildtype=debug -Dvendors= --reconfigure . build
+ninja -C build test
+
+echo ""
+echo "=== Run check tests with all vendors ==="
+echo ""
+
+meson -Dbuildtype=debug -Dvendors=all --reconfigure . build
+ninja -C build test
+
 echo ""
 echo "=== Now Runs check tests with SIGNED_VIDEO_DEBUG ==="
 echo ""

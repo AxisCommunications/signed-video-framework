@@ -25,9 +25,13 @@
 #include "lib/src/includes/signed_video_common.h"
 #include "lib/src/includes/signed_video_openssl.h"
 #include "lib/src/includes/signed_video_sign.h"
-#include "lib/src/signed_video_defines.h"  // svi_rc
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
+#include "lib/src/includes/sv_vendor_axis_communications.h"
+#endif
+#include "lib/src/signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
 #include "lib/src/signed_video_h26x_internal.h"  // signed_video_set_recurrence_interval()
 #include "lib/src/signed_video_internal.h"  // set_hash_list_size()
+#include "lib/src/signed_video_tlv.h"  // tlv_find_tag()
 #include "nalu_list.h"
 #include "signed_video_helpers.h"
 
@@ -258,6 +262,93 @@ START_TEST(incorrect_operation)
 }
 END_TEST
 
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
+/* Test description
+ * All APIs in vendors/axis-communications are checked for invalid parameters, and valid NULL
+ * pointer inputs. */
+START_TEST(vendor_axis_communications_operation)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  SignedVideoReturnCode sv_rc;
+  SignedVideoCodec codec = settings[_i].codec;
+  sign_algo_t algo = settings[_i].algo;
+  SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
+  signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *sei = NULL;
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+
+  // Check generate private key.
+  signed_video_t *sv = signed_video_create(codec);
+  ck_assert(sv);
+  // Read and set content of private_key.
+  sv_rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_private_key(sv, algo, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Check setting attestation report.
+  const size_t attestation_size = 2;
+  void *attestation = calloc(1, attestation_size);
+  char *cert_chain = "certificate_chain";
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(
+      NULL, attestation, attestation_size, cert_chain);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  // Setting nothing is an ivalid operation.
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, NULL);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  // Setting a zero sized |attestation| is an ivalid operation.
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, attestation, 0, NULL);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, attestation_size, NULL);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  // Setting only the |attestation| is a valid operation.
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, attestation, 1, NULL);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  // Setting only the |cert_chain| is a valid operation.
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, cert_chain);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  // Setting a new |attestation| is not supported.
+  sv_rc =
+      sv_vendor_axis_communications_set_attestation_report(sv, attestation, attestation_size, NULL);
+  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
+  // Setting a new |cert_chain| is not supported.
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, cert_chain);
+  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
+  free(attestation);
+
+  // // Check setting recurrence.
+  // sv_rc = signed_video_set_recurrence_interval(sv, 1);
+  // ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Setting validation level.
+  sv_rc = signed_video_set_authenticity_level(sv, auth_level);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Add an I-NALU to trigger a SEI.
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sei = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec);
+  ck_assert(tag_is_present(sei, codec, VENDOR_AXIS_COMMUNICATIONS_TAG));
+  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory.
+  sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NOTHING);
+
+  // Free nalu_list_item and session.
+  nalu_list_free_item(sei);
+  nalu_list_free_item(i_nalu);
+  signed_video_free(sv);
+  free(private_key);
+}
+END_TEST
+#endif
+
 /* Test description
  * In this test we check for number of NALUs to prepend during two GOPs.
  * Add
@@ -416,11 +507,14 @@ START_TEST(fallback_to_gop_level)
     nalu_list_item_check_str(sei_2, "G");
     nalu_list_item_t *sei_1 = nalu_list_remove_item(list, 1);
     nalu_list_item_check_str(sei_1, "G");
-    // Verify SEI sizes.
-    if (settings[_i].recurrence == SV_RECURRENCE_ONE) {
-      ck_assert_uint_lt(sei_1->data_size, sei_2->data_size);
-      ck_assert_uint_lt(sei_3->data_size, sei_1->data_size);
+
+    if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
+      // Verify that the HASH_LIST_TAG is present (or not) in the SEI.
+      ck_assert(tag_is_present(sei_1, settings[_i].codec, HASH_LIST_TAG));
+      ck_assert(tag_is_present(sei_2, settings[_i].codec, HASH_LIST_TAG));
+      ck_assert(!tag_is_present(sei_3, settings[_i].codec, HASH_LIST_TAG));
     }
+
     nalu_list_free_item(sei_1);
     nalu_list_free_item(sei_2);
     nalu_list_free_item(sei_3);
@@ -460,7 +554,7 @@ END_TEST
  * 3. Check size of every GOP SEI dependent on recurrence > 1
  *
  * G = GOP-info SEI-NALU, I = I-NALU and P = P-NALU.
- * Size is checked in 'G' Nalus because that's where the metadata is placed.
+ * PUBLIC_KEY_TAG is checked in 'G' because that is where the metadata is located.
  */
 START_TEST(recurrence)
 {
@@ -469,18 +563,17 @@ START_TEST(recurrence)
   nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
 
   nalu_list_item_t *item;
-  int last_sei_size = 0;
   int gop_counter = 0;
   for (int i = 1; i <= (list->num_items); i++) {
     item = nalu_list_get_item(list, i);
     if (strncmp(item->str_code, "G", 1) == 0) {
-      if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
-        if (((gop_counter + settings[_i].recurrence_offset) % settings[_i].recurrence) == 0) {
-          ck_assert_int_gt(item->data_size, last_sei_size);
-        }
+      // if ((gop_counter % recurrence) == 0) {
+      if (((gop_counter + settings[_i].recurrence_offset) % settings[_i].recurrence) == 0) {
+        ck_assert(tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
+      } else {
+        ck_assert(!tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
       }
       gop_counter++;
-      last_sei_size = item->data_size;
     }
   }
   nalu_list_free(list);
@@ -504,6 +597,9 @@ signed_video_suite(void)
   // Add tests
   tcase_add_loop_test(tc, api_inputs, s, e);
   tcase_add_loop_test(tc, incorrect_operation, s, e);
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
+  tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
+#endif
   // tcase_add_loop_test(tc, correct_nalu_sequence_with_eos, s, e);
   // tcase_add_loop_test(tc, correct_multislice_sequence_with_eos, s, e);
   tcase_add_loop_test(tc, correct_nalu_sequence_without_eos, s, e);

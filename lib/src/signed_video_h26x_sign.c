@@ -26,10 +26,10 @@
 #include "includes/signed_video_openssl.h"  // openssl_read_pubkey_from_private_key()
 #include "includes/signed_video_sign.h"
 #include "signed_video_authenticity.h"  // allocate_memory_and_copy_string
-#include "signed_video_defines.h"  // svi_rc
+#include "signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
 #include "signed_video_h26x_internal.h"  // parse_nalu_info()
 #include "signed_video_internal.h"  // gop_info_t, reset_gop_hash(), sv_rc_to_svi_rc()
-#include "signed_video_tlv.h"  // sv_tlv_tag_t, tlv_list_encode_or_get_size()
+#include "signed_video_tlv.h"  // tlv_list_encode_or_get_size()
 
 static void
 h26x_set_nal_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDType uuid_type);
@@ -220,6 +220,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
   size_t payload_size = 0;
   size_t document_size = 0;
   size_t gop_info_size = 0;
+  size_t vendor_size = 0;
   size_t sei_buffer_size = 0;
   const size_t num_doc_encoders = ARRAY_SIZE(document_encoders);
   const size_t num_gop_encoders = ARRAY_SIZE(gop_info_encoders);
@@ -256,8 +257,12 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     // generated. Add extra space for potential emulation prevention bytes.
     document_size = tlv_list_encode_or_get_size(self, document_encoders, num_doc_encoders, NULL);
     gop_info_size = tlv_list_encode_or_get_size(self, gop_info_encoders, num_gop_encoders, NULL);
+    if (self->num_vendor_encoders > 0 && self->vendor_encoders) {
+      vendor_size =
+          tlv_list_encode_or_get_size(self, self->vendor_encoders, self->num_vendor_encoders, NULL);
+    }
 
-    payload_size = document_size + gop_info_size;
+    payload_size = document_size + gop_info_size + vendor_size;
     payload_size += UUID_LEN;  // UUID
     payload_size += 1;  // One byte for reserved data.
     // Compute total SEI NALU data size.
@@ -313,6 +318,13 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
         tlv_list_encode_or_get_size(self, document_encoders, num_doc_encoders, payload_ptr);
     SVI_THROW_IF(written_size == 0, SVI_MEMORY);
     payload_ptr += written_size;
+
+    if (vendor_size > 0) {
+      written_size = tlv_list_encode_or_get_size(
+          self, self->vendor_encoders, self->num_vendor_encoders, payload_ptr);
+      SVI_THROW_IF(written_size == 0, SVI_MEMORY);
+      payload_ptr += written_size;
+    }
 
     // Up till now we have all the hashable data available. Before writing the signature TLV to the
     // payload we need to hash the NALU as it is so far and update the |gop_hash|. Parse a fake NALU

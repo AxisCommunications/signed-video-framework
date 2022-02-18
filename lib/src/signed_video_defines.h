@@ -154,4 +154,29 @@ typedef enum {
   SVI_UNKNOWN = 100,
 } svi_rc;  // Signed Video Internal Return Code
 
+/**
+ * Definition of available TLV tags.
+ *
+ * Vendor specific TLV tags start from UNDEFINED_VENDOR_TAG. Both sub-lists begin and end with
+ * invalid tags (UNDEFINED_TAG and NUMBER_OF_TLV_TAGS) resp. (UNDEFINED_VENDOR_TAG and
+ * NUMBER_OF_VENDOR_TLV_TAGS).
+ *
+ * NOTE: When a new tag is added simply append the sub-list of valid tags. Changing the number of
+ * existing tags will break backwards compatibility!
+ */
+typedef enum {
+  UNDEFINED_TAG = 0,  // Should always be zero
+  GENERAL_TAG = 1,
+  PUBLIC_KEY_TAG = 2,
+  PRODUCT_INFO_TAG = 3,
+  HASH_LIST_TAG = 4,
+  SIGNATURE_TAG = 5,
+  ARBITRARY_DATA_TAG = 6,
+  NUMBER_OF_TLV_TAGS = 7,
+  // Vendor specific TLV tags.
+  UNDEFINED_VENDOR_TAG = 128,
+  VENDOR_AXIS_COMMUNICATIONS_TAG = 129,
+  NUMBER_OF_VENDOR_TLV_TAGS = 130,
+} sv_tlv_tag_t;
+
 #endif  // __SIGNED_VIDEO_DEFINES__
