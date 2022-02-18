@@ -23,7 +23,6 @@
 #include <stdbool.h>
 #include <stdlib.h>  // malloc, memcpy, calloc, free
 
-#include "signed_video_authenticity.h"  // allocate_memory_and_copy_string
 #include "signed_video_internal.h"
 #include "signed_video_tlv.h"
 #include "sv_vendor_axis_communications_internal.h"
@@ -84,7 +83,7 @@ encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, uint8_
   data_size += self->attestation_size;  // To write |attestation|
 
   // Size of certificate chain
-  data_size += strlen(self->certificate_chain) + 2;
+  data_size += strlen(self->certificate_chain) + 1;
 
   if (!data) return data_size;
 
@@ -99,10 +98,9 @@ encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, uint8_
   for (size_t jj = 0; jj < self->attestation_size; ++jj) {
     write_byte(last_two_bytes, &data_ptr, attestation[jj], true);
   }
-  // Write size of |certificate_chain|.
-  write_byte(last_two_bytes, &data_ptr, strlen(self->certificate_chain) + 1, true);
   // Write |certificate_chain|.
-  write_byte_many(&data_ptr, self->certificate_chain, strlen(self->certificate_chain) + 1, last_two_bytes, true);
+  write_byte_many(&data_ptr, self->certificate_chain, strlen(self->certificate_chain) + 1,
+      last_two_bytes, true);
 
   return (data_ptr - data);
 }
@@ -115,25 +113,44 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
 
   const uint8_t *data_ptr = data;
   uint8_t version = *data_ptr++;
-  uint8_t cert_size = 0;
+  uint8_t attestation_size = 0;
+  size_t cert_size = 0;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
-
-    self->attestation_size = *data_ptr++;
-    if (self->attestation_size > 0 && self->attestation == NULL) {
-      self->attestation = malloc(self->attestation_size);
+    // Read |attestation_size|.
+    attestation_size = *data_ptr++;
+    SVI_THROW_IF(attestation_size == 0, SVI_NOT_SUPPORTED);
+    // Allocate memory for |attestation|.
+    if (!self->attestation) {
+      self->attestation = malloc(attestation_size);
+      SVI_THROW_IF(!self->attestation, SVI_MEMORY);
+      self->attestation_size = attestation_size;
     }
+    // If |attestation| has already been allocated, but with a different size. Something has gone
+    // wrong or someone has manipulated the data.
+    SVI_THROW_IF(attestation_size != self->attestation_size, SVI_NOT_SUPPORTED);
+    // Read |attestation|
+    memcpy(self->attestation, data_ptr, attestation_size);
+    data_ptr += attestation_size;
 
-    if (self->attestation_size > 0) {
-      memcpy(self->attestation, data_ptr, self->attestation_size);
-      data_ptr += self->attestation_size;
+    // Determine size of |certificate_chain|. Equals |data_size| minus
+    //  - 1 byte for version
+    //  - 1 bytes for |attestation_size|
+    //  - |attestation_size| bytes for |attestation|
+    SVI_THROW_IF(data_size <= (size_t)attestation_size + 2, SVI_DECODING_ERROR);
+    cert_size = data_size - attestation_size - 2;
+
+    // Allocate memory for |certificate_chain|
+    if (!self->certificate_chain) {
+      self->certificate_chain = calloc(1, cert_size);
+      SVI_THROW_IF(!self->certificate_chain, SVI_MEMORY);
     }
-
-    cert_size = *data_ptr++;
-
-    SVI_THROW(allocate_memory_and_copy_string(&self->certificate_chain, (const char *)data_ptr));
+    // If |certificate_chain| has already been allocated, but with a different size. Something has
+    // gone wrong or someone has manipulated the data.
+    // SVI_THROW_IF(cert_size != self->certificate_chain_size, SVI_NOT_SUPPORTED);
+    memcpy(self->certificate_chain, data_ptr, cert_size);
     data_ptr += cert_size;
 
     SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
