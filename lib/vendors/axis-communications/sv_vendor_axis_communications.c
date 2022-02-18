@@ -222,15 +222,3 @@ catch_error:
 
   return SV_MEMORY;
 }
-
-void
-sv_vendor_axis_communications_get_attestation_report(signed_video_t *sv,
-    void **attestation,
-    size_t *attestation_size,
-    char **certificate_chain)
-{
-  sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)sv->vendor_handle;
-  *attestation = self->attestation;
-  *attestation_size = self->attestation_size;
-  *certificate_chain = self->certificate_chain;
-}

@@ -64,11 +64,4 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
 
 // APIs for validating a signed video.
 
-// REMOVE BEFORE COMMIT TO MASTER
-void
-sv_vendor_axis_communications_get_attestation_report(signed_video_t *sv,
-    void **attestation,
-    size_t *attestation_size,
-    char **certificate_chain);
-
 #endif  // __SV_VENDOR_AXIS_COMMUNICATIONS_H__
