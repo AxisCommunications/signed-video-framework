@@ -305,10 +305,12 @@ signed_video_set_authenticity_level(signed_video_t *self,
 /**
  * @brief Sets the average recurrence interval for the signed video session in frames
  *
- * This API will set the recurrence interval which decides how often metadata is sent. Some
- * metadata is only needed to send once, such as public key and product info. Metadata that can
- * be sent less often is the public key, product info and attestation report.
- * Ex: Recurrence equal to 25 means that all metadata is sent every 25 frames in average.
+ * Metadata that is only needed once when validating the authenticity can be transmitted with a
+ * different recurrence interval than the signatures. This API sets that recurrence, counted in
+ * frames. Note that this type of metadata is still bundled together in the same SEI as the
+ * signature, hence the true recurrence will be correct on the average.
+
+ * Example of metadata that is only needed once are the public key and product info.
  *
  * @param self Session struct pointer
  * @param recurrence Recurrence interval in frames
