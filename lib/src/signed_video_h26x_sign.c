@@ -703,6 +703,17 @@ signed_video_set_recurrence_interval(signed_video_t *self, unsigned recurrence)
   return SV_OK;
 }
 
+SignedVideoReturnCode
+signed_video_set_recurrence_interval_frames(signed_video_t *self, unsigned recurrence)
+{
+  if (!self) return SV_INVALID_PARAMETER;
+  if (recurrence < RECURRENCE_ALWAYS) return SV_NOT_SUPPORTED;
+
+  // self->recurrence = recurrence;
+
+  return SV_OK;
+}
+
 #ifdef SV_UNIT_TEST
 SignedVideoReturnCode
 signed_video_set_recurrence_offset(signed_video_t *self, unsigned offset)
