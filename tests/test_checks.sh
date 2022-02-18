@@ -18,7 +18,7 @@ ninja -C build test
 echo "=== Run check tests without any vendors ==="
 echo ""
 
-meson -Dbuildtype=debug -Dvendors= . build
+meson -Dbuildtype=debug -Dvendors= --reconfigure . build
 ninja -C build test
 
 echo ""

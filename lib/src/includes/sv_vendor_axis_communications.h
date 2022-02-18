@@ -25,6 +25,7 @@
 #ifndef __SV_VENDOR_AXIS_COMMUNICATIONS_H__
 #define __SV_VENDOR_AXIS_COMMUNICATIONS_H__
 
+#include <stdint.h>
 #include <string.h>
 
 #include "signed_video_common.h"  // SignedVideoReturnCode, signed_video_t
@@ -42,6 +43,8 @@
  *
  * It is possible to set |attestation| and |certificate_chain| individually. Leave out one
  * parameter with a NULL pointer.
+ * It is assumed that the |attestation| is at most 255 bytes large, hence |attestation_size| fits in
+ * a single byte.
  *
  * @param sv Pointer to the Signed Video session.
  * @param attestation Pointer to the key attestation. A NULL means that it will not be set.
@@ -56,9 +59,16 @@
 SignedVideoReturnCode
 sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
     void *attestation,
-    size_t attestation_size,
+    uint8_t attestation_size,
     char *certificate_chain);
 
 // APIs for validating a signed video.
+
+// REMOVE BEFORE COMMIT TO MASTER
+void
+sv_vendor_axis_communications_get_attestation_report(signed_video_t *sv,
+    void **attestation,
+    size_t *attestation_size,
+    char **certificate_chain);
 
 #endif  // __SV_VENDOR_AXIS_COMMUNICATIONS_H__

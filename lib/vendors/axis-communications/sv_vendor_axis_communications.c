@@ -23,10 +23,10 @@
 #include <stdbool.h>
 #include <stdlib.h>  // malloc, memcpy, calloc, free
 
+#include "signed_video_authenticity.h"  // allocate_memory_and_copy_string
 #include "signed_video_internal.h"
 #include "signed_video_tlv.h"
 #include "sv_vendor_axis_communications_internal.h"
-#include "signed_video_authenticity.h"  // allocate_memory_and_copy_string
 
 // List of TLV encoders to include in SEI.
 #define AXIS_COMMUNICATIONS_NUM_ENCODERS 1
@@ -37,7 +37,7 @@ static const sv_tlv_tag_t axis_communications_encoders[AXIS_COMMUNICATIONS_NUM_E
 // Definition of |vendor_handle|.
 typedef struct _sv_vendor_axis_communications_t {
   void *attestation;
-  size_t attestation_size;
+  uint8_t attestation_size;
   char *certificate_chain;
 } sv_vendor_axis_communications_t;
 
@@ -69,47 +69,40 @@ encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, uint8_
   size_t data_size = 0;
   const uint8_t version = 1;  // Increment when the change breaks the format
 
+  // If there is no attestation report, skip encoding, that is return 0.
+  if (!self->attestation || !self->certificate_chain) return 0;
+
   // Version 1:
   //  - version (1 byte)
+  //  - attestation_size (1 byte)
+  //  - attestation (attestation_size bytes)
+  //  - certificate_chain (certificate_chain_size bytes)
 
   data_size += sizeof(version);
   // Size of attestation report
-  data_size += 1;
-  data_size += self->attestation_size;
+  data_size += 1;  // To write |attestation_size|
+  data_size += self->attestation_size;  // To write |attestation|
 
   // Size of certificate chain
-  if (self->certificate_chain != NULL) {
-    data_size += strlen(self->certificate_chain) + 2;
-  } else {
-    data_size += 2;
-  }
+  data_size += strlen(self->certificate_chain) + 2;
 
   if (!data) return data_size;
 
   uint8_t *data_ptr = data;
   uint8_t *attestation = self->attestation;
 
-  // Write version
+  // Write version.
   write_byte(last_two_bytes, &data_ptr, version, true);
-  //
-  // Write |certificate_chain|
-  if (self->certificate_chain != NULL) {
-    write_byte(last_two_bytes, &data_ptr, strlen(self->certificate_chain) + 1, true);
-  } else {
-    write_byte(last_two_bytes, &data_ptr, 1, true);
-  }
-
-  // Write all but the last character.
-  if (self->certificate_chain != NULL) {
-    write_byte_many(&data_ptr, self->certificate_chain, strlen(self->certificate_chain) + 1, last_two_bytes, true);
-  } else {
-    write_byte(last_two_bytes, &data_ptr, 0, true);
-  }
-
+  // Write |attestation_size|.
   write_byte(last_two_bytes, &data_ptr, self->attestation_size, true);
+  // Write |attestation|.
   for (size_t jj = 0; jj < self->attestation_size; ++jj) {
     write_byte(last_two_bytes, &data_ptr, attestation[jj], true);
   }
+  // Write size of |certificate_chain|.
+  write_byte(last_two_bytes, &data_ptr, strlen(self->certificate_chain) + 1, true);
+  // Write |certificate_chain|.
+  write_byte_many(&data_ptr, self->certificate_chain, strlen(self->certificate_chain) + 1, last_two_bytes, true);
 
   return (data_ptr - data);
 }
@@ -122,14 +115,11 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
 
   const uint8_t *data_ptr = data;
   uint8_t version = *data_ptr++;
-  uint8_t cert_size = *data_ptr++;
+  uint8_t cert_size = 0;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
-
-    SVI_THROW(allocate_memory_and_copy_string(&self->certificate_chain, (const char *)data_ptr));
-    data_ptr += cert_size;
 
     self->attestation_size = *data_ptr++;
     if (self->attestation_size > 0 && self->attestation == NULL) {
@@ -140,6 +130,11 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
       memcpy(self->attestation, data_ptr, self->attestation_size);
       data_ptr += self->attestation_size;
     }
+
+    cert_size = *data_ptr++;
+
+    SVI_THROW(allocate_memory_and_copy_string(&self->certificate_chain, (const char *)data_ptr));
+    data_ptr += cert_size;
 
     SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
   SVI_CATCH()
@@ -153,7 +148,7 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
 SignedVideoReturnCode
 sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
     void *attestation,
-    size_t attestation_size,
+    uint8_t attestation_size,
     char *certificate_chain)
 {
   // Sanity check inputs. It is allowed to set either one of |attestation| and |certificate_chain|,
@@ -209,4 +204,16 @@ catch_error:
   }
 
   return SV_MEMORY;
+}
+
+void
+sv_vendor_axis_communications_get_attestation_report(signed_video_t *sv,
+    void **attestation,
+    size_t *attestation_size,
+    char **certificate_chain)
+{
+  sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)sv->vendor_handle;
+  *attestation = self->attestation;
+  *attestation_size = self->attestation_size;
+  *certificate_chain = self->certificate_chain;
 }
