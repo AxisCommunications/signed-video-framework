@@ -709,8 +709,6 @@ signed_video_set_recurrence_interval_frames(signed_video_t *self, unsigned recur
   if (!self) return SV_INVALID_PARAMETER;
   if (recurrence < RECURRENCE_ALWAYS) return SV_NOT_SUPPORTED;
 
-  // self->recurrence = recurrence;
-
   return SV_OK;
 }
 
