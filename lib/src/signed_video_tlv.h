@@ -100,7 +100,7 @@ read_16bits(const uint8_t *p, uint16_t *val);
 void
 write_byte_many(uint8_t **dest,
     char *src,
-    uint8_t size,
+    size_t size,
     uint16_t *last_two_bytes,
     bool do_emulation_prevention);
 
