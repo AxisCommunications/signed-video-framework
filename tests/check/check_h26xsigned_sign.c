@@ -190,7 +190,7 @@ START_TEST(api_inputs)
       sv, "hardware_id", "firmware_version", "serial_number", "manufacturer", NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_set_product_info(
-      sv, "hardware_id", "firmware_version", "serial_number", "manufacturer", TWO_BYTE_STRING);
+      sv, "hardware_id", "firmware_version", "serial_number", "manufacturer", LONG_STRING);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Free nalu_list_item and session.
   nalu_list_free_item(p_nalu);
