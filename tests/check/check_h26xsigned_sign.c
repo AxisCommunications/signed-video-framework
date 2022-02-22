@@ -293,6 +293,11 @@ START_TEST(vendor_axis_communications_operation)
   sv_rc = signed_video_set_private_key(sv, algo, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
+  // Exercise two byte string in product info to catch potential errors.
+  sv_rc = signed_video_set_product_info(
+      sv, TWO_BYTE_STRING, TWO_BYTE_STRING, TWO_BYTE_STRING, TWO_BYTE_STRING, TWO_BYTE_STRING);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
   // Check setting attestation report.
   const size_t attestation_size = 2;
   void *attestation = calloc(1, attestation_size);
@@ -338,7 +343,6 @@ START_TEST(vendor_axis_communications_operation)
   ck_assert_int_eq(sv_rc, SV_OK);
   sei = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec);
   ck_assert(tag_is_present(sei, codec, VENDOR_AXIS_COMMUNICATIONS_TAG));
-  ck_assert(tag_is_present(sei, codec, PRODUCT_INFO_TAG));
   // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory.
   sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
   ck_assert_int_eq(sv_rc, SV_OK);
