@@ -266,13 +266,13 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
 void
 write_byte_many(uint8_t **dest,
     char *src,
-    uint8_t size,
+    size_t size,
     uint16_t *last_two_bytes,
     bool do_emulation_prevention)
 {
   if (!src) return;
 
-  for (int ii = 0; ii < size; ++ii) {
+  for (size_t ii = 0; ii < size; ++ii) {
     uint8_t ch = src[ii];
     write_byte(last_two_bytes, dest, ch, do_emulation_prevention);
   }

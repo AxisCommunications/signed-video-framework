@@ -189,6 +189,9 @@ START_TEST(api_inputs)
   sv_rc = signed_video_set_product_info(
       sv, "hardware_id", "firmware_version", "serial_number", "manufacturer", NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_product_info(
+      sv, "hardware_id", "firmware_version", "serial_number", "manufacturer", LONG_STRING);
+  ck_assert_int_eq(sv_rc, SV_OK);
   // Free nalu_list_item and session.
   nalu_list_free_item(p_nalu);
   nalu_list_free_item(invalid);
@@ -288,6 +291,11 @@ START_TEST(vendor_axis_communications_operation)
   sv_rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_set_private_key(sv, algo, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Exercise two byte string in product info to catch potential errors.
+  sv_rc = signed_video_set_product_info(
+      sv, LONG_STRING, LONG_STRING, LONG_STRING, LONG_STRING, LONG_STRING);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Check setting attestation report.
