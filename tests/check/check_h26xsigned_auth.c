@@ -1519,7 +1519,7 @@ START_TEST(vendor_axis_communications_operation)
   void *attestation = calloc(1, attestation_size);
   // Setting |attestation| and |certificate_chain|.
   sv_rc = sv_vendor_axis_communications_set_attestation_report(
-      sv, attestation, attestation_size, TWO_BYTE_STRING);
+      sv, attestation, attestation_size, LONG_STRING);
   ck_assert_int_eq(sv_rc, SV_OK);
   free(attestation);
 
