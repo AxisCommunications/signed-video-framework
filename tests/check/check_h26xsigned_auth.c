@@ -1517,10 +1517,9 @@ START_TEST(vendor_axis_communications_operation)
   // Check setting attestation report.
   const size_t attestation_size = 2;
   void *attestation = calloc(1, attestation_size);
-  char *cert_chain = "certificate_chain";
   // Setting |attestation| and |certificate_chain|.
   sv_rc = sv_vendor_axis_communications_set_attestation_report(
-      sv, attestation, attestation_size, cert_chain);
+      sv, attestation, attestation_size, TWO_BYTE_STRING);
   ck_assert_int_eq(sv_rc, SV_OK);
   free(attestation);
 
