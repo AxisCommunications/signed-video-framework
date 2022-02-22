@@ -295,7 +295,7 @@ START_TEST(vendor_axis_communications_operation)
 
   // Exercise two byte string in product info to catch potential errors.
   sv_rc = signed_video_set_product_info(
-      sv, TWO_BYTE_STRING, TWO_BYTE_STRING, TWO_BYTE_STRING, TWO_BYTE_STRING, TWO_BYTE_STRING);
+      sv, LONG_STRING, LONG_STRING, LONG_STRING, LONG_STRING, LONG_STRING);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Check setting attestation report.
