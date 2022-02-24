@@ -27,6 +27,7 @@
 #include <string.h>  // size_t
 
 #include "signed_video_common.h"  // signed_video_t, SignedVideoReturnCode
+#include "signed_video_interfaces.h"  // sign_algo_t
 
 /**
  * Status of authenticity validation since last result
@@ -248,5 +249,8 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
     const uint8_t *nalu_data,
     size_t nalu_data_size,
     signed_video_authenticity_t **authenticity);
+
+SignedVideoReturnCode
+signed_video_set_public_key(signed_video_t *self, sign_algo_t algo, const char *public_key, size_t public_key_size);
 
 #endif  // __SIGNED_VIDEO_AUTH_H__

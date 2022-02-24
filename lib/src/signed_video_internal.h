@@ -184,6 +184,8 @@ struct _signed_video_t {
   // Vendor encoders for signing. Only works with one vendor.
   const sv_tlv_tag_t *vendor_encoders;
   size_t num_vendor_encoders;
+  bool public_key_in_sei;
+  bool nalus_in_sei;
 };
 
 typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;

@@ -32,6 +32,7 @@
 #endif
 #include "nalu_list.h"  // nalu_list_create()
 #include "signed_video_helpers.h"  // sv_setting, create_signed_nalus()
+#include "lib/src/signed_video_internal.h" // signed_video_t
 
 static void
 setup()
@@ -1578,6 +1579,550 @@ START_TEST(vendor_axis_communications_operation)
 END_TEST
 #endif
 
+/* Test description */
+START_TEST(public_key_on_validation_side_from_start)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  SignedVideoReturnCode sv_rc;
+  SignedVideoCodec codec = settings[_i].codec;
+  sign_algo_t algo = settings[_i].algo;
+  SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
+  signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *sei = NULL;
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+
+  signed_video_t *sv_camera = signed_video_create(codec);
+  ck_assert(sv_camera);
+  // Read and set content of private_key.
+  sv_rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_private_key(sv_camera, algo, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  // No public key in SEI
+  sv_rc = signed_video_set_public_key_in_sei(sv_camera, false);
+  // Setting validation level.
+  sv_rc = signed_video_set_authenticity_level(sv_camera, auth_level);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Add an I-NALU to trigger a SEI.
+  sv_rc = signed_video_add_nalu_for_signing(sv_camera, i_nalu->data, i_nalu->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sei = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec);
+  sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NOTHING);
+  ck_assert(!tag_is_present(sei, codec, PUBLIC_KEY_TAG));
+
+  // On validation side
+  signed_video_t *sv_vms = signed_video_create(codec);
+
+  // Set public key
+  sv_rc = signed_video_set_public_key(sv_vms, algo, sv_camera->signature_info->public_key, sv_camera->signature_info->public_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Validate this first GOP.
+  signed_video_authenticity_t *auth_report = NULL;
+  signed_video_latest_validation_t *latest = NULL;
+
+  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, sei->data, sei->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(!auth_report);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  if (auth_report) {
+    latest = &(auth_report->latest_validation);
+    ck_assert(latest);
+    ck_assert(!(latest->public_key_has_changed));
+    ck_assert_int_eq(latest->authenticity, SV_AUTH_RESULT_OK);
+    // We are done with auth_report
+    latest = NULL;
+    signed_video_authenticity_report_free(auth_report);
+  } else {
+    ck_assert(false);
+  }
+
+  // Free nalu_list_item and session.
+  nalu_list_free_item(sei);
+  nalu_list_free_item(i_nalu);
+  signed_video_free(sv_vms);
+
+  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory
+
+}
+END_TEST
+
+/* Test description */
+START_TEST(public_key_in_sei_and_on_validation_side_from_start)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  SignedVideoReturnCode sv_rc;
+  SignedVideoCodec codec = settings[_i].codec;
+  sign_algo_t algo = settings[_i].algo;
+  SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
+  signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *sei = NULL;
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+
+  // On camera side
+  signed_video_t *sv_camera = signed_video_create(codec);
+  ck_assert(sv_camera);
+  // Read and set content of private_key.
+  sv_rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_private_key(sv_camera, algo, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Setting validation level.
+  sv_rc = signed_video_set_authenticity_level(sv_camera, auth_level);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Add an I-NALU to trigger a SEI.
+  sv_rc = signed_video_add_nalu_for_signing(sv_camera, i_nalu->data, i_nalu->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sei = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec);
+  ck_assert(tag_is_present(sei, codec, PUBLIC_KEY_TAG));
+  sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NOTHING);
+
+  // On validation side
+  signed_video_t *sv_vms = signed_video_create(codec);
+
+  // Set public key
+  sv_rc = signed_video_set_public_key(sv_vms, algo, sv_camera->signature_info->public_key, sv_camera->signature_info->public_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Validate this first GOP.
+  signed_video_authenticity_t *auth_report = NULL;
+  signed_video_latest_validation_t *latest = NULL;
+
+  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, sei->data, sei->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(!auth_report);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  if (auth_report) {
+    latest = &(auth_report->latest_validation);
+    ck_assert(latest);
+    ck_assert(!(latest->public_key_has_changed));
+    ck_assert_int_eq(latest->authenticity, SV_AUTH_RESULT_OK);
+    // We are done with auth_report
+    latest = NULL;
+    signed_video_authenticity_report_free(auth_report);
+  } else {
+    ck_assert(false);
+  }
+
+  // Free nalu_list_item and session.
+  nalu_list_free_item(sei);
+  nalu_list_free_item(i_nalu);
+  signed_video_free(sv_vms);
+
+  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory
+
+}
+END_TEST
+
+/* Test description */
+START_TEST(no_public_key)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  SignedVideoReturnCode sv_rc;
+  SignedVideoCodec codec = settings[_i].codec;
+  sign_algo_t algo = settings[_i].algo;
+  SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
+  signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *sei = NULL;
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+
+  // On camera side
+  signed_video_t *sv_camera = signed_video_create(codec);
+  ck_assert(sv_camera);
+  // Read and set content of private_key.
+  sv_rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_private_key(sv_camera, algo, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // No public key in SEI
+  sv_rc = signed_video_set_public_key_in_sei(sv_camera, false);
+  // Setting validation level.
+  sv_rc = signed_video_set_authenticity_level(sv_camera, auth_level);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Add an I-NALU to trigger a SEI.
+  sv_rc = signed_video_add_nalu_for_signing(sv_camera, i_nalu->data, i_nalu->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sei = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec);
+  ck_assert(!tag_is_present(sei, codec, PUBLIC_KEY_TAG));
+
+  sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NOTHING);
+
+  // On validation side
+  signed_video_t *sv_vms = signed_video_create(codec);
+
+  // Validate this first GOP.
+  signed_video_authenticity_t *auth_report = NULL;
+
+  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, sei->data, sei->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(!auth_report);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
+
+  // Free nalu_list_item and session.
+  nalu_list_free_item(sei);
+  nalu_list_free_item(i_nalu);
+  signed_video_free(sv_vms);
+
+  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory
+
+}
+END_TEST
+
+/* Test description */
+START_TEST(public_key_on_validation_side_later)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  SignedVideoReturnCode sv_rc;
+  SignedVideoCodec codec = settings[_i].codec;
+  sign_algo_t algo = settings[_i].algo;
+  SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
+  signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *i_nalu_2 = nalu_list_item_create_and_set_id("I", 1, codec);
+  nalu_list_item_t *sei = NULL;
+  nalu_list_item_t *sei_2 = NULL;
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+
+  // On camera side
+  signed_video_t *sv_camera = signed_video_create(codec);
+  ck_assert(sv_camera);
+  // Read and set content of private_key.
+  sv_rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_private_key(sv_camera, algo, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // No public key in SEI
+  sv_rc = signed_video_set_public_key_in_sei(sv_camera, false);
+  // Setting validation level.
+  sv_rc = signed_video_set_authenticity_level(sv_camera, auth_level);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Add an I-NALU to trigger a SEI.
+  sv_rc = signed_video_add_nalu_for_signing(sv_camera, i_nalu->data, i_nalu->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sei = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec);
+  ck_assert(!tag_is_present(sei, codec, PUBLIC_KEY_TAG));
+  // Add the second I-NALU
+  sv_rc = signed_video_add_nalu_for_signing(sv_camera, i_nalu_2->data, i_nalu_2->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sei_2 = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec);
+  ck_assert(!tag_is_present(sei_2, codec, PUBLIC_KEY_TAG));
+
+  sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NOTHING);
+
+  // VMS-sidan
+  signed_video_t *sv_vms = signed_video_create(codec);
+
+  // Validate this first GOP.
+  signed_video_authenticity_t *auth_report = NULL;
+
+  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(!auth_report);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, sei->data, sei->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
+  // Set public key
+  sv_rc = signed_video_set_public_key(sv_vms, algo, sv_camera->signature_info->public_key, sv_camera->signature_info->public_key_size);
+  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
+
+  // Free nalu_list_item and session.
+  nalu_list_free_item(sei);
+  nalu_list_free_item(i_nalu);
+  signed_video_free(sv_vms);
+
+  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory
+
+}
+END_TEST
+
+/* Test description */
+START_TEST(public_key_in_sei_and_on_validation_side_later)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  SignedVideoReturnCode sv_rc;
+  SignedVideoCodec codec = settings[_i].codec;
+  sign_algo_t algo = settings[_i].algo;
+  SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
+  signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *i_nalu_2 = nalu_list_item_create_and_set_id("I", 1, codec);
+  nalu_list_item_t *sei = NULL;
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+
+  // On camera side
+  signed_video_t *sv_camera = signed_video_create(codec);
+  ck_assert(sv_camera);
+  // Read and set content of private_key.
+  sv_rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_private_key(sv_camera, algo, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Setting validation level.
+  sv_rc = signed_video_set_authenticity_level(sv_camera, auth_level);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Add an I-NALU to trigger a SEI.
+  sv_rc = signed_video_add_nalu_for_signing(sv_camera, i_nalu->data, i_nalu->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sei = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec);
+  ck_assert(tag_is_present(sei, codec, PUBLIC_KEY_TAG));
+  // Add the second I-NALU
+  sv_rc = signed_video_add_nalu_for_signing(sv_camera, i_nalu_2->data, i_nalu_2->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NOTHING);
+
+  // On validation side
+  signed_video_t *sv_vms = signed_video_create(codec);
+
+  // Validate this first GOP.
+  signed_video_authenticity_t *auth_report = NULL;
+  signed_video_latest_validation_t *latest = NULL;
+
+  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(!auth_report);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, sei->data, sei->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  // Set public key
+  sv_rc = signed_video_set_public_key(sv_vms, algo, sv_camera->signature_info->public_key, sv_camera->signature_info->public_key_size);
+  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
+
+  if (auth_report) {
+    latest = &(auth_report->latest_validation);
+    ck_assert(latest);
+    ck_assert(!(latest->public_key_has_changed));
+    ck_assert_int_eq(latest->authenticity, SV_AUTH_RESULT_OK);
+    // We are done with auth_report
+    latest = NULL;
+    signed_video_authenticity_report_free(auth_report);
+  } else {
+    ck_assert(false);
+  }
+
+  // Free nalu_list_item and session.
+  nalu_list_free_item(sei);
+  nalu_list_free_item(i_nalu);
+  signed_video_free(sv_vms);
+
+  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory
+
+}
+END_TEST
+
+/* Test description */
+START_TEST(public_key_in_sei_and_bad_public_key_on_validation_side)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  SignedVideoReturnCode sv_rc;
+  SignedVideoCodec codec = settings[_i].codec;
+  sign_algo_t algo = settings[_i].algo;
+  SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
+  signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *sei = NULL;
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+  size_t bad_public_key_size = 0;
+
+  // On camera side
+  signed_video_t *sv_camera = signed_video_create(codec);
+  ck_assert(sv_camera);
+  // Read and set content of private_key.
+  sv_rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_private_key(sv_camera, algo, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Setting validation level.
+  sv_rc = signed_video_set_authenticity_level(sv_camera, auth_level);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Add an I-NALU to trigger a SEI.
+  sv_rc = signed_video_add_nalu_for_signing(sv_camera, i_nalu->data, i_nalu->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sei = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec);
+  ck_assert(tag_is_present(sei, codec, PUBLIC_KEY_TAG));
+  sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NOTHING);
+
+  // On validation side
+  signed_video_t *sv_vms = signed_video_create(codec);
+
+  // Create bad public key
+  char *bad_public_key = malloc(sv_camera->signature_info->public_key_size);
+  memcpy(bad_public_key, sv_camera->signature_info->public_key, sv_camera->signature_info->public_key_size);
+  bad_public_key[3] ^= 0xff;
+
+  bad_public_key_size = sv_camera->signature_info->public_key_size;  // Kanske onödig
+
+  // Set public key
+  sv_rc = signed_video_set_public_key(sv_vms, algo, bad_public_key, bad_public_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Validate this first GOP.
+  signed_video_authenticity_t *auth_report = NULL;
+  signed_video_latest_validation_t *latest = NULL;
+
+  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, sei->data, sei->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(!auth_report);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  if (auth_report) {
+    latest = &(auth_report->latest_validation);
+    ck_assert(latest);
+    ck_assert(latest->public_key_has_changed);
+    ck_assert_int_eq(latest->authenticity, SV_AUTH_RESULT_NOT_OK);
+    // We are done with auth_report
+    latest = NULL;
+    signed_video_authenticity_report_free(auth_report);
+  } else {
+    ck_assert(false);
+  }
+
+  // Free nalu_list_item and session.
+  nalu_list_free_item(sei);
+  nalu_list_free_item(i_nalu);
+  signed_video_free(sv_vms);
+
+  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory
+
+}
+END_TEST
+
+/* Test description */
+START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  SignedVideoReturnCode sv_rc;
+  SignedVideoCodec codec = settings[_i].codec;
+  sign_algo_t algo = settings[_i].algo;
+  SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
+  signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *sei = NULL;
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+  size_t bad_public_key_size = 0;
+
+  // On camera side
+  signed_video_t *sv_camera = signed_video_create(codec);
+  ck_assert(sv_camera);
+  // Read and set content of private_key.
+  sv_rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_private_key(sv_camera, algo, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  // No public key in SEI
+  sv_rc = signed_video_set_public_key_in_sei(sv_camera, false);
+  // Setting validation level.
+  sv_rc = signed_video_set_authenticity_level(sv_camera, auth_level);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Add an I-NALU to trigger a SEI.
+  sv_rc = signed_video_add_nalu_for_signing(sv_camera, i_nalu->data, i_nalu->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sei = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec);
+  sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NOTHING);
+  ck_assert(!tag_is_present(sei, codec, PUBLIC_KEY_TAG));
+
+  // On validation side
+  signed_video_t *sv_vms = signed_video_create(codec);
+
+  // Create bad public key
+  char *bad_public_key = malloc(sv_camera->signature_info->public_key_size);
+  memcpy(bad_public_key, sv_camera->signature_info->public_key, sv_camera->signature_info->public_key_size);
+  bad_public_key[3] ^= 0xff;
+
+  bad_public_key_size = sv_camera->signature_info->public_key_size;
+
+  // Set public key
+  sv_rc = signed_video_set_public_key(sv_vms, algo, bad_public_key, bad_public_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Validate this first GOP.
+  signed_video_authenticity_t *auth_report = NULL;
+
+  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, sei->data, sei->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(!auth_report);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_EXTERNAL_ERROR);
+
+  // Free nalu_list_item and session.
+  nalu_list_free_item(sei);
+  nalu_list_free_item(i_nalu);
+  signed_video_free(sv_vms);
+
+  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory
+
+}
+END_TEST
+
 static Suite *
 signed_video_suite(void)
 {
@@ -1624,6 +2169,13 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, no_signature, s, e);
   tcase_add_loop_test(tc, multislice_no_signature, s, e);
   tcase_add_loop_test(tc, late_public_key_and_no_sei_before_key_arrives, s, e);
+  tcase_add_loop_test(tc, public_key_on_validation_side_from_start, s, e);
+  tcase_add_loop_test(tc, public_key_in_sei_and_on_validation_side_from_start, s, e);
+  tcase_add_loop_test(tc, no_public_key, s, e);
+  tcase_add_loop_test(tc, public_key_on_validation_side_later, s, e);
+  tcase_add_loop_test(tc, public_key_in_sei_and_on_validation_side_later, s, e);
+  tcase_add_loop_test(tc, public_key_in_sei_and_bad_public_key_on_validation_side, s, e);
+  tcase_add_loop_test(tc, no_public_key_in_sei_and_bad_public_key_on_validation_side, s, e);
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
 #endif

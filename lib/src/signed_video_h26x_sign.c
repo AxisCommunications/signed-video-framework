@@ -674,6 +674,15 @@ signed_video_set_private_key(signed_video_t *self,
 }
 
 SignedVideoReturnCode
+signed_video_set_public_key_in_sei(signed_video_t *self, bool public_key_in_sei)
+{
+  if (!self) return SV_INVALID_PARAMETER;
+  self->public_key_in_sei = public_key_in_sei;
+
+  return SV_OK;
+}
+
+SignedVideoReturnCode
 signed_video_set_authenticity_level(signed_video_t *self,
     SignedVideoAuthenticityLevel authenticity_level)
 {

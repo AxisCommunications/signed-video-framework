@@ -31,6 +31,8 @@
 #include "signed_video_internal.h"  // gop_info_t, gop_state_t, reset_gop_hash()
 #include "signed_video_tlv.h"  // tlv_find_tag()
 
+#include <stdio.h>
+
 static svi_rc
 decode_sei_data(signed_video_t *signed_video, const uint8_t *payload, size_t payload_size);
 
@@ -711,7 +713,7 @@ prepare_for_validation(signed_video_t *self)
     }
 
     SVI_THROW_IF_WITH_MSG(
-        gop_state->signing_present && !self->has_public_key, SVI_UNKNOWN, "No public key present");
+        gop_state->signing_present && !self->has_public_key, SVI_NOT_SUPPORTED, "No public key present");
     // If we have received a SEI there is a signature to use for verification.
     if (self->gop_info_detected.has_gop_sei) {
       SVI_THROW(sv_rc_to_svi_rc(
@@ -938,7 +940,6 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
 
   return status;
 }
-
 SignedVideoReturnCode
 signed_video_add_nalu_and_authenticate(signed_video_t *self,
     const uint8_t *nalu_data,
@@ -946,6 +947,8 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
     signed_video_authenticity_t **authenticity)
 {
   if (!self || !nalu_data || nalu_data_size == 0) return SV_INVALID_PARAMETER;
+
+  self->nalus_in_sei = true;
 
   // If the user requests an authenticity report, initialize to NULL.
   if (authenticity) *authenticity = NULL;
@@ -963,4 +966,43 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
   SVI_DONE(status)
 
   return svi_rc_to_signed_video_rc(status);
+}
+
+
+SignedVideoReturnCode
+signed_video_set_public_key(signed_video_t *self, sign_algo_t algo, const char *public_key, size_t public_key_size)
+{
+  if (!self || !public_key || public_key_size == 0) return SV_INVALID_PARAMETER;
+  if (self->signature_info->public_key) return SV_NOT_SUPPORTED;
+
+  // Return SV_NOT_SUPPORTED if not called from start of stream
+  if (self->nalus_in_sei == true) return SV_NOT_SUPPORTED;
+
+  uint8_t *new_public_key = NULL;
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    SVI_THROW_IF_WITH_MSG(
+        algo < 0 || algo >= SIGN_ALGO_NUM, SVI_NOT_SUPPORTED, "Algo is not supported");
+    // Make sure we have allocated enough memory
+    if (self->signature_info->public_key_size != public_key_size) {
+      new_public_key = realloc(self->signature_info->public_key, public_key_size);
+      SVI_THROW_IF(!new_public_key, SVI_MEMORY);
+      self->signature_info->public_key = new_public_key;
+    }
+    memcpy(self->signature_info->public_key, public_key, public_key_size);
+
+    self->signature_info->algo = algo;
+    self->signature_info->public_key_size = public_key_size;
+    self->has_public_key = true;
+
+  SVI_CATCH()
+  {
+    // Remove all key information if we fail.
+    free(self->signature_info->public_key);
+    self->signature_info->public_key = NULL;
+    self->signature_info->public_key_size = 0;
+  }
+  SVI_DONE(status)
+
+    return svi_rc_to_signed_video_rc(status);
 }

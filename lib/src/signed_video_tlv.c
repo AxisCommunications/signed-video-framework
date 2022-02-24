@@ -539,7 +539,7 @@ encode_public_key(signed_video_t *self, uint8_t *data)
   const uint8_t version = 1;
 
   // If there is no public key, skip encoding, that is return 0.
-  if (!signature_info->public_key) return 0;
+  if (!signature_info->public_key || !self->public_key_in_sei) return 0;
 
   // Version 1:
   //  - version (1 byte)
