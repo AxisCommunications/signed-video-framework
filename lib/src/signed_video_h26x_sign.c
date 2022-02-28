@@ -367,6 +367,10 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
     SVI_THROW(sv_rc_to_svi_rc(sv_interface_sign_hash(self->plugin_handle, signature_info)));
 
+    // Unset flag when SEI with all metadata has been generated. If generate SEI fails then keep
+    // flag set and try to create a SEI with all metadata again next time.
+    self->nr_of_frames_for_recurrence_passed = false;
+
   SVI_CATCH()
   {
     DEBUG_LOG("Failed generating the SEI");
@@ -496,6 +500,13 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
     SVI_THROW(prepare_for_nalus_to_prepend(self));
 
     SVI_THROW_IF(nalu.is_valid < 0, SVI_INVALID_PARAMETER);
+
+    if (nalu.is_primary_slice) {
+      if (((self->frame_count + self->recurrence_offset) % self->recurrence) == 0) {
+        self->nr_of_frames_for_recurrence_passed = true;
+      }
+      self->frame_count++;
+    }
 
     SVI_THROW(hash_and_add(self, &nalu));
     // Depending on the input NALU, we need to take different actions. If the input is an I-NALU we
@@ -693,21 +704,12 @@ signed_video_set_authenticity_level(signed_video_t *self,
 }
 
 SignedVideoReturnCode
-signed_video_set_recurrence_interval(signed_video_t *self, unsigned recurrence)
+signed_video_set_recurrence_interval_frames(signed_video_t *self, unsigned recurrence)
 {
   if (!self) return SV_INVALID_PARAMETER;
   if (recurrence < RECURRENCE_ALWAYS) return SV_NOT_SUPPORTED;
 
   self->recurrence = recurrence;
-
-  return SV_OK;
-}
-
-SignedVideoReturnCode
-signed_video_set_recurrence_interval_frames(signed_video_t *self, unsigned recurrence)
-{
-  if (!self) return SV_INVALID_PARAMETER;
-  if (recurrence < RECURRENCE_ALWAYS) return SV_NOT_SUPPORTED;
 
   return SV_OK;
 }

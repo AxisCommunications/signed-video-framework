@@ -1136,6 +1136,9 @@ signed_video_create(SignedVideoCodec codec)
     self->recurrence_offset = RECURRENCE_OFFSET_DEFAULT;
     self->has_public_key = false;
 
+    self->frame_count = RECURRENCE_OFFSET_DEFAULT;
+    self->nr_of_frames_for_recurrence_passed = false;
+
     // Setup the plugin.
     self->plugin_handle = sv_interface_setup();
     SVI_THROW_IF(!self->plugin_handle, SVI_EXTERNAL_FAILURE);

@@ -29,7 +29,6 @@
 #include "lib/src/includes/sv_vendor_axis_communications.h"
 #endif
 #include "lib/src/signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
-#include "lib/src/signed_video_h26x_internal.h"  // signed_video_set_recurrence_interval()
 #include "lib/src/signed_video_internal.h"  // set_hash_list_size()
 #include "lib/src/signed_video_tlv.h"  // tlv_find_tag()
 #include "nalu_list.h"
@@ -127,12 +126,6 @@ START_TEST(api_inputs)
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Check setting recurrence
-  sv_rc = signed_video_set_recurrence_interval(sv, 1);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_recurrence_interval(NULL, 1);
-  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_set_recurrence_interval(sv, 0);
-  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
   sv_rc = signed_video_set_recurrence_interval_frames(NULL, 1);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   sv_rc = signed_video_set_recurrence_interval_frames(sv, 0);
@@ -327,7 +320,7 @@ START_TEST(vendor_axis_communications_operation)
   free(attestation);
 
   // // Check setting recurrence.
-  // sv_rc = signed_video_set_recurrence_interval(sv, 1);
+  // sv_rc = signed_video_set_recurrence_interval_frames(sv, 1);
   // ck_assert_int_eq(sv_rc, SV_OK);
 
   // Setting validation level.
@@ -569,17 +562,24 @@ START_TEST(recurrence)
   nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
 
   nalu_list_item_t *item;
-  int gop_counter = 0;
-  for (int i = 1; i <= (list->num_items); i++) {
+  int last_sei_size = 0;
+  for (int i = 1; i < (list->num_items); i++) {
     item = nalu_list_get_item(list, i);
     if (strncmp(item->str_code, "G", 1) == 0) {
-      // if ((gop_counter % recurrence) == 0) {
-      if (((gop_counter + settings[_i].recurrence_offset) % settings[_i].recurrence) == 0) {
-        ck_assert(tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
-      } else {
-        ck_assert(!tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
+      // SEI with all meadata in item 1, 13 and 25 when recurrence=8 and offset=0
+      if (i == 1 || i == 13 || i == 25) {
+        if (settings[_i].recurrence == SV_RECURRENCE_EIGHT &&
+            settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
+          ck_assert_int_gt(item->data_size, last_sei_size);
+        }
       }
-      gop_counter++;
+      // SEI with all meadata in item 9 and 21 when recurrence=8 and offset=3
+      if (i == 9 || i == 21) {
+        if (settings[_i].recurrence == SV_RECURRENCE_EIGHT &&
+            settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+          ck_assert_int_gt(item->data_size, last_sei_size);
+        }
+      }
     }
   }
   nalu_list_free(list);
