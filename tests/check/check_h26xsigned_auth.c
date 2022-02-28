@@ -29,6 +29,8 @@
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "lib/src/includes/signed_video_openssl.h"  // signed_video_generate_private_key()
 #include "lib/src/includes/sv_vendor_axis_communications.h"
+#include "lib/src/signed_video_internal.h"  // signed_video_generate_private_key()
+#include "lib/vendors/axis-communications/sv_vendor_axis_communications_internal_tests.h"
 #endif
 #ifdef SV_UNIT_TEST
 #include "lib/src/signed_video_h26x_internal.h"  // signed_video_set_recurrence_offset()
@@ -1596,6 +1598,7 @@ START_TEST(vendor_axis_communications_operation)
   // End of validation side. Start a new session on the validation side.
   sv = signed_video_create(codec);
   ck_assert(sv);
+  verify_axis_communications_public_key_upon_request(sv->vendor_handle);
 
   // Validate this first GOP.
   signed_video_authenticity_t *auth_report = NULL;

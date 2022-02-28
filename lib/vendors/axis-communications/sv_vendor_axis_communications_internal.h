@@ -70,4 +70,16 @@ encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, uint8_
 svi_rc
 decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data_size);
 
+/**
+ * @brief Sets the public key to be validated using the attestation report and the certificate chain
+ *
+ * @param handle The handle to which the public key is written.
+ * @param public_key Pointer to the public key data to read.
+ * @param public_key_size Size of public key data to read.
+ *
+ * @returns An internal return code to catch potential errors.
+ */
+svi_rc
+set_axis_communications_public_key(void *handle, const void *public_key, size_t public_key_size);
+
 #endif  // __SV_VENDOR_AXIS_COMMUNICATIONS_INTERNAL_H__

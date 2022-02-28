@@ -64,4 +64,41 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
 
 // APIs for validating a signed video.
 
+#define SV_VENDOR_AXIS_SER_NO_MAX_LENGTH 20
+/**
+ * Axis Supplemental Authenticity
+ *
+ * This struct includes the validation result of the public key used to validate the video, and
+ * additional device information.
+ */
+typedef struct {
+  int public_key_validation;
+  // The accumulated validation result of the public key.
+  //   (1) - success,
+  //   (0) - unsuccessful validation,
+  //  (-1) - unknown, e.g., before a validation could be performed.
+  // Note that public key validation is performed everytime the public key is used. The
+  // |public_key_validation| value is accumulated, which means that an unsuccessful result can never
+  // be overwritten by a successful result later on.
+  char serial_number[SV_VENDOR_AXIS_SER_NO_MAX_LENGTH];
+  // A null-terminated string displaying the serial number of the device from which the public key
+  // originates, or "Unknown" if the serial number could not be determined.
+} sv_vendor_axis_supplemental_authenticity_t;
+
+/**
+ * @brief Gets the Axis supplemental authenticity report
+ *
+ * With the attestation report and certificate chain, set by the signer and added as metadata in the
+ * SEI, it is possible to verify the origin of the public signing key.
+ * Validation of the public key is done in conjunction with reading it from the SEI.
+ *
+ * @param sv Pointer to the Signed Video session.
+ * @param supplemental_authenticity Pointer to the supplemental autenticity report.
+ *
+ * @returns SV_OK upon success, otherwise an appropriate error.
+ */
+SignedVideoReturnCode
+sv_vendor_axis_communications_get_supplemental_authenticity(const signed_video_t *sv,
+    sv_vendor_axis_supplemental_authenticity_t *supplemental_authenticity);
+
 #endif  // __SV_VENDOR_AXIS_COMMUNICATIONS_H__
