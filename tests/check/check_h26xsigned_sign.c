@@ -543,10 +543,7 @@ START_TEST(undefined_nalu_in_sequence)
 END_TEST
 
 /* Test description
- * Verify that metadata is sent with recurrence interval equal to 3.
- * Recurrence equal to 1 means that all metadata is sent in every GOP.
- * Recurrence equal to 3 means that all metadata is sent in every second GOP.
- * Metadata that can be sent more rarily are public key and product info.
+ * Verify that metadata is sent with correct recurrence interval in frames on the average.
  * The operation is as follows:
  * 1. Generate a nalu_list with a sequence of signed GOPs.
  * 2. Check the sequence of NALUs.
@@ -580,6 +577,7 @@ START_TEST(recurrence)
           ck_assert_int_gt(item->data_size, last_sei_size);
         }
       }
+      last_sei_size = item->data_size;
     }
   }
   nalu_list_free(list);

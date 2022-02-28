@@ -369,7 +369,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
     // Unset flag when SEI with all metadata has been generated. If generate SEI fails then keep
     // flag set and try to create a SEI with all metadata again next time.
-    self->nr_of_frames_for_recurrence_passed = false;
+    self->add_recurrent_data = false;
 
   SVI_CATCH()
   {
@@ -501,11 +501,13 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
 
     SVI_THROW_IF(nalu.is_valid < 0, SVI_INVALID_PARAMETER);
 
+    // Note that |recurrence| is counted in frames and not in NALUs, hence we only increment the
+    // counter for primary slices.
     if (nalu.is_primary_slice) {
       if (((self->frame_count + self->recurrence_offset) % self->recurrence) == 0) {
-        self->nr_of_frames_for_recurrence_passed = true;
+        self->add_recurrent_data = true;
       }
-      self->frame_count++;
+      self->frame_count++;  // It is ok for this variable to wrap around
     }
 
     SVI_THROW(hash_and_add(self, &nalu));
