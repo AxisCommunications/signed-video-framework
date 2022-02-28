@@ -496,13 +496,38 @@ h26x_nalu_list_get_validation_str(const h26x_nalu_list_t *list)
     h26x_nalu_list_item_t *item = list->first_item;
     int idx = 0;
     while (item) {
-      memcpy(validation_str + idx, &item->validation_status, 1);
+      if (item->validation_status != '_') {
+        memcpy(validation_str + idx, &item->validation_status, 1);
+        idx++;
+      }
       item = item->next;
-      idx++;
     }
   }
 
   return validation_str;
+}
+
+char *
+h26x_nalu_list_get_nalu_str(const h26x_nalu_list_t *list)
+{
+  if (!list) return NULL;
+  // Allocate memory for all items + a null terminated character.
+  char *nalu_str = calloc(1, list->num_items + 1);
+  if (nalu_str) {
+    h26x_nalu_list_item_t *item = list->first_item;
+    int idx = 0;
+    while (item) {
+      if (item->validation_status != '_') {
+        char *nn = nalu_to_str(item->nalu);
+        memcpy(nalu_str + idx, nn, 1);
+        // free(nn);
+        idx++;
+      }
+      item = item->next;
+    }
+  }
+
+  return nalu_str;
 }
 
 /* Cleans up the list by removing the validated items. */

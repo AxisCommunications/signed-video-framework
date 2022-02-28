@@ -166,6 +166,8 @@ h26x_nalu_list_num_pending_items(const h26x_nalu_list_t* list);
  */
 char*
 h26x_nalu_list_get_validation_str(const h26x_nalu_list_t* list);
+char*
+h26x_nalu_list_get_nalu_str(const h26x_nalu_list_t* list);
 
 /**
  * @brief Cleans up among validated NALUs

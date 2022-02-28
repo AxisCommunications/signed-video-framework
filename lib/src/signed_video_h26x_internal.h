@@ -50,6 +50,8 @@ typedef enum {
 char *
 nalu_type_to_str(const h26x_nalu_t *nalu);
 #endif
+char *
+nalu_to_str(const h26x_nalu_t *nalu);
 
 /* SEI UUID types */
 extern const uint8_t kUuidSignedVideo[UUID_LEN];

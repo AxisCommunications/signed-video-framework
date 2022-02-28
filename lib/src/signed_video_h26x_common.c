@@ -90,6 +90,25 @@ nalu_type_to_str(const h26x_nalu_t *nalu)
   }
 }
 #endif
+char *
+nalu_to_str(const h26x_nalu_t *nalu)
+{
+  switch (nalu->nalu_type) {
+    case NALU_TYPE_SEI:
+      return "S";
+    case NALU_TYPE_I:
+      return "i";
+    case NALU_TYPE_P:
+      return "p";
+    case NALU_TYPE_PS:
+      return "XPPS/SPS/VPS";
+    case NALU_TYPE_OTHER:
+      return "valid other nalu";
+    case NALU_TYPE_UNDEFINED:
+    default:
+      return "unknown nalu";
+  }
+}
 
 /* Declared in signed_video_internal.h */
 SignedVideoReturnCode

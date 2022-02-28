@@ -156,6 +156,7 @@ transfer_latest_validation(signed_video_latest_validation_t *dst,
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     SVI_THROW(allocate_memory_and_copy_string(&dst->validation_str, src->validation_str));
+    SVI_THROW(allocate_memory_and_copy_string(&dst->nalu_str, src->nalu_str));
     dst->authenticity = src->authenticity;
     dst->public_key_has_changed = src->public_key_has_changed;
     dst->number_of_expected_picture_nalus = src->number_of_expected_picture_nalus;
@@ -245,6 +246,8 @@ latest_validation_init(signed_video_latest_validation_t *self)
 
   free(self->validation_str);
   self->validation_str = NULL;
+  free(self->nalu_str);
+  self->nalu_str = NULL;
 }
 
 static void
@@ -287,6 +290,7 @@ signed_video_get_authenticity_report(signed_video_t *self)
   if (self->authenticity == NULL) return NULL;
 
   char *validation_str = NULL;
+  char *nalu_str = NULL;
   signed_video_authenticity_t *authenticity_report = signed_video_authenticity_report_create();
 
   svi_rc status = SVI_UNKNOWN;
@@ -295,6 +299,8 @@ signed_video_get_authenticity_report(signed_video_t *self)
     validation_str = h26x_nalu_list_get_validation_str(self->nalu_list);
     SVI_THROW(
         allocate_memory_and_copy_string(&self->latest_validation->validation_str, validation_str));
+    nalu_str = h26x_nalu_list_get_nalu_str(self->nalu_list);
+    SVI_THROW(allocate_memory_and_copy_string(&self->latest_validation->nalu_str, nalu_str));
 
     SVI_THROW(transfer_authenticity(authenticity_report, self->authenticity));
     h26x_nalu_list_clean_up(self->nalu_list);
@@ -309,6 +315,7 @@ signed_video_get_authenticity_report(signed_video_t *self)
   // Sanity check the output since we do not return a SignedVideoReturnCode.
   assert(((status == SVI_OK) ? (authenticity_report != NULL) : (authenticity_report == NULL)));
   free(validation_str);
+  free(nalu_str);
 
   return authenticity_report;
 }
@@ -368,6 +375,7 @@ signed_video_authenticity_report_free(signed_video_authenticity_t *authenticity_
   free(authenticity_report->version_on_signing_side);
   free(authenticity_report->this_version);
   free(authenticity_report->latest_validation.validation_str);
+  free(authenticity_report->latest_validation.nalu_str);
 #ifdef ACCUMULATED_VALIDATION
   free(authenticity_report->accumulated_validation.list_of_missing_gops);
 #endif

@@ -69,6 +69,7 @@ typedef struct {
   // Indicates how many picture NALUs (i.e., excluding SEI, PPS/SPS/VPS, AUD) are pending
   // validation.
   char *validation_str;
+  char *nalu_str;
   // A string displaying the validation status of all the latest NALUs. The string ends with a null
   // terminated character. The validated NALUs are removed after fetching the authenticity_report.
   // This means that the user can count backwards from the latest/current NALU and verify each
