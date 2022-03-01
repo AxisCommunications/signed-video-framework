@@ -152,8 +152,8 @@ struct _signed_video_t {
   unsigned recurrence;
   unsigned recurrence_offset;
 
-  // Frame counter and flag to handle recurrence in frames functionality
-  bool add_recurrent_data;
+  // Frame counter and flag to handle recurrence
+  bool has_recurrent_data;
   int frame_count;
 
   int signing_present;

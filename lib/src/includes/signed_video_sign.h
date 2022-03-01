@@ -307,7 +307,7 @@ signed_video_set_authenticity_level(signed_video_t *self,
  *
  * Metadata that is only needed once when validating the authenticity can be transmitted with a
  * different recurrence interval than the signatures. This API sets that recurrence, counted in
- * frames(not NALUs). Note that this type of metadata is still bundled together in the same SEI
+ * frames (not NALUs). Note that this type of metadata is still bundled together in the same SEI
  * as the signature, hence the true recurrence will be correct on the average.
 
  * Example of metadata that is only needed once are the public key and product info.

@@ -898,7 +898,7 @@ tlv_list_encode_or_get_size(signed_video_t *self,
       continue;
     }
 
-    if (tlv.is_always_present || self->add_recurrent_data) {
+    if (tlv.is_always_present || self->has_recurrent_data) {
       size_t tlv_size = tlv_encode_or_get_size_generic(self, tlv, data_ptr);
       tlv_list_size += tlv_size;
       // Increment data_ptr if we're writing data

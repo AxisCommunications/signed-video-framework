@@ -559,25 +559,36 @@ START_TEST(recurrence)
   nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
 
   nalu_list_item_t *item;
-  int last_sei_size = 0;
-  for (int i = 1; i < (list->num_items); i++) {
+  int gop_counter = 0;
+
+  for (int i = 1; i <= (list->num_items); i++) {
     item = nalu_list_get_item(list, i);
     if (strncmp(item->str_code, "G", 1) == 0) {
-      // SEI with all meadata in item 1, 13 and 25 when recurrence=8 and offset=0
-      if (i == 1 || i == 13 || i == 25) {
-        if (settings[_i].recurrence == SV_RECURRENCE_EIGHT &&
-            settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
-          ck_assert_int_gt(item->data_size, last_sei_size);
+      if (settings[_i].recurrence == SV_RECURRENCE_ONE &&
+          settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
+        if (i == 1 || i == 5 || i == 9 || i == 13 || i == 17 || i == 21 || i == 25) {
+          ck_assert(tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
+        } else {
+          ck_assert(!tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
         }
       }
-      // SEI with all meadata in item 9 and 21 when recurrence=8 and offset=3
-      if (i == 9 || i == 21) {
-        if (settings[_i].recurrence == SV_RECURRENCE_EIGHT &&
-            settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
-          ck_assert_int_gt(item->data_size, last_sei_size);
+      if (settings[_i].recurrence == SV_RECURRENCE_EIGHT &&
+          settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
+        if (i == 1 || i == 13 || i == 25) {
+          ck_assert(tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
+        } else {
+          ck_assert(!tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
         }
       }
-      last_sei_size = item->data_size;
+      if (settings[_i].recurrence == SV_RECURRENCE_EIGHT &&
+          settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+        if (i == 9 || i == 21) {
+          ck_assert(tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
+        } else {
+          ck_assert(!tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
+        }
+      }
+      gop_counter++;
     }
   }
   nalu_list_free(list);

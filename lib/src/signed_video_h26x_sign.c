@@ -148,6 +148,11 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
     nalu_to_prepend->nalu_data = payload;
     SVI_THROW(add_nalu_to_prepend(self, prepend_instruction, data_size));
 
+    // Unset flag when SEI is completed and prepended.
+    // Note: If signature could not be generated then nalu data is freed. See
+    // |signed_video_nalu_data_free| above in this function. In this case the flag is still set and
+    // a SEI with all metatdata is created next time.
+    self->has_recurrent_data = false;
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -367,10 +372,6 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
     SVI_THROW(sv_rc_to_svi_rc(sv_interface_sign_hash(self->plugin_handle, signature_info)));
 
-    // Unset flag when SEI with all metadata has been generated. If generate SEI fails then keep
-    // flag set and try to create a SEI with all metadata again next time.
-    self->add_recurrent_data = false;
-
   SVI_CATCH()
   {
     DEBUG_LOG("Failed generating the SEI");
@@ -505,7 +506,7 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
     // counter for primary slices.
     if (nalu.is_primary_slice) {
       if (((self->frame_count + self->recurrence_offset) % self->recurrence) == 0) {
-        self->add_recurrent_data = true;
+        self->has_recurrent_data = true;
       }
       self->frame_count++;  // It is ok for this variable to wrap around
     }
