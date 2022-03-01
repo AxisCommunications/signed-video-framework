@@ -547,7 +547,7 @@ END_TEST
  * The operation is as follows:
  * 1. Generate a nalu_list with a sequence of signed GOPs.
  * 2. Check the sequence of NALUs.
- * 3. Check size of every GOP SEI dependent on recurrence > 1
+ * 3. Check if SEI has PUBLIC_KEY_TAG, which is recurrent data
  *
  * G = GOP-info SEI-NALU, I = I-NALU and P = P-NALU.
  * PUBLIC_KEY_TAG is checked in 'G' because that is where the metadata is located.
@@ -560,33 +560,19 @@ START_TEST(recurrence)
 
   nalu_list_item_t *item;
   int gop_counter = 0;
+  const int gop_length = 3;  // IPP
+  int gop = 0;
+  int recurrence = 0;  // Recurrence in gops
 
   for (int i = 1; i <= (list->num_items); i++) {
     item = nalu_list_get_item(list, i);
     if (strncmp(item->str_code, "G", 1) == 0) {
-      if (settings[_i].recurrence == SV_RECURRENCE_ONE &&
-          settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
-        if (i == 1 || i == 5 || i == 9 || i == 13 || i == 17 || i == 21 || i == 25) {
-          ck_assert(tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
-        } else {
-          ck_assert(!tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
-        }
-      }
-      if (settings[_i].recurrence == SV_RECURRENCE_EIGHT &&
-          settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
-        if (i == 1 || i == 13 || i == 25) {
-          ck_assert(tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
-        } else {
-          ck_assert(!tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
-        }
-      }
-      if (settings[_i].recurrence == SV_RECURRENCE_EIGHT &&
-          settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
-        if (i == 9 || i == 21) {
-          ck_assert(tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
-        } else {
-          ck_assert(!tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
-        }
+      gop = (gop_counter * gop_length + settings[_i].recurrence_offset) / gop_length;
+      recurrence = ((settings[_i].recurrence - 1) / gop_length + 1);  // Frames to gop
+      if (gop % recurrence == 0) {
+        ck_assert(tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
+      } else {
+        ck_assert(!tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
       }
       gop_counter++;
     }
