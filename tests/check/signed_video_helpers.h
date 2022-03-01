@@ -36,10 +36,10 @@
 #define ADDR "address"
 #define LONG_STRING "aaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaacc"
 
-typedef enum { SV_RECURRENCE_ONE = 1, SV_RECURRENCE_THREE = 3 } SignedVideoRecurrence;
+typedef enum { SV_RECURRENCE_ONE = 1, SV_RECURRENCE_EIGHT = 8 } SignedVideoRecurrence;
 typedef enum {
   SV_RECURRENCE_OFFSET_ZERO = 0,
-  SV_RECURRENCE_OFFSET_ONE = 1
+  SV_RECURRENCE_OFFSET_THREE = 3
 } SignedVideoRecurrenceOffset;
 
 struct sv_setting {

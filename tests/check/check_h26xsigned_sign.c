@@ -29,7 +29,6 @@
 #include "lib/src/includes/sv_vendor_axis_communications.h"
 #endif
 #include "lib/src/signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
-#include "lib/src/signed_video_h26x_internal.h"  // signed_video_set_recurrence_interval()
 #include "lib/src/signed_video_internal.h"  // set_hash_list_size()
 #include "lib/src/signed_video_tlv.h"  // tlv_find_tag()
 #include "nalu_list.h"
@@ -127,12 +126,12 @@ START_TEST(api_inputs)
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Check setting recurrence
-  sv_rc = signed_video_set_recurrence_interval(sv, 1);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_recurrence_interval(NULL, 1);
+  sv_rc = signed_video_set_recurrence_interval_frames(NULL, 1);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_set_recurrence_interval(sv, 0);
+  sv_rc = signed_video_set_recurrence_interval_frames(sv, 0);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
+  sv_rc = signed_video_set_recurrence_interval_frames(sv, 1);
+  ck_assert_int_eq(sv_rc, SV_OK);
 
   // Setting validation level.
   sv_rc = signed_video_set_authenticity_level(NULL, SV_AUTHENTICITY_LEVEL_GOP);
@@ -329,7 +328,7 @@ START_TEST(vendor_axis_communications_operation)
   free(attestation);
 
   // // Check setting recurrence.
-  // sv_rc = signed_video_set_recurrence_interval(sv, 1);
+  // sv_rc = signed_video_set_recurrence_interval_frames(sv, 1);
   // ck_assert_int_eq(sv_rc, SV_OK);
 
   // Setting validation level.
@@ -552,14 +551,11 @@ START_TEST(undefined_nalu_in_sequence)
 END_TEST
 
 /* Test description
- * Verify that metadata is sent with recurrence interval equal to 3.
- * Recurrence equal to 1 means that all metadata is sent in every GOP.
- * Recurrence equal to 3 means that all metadata is sent in every second GOP.
- * Metadata that can be sent more rarily are public key and product info.
+ * Verify that metadata is sent with correct recurrence interval in frames on the average.
  * The operation is as follows:
  * 1. Generate a nalu_list with a sequence of signed GOPs.
  * 2. Check the sequence of NALUs.
- * 3. Check size of every GOP SEI dependent on recurrence > 1
+ * 3. Check if SEI has PUBLIC_KEY_TAG, which is recurrent data
  *
  * G = GOP-info SEI-NALU, I = I-NALU and P = P-NALU.
  * PUBLIC_KEY_TAG is checked in 'G' because that is where the metadata is located.
@@ -572,11 +568,16 @@ START_TEST(recurrence)
 
   nalu_list_item_t *item;
   int gop_counter = 0;
+  const int gop_length = 3;  // IPP
+  int gop = 0;
+  int recurrence = 0;  // Recurrence in gops
+
   for (int i = 1; i <= (list->num_items); i++) {
     item = nalu_list_get_item(list, i);
     if (strncmp(item->str_code, "G", 1) == 0) {
-      // if ((gop_counter % recurrence) == 0) {
-      if (((gop_counter + settings[_i].recurrence_offset) % settings[_i].recurrence) == 0) {
+      gop = (gop_counter * gop_length + settings[_i].recurrence_offset) / gop_length;
+      recurrence = ((settings[_i].recurrence - 1) / gop_length + 1);  // Frames to gop
+      if (gop % recurrence == 0) {
         ck_assert(tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
       } else {
         ck_assert(!tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));

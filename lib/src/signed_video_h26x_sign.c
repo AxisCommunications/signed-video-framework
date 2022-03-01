@@ -148,6 +148,11 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
     nalu_to_prepend->nalu_data = payload;
     SVI_THROW(add_nalu_to_prepend(self, prepend_instruction, data_size));
 
+    // Unset flag when SEI is completed and prepended.
+    // Note: If signature could not be generated then nalu data is freed. See
+    // |signed_video_nalu_data_free| above in this function. In this case the flag is still set and
+    // a SEI with all metatdata is created next time.
+    self->has_recurrent_data = false;
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -497,6 +502,15 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
 
     SVI_THROW_IF(nalu.is_valid < 0, SVI_INVALID_PARAMETER);
 
+    // Note that |recurrence| is counted in frames and not in NALUs, hence we only increment the
+    // counter for primary slices.
+    if (nalu.is_primary_slice) {
+      if (((self->frame_count + self->recurrence_offset) % self->recurrence) == 0) {
+        self->has_recurrent_data = true;
+      }
+      self->frame_count++;  // It is ok for this variable to wrap around
+    }
+
     SVI_THROW(hash_and_add(self, &nalu));
     // Depending on the input NALU, we need to take different actions. If the input is an I-NALU we
     // have a transition to a new GOP. Then we need to generate the necessary SEI-NALU(s) and put in
@@ -693,7 +707,7 @@ signed_video_set_authenticity_level(signed_video_t *self,
 }
 
 SignedVideoReturnCode
-signed_video_set_recurrence_interval(signed_video_t *self, unsigned recurrence)
+signed_video_set_recurrence_interval_frames(signed_video_t *self, unsigned recurrence)
 {
   if (!self) return SV_INVALID_PARAMETER;
   if (recurrence < RECURRENCE_ALWAYS) return SV_NOT_SUPPORTED;

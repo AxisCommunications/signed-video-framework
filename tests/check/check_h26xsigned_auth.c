@@ -274,8 +274,8 @@ START_TEST(intact_stream)
 
   // One pending NALU per GOP.
   struct validation_stats expected = {.valid_gops = 7, .pending_nalus = 7};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 5;
       expected.pending_nalus = 5;
       expected.has_signature = 2;
@@ -297,8 +297,8 @@ START_TEST(intact_multislice_stream)
 
   // One pending NALU per GOP.
   struct validation_stats expected = {.valid_gops = 3, .pending_nalus = 3};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 1;
       expected.pending_nalus = 1;
       expected.has_signature = 2;
@@ -323,8 +323,8 @@ START_TEST(intact_stream_with_pps_nalu_stream)
 
   // One pending NALU per GOP.
   struct validation_stats expected = {.valid_gops = 3, .pending_nalus = 3};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 1;
       expected.pending_nalus = 1;
       expected.has_signature = 2;
@@ -353,8 +353,8 @@ START_TEST(intact_stream_with_pps_bytestream)
 
   // One pending NALU per GOP.
   struct validation_stats expected = {.valid_gops = 3, .pending_nalus = 3};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 1;
       expected.pending_nalus = 1;
       expected.has_signature = 2;
@@ -376,8 +376,8 @@ START_TEST(intact_ms_stream_with_pps_nalu_stream)
 
   // One pending NALU per GOP.
   struct validation_stats expected = {.valid_gops = 3, .pending_nalus = 3};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 1;
       expected.pending_nalus = 1;
       expected.has_signature = 2;
@@ -406,8 +406,8 @@ START_TEST(intact_ms_stream_with_pps_bytestream)
 
   // One pending NALU per GOP.
   struct validation_stats expected = {.valid_gops = 3, .pending_nalus = 3};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 1;
       expected.pending_nalus = 1;
       expected.has_signature = 2;
@@ -437,8 +437,8 @@ START_TEST(intact_with_undefined_nalu_in_stream)
 
   // One pending NALU per GOP.
   struct validation_stats expected = {.valid_gops = 3, .pending_nalus = 3};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 1;
       expected.pending_nalus = 1;
       expected.has_signature = 2;
@@ -460,8 +460,8 @@ START_TEST(intact_with_undefined_multislice_nalu_in_stream)
 
   // One pending NALU per GOP.
   struct validation_stats expected = {.valid_gops = 3, .pending_nalus = 3};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 1;
       expected.pending_nalus = 1;
       expected.has_signature = 2;
@@ -501,8 +501,8 @@ START_TEST(remove_one_p_nalu)
     expected.valid_gops_with_missing_info = 1;
     expected.invalid_gops = 0;
   }
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
         expected.valid_gops = 0;
         expected.invalid_gops = 2;
@@ -551,8 +551,8 @@ START_TEST(interchange_two_p_nalus)
     expected.valid_gops = 3;
     expected.invalid_gops = 1;
   }
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
         expected.valid_gops = 0;
         expected.invalid_gops = 2;
@@ -596,8 +596,8 @@ START_TEST(modify_one_p_nalu)
     expected.valid_gops = 3;
     expected.invalid_gops = 1;
   }
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
         expected.valid_gops = 1;
         expected.invalid_gops = 1;
@@ -639,8 +639,8 @@ START_TEST(modify_one_i_nalu)
     expected.valid_gops = 2;
     expected.invalid_gops = 2;
   }
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
         expected.valid_gops = 0;
         expected.invalid_gops = 2;
@@ -689,8 +689,8 @@ START_TEST(remove_the_g_nalu)
   // IPPGI   invalid & 1 pending
   // IPPGI     valid & 1 pending
   struct validation_stats expected = {.valid_gops = 3, .invalid_gops = 2, .pending_nalus = 8};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 0;
       expected.invalid_gops = 0;
       expected.pending_nalus = 0;
@@ -727,8 +727,8 @@ START_TEST(remove_the_i_nalu)
     expected.valid_gops = 3;
     expected.invalid_gops = 2;
   }
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
         expected.valid_gops = 0;
         expected.pending_nalus = 3;
@@ -771,8 +771,8 @@ START_TEST(remove_the_gi_nalus)
   // complete authentication report.
   struct validation_stats expected = {
       .valid_gops = 2, .invalid_gops = 2, .missed_nalus = -2, .pending_nalus = 4};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 0;
       expected.invalid_gops = 0;
       expected.missed_nalus = 0;
@@ -811,8 +811,8 @@ START_TEST(sei_arrives_late)
   // One pending NALU per GOP + the extra P before (G). The late arrival SEI will introduce one
   // pending NALU (the P frame right before).
   struct validation_stats expected = {.valid_gops = 4, .pending_nalus = 5};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 2;
       expected.pending_nalus = 2;
       expected.has_signature = 2;
@@ -869,8 +869,8 @@ START_TEST(all_seis_arrive_late)
   // SEI) except the last GOP, where the SEI is NOT late.  5 GOPs * 2 pending NALUs/GOP = 10
   // pending NALUs
   struct validation_stats expected = {.valid_gops = 5, .pending_nalus = 10};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 3;
       expected.pending_nalus = 6;
       expected.has_signature = 2;
@@ -919,8 +919,8 @@ START_TEST(lost_g_before_late_sei_arrival)
   // IP(G)PPGI    valid & 1 pending
   // IPPGI        valid & 1 pending
   struct validation_stats expected = {.valid_gops = 3, .invalid_gops = 2, .pending_nalus = 10};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 2;
       expected.invalid_gops = 1;
       expected.pending_nalus = 4;
@@ -961,8 +961,8 @@ START_TEST(lost_all_nalus_between_two_seis)
     expected.invalid_gops = 2;
     expected.missed_nalus = 5;
   }
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
         expected.valid_gops = 1;
         expected.pending_nalus = 4;
@@ -1003,8 +1003,8 @@ START_TEST(add_one_sei_nalu_after_signing)
 
   // One pending NALU per GOP.
   struct validation_stats expected = {.valid_gops = 4, .pending_nalus = 4};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 2;
       expected.pending_nalus = 2;
       expected.has_signature = 2;
@@ -1031,7 +1031,7 @@ START_TEST(camera_reset_on_signing_side)
   // |settings|; See signed_video_helpers.h.
 
   // This test is not applicable for recurrence offset 1
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) return;
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) return;
 
   // Generate 2 GOPs
   nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i]);
@@ -1068,7 +1068,7 @@ START_TEST(detect_change_of_public_key)
   // |settings|; See signed_video_helpers.h.
 
   // This test is not applicable for recurrence offset 1
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) return;
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) return;
 
   // Generate 2 GOPs
   nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i]);
@@ -1164,13 +1164,13 @@ START_TEST(fast_forward_stream_with_reset)
       expected.pending_nalus = 3;
       expected.has_signature = 1;
     }
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 2;
       expected.pending_nalus = 2;
       expected.has_signature = 1;
     }
   }
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     expected.valid_gops = 2;
     expected.pending_nalus = 3;
     expected.has_signature = 1;
@@ -1202,13 +1202,13 @@ START_TEST(fast_forward_stream_without_reset)
       expected.pending_nalus = 3;
       expected.has_signature = 1;
     }
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 2;
       expected.pending_nalus = 2;
       expected.has_signature = 1;
     }
   }
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     expected.valid_gops = 2;
     expected.pending_nalus = 3;
     expected.has_signature = 1;
@@ -1269,13 +1269,13 @@ START_TEST(fast_forward_stream_with_delayed_seis)
   //
   // Total number of pending NALUs = 2 + 2 + 2 = 6
   struct validation_stats expected = {.valid_gops = 2, .pending_nalus = 6, .has_signature = 1};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  /*if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 2;
       expected.pending_nalus = 4;
       expected.has_signature = 1;
     }
-  }
+  }*/
 
   validate_nalu_list(sv, list, expected);
   // Free list and session.
@@ -1339,13 +1339,13 @@ START_TEST(file_export_with_dangling_end)
   ck_assert(sv);
   // One pending NALU per GOP.
   struct validation_stats expected = {.valid_gops = 2, .pending_nalus = 3, .has_signature = 1};
-  if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
     if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
       expected.valid_gops = 1;
       expected.pending_nalus = 1;
       expected.has_signature = 2;
     }
-    if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
+    if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
       expected.valid_gops = 2;
       expected.pending_nalus = 2;
       expected.has_signature = 1;
@@ -1373,14 +1373,14 @@ START_TEST(file_export_without_dangling_end)
   // One pending NALU per GOP.
   struct validation_stats expected = {.valid_gops = 3, .pending_nalus = 4, .has_signature = 1};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 2;
       expected.pending_nalus = 2;
       expected.has_signature = 2;
     }
   }
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 3;
       expected.pending_nalus = 3;
       expected.has_signature = 1;
@@ -1468,12 +1468,12 @@ START_TEST(late_public_key_and_no_sei_before_key_arrives)
   nalu_list_item_t *g_1 = nalu_list_remove_item(list, 5);
   nalu_list_item_check_str(g_1, "G");
   nalu_list_check_str(list, "GIPPIPPGIPPGIPPGIPPGIPPGI");
-  // First public key now exist in item 8 if SV_RECURRENCE_THREE and SV_RECURRENCE_OFFSET_ONE
+  // First public key now exist in item 8 if SV_RECURRENCE_EIGHT and SV_RECURRENCE_OFFSET_THREE
 
   // One pending NALU per GOP.
   struct validation_stats expected = {.valid_gops = 5, .invalid_gops = 2, .pending_nalus = 10};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ONE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_THREE) {
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 4;
       expected.invalid_gops = 2;
       expected.pending_nalus = 9;
@@ -1524,7 +1524,7 @@ START_TEST(vendor_axis_communications_operation)
   free(attestation);
 
   // // Check setting recurrence.
-  // sv_rc = signed_video_set_recurrence_interval(sv, 1);
+  // sv_rc = signed_video_set_recurrence_interval_frames(sv, 1);
   // ck_assert_int_eq(sv_rc, SV_OK);
 
   // Setting validation level.
