@@ -33,6 +33,24 @@ static const sv_tlv_tag_t axis_communications_encoders[AXIS_COMMUNICATIONS_NUM_E
     VENDOR_AXIS_COMMUNICATIONS_TAG,
 };
 
+static const char *trustedAxisRootCA =
+    "-----BEGIN CERTIFICATE-----\n"
+    "MIIClDCCAfagAwIBAgIBATAKBggqhkjOPQQDBDBcMR8wHQYDVQQKExZBeGlzIENv\n"
+    "bW11bmljYXRpb25zIEFCMRgwFgYDVQQLEw9BeGlzIEVkZ2UgVmF1bHQxHzAdBgNV\n"
+    "BAMTFkF4aXMgRWRnZSBWYXVsdCBDQSBFQ0MwHhcNMjAxMDI2MDg0MzEzWhcNMzUx\n"
+    "MDI2MDg0MzEzWjBcMR8wHQYDVQQKExZBeGlzIENvbW11bmljYXRpb25zIEFCMRgw\n"
+    "FgYDVQQLEw9BeGlzIEVkZ2UgVmF1bHQxHzAdBgNVBAMTFkF4aXMgRWRnZSBWYXVs\n"
+    "dCBDQSBFQ0MwgZswEAYHKoZIzj0CAQYFK4EEACMDgYYABAEmfjxRiTrvjLZol9gG\n"
+    "3YCUxcoWihbz2L3+6sp120I+KA/tLhYIDMais32M0tAqld5VDo1FWvi6kEVtqQn4\n"
+    "3+rOzgH8XkXolP+QFNSdKUPyJawnM4B9/jPZ6OA5bG7R1CNKmP4JpkYWqrD22hjc\n"
+    "AV9Hf/hz5TK2pc5IBHIxZyMcnlBc26NmMGQwHQYDVR0OBBYEFJBaAarD0kirmPmR\n"
+    "vCdrM6kt0XChMB8GA1UdIwQYMBaAFJBaAarD0kirmPmRvCdrM6kt0XChMBIGA1Ud\n"
+    "EwEB/wQIMAYBAf8CAQEwDgYDVR0PAQH/BAQDAgEGMAoGCCqGSM49BAMEA4GLADCB\n"
+    "hwJBUfwiBK0TIRJebWm9/nsNAEkjbxao40oeMUg+I3mDNr7guNJUo4ugOfToGpnm\n"
+    "3QLOhEJzyHqPBHTChxEd5bGVUW8CQgDR/ZAr405Ohk5kpM/gmzELP+fYDZfuTFut\n"
+    "w3S8HMYSvMWbTCzN+qnq+GV1goSS6vjVr95EpDxCVIxkKOvuxhyVDg==\n"
+    "-----END CERTIFICATE-----\n";
+
 // Definition of |vendor_handle|.
 typedef struct _sv_vendor_axis_communications_t {
   void *attestation;
@@ -59,6 +77,35 @@ sv_vendor_axis_communications_teardown(void *handle)
   free(self);
 }
 
+/* This function finds the beginning of the last certificate, which is the public Axis root CA
+ * certificate. The size of the other certificates is returned. If the last certificate differs from
+ * what is expected, or if number of certificates is not equal to three, 0 is returned.
+ *
+ * Note that the returned size excludes any null-terminated characters.
+ */
+static size_t
+get_certificate_chain_encode_size(const sv_vendor_axis_communications_t *self)
+{
+  size_t certificate_chain_encode_size = 0;
+
+  // Find the start of the third certificate in |certificate_chain|.
+  const char *cert_chain_ptr = self->certificate_chain;
+  const char *cert_ptr = self->certificate_chain;
+  int certs_left = 3;
+  while (certs_left > 0 && cert_ptr) {
+    cert_ptr = strstr(cert_chain_ptr, "-----BEGIN CERTIFICATE-----");
+    certs_left--;
+    cert_chain_ptr = cert_ptr + 1;
+  }
+  // Check if |cert_ptr| is the third certificate and compare it against expected
+  // |trustedAxisRootCA|.
+  if ((certs_left == 0) && cert_ptr && (strcmp(cert_ptr, trustedAxisRootCA) == 0)) {
+    certificate_chain_encode_size = cert_ptr - self->certificate_chain;
+  }
+
+  return certificate_chain_encode_size;
+}
+
 size_t
 encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, uint8_t *data)
 {
@@ -66,6 +113,7 @@ encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, uint8_
   if (!self) return 0;
 
   size_t data_size = 0;
+  size_t certificate_chain_encode_size = get_certificate_chain_encode_size(self);
   const uint8_t version = 1;  // Increment when the change breaks the format
 
   // If there is no attestation report, skip encoding, that is return 0.
@@ -75,7 +123,7 @@ encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, uint8_
   //  - version (1 byte)
   //  - attestation_size (1 byte)
   //  - attestation (attestation_size bytes)
-  //  - certificate_chain (certificate_chain_size bytes)
+  //  - certificate_chain (certificate_chain_size bytes) excluding |trustedAxisRootCA|
 
   data_size += sizeof(version);
   // Size of attestation report
@@ -83,7 +131,7 @@ encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, uint8_
   data_size += self->attestation_size;  // To write |attestation|
 
   // Size of certificate chain
-  data_size += strlen(self->certificate_chain) + 1;
+  data_size += certificate_chain_encode_size;
 
   if (!data) return data_size;
 
@@ -99,8 +147,8 @@ encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, uint8_
     write_byte(last_two_bytes, &data_ptr, attestation[jj], true);
   }
   // Write |certificate_chain|.
-  write_byte_many(&data_ptr, self->certificate_chain, strlen(self->certificate_chain) + 1,
-      last_two_bytes, true);
+  write_byte_many(
+      &data_ptr, self->certificate_chain, certificate_chain_encode_size, last_two_bytes, true);
 
   return (data_ptr - data);
 }
@@ -142,16 +190,16 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
     SVI_THROW_IF(data_size <= (size_t)attestation_size + 2, SVI_DECODING_ERROR);
     cert_size = data_size - attestation_size - 2;
 
-    // Allocate memory for |certificate_chain|
+    // Allocate memory for |certificate_chain| including |trustedAxisRootCA| and null-terminated
+    // character.
     if (!self->certificate_chain) {
-      self->certificate_chain = calloc(1, cert_size);
+      self->certificate_chain = calloc(1, cert_size + strlen(trustedAxisRootCA) + 1);
       SVI_THROW_IF(!self->certificate_chain, SVI_MEMORY);
     }
-    // If |certificate_chain| has already been allocated, but with a different size. Something has
-    // gone wrong or someone has manipulated the data.
-    // SVI_THROW_IF(cert_size != self->certificate_chain_size, SVI_NOT_SUPPORTED);
     memcpy(self->certificate_chain, data_ptr, cert_size);
     data_ptr += cert_size;
+    // Copy the |trustedAxisRootCA| to end of |certificate_chain|.
+    strcpy(self->certificate_chain + cert_size, trustedAxisRootCA);
 
     SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
   SVI_CATCH()
@@ -164,9 +212,9 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
 
 SignedVideoReturnCode
 sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
-    void *attestation,
+    const void *attestation,
     uint8_t attestation_size,
-    char *certificate_chain)
+    const char *certificate_chain)
 {
   // Sanity check inputs. It is allowed to set either one of |attestation| and |certificate_chain|,
   // but a mismatch between |attestation| and |attestation_size| returns SV_INVALID_PARAMETER.
@@ -196,11 +244,23 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
   if (certificate_chain) {
     // If |certificate_chain| already exists, return error.
     if (self->certificate_chain) return SV_NOT_SUPPORTED;
-    // Allocate memory and copy to |self|.
-    self->certificate_chain = calloc(1, strlen(certificate_chain) + 1);
+    // Check if there is anything to copy.
+    size_t certificate_chain_size = strlen(certificate_chain);
+    if (certificate_chain_size == 0) goto catch_error;
+
+    bool has_newline_at_end = false;
+    if (certificate_chain[certificate_chain_size - 1] == '\n') {
+      has_newline_at_end = true;
+    }
+    // Allocate memory for |certificate_chain| + null-terminated character and maybe extra '\n'.
+    self->certificate_chain = calloc(1, certificate_chain_size + (has_newline_at_end ? 1 : 2));
     allocated_certificate_chain = true;
     if (!self->certificate_chain) goto catch_error;
     strcpy(self->certificate_chain, certificate_chain);
+    if (!has_newline_at_end) {
+      strcpy(self->certificate_chain + certificate_chain_size, "\n");
+      DEBUG_LOG("Adding newline since certificate_chain did not end with it.");
+    }
   }
 
   sv->vendor_encoders = axis_communications_encoders;

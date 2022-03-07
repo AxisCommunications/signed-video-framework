@@ -34,7 +34,10 @@
 #define SER_NO "serial_no"
 #define MANUFACT "manufacturer"
 #define ADDR "address"
-#define LONG_STRING "aaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaacc"
+#define LONG_STRING \
+  "aaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaa" \
+  "aaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbb" \
+  "bbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaacc"
 
 typedef enum { SV_RECURRENCE_ONE = 1, SV_RECURRENCE_EIGHT = 8 } SignedVideoRecurrence;
 typedef enum {
@@ -52,6 +55,8 @@ struct sv_setting {
 
 #define NUM_SETTINGS 24
 extern const struct sv_setting settings[NUM_SETTINGS];
+
+extern const char *axisDummyCertificateChain;
 
 /* Creates a signed_video_t session and initialize it by setting
  * 1. a path to openssl keys

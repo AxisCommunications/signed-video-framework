@@ -300,9 +300,8 @@ START_TEST(vendor_axis_communications_operation)
   // Check setting attestation report.
   const size_t attestation_size = 2;
   void *attestation = calloc(1, attestation_size);
-  char *cert_chain = "certificate_chain";
   sv_rc = sv_vendor_axis_communications_set_attestation_report(
-      NULL, attestation, attestation_size, cert_chain);
+      NULL, attestation, attestation_size, axisDummyCertificateChain);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   // Setting nothing is an ivalid operation.
   sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, NULL);
@@ -315,15 +314,17 @@ START_TEST(vendor_axis_communications_operation)
   // Setting only the |attestation| is a valid operation.
   sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, attestation, 1, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
-  // Setting only the |cert_chain| is a valid operation.
-  sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, cert_chain);
+  // Setting only the |axisDummyCertificateChain| is a valid operation.
+  sv_rc =
+      sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, axisDummyCertificateChain);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Setting a new |attestation| is not supported.
   sv_rc =
       sv_vendor_axis_communications_set_attestation_report(sv, attestation, attestation_size, NULL);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
-  // Setting a new |cert_chain| is not supported.
-  sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, cert_chain);
+  // Setting a new |axisDummyCertificateChain| is not supported.
+  sv_rc =
+      sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, axisDummyCertificateChain);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
   free(attestation);
 
