@@ -58,9 +58,9 @@
  */
 SignedVideoReturnCode
 sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
-    void *attestation,
+    const void *attestation,
     uint8_t attestation_size,
-    char *certificate_chain);
+    const char *certificate_chain);
 
 // APIs for validating a signed video.
 
