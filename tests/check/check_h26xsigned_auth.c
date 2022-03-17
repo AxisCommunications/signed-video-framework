@@ -30,6 +30,10 @@
 #include "lib/src/includes/signed_video_openssl.h"  // signed_video_generate_private_key()
 #include "lib/src/includes/sv_vendor_axis_communications.h"
 #endif
+#ifdef SV_UNIT_TEST
+#include "lib/src/signed_video_h26x_internal.h"  // signed_video_set_recurrence_offset()
+#endif
+#include "lib/src/signed_video_internal.h"  // set_hash_list_size()
 #include "nalu_list.h"  // nalu_list_create()
 #include "signed_video_helpers.h"  // sv_setting, create_signed_nalus()
 
@@ -1487,6 +1491,49 @@ START_TEST(late_public_key_and_no_sei_before_key_arrives)
 }
 END_TEST
 
+/* Test description
+ * Add some NALUs to a stream, where the last one is super long. Too long for
+ * SV_AUTHENTICITY_LEVEL_FRAME to handle it. Note that in tests we run with a shorter max hash list
+ * size, namely 10; See meson file.
+ *
+ * With
+ *   IPPIPPPPPPPPPPPPPPPPPPPPPPPPI
+ *
+ * we automatically fall back on SV_AUTHENTICITY_LEVEL_GOP in at the third "I".
+ */
+START_TEST(fallback_to_gop_level)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  const size_t kFallbackSize = 10;
+  signed_video_t *sv = get_initialized_signed_video(settings[_i].codec, settings[_i].algo, false);
+  ck_assert(sv);
+  ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
+  ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * HASH_DIGEST_SIZE), SVI_OK);
+  ck_assert_int_eq(signed_video_set_recurrence_interval_frames(sv, settings[_i].recurrence), SV_OK);
+#ifdef SV_UNIT_TEST
+  ck_assert_int_eq(signed_video_set_recurrence_offset(sv, settings[_i].recurrence_offset), SV_OK);
+#endif
+
+  // Create a list of NALUs given the input string.
+  nalu_list_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPI");
+  nalu_list_check_str(list, "GIPPGIPPPPPPPPPPPPPPPPPPPPPPPPGIPPGI");
+
+  // One pending NALU per GOP.
+  struct validation_stats expected = {.valid_gops = 4, .pending_nalus = 4};
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    expected.valid_gops = 2;
+    expected.pending_nalus = 2;
+    expected.has_signature = 2;
+  }
+  validate_nalu_list(NULL, list, expected);
+
+  nalu_list_free(list);
+  signed_video_free(sv);
+}
+END_TEST
+
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 /* Test description
  * APIs in vendors/axis-communications are used and tests both signing and validation parts. */
@@ -1624,6 +1671,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, no_signature, s, e);
   tcase_add_loop_test(tc, multislice_no_signature, s, e);
   tcase_add_loop_test(tc, late_public_key_and_no_sei_before_key_arrives, s, e);
+  tcase_add_loop_test(tc, fallback_to_gop_level, 0, NUM_SETTINGS);
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
 #endif
