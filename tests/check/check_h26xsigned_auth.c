@@ -1671,7 +1671,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, no_signature, s, e);
   tcase_add_loop_test(tc, multislice_no_signature, s, e);
   tcase_add_loop_test(tc, late_public_key_and_no_sei_before_key_arrives, s, e);
-  tcase_add_loop_test(tc, fallback_to_gop_level, 0, NUM_SETTINGS);
+  tcase_add_loop_test(tc, fallback_to_gop_level, s, e);
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
 #endif
