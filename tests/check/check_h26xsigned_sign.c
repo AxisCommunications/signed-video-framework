@@ -489,9 +489,7 @@ END_TEST
  *
  * we automatically fall back on SV_AUTHENTICITY_LEVEL_GOP in at the third "I".
  *
- * We test this by comparing the SEI NALU sizes. The first one should include one hash in the hash
- * list, the second one four hashes and the last one no hash list at all, hence
- *   size_3 < size_1 < size_2
+ * We test this by examine if the generated SEI has the HASH_LIST_TAG present or not.
  */
 START_TEST(fallback_to_gop_level)
 {
