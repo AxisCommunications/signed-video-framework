@@ -540,8 +540,10 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
     // completed.
     if ((nalu.nalu_type == NALU_TYPE_I || nalu.nalu_type == NALU_TYPE_P) && nalu.is_primary_slice &&
         signature_info->signature) {
+      SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
       while (sv_interface_get_signature(self->plugin_handle, signature_info->signature,
-          signature_info->max_signature_size, &signature_info->signature_size)) {
+          signature_info->max_signature_size, &signature_info->signature_size, &signature_error)) {
+        SVI_THROW(sv_rc_to_svi_rc(signature_error));
 #ifdef SIGNED_VIDEO_DEBUG
         // TODO: This might not work for blocked signatures, that is if the hash in
         // |signature_info| does not correspond to the copied |signature|.
@@ -612,8 +614,10 @@ signed_video_set_end_of_stream(signed_video_t *self)
     add_payload_to_buffer(self, payload, payload_signature_ptr);
     // Fetch the signature. If it is not ready we exit without generating the SEI.
     signature_info_t *signature_info = self->signature_info;
+    SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
     while (sv_interface_get_signature(self->plugin_handle, signature_info->signature,
-        signature_info->max_signature_size, &signature_info->signature_size)) {
+        signature_info->max_signature_size, &signature_info->signature_size, &signature_error)) {
+      SVI_THROW(sv_rc_to_svi_rc(signature_error));
       SVI_THROW(complete_sei_nalu_and_add_to_prepend(self));
     }
 
