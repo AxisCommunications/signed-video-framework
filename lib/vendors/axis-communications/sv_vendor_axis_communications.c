@@ -468,7 +468,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
 
   if (status == SVI_VENDOR) {
     // A step in the validation process failed. Mark public key as invalid.
-    elf->supplemental_authenticity.public_key_validation &= 0;
+    self->supplemental_authenticity.public_key_validation &= 0;
   }
   self->pubkey_verification_status = status;
 
