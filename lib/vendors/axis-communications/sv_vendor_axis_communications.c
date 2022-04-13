@@ -159,7 +159,7 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    stackbio = BIO_new_mem_buf(self->certificate_chain, strlen(self->certificate_chain));
+    stackbio = BIO_new_mem_buf(self->certificate_chain, (int)strlen(self->certificate_chain));
     SVI_THROW_IF(!stackbio, SVI_VENDOR);
 
     untrusted_certificates = sk_X509_new_null();
@@ -200,7 +200,7 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
           // Check that the chip ID has correct prefix.
           SVI_THROW_IF(memcmp(self->chip_id, kChipIDPrefix, CHIP_ID_PREFIX_SIZE) != 0, SVI_VENDOR);
         }
-        free(common_name_str);
+        OPENSSL_free(common_name_str);
       }
     }
     // Extract |serial_number| from the |attestation_certificate|.
@@ -217,7 +217,7 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
         memset(self->supplemental_authenticity.serial_number, 0, SV_VENDOR_AXIS_SER_NO_MAX_LENGTH);
         strcpy(self->supplemental_authenticity.serial_number, (char *)serial_number);
       }
-      free(serial_number);
+      OPENSSL_free(serial_number);
     }
 
     // Get public key from |attestation_certificate| and verify it.
@@ -243,7 +243,7 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
   }
   SVI_DONE(status)
 
-  OPENSSL_free(untrusted_certificates);
+  sk_X509_pop_free(untrusted_certificates, X509_free);
   BIO_free(stackbio);
 
   return status;
@@ -292,7 +292,8 @@ deserialize_attestation(sv_vendor_axis_communications_t *self)
   // Copy signature_size (2 byte)
   signature_size = (*attestation_ptr << 8) + *(attestation_ptr + 1);
   attestation_ptr += 2;
-  if (attestation_ptr + signature_size != self->attestation + (size_t)self->attestation_size) {
+  uint8_t *attestation_end = (uint8_t *)self->attestation + (size_t)self->attestation_size;
+  if (attestation_ptr + signature_size != attestation_end) {
     return SVI_VENDOR;
   }
   self->attestation_report.attestation_list.signature_size = signature_size;
@@ -473,7 +474,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
   self->pubkey_verification_status = status;
 
   free(signed_data);
-  free(public_key_uncompressed);
+  OPENSSL_free(public_key_uncompressed);
   EVP_PKEY_free(pkey);
   BIO_free(bio);
 
@@ -782,6 +783,13 @@ sv_vendor_axis_communications_get_supplemental_authenticity(const signed_video_t
 
   // TODO: When multiple vendors are supported, select the Axis vendor.
   sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)sv->vendor_handle;
+
+  // Reset input |supplemental_authenticity|.
+  supplemental_authenticity->public_key_validation = -1;  // Unknown/error
+  // Clear any |serial_number| data in |supplemental_authenticity|.
+  char *serial_number = supplemental_authenticity->serial_number;
+  memset(serial_number, 0, SV_VENDOR_AXIS_SER_NO_MAX_LENGTH);
+
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     if (self->verify_pubkey_upon_call) {
@@ -789,14 +797,13 @@ sv_vendor_axis_communications_get_supplemental_authenticity(const signed_video_t
       SVI_THROW(deserialize_attestation(self));
       SVI_THROW(verify_axis_communications_public_key(self));
     }
+    // Set public key validation information.
     supplemental_authenticity->public_key_validation =
         self->supplemental_authenticity.public_key_validation;
-    // Clear any |serial_number| data in |supplemental_authenticity|.
-    char *serial_number = supplemental_authenticity->serial_number;
-    memset(serial_number, 0, SV_VENDOR_AXIS_SER_NO_MAX_LENGTH);
     const char *serial_number_ptr = (const char *)self->supplemental_authenticity.serial_number;
     strcpy(serial_number, serial_number_ptr);
     // Return the status from verify_axis_communications_public_key(...).
+    // TODO: check this and set public_key_validation to -1 instead
     SVI_THROW(self->pubkey_verification_status);
 
   SVI_CATCH()
