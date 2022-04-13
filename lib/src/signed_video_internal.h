@@ -46,7 +46,7 @@ typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 #define HASH_DIGEST_SIZE (256 / 8)
 
 #define SV_VERSION_BYTES 3
-#define SIGNED_VIDEO_VERSION "v1.1.3"
+#define SIGNED_VIDEO_VERSION "v1.1.6"
 #define SV_VERSION_MAX_STRLEN 13  // Longest possible string
 
 #define DEFAULT_AUTHENTICITY_LEVEL SV_AUTHENTICITY_LEVEL_FRAME
@@ -151,6 +151,10 @@ struct _signed_video_t {
   gop_info_detected_t gop_info_detected;
   unsigned recurrence;
   unsigned recurrence_offset;
+
+  // Frame counter and flag to handle recurrence
+  bool has_recurrent_data;
+  int frame_count;
 
   int signing_present;
   // State to indicate if Signed Video is present or not. Used for signing, and can only move

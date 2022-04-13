@@ -194,25 +194,6 @@ parse_nalu_info(const uint8_t *nalu_data,
     SignedVideoCodec codec,
     bool check_trailing_bytes);
 
-// TODO: Move to signed_video_sign.h when implementation is completed.
-/**
- * @brief Sets the recurrence interval for the signed video session
- *
- * This API will set the recurrence interval which decides how often metadata is sent. Metadata
- * that can be sent less often is the public key and product info. Ex:
- * Recurrence equal to 1 means that all metadata is sent in every GOP.
- * Recurrence equal to 3 means that all metadata is sent in every third GOP.
- *
- * @param self Session struct pointer
- * @param recurrence Recurrence interval
- *
- * @returns SV_OK Recurrence interval was successfully set,
- *          SV_INVALID_PARAMETER Invalid parameter,
- *          SV_NOT_SUPPORTED Recurrence interval is not supported.
- */
-SignedVideoReturnCode
-signed_video_set_recurrence_interval(signed_video_t *self, unsigned recurrence);
-
 #ifdef SV_UNIT_TEST
 /**
  * @brief Sets the recurrence offset for the signed video session

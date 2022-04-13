@@ -305,4 +305,24 @@ SignedVideoReturnCode
 signed_video_set_authenticity_level(signed_video_t *self,
     SignedVideoAuthenticityLevel authenticity_level);
 
+/**
+ * @brief Sets the average recurrence interval for the signed video session in frames
+ *
+ * Metadata that is only needed once when validating the authenticity can be transmitted with a
+ * different recurrence interval than the signatures. This API sets that recurrence, counted in
+ * frames (not NALUs). Note that this type of metadata is still bundled together in the same SEI
+ * as the signature, hence the true recurrence will be correct on the average.
+
+ * Example of metadata that is only needed once are the public key and product info.
+ *
+ * @param self Session struct pointer
+ * @param recurrence Recurrence interval in frames
+ *
+ * @returns SV_OK Recurrence interval was successfully set,
+ *          SV_INVALID_PARAMETER Invalid parameter,
+ *          SV_NOT_SUPPORTED Recurrence interval is not supported.
+ */
+SignedVideoReturnCode
+signed_video_set_recurrence_interval_frames(signed_video_t *self, unsigned recurrence);
+
 #endif  // __SIGNED_VIDEO_SIGN_H__

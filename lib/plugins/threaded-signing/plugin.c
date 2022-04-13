@@ -39,6 +39,7 @@ typedef enum {
   THREADED_SIGNING_HAS_HASH_TO_SIGN,
   THREADED_SIGNING_SIGNS_HASH,
   THREADED_SIGNING_HAS_SIGNATURE,
+  THREADED_SIGNING_ERROR,
 } threaded_signing_plugin_state;
 
 /* Threaded plugin handle maintaining the thread and locks. Further, stores the hash to sign and the
@@ -153,12 +154,11 @@ signing_worker_thread(void *user_data)
 
       g_mutex_lock(&self->mutex);
       // When successfully done with signing, move |plugin_state| to THREADED_SIGNING_HAS_SIGNATURE,
-      // otherwise move to THREADED_SIGNING_WAITS_FOR_HASH_TO_SIGN. If the signature could not be
-      // generate there is no reason to add anything to the SEI frame.
+      // otherwise move to THREADED_SIGNING_ERROR to report the error when getting the signature.
       if (status == SV_OK) {
         self->plugin_state = THREADED_SIGNING_HAS_SIGNATURE;
       } else {
-        self->plugin_state = THREADED_SIGNING_WAITS_FOR_HASH_TO_SIGN;
+        self->plugin_state = THREADED_SIGNING_ERROR;
       }
     }
   };
@@ -245,11 +245,13 @@ static bool
 threaded_openssl_get_signature(sv_threaded_plugin_t *self,
     uint8_t *signature,
     size_t max_signature_size,
-    size_t *written_signature_size)
+    size_t *written_signature_size,
+    SignedVideoReturnCode *error)
 {
   assert(self && signature && written_signature_size);
 
   bool has_copied_signature = false;
+  SignedVideoReturnCode status = SV_OK;
 
   g_mutex_lock(&self->mutex);
   if (self->plugin_state == THREADED_SIGNING_HAS_SIGNATURE && self->signature_info) {
@@ -263,6 +265,13 @@ threaded_openssl_get_signature(sv_threaded_plugin_t *self,
     // Change state and mark as copied.
     self->plugin_state = THREADED_SIGNING_WAITS_FOR_HASH_TO_SIGN;
     has_copied_signature = true;
+  } else if (self->plugin_state == THREADED_SIGNING_ERROR) {
+    *written_signature_size = 0;
+    // Change state and mark as copied.
+    self->plugin_state = THREADED_SIGNING_WAITS_FOR_HASH_TO_SIGN;
+    has_copied_signature = true;
+    // Propagate SV_EXTERNAL_ERROR when signing failed.
+    status = SV_EXTERNAL_ERROR;
   } else if (self->plugin_state == THREADED_SIGNING_WAITS_FOR_HASH_TO_SIGN &&
       self->nbr_of_unsigned_hashes > 0) {
     // There are unsigned hashes in the pipe. Report them with zero size, since no signature exists.
@@ -271,6 +280,8 @@ threaded_openssl_get_signature(sv_threaded_plugin_t *self,
     has_copied_signature = true;
   }
   g_mutex_unlock(&self->mutex);
+
+  if (error) *error = status;
 
   return has_copied_signature;
 }
@@ -293,14 +304,15 @@ bool
 sv_interface_get_signature(void *plugin_handle,
     uint8_t *signature,
     size_t max_signature_size,
-    size_t *written_signature_size)
+    size_t *written_signature_size,
+    SignedVideoReturnCode *error)
 {
   sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)plugin_handle;
 
   if (!self || !signature || !written_signature_size) return false;
 
   return threaded_openssl_get_signature(
-      self, signature, max_signature_size, written_signature_size);
+      self, signature, max_signature_size, written_signature_size, error);
 }
 
 /* This function is called when a Signed Video session is created.

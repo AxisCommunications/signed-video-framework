@@ -148,6 +148,11 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
     nalu_to_prepend->nalu_data = payload;
     SVI_THROW(add_nalu_to_prepend(self, prepend_instruction, data_size));
 
+    // Unset flag when SEI is completed and prepended.
+    // Note: If signature could not be generated then nalu data is freed. See
+    // |signed_video_nalu_data_free| above in this function. In this case the flag is still set and
+    // a SEI with all metatdata is created next time.
+    self->has_recurrent_data = false;
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -229,6 +234,10 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     DEBUG_LOG("Payload is not empty, *payload must be NULL");
     return 0;
   }
+
+  // Reset |signature_hash_type| to |GOP_HASH|. If the |hash_list| is successfully added,
+  // |signature_hash_type| is changed to |DOCUMENT_HASH|.
+  self->gop_info->signature_hash_type = GOP_HASH;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
@@ -497,6 +506,15 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
 
     SVI_THROW_IF(nalu.is_valid < 0, SVI_INVALID_PARAMETER);
 
+    // Note that |recurrence| is counted in frames and not in NALUs, hence we only increment the
+    // counter for primary slices.
+    if (nalu.is_primary_slice) {
+      if (((self->frame_count + self->recurrence_offset) % self->recurrence) == 0) {
+        self->has_recurrent_data = true;
+      }
+      self->frame_count++;  // It is ok for this variable to wrap around
+    }
+
     SVI_THROW(hash_and_add(self, &nalu));
     // Depending on the input NALU, we need to take different actions. If the input is an I-NALU we
     // have a transition to a new GOP. Then we need to generate the necessary SEI-NALU(s) and put in
@@ -522,8 +540,10 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
     // completed.
     if ((nalu.nalu_type == NALU_TYPE_I || nalu.nalu_type == NALU_TYPE_P) && nalu.is_primary_slice &&
         signature_info->signature) {
+      SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
       while (sv_interface_get_signature(self->plugin_handle, signature_info->signature,
-          signature_info->max_signature_size, &signature_info->signature_size)) {
+          signature_info->max_signature_size, &signature_info->signature_size, &signature_error)) {
+        SVI_THROW(sv_rc_to_svi_rc(signature_error));
 #ifdef SIGNED_VIDEO_DEBUG
         // TODO: This might not work for blocked signatures, that is if the hash in
         // |signature_info| does not correspond to the copied |signature|.
@@ -594,8 +614,10 @@ signed_video_set_end_of_stream(signed_video_t *self)
     add_payload_to_buffer(self, payload, payload_signature_ptr);
     // Fetch the signature. If it is not ready we exit without generating the SEI.
     signature_info_t *signature_info = self->signature_info;
+    SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
     while (sv_interface_get_signature(self->plugin_handle, signature_info->signature,
-        signature_info->max_signature_size, &signature_info->signature_size)) {
+        signature_info->max_signature_size, &signature_info->signature_size, &signature_error)) {
+      SVI_THROW(sv_rc_to_svi_rc(signature_error));
       SVI_THROW(complete_sei_nalu_and_add_to_prepend(self));
     }
 
@@ -702,7 +724,7 @@ signed_video_set_authenticity_level(signed_video_t *self,
 }
 
 SignedVideoReturnCode
-signed_video_set_recurrence_interval(signed_video_t *self, unsigned recurrence)
+signed_video_set_recurrence_interval_frames(signed_video_t *self, unsigned recurrence)
 {
   if (!self) return SV_INVALID_PARAMETER;
   if (recurrence < RECURRENCE_ALWAYS) return SV_NOT_SUPPORTED;

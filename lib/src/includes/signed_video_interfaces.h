@@ -91,6 +91,8 @@ sv_interface_sign_hash(void *plugin_handle, signature_info_t *signature_info);
  *   plugin cannot write all the data to |signature|, no data should be written and
  *   |written_signature_size| should be set to 0.
  * @param written_signature_size The actual size of the data written to |signature|.
+ * @param error Pointer to catch an error that occured when signing. A NULL pointer should be
+ *   allowed to skip collecting an error.
  *
  * @returns True if signature is updated, else False
  */
@@ -98,7 +100,8 @@ bool
 sv_interface_get_signature(void *plugin_handle,
     uint8_t *signature,
     size_t max_signature_size,
-    size_t *written_signature_size);
+    size_t *written_signature_size,
+    SignedVideoReturnCode *error);
 
 /**
  * @brief Sets up the signing plugin

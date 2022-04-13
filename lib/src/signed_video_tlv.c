@@ -889,7 +889,6 @@ tlv_list_encode_or_get_size(signed_video_t *self,
 
   size_t tlv_list_size = 0;
   uint8_t *data_ptr = data;
-  uint32_t gop_counter = self->gop_info->global_gop_counter;
 
   for (size_t ii = 0; ii < num_tags; ++ii) {
     sv_tlv_tag_t tag = tags[ii];
@@ -899,8 +898,7 @@ tlv_list_encode_or_get_size(signed_video_t *self,
       continue;
     }
 
-    if (tlv.is_always_present ||
-        ((gop_counter + self->recurrence_offset) % self->recurrence) == 0) {
+    if (tlv.is_always_present || self->has_recurrent_data) {
       size_t tlv_size = tlv_encode_or_get_size_generic(self, tlv, data_ptr);
       tlv_list_size += tlv_size;
       // Increment data_ptr if we're writing data

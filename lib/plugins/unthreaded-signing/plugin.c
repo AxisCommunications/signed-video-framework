@@ -93,7 +93,8 @@ bool
 sv_interface_get_signature(void *plugin_handle,
     uint8_t *signature,
     size_t max_signature_size,
-    size_t *written_signature_size)
+    size_t *written_signature_size,
+    SignedVideoReturnCode *error)
 {
   sv_unthreaded_plugin_t *self = (sv_unthreaded_plugin_t *)plugin_handle;
 
@@ -109,6 +110,8 @@ sv_interface_get_signature(void *plugin_handle,
       *written_signature_size = self->signature_size;
     }
   }
+  if (error) *error = SV_OK;
+
   return has_signature;
 }
 

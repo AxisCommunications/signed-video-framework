@@ -1138,6 +1138,8 @@ signed_video_create(SignedVideoCodec codec)
 
     self->public_key_in_sei = true;
     self->nalus_in_sei = false;
+    self->frame_count = RECURRENCE_OFFSET_DEFAULT;
+    self->has_recurrent_data = false;
 
     // Setup the plugin.
     self->plugin_handle = sv_interface_setup();
