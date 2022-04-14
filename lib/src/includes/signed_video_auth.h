@@ -52,6 +52,22 @@ typedef enum {
 } SignedVideoAuthenticityResult;
 
 /**
+ * Status of public key validation since last result
+ */
+typedef enum {
+  SV_PUBKEY_VALIDATION_NOT_FEASIBLE = 0,
+  // There are no means to verify the public key. This happens if no attestation exists or if the
+  // public key was not part of the stream.
+  SV_PUBKEY_VALIDATION_NOT_OK = 1,
+  // The Public key in the stream was not verified successfully. The video might be correct, but its
+  // origin could not be verified.
+  SV_PUBKEY_VALIDATION_OK = 2,
+  // The Public key in the stream was verified successfully. The origin of the key is correct and
+  // can be trusted when validating the video.
+  SV_PUBKEY_VALIDATION_NUM_STATES
+} SignedVideoPublicKeyValidation;
+
+/**
  * Struct storing the latest validation result. In general, that spans an entire GOP, but for long
  * GOP lengths an intermediate validation may be provided.
  */
@@ -97,6 +113,7 @@ typedef struct {
   // is still ignored.
   //   ..._..PP_P
   //         .._...PPP
+  SignedVideoPublicKeyValidation public_key_validation;
 } signed_video_latest_validation_t;
 
 /**

@@ -24,6 +24,7 @@
 #include "includes/signed_video_auth.h"
 #include "includes/signed_video_interfaces.h"  // signature_info_t
 #include "includes/signed_video_openssl.h"  // openssl_verify_hash()
+#include "includes/sv_vendor_axis_communications.h"
 #include "signed_video_authenticity.h"  // create_local_authenticity_report_if_needed()
 #include "signed_video_defines.h"  // svi_rc
 #include "signed_video_h26x_internal.h"  // gop_state_reset(), update_gop_hash()
@@ -712,6 +713,33 @@ prepare_for_validation(signed_video_t *self)
 
     SVI_THROW_IF_WITH_MSG(
         gop_state->signing_present && !self->has_public_key, SVI_UNKNOWN, "No public key present");
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
+    // If "Axis Communications AB" can be identified from the |product_info|, set public_key to
+    // |vendor_handle|.
+    if (self->product_info->manufacturer &&
+        strcmp(self->product_info->manufacturer, "Axis Communications AB") == 0) {
+      // Verify public key.
+      sv_vendor_axis_supplemental_authenticity_t supplemental_authenticity = {0};
+      SVI_THROW(sv_vendor_axis_communications_get_supplemental_authenticity(
+          self, &supplemental_authenticity));
+      if (strcmp(self->product_info->serial_number, supplemental_authenticity.serial_number) != 0) {
+        self->latest_validation->public_key_validation = SV_PUBKEY_VALIDATION_NOT_OK;
+      } else {
+        switch (supplemental_authenticity.public_key_validation) {
+          case 1:
+            self->latest_validation->public_key_validation = SV_PUBKEY_VALIDATION_OK;
+            break;
+          case 0:
+            self->latest_validation->public_key_validation = SV_PUBKEY_VALIDATION_NOT_OK;
+            break;
+          case -1:
+          default:
+            self->latest_validation->public_key_validation = SV_PUBKEY_VALIDATION_NOT_FEASIBLE;
+            break;
+        }
+      }
+    }
+#endif
     // If we have received a SEI there is a signature to use for verification.
     if (self->gop_info_detected.has_gop_sei) {
       SVI_THROW(sv_rc_to_svi_rc(

@@ -162,6 +162,7 @@ transfer_latest_validation(signed_video_latest_validation_t *dst,
     dst->number_of_expected_picture_nalus = src->number_of_expected_picture_nalus;
     dst->number_of_received_picture_nalus = src->number_of_received_picture_nalus;
     dst->number_of_pending_picture_nalus = src->number_of_pending_picture_nalus;
+    dst->public_key_validation = src->public_key_validation;
   SVI_CATCH()
   SVI_DONE(status)
 
