@@ -278,6 +278,17 @@ signed_video_set_private_key(signed_video_t *self,
     const char *private_key,
     size_t private_key_size);
 
+/**
+ * @brief Sets the content of the private key.
+ *
+ * This function should be called if the public key should not be added on the camera side. The
+ * public key is added by default.
+ *
+ * @param self Pointer to the current Signed Video session
+ * @param public_key_in_sei Bool specifying if public key should be added or not
+ *
+ * @return A Signed Video Return Code (SignedVideoReturnCode)
+ */
 SignedVideoReturnCode
 signed_video_set_public_key_in_sei(signed_video_t *self, bool public_key_in_sei);
 

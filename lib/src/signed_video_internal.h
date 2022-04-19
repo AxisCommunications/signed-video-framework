@@ -182,14 +182,14 @@ struct _signed_video_t {
   size_t arbitrary_data_size;  // Size of |arbitrary_data|.
 
   bool has_public_key;  // State to indicate if public key is received/added
+  bool public_key_in_sei;
 
   // Handle for vendor specific data. Only works with one vendor.
   void *vendor_handle;
   // Vendor encoders for signing. Only works with one vendor.
   const sv_tlv_tag_t *vendor_encoders;
   size_t num_vendor_encoders;
-  bool public_key_in_sei;
-  bool nalus_in_sei;
+  bool authentication_started;
 };
 
 typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;
