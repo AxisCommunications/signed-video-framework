@@ -279,7 +279,7 @@ signed_video_set_private_key(signed_video_t *self,
     size_t private_key_size);
 
 /**
- * @brief Sets the content of the private key.
+ * @brief Adds the public key on signing side
  *
  * This function should be called if the public key should not be added on the camera side. The
  * public key is added by default.

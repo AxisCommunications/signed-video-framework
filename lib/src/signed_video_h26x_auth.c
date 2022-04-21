@@ -31,15 +31,7 @@
 #include "signed_video_internal.h"  // gop_info_t, gop_state_t, reset_gop_hash()
 #include "signed_video_tlv.h"  // tlv_find_tag()
 
-// Include all openssl header files explicitly.
-#include <openssl/bio.h>  // BIO_*
-#include <openssl/bn.h>  // BN_*
-#include <openssl/crypto.h>  // OPENSSL_malloc, OPENSSL_free
-#include <openssl/ec.h>  // EC_*
-#include <openssl/evp.h>  // EVP_*
 #include <openssl/pem.h>  // PEM_*
-#include <openssl/rsa.h>  // RSA_*
-#include <openssl/sha.h>  // SHA256
 
 static svi_rc
 decode_sei_data(signed_video_t *signed_video, const uint8_t *payload, size_t payload_size);
@@ -726,7 +718,6 @@ prepare_for_validation(signed_video_t *self)
     if (self->gop_info_detected.has_gop_sei) {
       SVI_THROW(sv_rc_to_svi_rc(
           openssl_verify_hash(signature_info, &self->gop_info->verified_signature_hash)));
-      printf("<<<<<<<<<<<<<<<<<<<<<%d\n", self->gop_info->verified_signature_hash);
     }
 
   SVI_CATCH()
