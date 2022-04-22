@@ -162,6 +162,7 @@ transfer_latest_validation(signed_video_latest_validation_t *dst,
     dst->number_of_expected_picture_nalus = src->number_of_expected_picture_nalus;
     dst->number_of_received_picture_nalus = src->number_of_received_picture_nalus;
     dst->number_of_pending_picture_nalus = src->number_of_pending_picture_nalus;
+    dst->public_key_validation = src->public_key_validation;
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -243,6 +244,7 @@ latest_validation_init(signed_video_latest_validation_t *self)
   self->number_of_expected_picture_nalus = -1;
   self->number_of_received_picture_nalus = -1;
   self->number_of_pending_picture_nalus = 0;
+  self->public_key_validation = SV_PUBKEY_VALIDATION_NOT_FEASIBLE;
 
   free(self->validation_str);
   self->validation_str = NULL;
