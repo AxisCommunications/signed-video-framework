@@ -504,6 +504,7 @@ sv_vendor_axis_communications_setup(void)
   self->supplemental_authenticity.public_key_validation = -1;
   strcpy(self->supplemental_authenticity.serial_number, "Unknown");
   self->pubkey_verification_status = SVI_UNKNOWN;
+  self->verify_pubkey_upon_call = true;
 
   if (!self->trusted_ca) {
     DEBUG_LOG("Could not convert Axis root CA to X509");
