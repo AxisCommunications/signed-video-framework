@@ -281,16 +281,21 @@ signed_video_set_private_key(signed_video_t *self,
 /**
  * @brief Adds the public key on signing side
  *
- * This function should be called if the public key should not be added on the camera side. The
- * public key is added by default.
+ * If the public key, used to verify the signatures, cannot be secured through a hardware
+ * certificate or key attestation, it should not be added to the video stream. Without securing it,
+ * anyone can sign arbitrary (tampered) videos.
+ *
+ * This function should used before starting the Signed Video session. If it is not used, the public
+ * key is added to the SEI.
  *
  * @param self Pointer to the current Signed Video session
- * @param public_key_in_sei Bool specifying if public key should be added or not
+ * @param add_public_key_to_sei Flag to indicate if the public key should be added to the SEI (default
+ *   true)
  *
  * @return A Signed Video Return Code (SignedVideoReturnCode)
  */
 SignedVideoReturnCode
-signed_video_set_public_key_in_sei(signed_video_t *self, bool public_key_in_sei);
+signed_video_set_public_key_in_sei(signed_video_t *self, bool add_public_key_to_sei);
 
 /**
  * @brief Sets the authenticity level to be used.

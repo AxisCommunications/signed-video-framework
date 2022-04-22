@@ -1136,7 +1136,7 @@ signed_video_create(SignedVideoCodec codec)
     self->recurrence_offset = RECURRENCE_OFFSET_DEFAULT;
     self->has_public_key = false;
 
-    self->public_key_in_sei = true;
+    self->add_public_key_to_sei = true;
     self->frame_count = RECURRENCE_OFFSET_DEFAULT;
     self->has_recurrent_data = false;
     self->authentication_started = false;

@@ -940,6 +940,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
 
   return status;
 }
+
 SignedVideoReturnCode
 signed_video_add_nalu_and_authenticate(signed_video_t *self,
     const uint8_t *nalu_data,
@@ -968,7 +969,6 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
   return svi_rc_to_signed_video_rc(status);
 }
 
-
 SignedVideoReturnCode
 signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t public_key_size)
 {
@@ -978,22 +978,21 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
   // Return SV_NOT_SUPPORTED if not called from start of stream
   if (self->authentication_started) return SV_NOT_SUPPORTED;
 
-  EVP_PKEY *verify_key = NULL;
+  EVP_PKEY *pkey = NULL;
   BIO *bp = BIO_new_mem_buf(public_key, (int)public_key_size);
-  verify_key = PEM_read_bio_PUBKEY(bp, NULL, NULL, NULL);
+  pkey = PEM_read_bio_PUBKEY(bp, NULL, NULL, NULL);
   BIO_free(bp);
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    SVI_THROW_IF(!verify_key, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
 
-    // Ensure it is a NIST P-256 key with correct curve.
-    if (EVP_PKEY_base_id(verify_key) == EVP_PKEY_EC) {
+    if (EVP_PKEY_base_id(pkey) == EVP_PKEY_EC) {
       self->signature_info->algo = SIGN_ALGO_ECDSA;
-    } else if (EVP_PKEY_base_id(verify_key) == EVP_PKEY_RSA) {
+    } else if (EVP_PKEY_base_id(pkey) == EVP_PKEY_RSA) {
       self->signature_info->algo = SIGN_ALGO_RSA;
     } else {
-      return SV_NOT_SUPPORTED;
+      SVI_THROW(SVI_NOT_SUPPORTED);
     }
 
     // Make sure we have allocated enough memory

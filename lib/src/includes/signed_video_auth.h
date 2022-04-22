@@ -251,13 +251,19 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
     signed_video_authenticity_t **authenticity);
 
 /**
- * @brief Sets public key by validator
+ * @brief Sets the public key used to validate the video authenticity
  *
- * This function should be called if the user do not want to add the public key to the stream, and
- * instead fetch and set it by the validator.
+ * For videos where the public key, necessary to verify the signature, is not present in the SEIs
+ * the user needs to provide that key manually.
+ *
+ * This function allows the user to add the public key to the current Signed Video session. The
+ * operation has to be performed before the session starts. It is not allowed to change the public
+ * key on the fly.
+ *
+ * The |public_key| data is assumed to be in PEM format.
  *
  * @param self Pointer to the current Signed Video session
- * @param public_key Pointer to the public key
+ * @param public_key Pointer to the public key data
  * @param public_key_size Size of the public key
  *
  * @returns A Signed Video Return Code (SignedVideoReturnCode)

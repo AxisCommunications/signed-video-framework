@@ -1585,6 +1585,7 @@ START_TEST(vendor_axis_communications_operation)
   ck_assert_int_eq(sv_rc, SV_OK);
   sei = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec);
   ck_assert(tag_is_present(sei, codec, VENDOR_AXIS_COMMUNICATIONS_TAG));
+  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory.
   sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NOTHING);
@@ -1695,9 +1696,6 @@ START_TEST(public_key_on_validation_side_from_start)
   signed_video_free(sv_camera);
   signed_video_free(sv_vms);
   free(private_key);
-
-  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory
-
 }
 END_TEST
 
@@ -1772,9 +1770,6 @@ START_TEST(public_key_in_sei_and_on_validation_side_from_start)
   signed_video_free(sv_camera);
   signed_video_free(sv_vms);
   free(private_key);
-
-  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory
-
 }
 END_TEST
 
@@ -1901,15 +1896,15 @@ START_TEST(public_key_on_validation_side_later)
   sv_rc = signed_video_set_public_key(sv_vms, sv_camera->signature_info->public_key, sv_camera->signature_info->public_key_size);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
 
+  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
   // Free nalu_list_item and session.
   nalu_list_free_item(sei);
   nalu_list_free_item(i_nalu);
   signed_video_free(sv_camera);
   signed_video_free(sv_vms);
   free(private_key);
-
-  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory
-
 }
 END_TEST
 
@@ -1961,14 +1956,14 @@ START_TEST(public_key_in_sei_and_on_validation_side_later)
   signed_video_authenticity_t *auth_report = NULL;
   signed_video_latest_validation_t *latest = NULL;
 
-  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(!auth_report);
   sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, sei->data, sei->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Set public key
   sv_rc = signed_video_set_public_key(sv_vms, sv_camera->signature_info->public_key, sv_camera->signature_info->public_key_size);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
 
   ck_assert(auth_report);
   latest = &(auth_report->latest_validation);
@@ -1984,9 +1979,6 @@ START_TEST(public_key_in_sei_and_on_validation_side_later)
   signed_video_free(sv_vms);
   signed_video_free(sv_camera);
   free(private_key);
-
-  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory
-
 }
 END_TEST
 
@@ -2035,6 +2027,8 @@ START_TEST(public_key_in_sei_and_bad_public_key_on_validation_side)
   // On validation side
   signed_video_t *sv_vms = signed_video_create(codec);
 
+  // Generate a new private key in order to extract a bad private key (a key not compatible with the
+  // one generated on the camera side)
   signature_info_t sign_info = {0};
   signed_video_generate_private_key(algo, "./", &bad_private_key, &bad_private_key_size);
   sign_info.private_key = bad_private_key;
@@ -2070,9 +2064,6 @@ START_TEST(public_key_in_sei_and_bad_public_key_on_validation_side)
   signed_video_free(sv_vms);
   signed_video_free(sv_camera);
   free(private_key);
-
-  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory
-
 }
 END_TEST
 
@@ -2122,7 +2113,8 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   // On validation side
   signed_video_t *sv_vms = signed_video_create(codec);
 
-  // Create bad private key
+  // Generate a new private key in order to extract a bad private key (a key not compatible with the
+  // one generated on the camera side)
   signature_info_t sign_info = {0};
   
   signed_video_generate_private_key(algo, "./", &bad_private_key, &bad_private_key_size);
@@ -2154,9 +2146,7 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   signed_video_free(sv_vms);
   signed_video_free(sv_camera);
   free(private_key);
-
-  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory
-
+  free(sign_info.public_key);
 }
 END_TEST
 

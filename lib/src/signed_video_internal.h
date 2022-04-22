@@ -128,6 +128,7 @@ struct _signed_video_t {
   // Private structures
   gop_info_t *gop_info;
   SignedVideoAuthenticityLevel authenticity_level;
+  bool add_public_key_to_sei;
 
   // Frames to prepend list
   signed_video_nalu_to_prepend_t nalus_to_prepend_list[MAX_NALUS_TO_PREPEND];
@@ -146,6 +147,7 @@ struct _signed_video_t {
   // when added, that is, in signed_video_add_nalu_and_authenticate(). Items are removed when
   // reported through the authenticity_report.
   h26x_nalu_list_t *nalu_list;
+  bool authentication_started;
 
   gop_state_t gop_state;
   gop_info_detected_t gop_info_detected;
@@ -182,14 +184,12 @@ struct _signed_video_t {
   size_t arbitrary_data_size;  // Size of |arbitrary_data|.
 
   bool has_public_key;  // State to indicate if public key is received/added
-  bool public_key_in_sei;
 
   // Handle for vendor specific data. Only works with one vendor.
   void *vendor_handle;
   // Vendor encoders for signing. Only works with one vendor.
   const sv_tlv_tag_t *vendor_encoders;
   size_t num_vendor_encoders;
-  bool authentication_started;
 };
 
 typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;
