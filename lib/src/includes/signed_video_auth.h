@@ -45,6 +45,10 @@ typedef enum {
   // validation.
   SV_AUTH_RESULT_OK = 4,
   // Successfully verified all NALUs that could be verified, and all expected NALUs are present.
+  SV_AUTH_RESULT_VERSION_MISMATCH = 5,
+  // Video has been signed with a version newer than that used by the validation part. Correct
+  // validation cannot be guaranteed. The user is encouraged to update the validation code with a
+  // newer version.
   SV_AUTH_NUM_SIGNED_GOP_VALID_STATES
 } SignedVideoAuthenticityResult;
 

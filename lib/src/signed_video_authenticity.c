@@ -25,6 +25,7 @@
 #include <stdlib.h>  // calloc, free, realloc
 #include <string.h>  // strlen, strcpy
 
+#include "includes/signed_video_common.h"  // signed_video_compare_versions()
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_get_validation_str()
 
 // Adding accumulated authenticity results, valuable for screening a file, is work in progress.
@@ -299,6 +300,12 @@ signed_video_get_authenticity_report(signed_video_t *self)
     SVI_THROW(transfer_authenticity(authenticity_report, self->authenticity));
     h26x_nalu_list_clean_up(self->nalu_list);
     DEBUG_LOG("Validation statuses 'oldest -> latest' = %s", validation_str);
+    // Check for version mismatch. If |version_on_signing_side| is newer than |this_version| the
+    // authenticity result may not be reliable, hence change status.
+    if (signed_video_compare_versions(
+            authenticity_report->this_version, authenticity_report->version_on_signing_side) == 2) {
+      authenticity_report->latest_validation.authenticity = SV_AUTH_RESULT_VERSION_MISMATCH;
+    }
   SVI_CATCH()
   {
     signed_video_authenticity_report_free(authenticity_report);
