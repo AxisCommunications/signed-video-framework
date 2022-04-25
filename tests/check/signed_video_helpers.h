@@ -116,4 +116,7 @@ modify_list_item(nalu_list_t *list, int item_number, const char *exp_str);
 bool
 tag_is_present(nalu_list_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t tag);
 
+signed_video_t *
+generate_and_set_private_key_on_camera_side(SignedVideoCodec codec, sign_algo_t algo);
+
 #endif  // __SIGNED_VIDEO_HELPERS_H__

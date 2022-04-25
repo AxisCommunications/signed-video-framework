@@ -220,6 +220,26 @@ create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_pr
   return list;
 }
 
+signed_video_t *
+generate_and_set_private_key_on_camera_side(SignedVideoCodec codec, sign_algo_t algo)
+{
+  SignedVideoReturnCode sv_rc;
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+
+  signed_video_t *sv_camera = signed_video_create(codec);
+  ck_assert(sv_camera);
+  // Read and set content of private_key.
+  sv_rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_private_key(sv_camera, algo, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  free(private_key);
+
+  return sv_camera;
+}
+
 /* Creates and initializes a signed video session. */
 signed_video_t *
 get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_private_key)
