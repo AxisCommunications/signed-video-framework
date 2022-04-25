@@ -19,6 +19,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 #include <assert.h>  // assert
+#include <openssl/pem.h>  // PEM_*
 #include <stdlib.h>  // free
 
 #include "includes/signed_video_auth.h"
@@ -30,8 +31,6 @@
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_append()
 #include "signed_video_internal.h"  // gop_info_t, gop_state_t, reset_gop_hash()
 #include "signed_video_tlv.h"  // tlv_find_tag()
-
-#include <openssl/pem.h>  // PEM_*
 
 static svi_rc
 decode_sei_data(signed_video_t *signed_video, const uint8_t *payload, size_t payload_size);
@@ -712,8 +711,8 @@ prepare_for_validation(signed_video_t *self)
       memcpy(signature_info->hash, self->gop_info->gop_hash, HASH_DIGEST_SIZE);
     }
 
-    SVI_THROW_IF_WITH_MSG(
-        gop_state->signing_present && !self->has_public_key, SVI_NOT_SUPPORTED, "No public key present");
+    SVI_THROW_IF_WITH_MSG(gop_state->signing_present && !self->has_public_key, SVI_NOT_SUPPORTED,
+        "No public key present");
     // If we have received a SEI there is a signature to use for verification.
     if (self->gop_info_detected.has_gop_sei) {
       SVI_THROW(sv_rc_to_svi_rc(
@@ -995,7 +994,7 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
       SVI_THROW(SVI_NOT_SUPPORTED);
     }
 
-    // Make sure we have allocated enough memory
+    // Allocate memory and copy |public_key|.
     self->signature_info->public_key = malloc(public_key_size);
     SVI_THROW_IF(!self->signature_info->public_key, SVI_MEMORY);
     memcpy(self->signature_info->public_key, public_key, public_key_size);
@@ -1005,10 +1004,11 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
 
   SVI_CATCH()
   {
-    // Remove all key information if we fail.
+    // Remove key upon failure.
     free(self->signature_info->public_key);
+    self->signature_info->public_key = NULL;
   }
   SVI_DONE(status)
 
-    return svi_rc_to_signed_video_rc(status);
+  return svi_rc_to_signed_video_rc(status);
 }
