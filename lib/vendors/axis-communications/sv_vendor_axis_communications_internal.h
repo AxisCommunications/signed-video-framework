@@ -25,10 +25,32 @@
 #ifndef __SV_VENDOR_AXIS_COMMUNICATIONS_INTERNAL_H__
 #define __SV_VENDOR_AXIS_COMMUNICATIONS_INTERNAL_H__
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
 #include "signed_video_defines.h"  // svi_rc
+
+#define SV_VENDOR_AXIS_SER_NO_MAX_LENGTH 20
+/**
+ * Axis Supplemental Authenticity
+ *
+ * This struct includes the Public key validation result as part of validating the video, and
+ * additional device information.
+ */
+typedef struct {
+  // The accumulated validation result of the public key.
+  //   (1) - success,
+  //   (0) - unsuccessful validation,
+  //  (-1) - unknown, e.g., before a validation could be performed.
+  // Note that public key validation is performed everytime the public key is used. The
+  // |public_key_validation| value is accumulated, which means that an unsuccessful result can never
+  // be overwritten by a successful result later on.
+  int public_key_validation;
+  // A null-terminated string displaying the serial number of the device from which the public key
+  // originates, or "Unknown" if the serial number could not be determined.
+  char serial_number[SV_VENDOR_AXIS_SER_NO_MAX_LENGTH];
+} sv_vendor_axis_supplemental_authenticity_t;
 
 /**
  * @brief Sets up Axis Communications for use as vendor and returns a handle.
@@ -69,5 +91,23 @@ encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, uint8_
  */
 svi_rc
 decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data_size);
+
+/**
+ * @brief Sets the Public key to be validated using the attestation report and the certificate chain
+ *
+ * A reference to the |public_key| is stored, hence memory is not transferred.
+ *
+ * @param handle The handle to which the Public key is set.
+ * @param public_key Pointer to the Public key data to set.
+ * @param public_key_size Size of Public key data.
+ * @param public_key_has_changed Flag to indicate if the Public key has changed.
+ *
+ * @returns An internal return code to catch potential errors.
+ */
+svi_rc
+set_axis_communications_public_key(void *handle,
+    void const *public_key,
+    size_t public_key_size,
+    bool public_key_has_changed);
 
 #endif  // __SV_VENDOR_AXIS_COMMUNICATIONS_INTERNAL_H__

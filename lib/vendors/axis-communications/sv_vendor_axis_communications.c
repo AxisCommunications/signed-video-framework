@@ -20,6 +20,9 @@
  */
 #include "includes/sv_vendor_axis_communications.h"
 
+#include <openssl/bio.h>  // BIO_*
+#include <openssl/evp.h>  // EVP_*
+#include <openssl/pem.h>  // PEM_*
 #include <stdbool.h>
 #include <stdlib.h>  // malloc, memcpy, calloc, free
 
@@ -56,6 +59,14 @@ typedef struct _sv_vendor_axis_communications_t {
   void *attestation;
   uint8_t attestation_size;
   char *certificate_chain;
+
+  // Public key to validate using |attestation| and |certificate_chain|
+  const void *public_key;  // A pointer to the public key used for validation. Assumed to be a PEM.
+  // Ownership is NOT transferred.
+  size_t public_key_size;  // The size of the |public_key|.
+
+  // Public key validation results
+  sv_vendor_axis_supplemental_authenticity_t supplemental_authenticity;
 } sv_vendor_axis_communications_t;
 
 // Definitions of non-public APIs, declared in sv_vendor_axis_communications_internal.h.
@@ -208,7 +219,64 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
   return status;
 }
 
-// Definitions of public APIs in declared in sv_vendor_axis_communications.h.
+svi_rc
+set_axis_communications_public_key(void *handle,
+    const void *public_key,
+    size_t public_key_size,
+    bool public_key_has_changed)
+{
+  if (!handle || !public_key || public_key_size == 0) return SVI_INVALID_PARAMETER;
+
+  sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
+  EVP_PKEY *pkey = NULL;
+  BIO *bp = NULL;
+
+  // If the Public key previously has been validated unsuccessful or if the Public key has not
+  // changed, skip checking type and size.
+  if (self->supplemental_authenticity.public_key_validation != 0 ||
+      self->public_key == public_key) {
+    return SVI_OK;
+  }
+
+  // Mark |public_key_validation| as invalid if the |public_key_has_changed|. It is an invalid
+  // operation. Note that it is not an error, only an invalid operation and will be communicated
+  // through |supplemental_authenticity|.
+  if (public_key_has_changed && self->public_key) {
+    self->supplemental_authenticity.public_key_validation = 0;
+  }
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    // Validate that the public key is of correct type and size.
+    bp = BIO_new_mem_buf(public_key, (int)public_key_size);
+    SVI_THROW_IF(!bp, SVI_EXTERNAL_FAILURE);
+    pkey = PEM_read_bio_PUBKEY(bp, NULL, NULL, NULL);
+    SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
+    // Ensure it is a NIST P-256 key with correct curve.
+    SVI_THROW_IF(EVP_PKEY_base_id(pkey) != EVP_PKEY_EC, SVI_EXTERNAL_FAILURE);
+    const EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
+    SVI_THROW_IF(!ec_key, SVI_EXTERNAL_FAILURE);
+    const EC_GROUP *ec_group = EC_KEY_get0_group(ec_key);
+    SVI_THROW_IF(!ec_group, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(EC_GROUP_get_curve_name(ec_group) != NID_X9_62_prime256v1, SVI_EXTERNAL_FAILURE);
+
+    // The Public key is of correct type and size.
+    self->public_key = public_key;
+    self->public_key_size = public_key_size;
+  SVI_CATCH()
+  {
+    self->public_key = NULL;
+    self->public_key_size = 0;
+  }
+  SVI_DONE(status)
+
+  BIO_free(bp);
+  EVP_PKEY_free(pkey);
+
+  return status;
+}
+
+// Definitions of public APIs declared in sv_vendor_axis_communications.h.
 
 SignedVideoReturnCode
 sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
