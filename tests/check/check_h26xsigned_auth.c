@@ -1997,8 +1997,6 @@ START_TEST(public_key_in_sei_and_bad_public_key_on_validation_side)
   nalu_list_item_t *sei = NULL;
   char *private_key = NULL;
   size_t private_key_size = 0;
-  char *bad_private_key = NULL;
-  size_t bad_private_key_size = 0;
 
   // On camera side
   signed_video_t *sv_camera = signed_video_create(codec);
@@ -2030,9 +2028,7 @@ START_TEST(public_key_in_sei_and_bad_public_key_on_validation_side)
   // Generate a new private key in order to extract a bad private key (a key not compatible with the
   // one generated on the camera side)
   signature_info_t sign_info = {0};
-  signed_video_generate_private_key(algo, "./", &bad_private_key, &bad_private_key_size);
-  sign_info.private_key = bad_private_key;
-  sign_info.private_key_size = bad_private_key_size;
+  signed_video_generate_private_key(algo, "./", (char**)&sign_info.private_key, &sign_info.private_key_size);
   openssl_read_pubkey_from_private_key(&sign_info);
 
   // Set public key
@@ -2058,7 +2054,6 @@ START_TEST(public_key_in_sei_and_bad_public_key_on_validation_side)
   signed_video_authenticity_report_free(auth_report);
 
   // Free nalu_list_item and session.
-  free(bad_private_key);
   nalu_list_free_item(sei);
   nalu_list_free_item(i_nalu);
   signed_video_free(sv_vms);
@@ -2082,8 +2077,6 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   nalu_list_item_t *sei = NULL;
   char *private_key = NULL;
   size_t private_key_size = 0;
-  char *bad_private_key = NULL;
-  size_t bad_private_key_size = 0;
 
   // On camera side
   signed_video_t *sv_camera = signed_video_create(codec);
@@ -2117,10 +2110,8 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   // one generated on the camera side)
   signature_info_t sign_info = {0};
   
-  signed_video_generate_private_key(algo, "./", &bad_private_key, &bad_private_key_size);
+  signed_video_generate_private_key(algo, "./", (char**)&sign_info.private_key, &sign_info.private_key_size);
 
-  sign_info.private_key = bad_private_key;
-  sign_info.private_key_size = bad_private_key_size;
   openssl_read_pubkey_from_private_key(&sign_info);
   // Set public key
   sv_rc = signed_video_set_public_key(sv_vms, sign_info.public_key, sign_info.public_key_size);
@@ -2140,7 +2131,6 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   ck_assert_int_eq(auth_report->latest_validation.authenticity, SV_AUTH_RESULT_SIGNATURE_PRESENT);
 
   // Free nalu_list_item and session.
-  free(bad_private_key);
   nalu_list_free_item(sei);
   nalu_list_free_item(i_nalu);
   signed_video_free(sv_vms);
