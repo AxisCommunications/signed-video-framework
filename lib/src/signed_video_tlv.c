@@ -604,6 +604,17 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     self->has_public_key = true;
     data_ptr += pubkey_size;
 
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
+    // If "Axis Communications AB" can be identified from the |product_info|, set |public_key| to
+    // |vendor_handle|.
+    if (self->product_info->manufacturer &&
+        strcmp(self->product_info->manufacturer, "Axis Communications AB") == 0) {
+      // Set public key.
+      SVI_THROW(set_axis_communications_public_key(self->vendor_handle, signature_info->public_key,
+          signature_info->public_key_size, self->latest_validation->public_key_has_changed));
+    }
+#endif
+
     SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
     self->signature_info->algo = algo;
   SVI_CATCH()
