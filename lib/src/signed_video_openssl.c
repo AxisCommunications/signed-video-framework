@@ -32,6 +32,8 @@
 #include <stdio.h>  // FILE, fopen, fclose
 #include <stdlib.h>  // malloc, free, calloc
 
+#include "signed_video_openssl_internal.h"
+
 // We do not support creating keys on Windows. Adding dummy defines for Linux specific functions.
 #if defined(_WIN32) || defined(_WIN64)
 #define F_OK 0
@@ -521,4 +523,29 @@ signed_video_generate_private_key(sign_algo_t algo,
   free(key_paths.full_path_to_private_key);
 
   return svi_rc_to_signed_video_rc(status);
+}
+
+svi_rc
+check_type_of_key(signed_video_t *self, const char *public_key, size_t public_key_size)
+{
+  EVP_PKEY *pkey = NULL;
+  BIO *bp = BIO_new_mem_buf(public_key, (int)public_key_size);
+  pkey = PEM_read_bio_PUBKEY(bp, NULL, NULL, NULL);
+  BIO_free(bp);
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
+
+    if (EVP_PKEY_base_id(pkey) == EVP_PKEY_EC) {
+      self->signature_info->algo = SIGN_ALGO_ECDSA;
+    } else if (EVP_PKEY_base_id(pkey) == EVP_PKEY_RSA) {
+      self->signature_info->algo = SIGN_ALGO_RSA;
+    } else {
+      SVI_THROW(SVI_NOT_SUPPORTED);
+    }
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  return status;
 }

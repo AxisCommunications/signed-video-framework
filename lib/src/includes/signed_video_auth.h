@@ -27,7 +27,6 @@
 #include <string.h>  // size_t
 
 #include "signed_video_common.h"  // signed_video_t, SignedVideoReturnCode
-#include "signed_video_interfaces.h"  // sign_algo_t
 
 /**
  * Status of authenticity validation since last result

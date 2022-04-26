@@ -32,6 +32,8 @@
 #include "signed_video_internal.h"  // gop_info_t, gop_state_t, reset_gop_hash()
 #include "signed_video_tlv.h"  // tlv_find_tag()
 
+#include "signed_video_openssl_internal.h"
+
 static svi_rc
 decode_sei_data(signed_video_t *signed_video, const uint8_t *payload, size_t payload_size);
 
@@ -977,23 +979,10 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
   // Return SV_NOT_SUPPORTED if not called from start of stream
   if (self->authentication_started) return SV_NOT_SUPPORTED;
 
-  EVP_PKEY *pkey = NULL;
-  BIO *bp = BIO_new_mem_buf(public_key, (int)public_key_size);
-  pkey = PEM_read_bio_PUBKEY(bp, NULL, NULL, NULL);
-  BIO_free(bp);
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
-
-    if (EVP_PKEY_base_id(pkey) == EVP_PKEY_EC) {
-      self->signature_info->algo = SIGN_ALGO_ECDSA;
-    } else if (EVP_PKEY_base_id(pkey) == EVP_PKEY_RSA) {
-      self->signature_info->algo = SIGN_ALGO_RSA;
-    } else {
-      SVI_THROW(SVI_NOT_SUPPORTED);
-    }
-
+    SVI_THROW(check_type_of_key(self, public_key, public_key_size));
     // Allocate memory and copy |public_key|.
     self->signature_info->public_key = malloc(public_key_size);
     SVI_THROW_IF(!self->signature_info->public_key, SVI_MEMORY);

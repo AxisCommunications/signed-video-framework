@@ -58,6 +58,9 @@ struct validation_stats {
   bool public_key_has_changed;
 };
 
+static signed_video_t *
+generate_and_set_private_key_on_camera_side(SignedVideoCodec codec, sign_algo_t algo);
+
 // TODO: Will be used in the future, when the authenticity report is being populated.
 #if 0
 static bool
@@ -1624,6 +1627,26 @@ START_TEST(vendor_axis_communications_operation)
 }
 END_TEST
 #endif
+
+static signed_video_t *
+generate_and_set_private_key_on_camera_side(SignedVideoCodec codec, sign_algo_t algo)
+{
+  SignedVideoReturnCode sv_rc;
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+
+  signed_video_t *sv_camera = signed_video_create(codec);
+  ck_assert(sv_camera);
+  // Read and set content of private_key.
+  sv_rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_private_key(sv_camera, algo, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  free(private_key);
+
+  return sv_camera;
+}
 
 /* Test description */
 START_TEST(public_key_on_validation_side_from_start)
