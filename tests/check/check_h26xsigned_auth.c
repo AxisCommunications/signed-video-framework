@@ -1570,6 +1570,9 @@ START_TEST(vendor_axis_communications_operation)
   ck_assert_int_eq(sv_rc, SV_OK);
   free(attestation);
 
+  sv_rc = signed_video_set_product_info(sv, HW_ID, FW_VER, NULL, "Axis Communications AB", ADDR);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
   // // Check setting recurrence.
   // sv_rc = signed_video_set_recurrence_interval_frames(sv, 1);
   // ck_assert_int_eq(sv_rc, SV_OK);
@@ -1610,6 +1613,8 @@ START_TEST(vendor_axis_communications_operation)
     latest = &(auth_report->latest_validation);
     ck_assert(latest);
     ck_assert_int_eq(strcmp(latest->validation_str, ".P"), 0);
+    // Currently |public_key_validation| is not updated internally.
+    ck_assert_int_eq(latest->public_key_validation, SV_PUBKEY_VALIDATION_NOT_FEASIBLE);
     // We are done with auth_report.
     latest = NULL;
     signed_video_authenticity_report_free(auth_report);
