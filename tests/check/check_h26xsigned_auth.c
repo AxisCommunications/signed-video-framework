@@ -1613,8 +1613,7 @@ START_TEST(vendor_axis_communications_operation)
     latest = &(auth_report->latest_validation);
     ck_assert(latest);
     ck_assert_int_eq(strcmp(latest->validation_str, ".P"), 0);
-    // Currently |public_key_validation| is not updated internally.
-    ck_assert_int_eq(latest->public_key_validation, SV_PUBKEY_VALIDATION_NOT_FEASIBLE);
+    ck_assert_int_eq(latest->public_key_validation, SV_PUBKEY_VALIDATION_NOT_OK);
     // We are done with auth_report.
     latest = NULL;
     signed_video_authenticity_report_free(auth_report);

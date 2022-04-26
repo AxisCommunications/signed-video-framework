@@ -110,4 +110,19 @@ set_axis_communications_public_key(void *handle,
     size_t public_key_size,
     bool public_key_has_changed);
 
+/**
+ * @brief Gets the Axis supplemental authenticity report
+ *
+ * With the attestation report and certificate chain, set by the signer and added as metadata in the
+ * SEI, it is possible to verify the origin of the Public signing key.
+ *
+ * @param handle The handle to Axis Communications specific information.
+ * @param supplemental_authenticity Pointer to the supplemental autenticity report, to be filled in.
+ *
+ * @returns An internal return code to catch potential errors.
+ */
+svi_rc
+get_axis_communications_supplemental_authenticity(void *handle,
+    sv_vendor_axis_supplemental_authenticity_t *supplemental_authenticity);
+
 #endif  // __SV_VENDOR_AXIS_COMMUNICATIONS_INTERNAL_H__
