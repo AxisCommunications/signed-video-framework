@@ -20,9 +20,11 @@
  */
 #include "includes/sv_vendor_axis_communications.h"
 
+#include <assert.h>
 #include <openssl/bio.h>  // BIO_*
 #include <openssl/evp.h>  // EVP_*
 #include <openssl/pem.h>  // PEM_*
+#include <openssl/x509.h>  // X509_*
 #include <stdbool.h>
 #include <stdlib.h>  // malloc, memcpy, calloc, free
 
@@ -68,6 +70,54 @@ typedef struct _sv_vendor_axis_communications_t {
   // Public key validation results
   sv_vendor_axis_supplemental_authenticity_t supplemental_authenticity;
 } sv_vendor_axis_communications_t;
+
+// Declarations of static functions.
+static svi_rc
+verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificates);
+
+// Definitions of static functions.
+
+/* Verifies the untrusted certificate chain.
+ *
+ * Uses the |trusted_ca| to verify the first certificate in the chain. The last certificate verified
+ * is the |attestation_certificate| which will be used to verify the transmitted public key. */
+static ATTR_UNUSED svi_rc
+verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificates)
+{
+  assert(trusted_ca && untrusted_certificates);
+
+  X509_STORE *trust_store = NULL;
+  X509_STORE_CTX *ctx = NULL;
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    trust_store = X509_STORE_new();
+    SVI_THROW_IF(!trust_store, SVI_EXTERNAL_FAILURE);
+    // Load trusted CA certificate
+    SVI_THROW_IF(X509_STORE_add_cert(trust_store, trusted_ca) != 1, SVI_EXTERNAL_FAILURE);
+
+    // Start a new context for certificate verification.
+    ctx = X509_STORE_CTX_new();
+    SVI_THROW_IF(!ctx, SVI_EXTERNAL_FAILURE);
+
+    // The |attestation_certificate| is the first certificate in the stack, which is the final
+    // certificate to verify.
+    X509 *attestation_certificate = sk_X509_value(untrusted_certificates, 0);
+    // Initialize the context with trusted CA, the final certificate to verify and the chain of
+    // certificates.
+    SVI_THROW_IF(
+        X509_STORE_CTX_init(ctx, trust_store, attestation_certificate, untrusted_certificates) != 1,
+        SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(X509_verify_cert(ctx) != 1, SVI_VENDOR);
+
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  X509_STORE_CTX_free(ctx);
+  X509_STORE_free(trust_store);
+
+  return status;
+}
 
 // Definitions of non-public APIs, declared in sv_vendor_axis_communications_internal.h.
 
