@@ -245,6 +245,7 @@ set_axis_communications_public_key(void *handle,
     self->supplemental_authenticity.public_key_validation = 0;
   }
 
+  int public_key_validation = self->supplemental_authenticity.public_key_validation;
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     // Validate that the public key is of correct type and size.
@@ -253,12 +254,17 @@ set_axis_communications_public_key(void *handle,
     pkey = PEM_read_bio_PUBKEY(bp, NULL, NULL, NULL);
     SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
     // Ensure it is a NIST P-256 key with correct curve.
-    SVI_THROW_IF(EVP_PKEY_base_id(pkey) != EVP_PKEY_EC, SVI_EXTERNAL_FAILURE);
-    const EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
-    SVI_THROW_IF(!ec_key, SVI_EXTERNAL_FAILURE);
-    const EC_GROUP *ec_group = EC_KEY_get0_group(ec_key);
-    SVI_THROW_IF(!ec_group, SVI_EXTERNAL_FAILURE);
-    SVI_THROW_IF(EC_GROUP_get_curve_name(ec_group) != NID_X9_62_prime256v1, SVI_EXTERNAL_FAILURE);
+    if (EVP_PKEY_base_id(pkey) != EVP_PKEY_EC) {
+      public_key_validation = 0;
+    } else {
+      const EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
+      SVI_THROW_IF(!ec_key, SVI_EXTERNAL_FAILURE);
+      const EC_GROUP *ec_group = EC_KEY_get0_group(ec_key);
+      SVI_THROW_IF(!ec_group, SVI_EXTERNAL_FAILURE);
+      if (EC_GROUP_get_curve_name(ec_group) != NID_X9_62_prime256v1) {
+        public_key_validation = 0;
+      }
+    }
 
     // The Public key is of correct type and size.
     self->public_key = public_key;
@@ -272,6 +278,8 @@ set_axis_communications_public_key(void *handle,
 
   BIO_free(bp);
   EVP_PKEY_free(pkey);
+
+  self->supplemental_authenticity.public_key_validation = public_key_validation;
 
   return status;
 }
