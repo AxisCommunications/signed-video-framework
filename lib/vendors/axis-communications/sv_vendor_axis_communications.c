@@ -74,7 +74,15 @@ typedef struct _sv_vendor_axis_communications_t {
 void *
 sv_vendor_axis_communications_setup(void)
 {
-  return calloc(1, sizeof(sv_vendor_axis_communications_t));
+  sv_vendor_axis_communications_t *self = calloc(1, sizeof(sv_vendor_axis_communications_t));
+
+  if (!self) return NULL;
+
+  // Initialize |public_key_validation| to unknown/error.
+  self->supplemental_authenticity.public_key_validation = -1;
+  strcpy(self->supplemental_authenticity.serial_number, "Unknown");
+
+  return (void *)self;
 }
 
 void
