@@ -39,6 +39,9 @@ static const sv_tlv_tag_t axis_communications_encoders[AXIS_COMMUNICATIONS_NUM_E
 };
 
 #define NUM_UNTRUSTED_CERTIFICATES 2  // |certificate_chain| has 2 untrusted certificates.
+#define CHIP_ID_SIZE 18
+#define CHIP_ID_PREFIX_SIZE 4
+#define AXIS_EDGE_VAULT_ATTESTATION_STR "Axis Edge Vault Attestation "
 
 static const char *kTrustedAxisRootCA =
     "-----BEGIN CERTIFICATE-----\n"
@@ -65,6 +68,7 @@ typedef struct _sv_vendor_axis_communications_t {
   char *certificate_chain;
 
   X509 *trusted_ca;  // The trusted Axis root CA in X509 form.
+  uint8_t chip_id[CHIP_ID_SIZE];
 
   // Public key to validate using |attestation| and |certificate_chain|
   const void *public_key;  // A pointer to the public key used for validation. Assumed to be a PEM.
@@ -79,7 +83,7 @@ typedef struct _sv_vendor_axis_communications_t {
 static svi_rc
 verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificates);
 static svi_rc
-verify_and_parse_certificate_chain(const sv_vendor_axis_communications_t *self);
+verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self);
 
 // Definitions of static functions.
 
@@ -134,13 +138,16 @@ verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificat
  * the expected format will return SVI_VENDOR.
  */
 static svi_rc
-verify_and_parse_certificate_chain(const sv_vendor_axis_communications_t *self)
+verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
 {
   if (!self || !self->certificate_chain) return SVI_INVALID_PARAMETER;
 
   BIO *stackbio = NULL;
   STACK_OF(X509) *untrusted_certificates = NULL;
   int num_certificates = 0;
+  ASN1_STRING *entry_data = NULL;
+  unsigned char *common_name_str = NULL;
+  const uint8_t kChipIDPrefix[CHIP_ID_PREFIX_SIZE] = {0x04, 0x00, 0x50, 0x01};
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
@@ -157,6 +164,9 @@ verify_and_parse_certificate_chain(const sv_vendor_axis_communications_t *self)
     // prevents from potential deadlock.
     // Get the first certificate from |stackbio|.
     X509 *certificate = PEM_read_bio_X509(stackbio, NULL, NULL, NULL);
+    // The first certificate is the |attestation_certificate|. Keep a reference to it to extract
+    // information from it.
+    X509 *attestation_certificate = certificate;
     while (certificate && num_certificates < NUM_UNTRUSTED_CERTIFICATES + 1) {
       num_certificates = sk_X509_push(untrusted_certificates, certificate);
       // Get the next certificate.
@@ -166,13 +176,35 @@ verify_and_parse_certificate_chain(const sv_vendor_axis_communications_t *self)
 
     SVI_THROW(verify_certificate_chain(self->trusted_ca, untrusted_certificates));
 
-    // TODO: Extract chip id and serial number from the |attestation_certificate|.
+    // Extract |chip_id| from the |attestation_certificate|.
+    X509_NAME *subject = X509_get_subject_name(attestation_certificate);
+    int common_name_index = X509_NAME_get_index_by_NID(subject, NID_commonName, -1);
+    SVI_THROW_IF(common_name_index < 0, SVI_VENDOR);
+    // Found CN in certificate. Read that entry and convert to UTF8.
+    entry_data = X509_NAME_ENTRY_get_data(X509_NAME_get_entry(subject, common_name_index));
+    SVI_THROW_IF(ASN1_STRING_to_UTF8(&common_name_str, entry_data) <= 0, SVI_EXTERNAL_FAILURE);
+    // Find the Chip ID string, which shows up right after "Axis Edge Vault Attestation ".
+    char *chip_id_str = strstr((char *)common_name_str, AXIS_EDGE_VAULT_ATTESTATION_STR);
+    SVI_THROW_IF(!chip_id_str, SVI_VENDOR);
+    char *pos = chip_id_str + strlen(AXIS_EDGE_VAULT_ATTESTATION_STR);
+    size_t chip_id_size = strlen(pos);
+    // Note that chip id is displayed in hexadecimal form in the certificate, hence each byte
+    // corresponds to two characters.
+    SVI_THROW_IF(chip_id_size != CHIP_ID_SIZE * 2, SVI_VENDOR);
+    for (int idx = 0; idx < CHIP_ID_SIZE; idx++, pos += 2) {
+      sscanf(pos, "%2hhx", &self->chip_id[idx]);
+    }
+    // Check that the chip ID has correct prefix.
+    SVI_THROW_IF(memcmp(self->chip_id, kChipIDPrefix, CHIP_ID_PREFIX_SIZE) != 0, SVI_VENDOR);
+
+    // TODO: Extract serial number from the |attestation_certificate|.
 
     // TODO: Get public key from |attestation_certificate| and verify it.
 
   SVI_CATCH()
   SVI_DONE(status)
 
+  OPENSSL_free(common_name_str);
   sk_X509_pop_free(untrusted_certificates, X509_free);
   BIO_free(stackbio);
 
