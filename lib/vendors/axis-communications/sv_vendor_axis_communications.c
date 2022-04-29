@@ -42,6 +42,7 @@ static const sv_tlv_tag_t axis_communications_encoders[AXIS_COMMUNICATIONS_NUM_E
 #define CHIP_ID_SIZE 18
 #define CHIP_ID_PREFIX_SIZE 4
 #define AXIS_EDGE_VAULT_ATTESTATION_STR "Axis Edge Vault Attestation "
+#define SERIAL_NUMBER_UNKNOWN "Unknown"
 
 static const char *kTrustedAxisRootCA =
     "-----BEGIN CERTIFICATE-----\n"
@@ -147,6 +148,7 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
   int num_certificates = 0;
   ASN1_STRING *entry_data = NULL;
   unsigned char *common_name_str = NULL;
+  unsigned char *serial_number_str = NULL;
   const uint8_t kChipIDPrefix[CHIP_ID_PREFIX_SIZE] = {0x04, 0x00, 0x50, 0x01};
 
   svi_rc status = SVI_UNKNOWN;
@@ -197,14 +199,30 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
     // Check that the chip ID has correct prefix.
     SVI_THROW_IF(memcmp(self->chip_id, kChipIDPrefix, CHIP_ID_PREFIX_SIZE) != 0, SVI_VENDOR);
 
-    // TODO: Extract serial number from the |attestation_certificate|.
+    // Extract |serial_number| from the |attestation_certificate|.
+    int ser_no_index = X509_NAME_get_index_by_NID(subject, NID_serialNumber, -1);
+    SVI_THROW_IF(ser_no_index < 0, SVI_VENDOR);
+    // Found serial number in certificate. Read that entry and convert to UTF8.
+    entry_data = X509_NAME_ENTRY_get_data(X509_NAME_get_entry(subject, ser_no_index));
+    SVI_THROW_IF(ASN1_STRING_to_UTF8(&serial_number_str, entry_data) <= 0, SVI_EXTERNAL_FAILURE);
+    // Copy only if necessary.
+    if (strcmp(self->supplemental_authenticity.serial_number, (char *)serial_number_str)) {
+      memset(self->supplemental_authenticity.serial_number, 0, SV_VENDOR_AXIS_SER_NO_MAX_LENGTH);
+      strcpy(self->supplemental_authenticity.serial_number, (char *)serial_number_str);
+    }
 
     // TODO: Get public key from |attestation_certificate| and verify it.
 
   SVI_CATCH()
+  {
+    // If no serial number can be found, copy "Unknown" to |serial_number|.
+    memset(self->supplemental_authenticity.serial_number, 0, SV_VENDOR_AXIS_SER_NO_MAX_LENGTH);
+    strcpy(self->supplemental_authenticity.serial_number, SERIAL_NUMBER_UNKNOWN);
+  }
   SVI_DONE(status)
 
   OPENSSL_free(common_name_str);
+  OPENSSL_free(serial_number_str);
   sk_X509_pop_free(untrusted_certificates, X509_free);
   BIO_free(stackbio);
 
@@ -232,7 +250,7 @@ sv_vendor_axis_communications_setup(void)
 
   // Initialize |public_key_validation| to unknown/error.
   self->supplemental_authenticity.public_key_validation = -1;
-  strcpy(self->supplemental_authenticity.serial_number, "Unknown");
+  strcpy(self->supplemental_authenticity.serial_number, SERIAL_NUMBER_UNKNOWN);
 
   if (!self->trusted_ca) {
     DEBUG_LOG("Could not convert Axis root CA to X509");
