@@ -292,6 +292,29 @@ set_axis_communications_public_key(void *handle,
   return status;
 }
 
+svi_rc
+get_axis_communications_supplemental_authenticity(void *handle,
+    sv_vendor_axis_supplemental_authenticity_t **supplemental_authenticity)
+{
+  if (!handle || !supplemental_authenticity) return SVI_INVALID_PARAMETER;
+
+  sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
+
+  // TODO: Fill in the skeleton below step by step.
+  // svi_rc status = SVI_UNKNOWN;
+  // SVI_TRY()
+  //   SVI_THROW(verify_and_parse_certificate_chain(self));
+  //   SVI_THROW(deserialize_attestation(self));
+  //   SVI_THROW(verify_axis_communications_public_key(self));
+
+  // SVI_CATCH()
+  // SVI_DONE(status)
+
+  *supplemental_authenticity = &self->supplemental_authenticity;
+
+  return SVI_OK;
+}
+
 // Definitions of public APIs declared in sv_vendor_axis_communications.h.
 
 SignedVideoReturnCode
