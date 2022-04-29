@@ -68,6 +68,8 @@ typedef struct _sv_vendor_axis_communications_t {
   uint8_t attestation_size;
   char *certificate_chain;
 
+  // Information needed for public key validation.
+  EVP_MD_CTX *md_ctx;  // Message digest context for verifying the public key
   X509 *trusted_ca;  // The trusted Axis root CA in X509 form.
   uint8_t chip_id[CHIP_ID_SIZE];
 
@@ -143,6 +145,7 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
 {
   if (!self || !self->certificate_chain) return SVI_INVALID_PARAMETER;
 
+  EVP_MD_CTX *md_ctx = NULL;
   BIO *stackbio = NULL;
   STACK_OF(X509) *untrusted_certificates = NULL;
   int num_certificates = 0;
@@ -150,6 +153,9 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
   unsigned char *common_name_str = NULL;
   unsigned char *serial_number_str = NULL;
   const uint8_t kChipIDPrefix[CHIP_ID_PREFIX_SIZE] = {0x04, 0x00, 0x50, 0x01};
+
+  // Remove the old message digest context.
+  EVP_MD_CTX_free(self->md_ctx);
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
@@ -211,15 +217,30 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
       strcpy(self->supplemental_authenticity.serial_number, (char *)serial_number_str);
     }
 
-    // TODO: Get public key from |attestation_certificate| and verify it.
+    // Get the public key from |attestation_certificate| and verify it.
+    EVP_PKEY *attestation_pubkey = X509_get0_pubkey(attestation_certificate);
+    SVI_THROW_IF(!attestation_pubkey, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(EVP_PKEY_base_id(attestation_pubkey) != EVP_PKEY_EC, SVI_VENDOR);
+    // Create a new message digest context and initiate it. This context will later be used to
+    // verify the public key used when validating the video.
+    md_ctx = EVP_MD_CTX_new();
+    SVI_THROW_IF(!md_ctx, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(EVP_DigestVerifyInit(md_ctx, NULL, EVP_sha256(), NULL, attestation_pubkey) < 1,
+        SVI_EXTERNAL_FAILURE);
 
   SVI_CATCH()
   {
     // If no serial number can be found, copy "Unknown" to |serial_number|.
     memset(self->supplemental_authenticity.serial_number, 0, SV_VENDOR_AXIS_SER_NO_MAX_LENGTH);
     strcpy(self->supplemental_authenticity.serial_number, SERIAL_NUMBER_UNKNOWN);
+    // Erase the context if present.
+    EVP_MD_CTX_free(md_ctx);
+    md_ctx = NULL;
   }
   SVI_DONE(status)
+
+  // Transfer ownership.
+  self->md_ctx = md_ctx;
 
   OPENSSL_free(common_name_str);
   OPENSSL_free(serial_number_str);
