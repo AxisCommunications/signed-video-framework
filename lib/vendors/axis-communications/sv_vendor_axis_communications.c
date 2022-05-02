@@ -337,16 +337,16 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
     SVI_THROW_IF(data_size <= (size_t)attestation_size + 2, SVI_DECODING_ERROR);
     cert_size = data_size - attestation_size - 2;
 
-    // Allocate memory for |certificate_chain| including |kTrustedAxisRootCA| and null-terminated
-    // character.
+    // Allocate memory for |certificate_chain| including null-terminated character.
     if (!self->certificate_chain) {
-      self->certificate_chain = calloc(1, cert_size + strlen(kTrustedAxisRootCA) + 1);
+      self->certificate_chain = calloc(1, cert_size + 1);
       SVI_THROW_IF(!self->certificate_chain, SVI_MEMORY);
+      memcpy(self->certificate_chain, data_ptr, cert_size);
     }
-    memcpy(self->certificate_chain, data_ptr, cert_size);
+    // Compare incoming certificate chain against present and throw an error if they differ.
+    SVI_THROW_IF(memcmp(data_ptr, self->certificate_chain, cert_size), SVI_NOT_SUPPORTED);
+    // Move pointer past |certificate_chain|.
     data_ptr += cert_size;
-    // Copy the |kTrustedAxisRootCA| to end of |certificate_chain|.
-    strcpy(self->certificate_chain + cert_size, kTrustedAxisRootCA);
 
     SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
   SVI_CATCH()
