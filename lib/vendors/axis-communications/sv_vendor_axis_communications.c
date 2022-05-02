@@ -75,6 +75,8 @@ static const uint8_t kAttributes[ATTRIBUTES_LENGTH] = {0x7b, 0x00, 0x02, 0x01, 0
 static const uint8_t kFreshness[FRESHNESS_LENGTH] = {
     0x92, 0xbb, 0xed, 0xfb, 0x98, 0x82, 0xac, 0x16, 0xc7, 0xf0, 0x1a, 0xe4, 0x59, 0x05, 0x96, 0x04};
 
+#define SIGNED_DATA_SIZE (HASH_DIGEST_SIZE + 52 + PUBLIC_KEY_UNCOMPRESSED_SIZE + ATTRIBUTES_LENGTH)
+
 #define OBJECT_ID_SIZE 4
 #define TIMESTAMP_SIZE 12
 struct attestation_report {
@@ -369,6 +371,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
   EVP_PKEY *pkey = NULL;
   uint8_t *public_key_uncompressed = NULL;
   size_t public_key_uncompressed_size = 0;
+  uint8_t *signed_data = NULL;
   // Initiate verification to not feasible/error.
   int verified_signature = -1;
 
@@ -386,6 +389,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     const EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
     public_key_uncompressed_size =
         EC_KEY_key2buf(ec_key, POINT_CONVERSION_UNCOMPRESSED, &public_key_uncompressed, NULL);
+    // Check size and prefix of |public_key| after conversion.
     SVI_THROW_IF(public_key_uncompressed_size != PUBLIC_KEY_UNCOMPRESSED_SIZE, SVI_VENDOR);
     SVI_THROW_IF(public_key_uncompressed[0] != PUBLIC_KEY_UNCOMPRESSED_PREFIX, SVI_VENDOR);
 
@@ -402,9 +406,56 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     uint8_t binary_raw_data_hash[HASH_DIGEST_SIZE] = {0};
     SHA256(binary_raw_data, BINARY_RAW_DATA_SIZE, binary_raw_data_hash);
 
-    // TODO: Create and fill in |signed_data|.
+    // Create and fill in |signed_data|.
+    signed_data = calloc(1, SIGNED_DATA_SIZE);
+    uint8_t *sd_ptr = signed_data;
 
-    // TODO: Verify signature with |signed_data|.
+    // Add hash of |binary_raw_data|.
+    memcpy(sd_ptr, binary_raw_data_hash, HASH_DIGEST_SIZE);
+    sd_ptr += HASH_DIGEST_SIZE;
+    *sd_ptr++ = 0x41;
+    *sd_ptr++ = 0x82;
+
+    // Add public key in uncompressed Weierstrass form.
+    *sd_ptr++ = (uint8_t)((PUBLIC_KEY_UNCOMPRESSED_SIZE >> 8) & 0x000000ff);
+    *sd_ptr++ = (uint8_t)(PUBLIC_KEY_UNCOMPRESSED_SIZE & 0x000000ff);
+    memcpy(sd_ptr, public_key_uncompressed, PUBLIC_KEY_UNCOMPRESSED_SIZE);
+    sd_ptr += PUBLIC_KEY_UNCOMPRESSED_SIZE;
+
+    // Add |chip_id|.
+    *sd_ptr++ = 0x42;
+    *sd_ptr++ = 0x82;
+    *sd_ptr++ = 0x00;
+    *sd_ptr++ = 0x12;
+    memcpy(sd_ptr, self->chip_id, CHIP_ID_SIZE);
+    sd_ptr += CHIP_ID_SIZE;
+
+    // Add attributes.
+    *sd_ptr++ = 0x43;
+    *sd_ptr++ = 0x82;
+    *sd_ptr++ = 0x00;
+    *sd_ptr++ = ATTRIBUTES_LENGTH;
+    memcpy(sd_ptr, kAttributes, ATTRIBUTES_LENGTH);
+    sd_ptr += ATTRIBUTES_LENGTH;
+
+    *sd_ptr++ = 0x44;
+    *sd_ptr++ = 0x82;
+    *sd_ptr++ = 0x00;
+    *sd_ptr++ = 0x02;
+    *sd_ptr++ = 0x00;
+    *sd_ptr++ = 0x20;
+    *sd_ptr++ = 0x4f;
+    *sd_ptr++ = 0x82;
+    *sd_ptr++ = 0x00;
+    *sd_ptr++ = 0x0c;
+    // Add timestamp.
+    memcpy(sd_ptr, self->attestation_report.attestation_list.timestamp, TIMESTAMP_SIZE);
+    sd_ptr += TIMESTAMP_SIZE;
+
+    // Verify signature (which is present in the |attestation_report|) with |signed_data|.
+    verified_signature = EVP_DigestVerify(self->md_ctx,
+        self->attestation_report.attestation_list.signature,
+        self->attestation_report.attestation_list.signature_size, signed_data, SIGNED_DATA_SIZE);
     SVI_THROW_IF(verified_signature < 0, SVI_EXTERNAL_FAILURE);
 
     // If verification fails (is 0) the result should never be overwritten with success (1) later.
@@ -413,6 +464,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
   SVI_CATCH()
   SVI_DONE(status)
 
+  free(signed_data);
   OPENSSL_free(public_key_uncompressed);
   EVP_PKEY_free(pkey);
   BIO_free(bio);
