@@ -38,7 +38,9 @@ static const sv_tlv_tag_t axis_communications_encoders[AXIS_COMMUNICATIONS_NUM_E
     VENDOR_AXIS_COMMUNICATIONS_TAG,
 };
 
-static const char *trustedAxisRootCA =
+#define NUM_UNTRUSTED_CERTIFICATES 2  // |certificate_chain| has 2 untrusted certificates.
+
+static const char *kTrustedAxisRootCA =
     "-----BEGIN CERTIFICATE-----\n"
     "MIIClDCCAfagAwIBAgIBATAKBggqhkjOPQQDBDBcMR8wHQYDVQQKExZBeGlzIENv\n"
     "bW11bmljYXRpb25zIEFCMRgwFgYDVQQLEw9BeGlzIEVkZ2UgVmF1bHQxHzAdBgNV\n"
@@ -62,6 +64,8 @@ typedef struct _sv_vendor_axis_communications_t {
   uint8_t attestation_size;
   char *certificate_chain;
 
+  X509 *trusted_ca;  // The trusted Axis root CA in X509 form.
+
   // Public key to validate using |attestation| and |certificate_chain|
   const void *public_key;  // A pointer to the public key used for validation. Assumed to be a PEM.
   // Ownership is NOT transferred.
@@ -74,6 +78,8 @@ typedef struct _sv_vendor_axis_communications_t {
 // Declarations of static functions.
 static svi_rc
 verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificates);
+static svi_rc
+verify_and_parse_certificate_chain(const sv_vendor_axis_communications_t *self);
 
 // Definitions of static functions.
 
@@ -81,7 +87,7 @@ verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificat
  *
  * Uses the |trusted_ca| to verify the first certificate in the chain. The last certificate verified
  * is the |attestation_certificate| which will be used to verify the transmitted public key. */
-static ATTR_UNUSED svi_rc
+static svi_rc
 verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificates)
 {
   assert(trusted_ca && untrusted_certificates);
@@ -119,6 +125,60 @@ verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificat
   return status;
 }
 
+/* Puts the untrusted certificate chain in a stack of X509 certificates. This stack is then
+ * verified against the trusted Axis root CA. Upon success, parses |chip_id|, |serial_number| and
+ * gets the public key from the |attestation_certificate|. Further, a message digest context
+ * |md_ctx| is created and initiated.
+ *
+ * If all goes well, ownership of |md_ctx| is transfered to |self|. Anything that does not follow
+ * the expected format will return SVI_VENDOR.
+ */
+static svi_rc
+verify_and_parse_certificate_chain(const sv_vendor_axis_communications_t *self)
+{
+  if (!self || !self->certificate_chain) return SVI_INVALID_PARAMETER;
+
+  BIO *stackbio = NULL;
+  STACK_OF(X509) *untrusted_certificates = NULL;
+  int num_certificates = 0;
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    // Create an empty stack of X509 certificates.
+    untrusted_certificates = sk_X509_new_null();
+    SVI_THROW_IF(!untrusted_certificates, SVI_EXTERNAL_FAILURE);
+    sk_X509_zero(untrusted_certificates);
+    // Put |certificate_chain| in a BIO.
+    stackbio = BIO_new_mem_buf(self->certificate_chain, (int)strlen(self->certificate_chain));
+    SVI_THROW_IF(!stackbio, SVI_EXTERNAL_FAILURE);
+
+    // Turn |certificate_chain| into stack of X509, by looping through |certificate_chain| and
+    // pushing them to |untrusted_certificates|. A hard coded maximum number of certificates
+    // prevents from potential deadlock.
+    // Get the first certificate from |stackbio|.
+    X509 *certificate = PEM_read_bio_X509(stackbio, NULL, NULL, NULL);
+    while (certificate && num_certificates < NUM_UNTRUSTED_CERTIFICATES + 1) {
+      num_certificates = sk_X509_push(untrusted_certificates, certificate);
+      // Get the next certificate.
+      certificate = PEM_read_bio_X509(stackbio, NULL, NULL, NULL);
+    }
+    SVI_THROW_IF(num_certificates > NUM_UNTRUSTED_CERTIFICATES, SVI_VENDOR);
+
+    SVI_THROW(verify_certificate_chain(self->trusted_ca, untrusted_certificates));
+
+    // TODO: Extract chip id and serial number from the |attestation_certificate|.
+
+    // TODO: Get public key from |attestation_certificate| and verify it.
+
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  sk_X509_pop_free(untrusted_certificates, X509_free);
+  BIO_free(stackbio);
+
+  return status;
+}
+
 // Definitions of non-public APIs, declared in sv_vendor_axis_communications_internal.h.
 
 void *
@@ -128,9 +188,25 @@ sv_vendor_axis_communications_setup(void)
 
   if (!self) return NULL;
 
+  // Store the |kTrustedAxisRootCA| in X509 format.
+  BIO *ca_bio = BIO_new(BIO_s_mem());
+  if (ca_bio) {
+    if (BIO_puts(ca_bio, kTrustedAxisRootCA) > 0) {
+      // Successfully written |kTrustedAxisRootCA| to |ca_bio|. Convert to X509.
+      self->trusted_ca = PEM_read_bio_X509(ca_bio, NULL, NULL, NULL);
+    }
+    BIO_free(ca_bio);
+  }
+
   // Initialize |public_key_validation| to unknown/error.
   self->supplemental_authenticity.public_key_validation = -1;
   strcpy(self->supplemental_authenticity.serial_number, "Unknown");
+
+  if (!self->trusted_ca) {
+    DEBUG_LOG("Could not convert Axis root CA to X509");
+    sv_vendor_axis_communications_teardown((void *)self);
+    self = NULL;
+  }
 
   return (void *)self;
 }
@@ -138,11 +214,13 @@ sv_vendor_axis_communications_setup(void)
 void
 sv_vendor_axis_communications_teardown(void *handle)
 {
+  if (!handle) return;
+
   sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
-  if (!self) return;
 
   free(self->attestation);
   free(self->certificate_chain);
+  OPENSSL_free(self->trusted_ca);
   free(self);
 }
 
@@ -167,8 +245,8 @@ get_certificate_chain_encode_size(const sv_vendor_axis_communications_t *self)
     cert_chain_ptr = cert_ptr + 1;
   }
   // Check if |cert_ptr| is the third certificate and compare it against expected
-  // |trustedAxisRootCA|.
-  if ((certs_left == 0) && cert_ptr && (strcmp(cert_ptr, trustedAxisRootCA) == 0)) {
+  // |kTrustedAxisRootCA|.
+  if ((certs_left == 0) && cert_ptr && (strcmp(cert_ptr, kTrustedAxisRootCA) == 0)) {
     certificate_chain_encode_size = cert_ptr - self->certificate_chain;
   }
 
@@ -192,7 +270,7 @@ encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, uint8_
   //  - version (1 byte)
   //  - attestation_size (1 byte)
   //  - attestation (attestation_size bytes)
-  //  - certificate_chain (certificate_chain_size bytes) excluding |trustedAxisRootCA|
+  //  - certificate_chain (certificate_chain_size bytes) excluding |kTrustedAxisRootCA|
 
   data_size += sizeof(version);
   // Size of attestation report
@@ -259,16 +337,16 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
     SVI_THROW_IF(data_size <= (size_t)attestation_size + 2, SVI_DECODING_ERROR);
     cert_size = data_size - attestation_size - 2;
 
-    // Allocate memory for |certificate_chain| including |trustedAxisRootCA| and null-terminated
-    // character.
+    // Allocate memory for |certificate_chain| including null-terminated character.
     if (!self->certificate_chain) {
-      self->certificate_chain = calloc(1, cert_size + strlen(trustedAxisRootCA) + 1);
+      self->certificate_chain = calloc(1, cert_size + 1);
       SVI_THROW_IF(!self->certificate_chain, SVI_MEMORY);
+      memcpy(self->certificate_chain, data_ptr, cert_size);
     }
-    memcpy(self->certificate_chain, data_ptr, cert_size);
+    // Compare incoming certificate chain against present and throw an error if they differ.
+    SVI_THROW_IF(memcmp(data_ptr, self->certificate_chain, cert_size), SVI_NOT_SUPPORTED);
+    // Move pointer past |certificate_chain|.
     data_ptr += cert_size;
-    // Copy the |trustedAxisRootCA| to end of |certificate_chain|.
-    strcpy(self->certificate_chain + cert_size, trustedAxisRootCA);
 
     SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
   SVI_CATCH()
@@ -351,18 +429,28 @@ get_axis_communications_supplemental_authenticity(void *handle,
   sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
 
   // TODO: Fill in the skeleton below step by step.
-  // svi_rc status = SVI_UNKNOWN;
-  // SVI_TRY()
-  //   SVI_THROW(verify_and_parse_certificate_chain(self));
-  //   SVI_THROW(deserialize_attestation(self));
-  //   SVI_THROW(verify_axis_communications_public_key(self));
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    SVI_THROW(verify_and_parse_certificate_chain(self));
+    // SVI_THROW(deserialize_attestation(self));
+    // SVI_THROW(verify_axis_communications_public_key(self));
+    // Set public key validation information.
 
-  // SVI_CATCH()
-  // SVI_DONE(status)
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  // If anything did not fulfill the verification requirements a SVI_VENDOR error is thrown. Set the
+  // |supplemental_authenticity| and change status to SVI_OK, since it is a valid behavior.
+  if (status == SVI_VENDOR) {
+    self->supplemental_authenticity.public_key_validation = 0;
+    memset(self->supplemental_authenticity.serial_number, 0, SV_VENDOR_AXIS_SER_NO_MAX_LENGTH);
+    strcpy(self->supplemental_authenticity.serial_number, "Unknown");
+    status = SVI_OK;
+  }
 
   *supplemental_authenticity = &self->supplemental_authenticity;
 
-  return SVI_OK;
+  return status;
 }
 
 // Definitions of public APIs declared in sv_vendor_axis_communications.h.
