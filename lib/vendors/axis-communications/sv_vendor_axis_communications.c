@@ -43,6 +43,8 @@ static const sv_tlv_tag_t axis_communications_encoders[AXIS_COMMUNICATIONS_NUM_E
 #define CHIP_ID_PREFIX_SIZE 4
 #define AXIS_EDGE_VAULT_ATTESTATION_STR "Axis Edge Vault Attestation "
 #define SERIAL_NUMBER_UNKNOWN "Unknown"
+#define PUBLIC_KEY_UNCOMPRESSED_SIZE 65
+#define PUBLIC_KEY_UNCOMPRESSED_PREFIX 0x04
 
 static const char *kTrustedAxisRootCA =
     "-----BEGIN CERTIFICATE-----\n"
@@ -352,6 +354,10 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
 {
   assert(self);
 
+  BIO *bio = NULL;
+  EVP_PKEY *pkey = NULL;
+  uint8_t *public_key_uncompressed = NULL;
+  size_t public_key_uncompressed_size = 0;
   // Initiate verification to not feasible/error.
   int verified_signature = -1;
 
@@ -359,8 +365,18 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
   SVI_TRY()
     // If no message digest context exists, the |public_key| cannot be validated.
     SVI_THROW_IF(!self->md_ctx, SVI_VENDOR);
-    // TODO: Convert |public_key| to uncompressed Weierstrass form
+    SVI_THROW_IF(!self->public_key || self->public_key_size == 0, SVI_NOT_SUPPORTED);
+    // Convert |public_key| to uncompressed Weierstrass form which will be part of |signed_data|.
     //   public_key -> BIO -> EVP_PKEY -> EC_KEY -> EC_KEY_key2buf
+    bio = BIO_new_mem_buf(self->public_key, (int)self->public_key_size);
+    SVI_THROW_IF(!bio, SVI_EXTERNAL_FAILURE);
+    pkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
+    SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
+    const EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
+    public_key_uncompressed_size =
+        EC_KEY_key2buf(ec_key, POINT_CONVERSION_UNCOMPRESSED, &public_key_uncompressed, NULL);
+    SVI_THROW_IF(public_key_uncompressed_size != PUBLIC_KEY_UNCOMPRESSED_SIZE, SVI_VENDOR);
+    SVI_THROW_IF(public_key_uncompressed[0] != PUBLIC_KEY_UNCOMPRESSED_PREFIX, SVI_VENDOR);
 
     // TODO: Construct the binary raw data.
 
@@ -374,6 +390,10 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
 
   SVI_CATCH()
   SVI_DONE(status)
+
+  OPENSSL_free(public_key_uncompressed);
+  EVP_PKEY_free(pkey);
+  BIO_free(bio);
 
   return status;
 }
