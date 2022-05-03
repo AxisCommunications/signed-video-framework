@@ -289,12 +289,12 @@ deserialize_attestation(sv_vendor_axis_communications_t *self)
 {
   assert(self);
 
+  if (!self->attestation) return SVI_VENDOR;
+  // The |attestation_size| has to be at least 23 bytes to be deserializable.
+  if (self->attestation_size < 24) return SVI_VENDOR;
+
   uint8_t *attestation_ptr = (uint8_t *)self->attestation;
   size_t signature_size = 0;
-
-  if (!self->attestation) return SVI_VENDOR;
-  // The |attestation_size| has to be at least 23 bytes to be deserialized.
-  if (self->attestation_size < 24) return SVI_VENDOR;
 
   // Check if |attestation_list_length| != 1 before deserializing.
   if (*(attestation_ptr + 8) != 1) {
