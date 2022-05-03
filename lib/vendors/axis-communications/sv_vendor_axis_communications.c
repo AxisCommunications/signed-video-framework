@@ -24,6 +24,7 @@
 #include <openssl/bio.h>  // BIO_*
 #include <openssl/evp.h>  // EVP_*
 #include <openssl/pem.h>  // PEM_*
+#include <openssl/sha.h>  // SHA256
 #include <openssl/x509.h>  // X509_*
 #include <stdbool.h>
 #include <stdlib.h>  // malloc, memcpy, calloc, free
@@ -45,6 +46,7 @@ static const sv_tlv_tag_t axis_communications_encoders[AXIS_COMMUNICATIONS_NUM_E
 #define SERIAL_NUMBER_UNKNOWN "Unknown"
 #define PUBLIC_KEY_UNCOMPRESSED_SIZE 65
 #define PUBLIC_KEY_UNCOMPRESSED_PREFIX 0x04
+#define BINARY_RAW_DATA_SIZE 40
 
 static const char *kTrustedAxisRootCA =
     "-----BEGIN CERTIFICATE-----\n"
@@ -63,6 +65,15 @@ static const char *kTrustedAxisRootCA =
     "3QLOhEJzyHqPBHTChxEd5bGVUW8CQgDR/ZAr405Ohk5kpM/gmzELP+fYDZfuTFut\n"
     "w3S8HMYSvMWbTCzN+qnq+GV1goSS6vjVr95EpDxCVIxkKOvuxhyVDg==\n"
     "-----END CERTIFICATE-----\n";
+
+#define ATTRIBUTES_LENGTH 37
+static const uint8_t kAttributes[ATTRIBUTES_LENGTH] = {0x7b, 0x00, 0x02, 0x01, 0x29, 0x01, 0x00,
+    0x00, 0x7b, 0x00, 0x00, 0x03, 0x00, 0x00, 0x08, 0x7b, 0x00, 0x00, 0x03, 0x1f, 0x3c, 0x00, 0x00,
+    0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00};
+
+#define FRESHNESS_LENGTH 16
+static const uint8_t kFreshness[FRESHNESS_LENGTH] = {
+    0x92, 0xbb, 0xed, 0xfb, 0x98, 0x82, 0xac, 0x16, 0xc7, 0xf0, 0x1a, 0xe4, 0x59, 0x05, 0x96, 0x04};
 
 #define OBJECT_ID_SIZE 4
 #define TIMESTAMP_SIZE 12
@@ -378,7 +389,18 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     SVI_THROW_IF(public_key_uncompressed_size != PUBLIC_KEY_UNCOMPRESSED_SIZE, SVI_VENDOR);
     SVI_THROW_IF(public_key_uncompressed[0] != PUBLIC_KEY_UNCOMPRESSED_PREFIX, SVI_VENDOR);
 
-    // TODO: Construct the binary raw data.
+    // Construct the binary raw data which will be part of |signed_data|.
+    uint8_t binary_raw_data[BINARY_RAW_DATA_SIZE] = {0x80, 0x22, 0x00, 0x00, 0x00, 0x00, 0x21, 0x41,
+        0x04, 0xf0, 0x00, 0x00, 0x12, 0x45, 0x04, 0xf0, 0x00, 0x00, 0x12, 0x46, 0x01, 0x21, 0x47,
+        0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00};
+    // Add Object ID at positions 9-12.
+    memcpy(&binary_raw_data[9], kAttributes, OBJECT_ID_SIZE);
+    // Add Freshness at positions 24-39.
+    memcpy(&binary_raw_data[24], kFreshness, FRESHNESS_LENGTH);
+    // Hash |binary_raw_data|.
+    uint8_t binary_raw_data_hash[HASH_DIGEST_SIZE] = {0};
+    SHA256(binary_raw_data, BINARY_RAW_DATA_SIZE, binary_raw_data_hash);
 
     // TODO: Create and fill in |signed_data|.
 
