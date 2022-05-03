@@ -62,6 +62,27 @@ static const char *kTrustedAxisRootCA =
     "w3S8HMYSvMWbTCzN+qnq+GV1goSS6vjVr95EpDxCVIxkKOvuxhyVDg==\n"
     "-----END CERTIFICATE-----\n";
 
+#define OBJECT_ID_SIZE 4
+#define TIMESTAMP_SIZE 12
+struct attestation_report {
+  // Header
+  uint8_t header[2];
+  // Version of the report
+  uint8_t version[2];
+  // The ID of a Secure Element object
+  uint8_t object_id[OBJECT_ID_SIZE];
+  // An array of attestation reports, but only one element is supported
+  size_t attestation_list_length;
+  // Store a single element in |attestation_list|, since only one is expected and correct
+  struct attestation_data {
+    // The timestamp for this attestation part
+    uint8_t timestamp[TIMESTAMP_SIZE];
+    // The signature data
+    size_t signature_size;
+    uint8_t signature[512];
+  } attestation_list;
+};
+
 // Definition of |vendor_handle|.
 typedef struct _sv_vendor_axis_communications_t {
   void *attestation;
@@ -72,6 +93,7 @@ typedef struct _sv_vendor_axis_communications_t {
   EVP_MD_CTX *md_ctx;  // Message digest context for verifying the public key
   X509 *trusted_ca;  // The trusted Axis root CA in X509 form.
   uint8_t chip_id[CHIP_ID_SIZE];
+  struct attestation_report attestation_report;
 
   // Public key to validate using |attestation| and |certificate_chain|
   const void *public_key;  // A pointer to the public key used for validation. Assumed to be a PEM.
@@ -87,6 +109,8 @@ static svi_rc
 verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificates);
 static svi_rc
 verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self);
+static svi_rc
+deserialize_attestation(sv_vendor_axis_communications_t *self);
 
 // Definitions of static functions.
 
@@ -248,6 +272,64 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
   BIO_free(stackbio);
 
   return status;
+}
+
+/* Deserializes |attestation| into |attestation_report|.
+ * The structure of |attestation| is:
+ *   - header (2 bytes)
+ *   - version (2 bytes)
+ *   - object_id (4 bytes)
+ *   - attestation_list_length (1 byte) NOTE: Struct only supports one list item
+ *   - attestation_list
+ *     - timestamp (12 bytes)
+ *     - signature_size (2 bytes)
+ *     - signature (|signature_size| bytes) */
+static svi_rc
+deserialize_attestation(sv_vendor_axis_communications_t *self)
+{
+  assert(self);
+
+  if (!self->attestation) return SVI_VENDOR;
+  // The |attestation_size| has to be at least 23 bytes to be deserializable.
+  if (self->attestation_size < 24) return SVI_VENDOR;
+
+  uint8_t *attestation_ptr = (uint8_t *)self->attestation;
+  size_t signature_size = 0;
+
+  // Check if |attestation_list_length| != 1 before deserializing.
+  if (*(attestation_ptr + 8) != 1) {
+    DEBUG_LOG("Attestation has more than 1 item in attestation list.");
+    return SVI_VENDOR;
+  }
+  // Copy header (2 bytes)
+  memcpy(self->attestation_report.header, attestation_ptr, 2);
+  attestation_ptr += 2;
+  // Copy version (2 bytes)
+  memcpy(self->attestation_report.version, attestation_ptr, 2);
+  attestation_ptr += 2;
+  // Copy object_id (4 bytes)
+  memcpy(self->attestation_report.object_id, attestation_ptr, 4);
+  attestation_ptr += 4;
+  // Copy attestation_list_length (1 byte)
+  memcpy(&self->attestation_report.attestation_list_length, attestation_ptr, 1);
+  attestation_ptr += 1;
+  // Copy timestamp (12 byte)
+  memcpy(self->attestation_report.attestation_list.timestamp, attestation_ptr, 12);
+  attestation_ptr += 12;
+  // Copy signature_size (2 byte)
+  signature_size = (*attestation_ptr << 8) + *(attestation_ptr + 1);
+  attestation_ptr += 2;
+  // Make sure that there is no more data present after the signature.
+  uint8_t *attestation_end = (uint8_t *)self->attestation + (size_t)self->attestation_size;
+  if (attestation_ptr + signature_size != attestation_end) {
+    return SVI_VENDOR;
+  }
+  self->attestation_report.attestation_list.signature_size = signature_size;
+  // Copy signature (|signature_size| byte)
+  memcpy(self->attestation_report.attestation_list.signature, attestation_ptr, signature_size);
+  attestation_ptr += signature_size;
+
+  return SVI_OK;
 }
 
 // Definitions of non-public APIs, declared in sv_vendor_axis_communications_internal.h.
@@ -503,7 +585,7 @@ get_axis_communications_supplemental_authenticity(void *handle,
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     SVI_THROW(verify_and_parse_certificate_chain(self));
-    // SVI_THROW(deserialize_attestation(self));
+    SVI_THROW(deserialize_attestation(self));
     // SVI_THROW(verify_axis_communications_public_key(self));
     // Set public key validation information.
 
