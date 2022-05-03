@@ -131,6 +131,8 @@ static svi_rc
 deserialize_attestation(sv_vendor_axis_communications_t *self);
 static svi_rc
 verify_axis_communications_public_key(sv_vendor_axis_communications_t *self);
+static size_t
+get_untrusted_certificates_size(const sv_vendor_axis_communications_t *self);
 
 // Definitions of static functions.
 
@@ -516,25 +518,30 @@ sv_vendor_axis_communications_teardown(void *handle)
 
   free(self->attestation);
   free(self->certificate_chain);
-  OPENSSL_free(self->trusted_ca);
+  X509_free(self->trusted_ca);
   free(self);
 }
 
-/* This function finds the beginning of the last certificate, which is the public Axis root CA
- * certificate. The size of the other certificates is returned. If the last certificate differs from
- * what is expected, or if number of certificates is not equal to three, 0 is returned.
+/* This function finds the beginning of the last certificate, which is the trusted public Axis root
+ * CA certificate. The size of the other certificates is returned. If the last certificate differs
+ * from what is expected, or if number of certificates is not equal to three, 0 is returned.
+ *
+ * This function is intended to be used on the signing side when encoding the handle, where the
+ * |certificate_chain| includes the trusted Axis root CA. The purpose is to exclude it from the SEI
+ * to reduce bitrate.
  *
  * Note that the returned size excludes any null-terminated characters.
  */
 static size_t
-get_certificate_chain_encode_size(const sv_vendor_axis_communications_t *self)
+get_untrusted_certificates_size(const sv_vendor_axis_communications_t *self)
 {
   size_t certificate_chain_encode_size = 0;
 
-  // Find the start of the third certificate in |certificate_chain|.
+  // Find the start of the third certificate in |certificate_chain|, which should be the
+  // |kTrustedAxisRootCA|.
   const char *cert_chain_ptr = self->certificate_chain;
   const char *cert_ptr = self->certificate_chain;
-  int certs_left = 3;
+  int certs_left = NUM_UNTRUSTED_CERTIFICATES + 1;
   while (certs_left > 0 && cert_ptr) {
     cert_ptr = strstr(cert_chain_ptr, "-----BEGIN CERTIFICATE-----");
     certs_left--;
@@ -549,17 +556,19 @@ get_certificate_chain_encode_size(const sv_vendor_axis_communications_t *self)
   return certificate_chain_encode_size;
 }
 
+/* Encodes the handle data into the TLV tag VENDOR_AXIS_COMMUNICATIONS_TAG. */
 size_t
 encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, uint8_t *data)
 {
-  sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
-  if (!self) return 0;
+  if (!handle) return 0;
 
+  sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
   size_t data_size = 0;
-  size_t certificate_chain_encode_size = get_certificate_chain_encode_size(self);
+  // Get the size of the untrusted certificates that will be added to the tag.
+  size_t certificate_chain_encode_size = get_untrusted_certificates_size(self);
   const uint8_t version = 1;  // Increment when the change breaks the format
 
-  // If there is no attestation report, skip encoding, that is return 0.
+  // If there is no attestation or certificate chain, skip encoding, that is return 0.
   if (!self->attestation || !self->certificate_chain) return 0;
 
   // Version 1:
@@ -596,12 +605,13 @@ encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, uint8_
   return (data_ptr - data);
 }
 
+/* Decodes the TLV tag VENDOR_AXIS_COMMUNICATIONS_TAG to the handle data. */
 svi_rc
 decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data_size)
 {
-  sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
-  if (!self) return SVI_INVALID_PARAMETER;
+  if (!handle) return SVI_INVALID_PARAMETER;
 
+  sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
   const uint8_t *data_ptr = data;
   uint8_t version = *data_ptr++;
   uint8_t attestation_size = 0;
@@ -609,7 +619,7 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
+    SVI_THROW_IF(version != 1, SVI_INCOMPATIBLE_VERSION);
     // Read |attestation_size|.
     attestation_size = *data_ptr++;
     SVI_THROW_IF(attestation_size == 0, SVI_NOT_SUPPORTED);
@@ -617,13 +627,15 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
     if (!self->attestation) {
       self->attestation = malloc(attestation_size);
       SVI_THROW_IF(!self->attestation, SVI_MEMORY);
+      // Read |attestation|.
+      memcpy(self->attestation, data_ptr, attestation_size);
       self->attestation_size = attestation_size;
     }
-    // If |attestation| has already been allocated, but with a different size. Something has gone
-    // wrong or someone has manipulated the data.
+    // Check if the received |attestation| differ from the present one. If so, return
+    // SVI_NOT_SUPPORTED, since a change in attestation is not allowed.
     SVI_THROW_IF(attestation_size != self->attestation_size, SVI_NOT_SUPPORTED);
-    // Read |attestation|
-    memcpy(self->attestation, data_ptr, attestation_size);
+    SVI_THROW_IF(memcmp(data_ptr, self->attestation, attestation_size), SVI_NOT_SUPPORTED);
+    // Move pointer past |attestation|.
     data_ptr += attestation_size;
 
     // Determine size of |certificate_chain|. Equals |data_size| minus
