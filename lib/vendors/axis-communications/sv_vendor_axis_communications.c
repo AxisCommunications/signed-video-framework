@@ -111,6 +111,8 @@ static svi_rc
 verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self);
 static svi_rc
 deserialize_attestation(sv_vendor_axis_communications_t *self);
+static svi_rc
+verify_axis_communications_public_key(sv_vendor_axis_communications_t *self);
 
 // Definitions of static functions.
 
@@ -330,6 +332,50 @@ deserialize_attestation(sv_vendor_axis_communications_t *self)
   attestation_ptr += signature_size;
 
   return SVI_OK;
+}
+
+/* Verifies the transmitted public key, given the |attestation| and |certificate_chain|.
+ *
+ * This function should be called before using the transmitted public key.
+ *
+ * The procedure is to construct |signed_data|, following the same scheme as on camera, and then
+ * verify the signature with it.
+ * |signed_data| should be organized as
+ *   - hash of binary raw data
+ *   - public key in uncompressed Weierstrass form
+ *   - chip id
+ *   - attributes
+ *   - timestamp
+ */
+static svi_rc
+verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
+{
+  assert(self);
+
+  // Initiate verification to not feasible/error.
+  int verified_signature = -1;
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    // If no message digest context exists, the |public_key| cannot be validated.
+    SVI_THROW_IF(!self->md_ctx, SVI_VENDOR);
+    // TODO: Convert |public_key| to uncompressed Weierstrass form
+    //   public_key -> BIO -> EVP_PKEY -> EC_KEY -> EC_KEY_key2buf
+
+    // TODO: Construct the binary raw data.
+
+    // TODO: Create and fill in |signed_data|.
+
+    // TODO: Verify signature with |signed_data|.
+    SVI_THROW_IF(verified_signature < 0, SVI_EXTERNAL_FAILURE);
+
+    // If verification fails (is 0) the result should never be overwritten with success (1) later.
+    self->supplemental_authenticity.public_key_validation &= verified_signature;
+
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  return status;
 }
 
 // Definitions of non-public APIs, declared in sv_vendor_axis_communications_internal.h.
@@ -586,7 +632,7 @@ get_axis_communications_supplemental_authenticity(void *handle,
   SVI_TRY()
     SVI_THROW(verify_and_parse_certificate_chain(self));
     SVI_THROW(deserialize_attestation(self));
-    // SVI_THROW(verify_axis_communications_public_key(self));
+    SVI_THROW(verify_axis_communications_public_key(self));
     // Set public key validation information.
 
   SVI_CATCH()
