@@ -75,10 +75,13 @@ static const uint8_t kAttributes[ATTRIBUTES_LENGTH] = {0x7b, 0x00, 0x02, 0x01, 0
 static const uint8_t kFreshness[FRESHNESS_LENGTH] = {
     0x92, 0xbb, 0xed, 0xfb, 0x98, 0x82, 0xac, 0x16, 0xc7, 0xf0, 0x1a, 0xe4, 0x59, 0x05, 0x96, 0x04};
 
-#define SIGNED_DATA_SIZE (HASH_DIGEST_SIZE + 52 + PUBLIC_KEY_UNCOMPRESSED_SIZE + ATTRIBUTES_LENGTH)
+#define TIMESTAMP_SIZE 12
+#define STATIC_BYTES_SIZE 22  // Bytes in signed data with unknown meaning
+#define SIGNED_DATA_SIZE \
+  (HASH_DIGEST_SIZE + PUBLIC_KEY_UNCOMPRESSED_SIZE + CHIP_ID_SIZE + ATTRIBUTES_LENGTH + \
+      TIMESTAMP_SIZE + STATIC_BYTES_SIZE)
 
 #define OBJECT_ID_SIZE 4
-#define TIMESTAMP_SIZE 12
 struct attestation_report {
   // Header
   uint8_t header[2];
