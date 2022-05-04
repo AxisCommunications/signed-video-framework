@@ -663,10 +663,8 @@ set_axis_communications_public_key(void *handle,
   EVP_PKEY *pkey = NULL;
   BIO *bp = NULL;
 
-  // If the Public key previously has been validated unsuccessful or if the Public key has not
-  // changed, skip checking type and size.
-  if (self->supplemental_authenticity.public_key_validation != 0 ||
-      self->public_key == public_key) {
+  // If the Public key previously has been validated unsuccessful, skip checking type and size.
+  if (self->supplemental_authenticity.public_key_validation == 0) {
     return SVI_OK;
   }
 
