@@ -446,26 +446,40 @@ h26x_nalu_list_get_next_sei_item(const h26x_nalu_list_t *list)
  *   - number of invalid NALUs
  *   - number of missing NALUs
  */
-void
+bool
 h26x_nalu_list_get_stats(const h26x_nalu_list_t *list,
     int *num_invalid_nalus,
     int *num_missing_nalus)
 {
-  if (!list) return;
+  if (!list) return false;
 
   int local_num_invalid_nalus = 0;
   int local_num_missing_nalus = 0;
+  int local_num_valid_nalus = 0;
 
   // From the list, get number of invalid NALUs and number of missing NALUs.
   h26x_nalu_list_item_t *item = list->first_item;
   while (item) {
     if (item->validation_status == 'M') local_num_missing_nalus++;
     if (item->validation_status == 'N' || item->validation_status == 'E') local_num_invalid_nalus++;
+    if (item->validation_status == '.') {
+      // Do not count SEIs, since they are marked valid if the signature could be verified, which
+      // happens for out-of-sync SEIs for example.
+      local_num_valid_nalus += (item->nalu && item->nalu->is_gop_sei) ? 0 : 1;
+    }
+    if (item->validation_status == 'P') {
+      // Count NALUs that were verified successfully the first time and waiting for a second
+      // verification.
+      local_num_valid_nalus +=
+          (item->need_second_verification && !item->first_verification_not_authentic) ? 1 : 0;
+    }
     item = item->next;
   }
 
   if (num_invalid_nalus) *num_invalid_nalus = local_num_invalid_nalus;
   if (num_missing_nalus) *num_missing_nalus = local_num_missing_nalus;
+
+  return (local_num_valid_nalus > 0);
 }
 
 /* Counts and returns number of items pending validation. */

@@ -224,6 +224,7 @@ struct _gop_info_t {
   hash_type_t signature_hash_type;  // The type of hash signed, either gop_hash or document hash.
   uint32_t global_gop_counter;  // The index of the current GOP, incremented when encoded in the
   // TLV.
+  bool global_gop_counter_is_synced;
   int verified_signature_hash;  // Status of last hash-signature-pair verification. Has 1 for
   // success, 0 for fail, and -1 for error.
 };

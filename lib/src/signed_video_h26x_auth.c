@@ -59,8 +59,8 @@ static svi_rc
 compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei);
 
 #ifdef SIGNED_VIDEO_DEBUG
-const char *kAuthResultValidStr[SV_AUTH_NUM_SIGNED_GOP_VALID_STATES] = {
-    "SIGNATURE PRESENT", "SIGNATURE MISSING", "NOT OK", "OK", "OK WITH MISSING INFO"};
+const char *kAuthResultValidStr[SV_AUTH_NUM_SIGNED_GOP_VALID_STATES] = {"SIGNATURE MISSING",
+    "SIGNATURE PRESENT", "NOT OK", "OK WITH MISSING INFO", "OK", "VERSION MISMATCH"};
 #endif
 
 /**
@@ -91,8 +91,9 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
     // reset on the camera we could signal to the user, but we will still not be able to validate
     // pending NALUs.
     if (potentially_missed_gops < 0) potentially_missed_gops += INT64_MAX;
+    // It is only possible to know if a SEI has been lost if the |global_gop_counter| is in sync.
     self->gop_info_detected.has_lost_sei =
-        (potentially_missed_gops > 0) && !self->gop_state.is_first_validation;
+        (potentially_missed_gops > 0) && self->gop_info->global_gop_counter_is_synced;
     // If the previous NALU was a SEI we needed one more NALU to complete the GOP
     // (AUTH_STATE_WAIT_FOR_NEXT_NALU). This is where we are now and ready for validation. If we
     // have not received the I NALU and have lost at least one SEI, we have lost the transition
@@ -243,12 +244,9 @@ verify_hashes_with_hash_list(signed_video_t *self, int *num_expected_nalus, int 
       // OK, or keep pending for second use.
       if (item->second_hash && !item->need_second_verification) {
         item->need_second_verification = true;
-        // If this item will be used in a second verification we set the flag
-        // |first_verification_not_authentic|. There is one exception though. If this is the first
-        // validation and the validation fails we are out of sync. The SEI is probably associated
-        // with a GOP not present in this segment of the stream. This case is handled separately in
-        // validate_authenticity(), but we should not flag the first verification as not authentic.
-        item->first_verification_not_authentic = !self->gop_state.is_first_validation;
+        // If this item will be used in a second verification the flag
+        // |first_verification_not_authentic| is set.
+        item->first_verification_not_authentic = true;
       } else {
         // Reset |need_second_verification|.
         item->need_second_verification = false;
@@ -281,7 +279,7 @@ verify_hashes_with_hash_list(signed_video_t *self, int *num_expected_nalus, int 
   if (last_used_item) {
     if (latest_match_idx != compare_idx) {
       // Last verified hash is invalid.
-      last_used_item->first_verification_not_authentic = !self->gop_state.is_first_validation;
+      last_used_item->first_verification_not_authentic = true;
       // Give this NALU a second verification because it could be that it is present in the next GOP
       // and brought in here due to some lost NALUs.
       last_used_item->need_second_verification = true;
@@ -521,7 +519,8 @@ validate_authenticity(signed_video_t *self)
 
   // Collect statistics from the nalu_list. This is used to validate the GOP and provide additional
   // information to the user.
-  h26x_nalu_list_get_stats(self->nalu_list, &num_invalid_nalus, &num_missed_nalus);
+  bool has_valid_nalus =
+      h26x_nalu_list_get_stats(self->nalu_list, &num_invalid_nalus, &num_missed_nalus);
   DEBUG_LOG("Number of invalid NALUs = %d.", num_invalid_nalus);
   DEBUG_LOG("Number of missed NALUs = %d.", num_missed_nalus);
 
@@ -538,7 +537,9 @@ validate_authenticity(signed_video_t *self)
         (num_missed_nalus >= num_expected_nalus - 1)) {
       valid = SV_AUTH_RESULT_NOT_OK;
     }
+    self->gop_info->global_gop_counter_is_synced = true;
   }
+
   // Determine if this GOP is valid, but has missing information. This happens if we have detected
   // missed NALUs or if the GOP is incomplete.
   if (valid == SV_AUTH_RESULT_OK && (num_missed_nalus > 0 && verify_success)) {
@@ -550,25 +551,31 @@ validate_authenticity(signed_video_t *self)
   // interpret this as being in sync with its signing counterpart. If this session validates the
   // authenticity of a segment of a stream, e.g., an exported file, we start out of sync. The first
   // SEI may be associated with a GOP prior to this segment.
-  // TODO: The current implementation can only handle the case when the SEI is not delayed. We
-  // should add a test for exporting to a file with delayed SEIs and then also fix the flaw.
-  if (gop_state->is_first_validation &&
-      (valid == SV_AUTH_RESULT_NOT_OK || valid == SV_AUTH_RESULT_OK_WITH_MISSING_INFO)) {
-    // We have validated the authenticity based on one single NALU, but failed. A success can only
-    // happen if we are at the beginning of the original stream. For all other cases, for example,
-    // if we validate the authenticity of an exported file, the first SEI may be associated with a
-    // part of the original stream not present in the file. Hence, mark as
-    // SV_AUTH_RESULT_SIGNATURE_PRESENT instead.
-    DEBUG_LOG("This first validation cannot be performed");
-    // Since we verify the linking hash twice we need to remove the set
-    // |first_verification_not_authentic|. Otherwise, the false failure leaks into the next GOP.
-    // Further, empty items marked 'M', may have been added at the beginning. These have no meaning
-    // and may only confuse the user. These should be removed. This is handled in
-    // h26x_nalu_list_remove_missing_items().
-    h26x_nalu_list_remove_missing_items(self->nalu_list);
-    valid = SV_AUTH_RESULT_SIGNATURE_PRESENT;
-    num_expected_nalus = -1;
-    num_received_nalus = -1;
+  if (gop_state->is_first_validation) {
+    // Change status from SV_AUTH_RESULT_OK to SV_AUTH_RESULT_SIGNATURE_PRESENT if no valid NALUs
+    // were found when collecting stats.
+    if ((valid == SV_AUTH_RESULT_OK) && !has_valid_nalus) {
+      valid = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+    }
+    // If validation was successful, the |global_gop_counter| is in sync.
+    self->gop_info->global_gop_counter_is_synced = (valid == SV_AUTH_RESULT_OK);
+    if (valid != SV_AUTH_RESULT_OK) {
+      // We have validated the authenticity based on one single NALU, but failed. A success can only
+      // happen if we are at the beginning of the original stream. For all other cases, for example,
+      // if we validate the authenticity of an exported file, the first SEI may be associated with a
+      // part of the original stream not present in the file. Hence, mark as
+      // SV_AUTH_RESULT_SIGNATURE_PRESENT instead.
+      DEBUG_LOG("This first validation cannot be performed");
+      // Since we verify the linking hash twice we need to remove the set
+      // |first_verification_not_authentic|. Otherwise, the false failure leaks into the next GOP.
+      // Further, empty items marked 'M', may have been added at the beginning. These have no
+      // meaning and may only confuse the user. These should be removed. This is handled in
+      // h26x_nalu_list_remove_missing_items().
+      h26x_nalu_list_remove_missing_items(self->nalu_list);
+      valid = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+      num_expected_nalus = -1;
+      num_received_nalus = -1;
+    }
   }
   if (latest->public_key_has_changed) valid = SV_AUTH_RESULT_NOT_OK;
 

@@ -940,6 +940,64 @@ START_TEST(lost_g_before_late_sei_arrival)
 END_TEST
 
 /* Test description
+ * Consider a scenario where the validation side starts recording a video stream from the second
+ * GOP, and the SEIs arrive late. This test validates proper results if the second SEI is lost.
+ */
+START_TEST(lost_g_and_gop_with_late_sei_arrival)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  nalu_list_t *list = create_signed_nalus("IPIPPPIPPPIP", settings[_i]);
+  nalu_list_check_str(list, "GIPGIPPPGIPPPGIP");
+
+  // Get the first SEI, to be added back later.
+  nalu_list_item_t *sei = nalu_list_pop_first_item(list);
+  nalu_list_item_check_str(sei, "G");
+  nalu_list_check_str(list, "IPGIPPPGIPPPGIP");
+
+  // Remove the first GOP to mimic the start of the validation side.
+  remove_item_then_check_and_free(list, 1, "I");
+  nalu_list_check_str(list, "PGIPPPGIPPPGIP");
+  remove_item_then_check_and_free(list, 1, "P");
+  nalu_list_check_str(list, "GIPPPGIPPPGIP");
+  remove_item_then_check_and_free(list, 1, "G");
+  nalu_list_check_str(list, "IPPPGIPPPGIP");
+
+  // Inject the SEI into the second GOP.
+  nalu_list_append_item(list, sei, 2);
+  nalu_list_check_str(list, "IPGPPGIPPPGIP");
+
+  // Move the remaining SEIs.
+  sei = nalu_list_remove_item(list, 6);
+  nalu_list_item_check_str(sei, "G");
+  nalu_list_check_str(list, "IPGPPIPPPGIP");
+  nalu_list_append_item(list, sei, 7);
+  nalu_list_check_str(list, "IPGPPIPGPPGIP");
+
+  sei = nalu_list_remove_item(list, 11);
+  nalu_list_item_check_str(sei, "G");
+  nalu_list_check_str(list, "IPGPPIPGPPIP");
+  nalu_list_append_item(list, sei, 12);
+  nalu_list_check_str(list, "IPGPPIPGPPIPG");
+
+  // We will get 6 pending nalus:
+  //
+  // IPG         has_signature & 2 pending (IP)
+  // IP(G)PPIPG  valid & 2 pending (last IP) since they will be validated next time
+  // IP(G)PPIPG  valid & 2 pending (last IP)
+  struct validation_stats expected = {.valid_gops = 2, .pending_nalus = 6, .has_signature = 1};
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    // The two pending NALUs of the first validation will not be noticed.
+    expected.pending_nalus = 4;
+  }
+  validate_nalu_list(NULL, list, expected);
+
+  nalu_list_free(list);
+}
+END_TEST
+
+/* Test description
  * Verify that we can validate authenticity correctly if we lose all NALUs between two SEIs. */
 START_TEST(lost_all_nalus_between_two_seis)
 {
@@ -1168,6 +1226,7 @@ START_TEST(fast_forward_stream_with_reset)
     if (settings[_i].recurrence == SV_RECURRENCE_ONE) {
       expected.valid_gops = 2;
       expected.pending_nalus = 3;
+      // expected.missed_nalus = 3;
       expected.has_signature = 1;
     }
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
@@ -1662,6 +1721,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, sei_arrives_late, s, e);
   tcase_add_loop_test(tc, all_seis_arrive_late, s, e);
   tcase_add_loop_test(tc, lost_g_before_late_sei_arrival, s, e);
+  tcase_add_loop_test(tc, lost_g_and_gop_with_late_sei_arrival, s, e);
   tcase_add_loop_test(tc, lost_all_nalus_between_two_seis, s, e);
   tcase_add_loop_test(tc, add_one_sei_nalu_after_signing, s, e);
   tcase_add_loop_test(tc, camera_reset_on_signing_side, s, e);
