@@ -139,8 +139,11 @@ h26x_nalu_list_get_next_sei_item(const h26x_nalu_list_t* list);
  *   authentic, is written.
  * @param num_missing_nalus A pointer to which the number of missing NALUs, detected by the
  *   validation, is written.
+ *
+ * @returns True if at least one item is validated as authentic including those that are pending a
+ *   second verification.
  */
-void
+bool
 h26x_nalu_list_get_stats(const h26x_nalu_list_t* list,
     int* num_invalid_nalus,
     int* num_missing_nalus);
