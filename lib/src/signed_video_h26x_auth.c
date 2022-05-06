@@ -61,8 +61,8 @@ static svi_rc
 compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei);
 
 #ifdef SIGNED_VIDEO_DEBUG
-const char *kAuthResultValidStr[SV_AUTH_NUM_SIGNED_GOP_VALID_STATES] = {
-    "SIGNATURE PRESENT", "SIGNATURE MISSING", "NOT OK", "OK", "OK WITH MISSING INFO"};
+const char *kAuthResultValidStr[SV_AUTH_NUM_SIGNED_GOP_VALID_STATES] = {"SIGNATURE MISSING",
+    "SIGNATURE PRESENT", "NOT OK", "OK WITH MISSING INFO", "OK", "VERSION MISMATCH"};
 #endif
 
 /**
