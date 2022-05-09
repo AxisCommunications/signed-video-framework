@@ -46,7 +46,7 @@ typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 #define HASH_DIGEST_SIZE (256 / 8)
 
 #define SV_VERSION_BYTES 3
-#define SIGNED_VIDEO_VERSION "v1.1.6"
+#define SIGNED_VIDEO_VERSION "v1.1.7"
 #define SV_VERSION_MAX_STRLEN 13  // Longest possible string
 
 #define DEFAULT_AUTHENTICITY_LEVEL SV_AUTHENTICITY_LEVEL_FRAME
@@ -224,6 +224,8 @@ struct _gop_info_t {
   hash_type_t signature_hash_type;  // The type of hash signed, either gop_hash or document hash.
   uint32_t global_gop_counter;  // The index of the current GOP, incremented when encoded in the
   // TLV.
+  bool global_gop_counter_is_synced;  // Turns true when a SEI corresponding to the segment is
+  // detected.
   int verified_signature_hash;  // Status of last hash-signature-pair verification. Has 1 for
   // success, 0 for fail, and -1 for error.
 };
