@@ -30,9 +30,8 @@
 #include "signed_video_h26x_internal.h"  // gop_state_reset(), update_gop_hash()
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_append()
 #include "signed_video_internal.h"  // gop_info_t, gop_state_t, reset_gop_hash()
-#include "signed_video_tlv.h"  // tlv_find_tag()
-
 #include "signed_video_openssl_internal.h"
+#include "signed_video_tlv.h"  // tlv_find_tag()
 
 static svi_rc
 decode_sei_data(signed_video_t *signed_video, const uint8_t *payload, size_t payload_size);

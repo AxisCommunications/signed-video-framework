@@ -60,6 +60,9 @@ struct validation_stats {
 
 static signed_video_t *
 generate_and_set_private_key_on_camera_side(struct sv_setting settings, bool add_public_key_to_sei, nalu_list_item_t *i_nalu, nalu_list_item_t **sei);
+static void validation_helper_function(signed_video_t *sv, nalu_list_item_t *sei, 
+    nalu_list_item_t *i_nalu, bool add_bad_public_key, bool late_public_key, signature_info_t
+    *signature_info, bool any_public_key);
 
 // TODO: Will be used in the future, when the authenticity report is being populated.
 #if 0
@@ -1644,10 +1647,7 @@ generate_and_set_private_key_on_camera_side(struct sv_setting settings, bool add
   sv_rc = signed_video_set_private_key(sv_camera, settings.algo, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  if (!add_public_key_to_sei) {
-    // No public key in SEI
-    sv_rc = signed_video_add_public_key_to_sei(sv_camera, false);
-  }
+  sv_rc = signed_video_add_public_key_to_sei(sv_camera, add_public_key_to_sei);
   // Setting validation level.
   sv_rc = signed_video_set_authenticity_level(sv_camera, settings.auth_level);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -1661,17 +1661,58 @@ generate_and_set_private_key_on_camera_side(struct sv_setting settings, bool add
   sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NOTHING);
-
-  if (add_public_key_to_sei) {
-    ck_assert(tag_is_present(*sei, settings.codec, PUBLIC_KEY_TAG));
-  } else {
-    ck_assert(!tag_is_present(*sei, settings.codec, PUBLIC_KEY_TAG));
-  }
-
-
+  ck_assert(tag_is_present(*sei, settings.codec, PUBLIC_KEY_TAG) == add_public_key_to_sei);
   free(private_key);
 
   return sv_camera;
+}
+
+static void validation_helper_function(signed_video_t *sv, nalu_list_item_t *sei, nalu_list_item_t *i_nalu, bool add_bad_public_key, bool late_public_key, signature_info_t *signature_info, bool any_public_key)
+{
+  SignedVideoReturnCode sv_rc;
+
+  // Validate this first GOP.
+  signed_video_authenticity_t *auth_report = NULL;
+  signed_video_latest_validation_t *latest = NULL;
+
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, sei->data, sei->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(!auth_report);
+
+  if (late_public_key) {
+    sv_rc = signed_video_set_public_key(
+        sv, signature_info->public_key, signature_info->public_key_size);
+    ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
+  }
+
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, i_nalu->data, i_nalu->data_size, &auth_report);
+
+  if (any_public_key) {
+    ck_assert_int_eq(sv_rc, SV_OK);
+  } else {
+    ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
+  }
+
+  if (any_public_key) {
+    ck_assert(auth_report);
+    latest = &(auth_report->latest_validation);
+    ck_assert(latest);
+
+    if (add_bad_public_key) {
+      ck_assert(latest->public_key_has_changed);
+      ck_assert_int_eq(latest->authenticity, SV_AUTH_RESULT_NOT_OK);
+    } else {
+      ck_assert(!(latest->public_key_has_changed));
+      ck_assert_int_eq(latest->authenticity, SV_AUTH_RESULT_OK);
+    }
+  }
+  // We are done with auth_report
+  signed_video_authenticity_report_free(auth_report);
+
+  // Free nalu_list_item and session.
+  signed_video_free(sv);
+  nalu_list_free_item(sei);
+  nalu_list_free_item(i_nalu);
 }
 
 /* Test description */
@@ -1696,30 +1737,9 @@ START_TEST(public_key_on_validation_side_from_start)
       sv_vms, sv_camera->signature_info->public_key, sv_camera->signature_info->public_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  // Validate this first GOP.
-  signed_video_authenticity_t *auth_report = NULL;
-  signed_video_latest_validation_t *latest = NULL;
+  validation_helper_function(sv_vms, sei, i_nalu, false, false, sv_camera->signature_info, true);
 
-  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, sei->data, sei->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  ck_assert(!auth_report);
-  sv_rc =
-      signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_OK);
-
-  ck_assert(auth_report);
-  latest = &(auth_report->latest_validation);
-  ck_assert(latest);
-  ck_assert(!(latest->public_key_has_changed));
-  ck_assert_int_eq(latest->authenticity, SV_AUTH_RESULT_OK);
-  // We are done with auth_report
-  signed_video_authenticity_report_free(auth_report);
-
-  // Free nalu_list_item and session.
-  nalu_list_free_item(sei);
-  nalu_list_free_item(i_nalu);
   signed_video_free(sv_camera);
-  signed_video_free(sv_vms);
 }
 END_TEST
 
@@ -1745,30 +1765,9 @@ START_TEST(public_key_in_sei_and_on_validation_side_from_start)
       sv_vms, sv_camera->signature_info->public_key, sv_camera->signature_info->public_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  // Validate this first GOP.
-  signed_video_authenticity_t *auth_report = NULL;
-  signed_video_latest_validation_t *latest = NULL;
+  validation_helper_function(sv_vms, sei, i_nalu, false, false, sv_camera->signature_info, true);
 
-  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, sei->data, sei->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  ck_assert(!auth_report);
-  sv_rc =
-      signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_OK);
-
-  ck_assert(auth_report);
-  latest = &(auth_report->latest_validation);
-  ck_assert(latest);
-  ck_assert(!(latest->public_key_has_changed));
-  ck_assert_int_eq(latest->authenticity, SV_AUTH_RESULT_OK);
-  // We are done with auth_report
-  signed_video_authenticity_report_free(auth_report);
-
-  // Free nalu_list_item and session.
-  nalu_list_free_item(sei);
-  nalu_list_free_item(i_nalu);
   signed_video_free(sv_camera);
-  signed_video_free(sv_vms);
 }
 END_TEST
 
@@ -1778,7 +1777,6 @@ START_TEST(no_public_key)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
   nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
   nalu_list_item_t *sei = NULL;
@@ -1790,23 +1788,9 @@ START_TEST(no_public_key)
   // On validation side
   signed_video_t *sv_vms = signed_video_create(codec);
 
-  // Validate this first GOP.
-  signed_video_authenticity_t *auth_report = NULL;
+  validation_helper_function(sv_vms, sei, i_nalu, false, false, sv_camera->signature_info, false);
 
-  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, sei->data, sei->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  ck_assert(!auth_report);
-  sv_rc =
-      signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
-
-  // Free nalu_list_item and session.
-  nalu_list_free_item(sei);
-  nalu_list_free_item(i_nalu);
   signed_video_free(sv_camera);
-  signed_video_free(sv_vms);
-
-  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory
 }
 END_TEST
 
@@ -1816,7 +1800,6 @@ START_TEST(public_key_on_validation_side_later)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
   nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
   nalu_list_item_t *sei = NULL;
@@ -1828,26 +1811,9 @@ START_TEST(public_key_on_validation_side_later)
   // On validation side
   signed_video_t *sv_vms = signed_video_create(codec);
 
-  // Validate this first GOP.
-  signed_video_authenticity_t *auth_report = NULL;
+  validation_helper_function(sv_vms, sei, i_nalu, false, true, sv_camera->signature_info, false);
 
-  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, sei->data, sei->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  ck_assert(!auth_report);
-  // Set public key
-  sv_rc = signed_video_set_public_key(
-      sv_vms, sv_camera->signature_info->public_key, sv_camera->signature_info->public_key_size);
-  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
-
-  sv_rc =
-      signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
-
-  // Free nalu_list_item and session.
-  nalu_list_free_item(sei);
-  nalu_list_free_item(i_nalu);
   signed_video_free(sv_camera);
-  signed_video_free(sv_vms);
 }
 END_TEST
 
@@ -1857,7 +1823,6 @@ START_TEST(public_key_in_sei_and_on_validation_side_later)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
   nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
   nalu_list_item_t *sei = NULL;
@@ -1869,33 +1834,8 @@ START_TEST(public_key_in_sei_and_on_validation_side_later)
   // On validation side
   signed_video_t *sv_vms = signed_video_create(codec);
 
-  // Validate this first GOP.
-  signed_video_authenticity_t *auth_report = NULL;
-  signed_video_latest_validation_t *latest = NULL;
+  validation_helper_function(sv_vms, sei, i_nalu, false, true, sv_camera->signature_info, true);
 
-  ck_assert(!auth_report);
-  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, sei->data, sei->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  // Set public key
-  sv_rc = signed_video_set_public_key(
-      sv_vms, sv_camera->signature_info->public_key, sv_camera->signature_info->public_key_size);
-  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
-  sv_rc =
-      signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_OK);
-
-  ck_assert(auth_report);
-  latest = &(auth_report->latest_validation);
-  ck_assert(latest);
-  ck_assert(!(latest->public_key_has_changed));
-  ck_assert_int_eq(latest->authenticity, SV_AUTH_RESULT_OK);
-  // We are done with auth_report
-  signed_video_authenticity_report_free(auth_report);
-
-  // Free nalu_list_item and session.
-  nalu_list_free_item(sei);
-  nalu_list_free_item(i_nalu);
-  signed_video_free(sv_vms);
   signed_video_free(sv_camera);
 }
 END_TEST
@@ -1930,29 +1870,8 @@ START_TEST(public_key_in_sei_and_bad_public_key_on_validation_side)
   sv_rc = signed_video_set_public_key(sv_vms, sign_info.public_key, sign_info.public_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  // Validate this first GOP.
-  signed_video_authenticity_t *auth_report = NULL;
-  signed_video_latest_validation_t *latest = NULL;
+  validation_helper_function(sv_vms, sei, i_nalu, true, false, &sign_info, true);
 
-  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, sei->data, sei->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  ck_assert(!auth_report);
-  sv_rc =
-      signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_OK);
-
-  ck_assert(auth_report);
-  latest = &(auth_report->latest_validation);
-  ck_assert(latest);
-  ck_assert(latest->public_key_has_changed);
-  ck_assert_int_eq(latest->authenticity, SV_AUTH_RESULT_NOT_OK);
-  // We are done with auth_report
-  signed_video_authenticity_report_free(auth_report);
-
-  // Free nalu_list_item and session.
-  nalu_list_free_item(sei);
-  nalu_list_free_item(i_nalu);
-  signed_video_free(sv_vms);
   signed_video_free(sv_camera);
   free(private_key);
 }
@@ -1994,6 +1913,7 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, sei->data, sei->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(!auth_report);
+
   sv_rc =
       signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);

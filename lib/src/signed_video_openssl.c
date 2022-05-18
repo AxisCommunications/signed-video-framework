@@ -32,8 +32,6 @@
 #include <stdio.h>  // FILE, fopen, fclose
 #include <stdlib.h>  // malloc, free, calloc
 
-#include "signed_video_openssl_internal.h"
-
 // We do not support creating keys on Windows. Adding dummy defines for Linux specific functions.
 #if defined(_WIN32) || defined(_WIN64)
 #define F_OK 0
@@ -47,6 +45,7 @@
 #include "includes/signed_video_openssl.h"
 #include "signed_video_defines.h"
 #include "signed_video_internal.h"  // svi_rc_to_signed_video_rc(), sv_rc_to_svi_rc()
+#include "signed_video_openssl_internal.h"
 
 static svi_rc
 create_rsa_private_key(const key_paths_t *key_paths);
