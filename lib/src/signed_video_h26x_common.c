@@ -1177,6 +1177,7 @@ signed_video_reset(signed_video_t *self)
     // If a reset is forced, the stored hashes in |hash_list| have no meaning anymore.
     self->gop_info->list_idx = 0;
     self->gop_info->has_reference_hash = false;
+    self->gop_info->global_gop_counter_is_synced = false;
 
     gop_state_init(&(self->gop_state));
     gop_info_detected_init(&(self->gop_info_detected));
