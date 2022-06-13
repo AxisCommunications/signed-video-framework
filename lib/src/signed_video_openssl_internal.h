@@ -26,6 +26,6 @@
 #include "includes/signed_video_common.h"  // signed_video_t
 
 svi_rc
-check_type_of_key(signed_video_t *self, const char *public_key, size_t public_key_size);
+openssl_get_algo_of_public_key(const char *public_key, size_t public_key_size, sign_algo_t *algo);
 
 #endif  // __SIGNED_VIDEO_OPENSSL_INTERNAL__

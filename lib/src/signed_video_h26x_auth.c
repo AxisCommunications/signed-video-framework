@@ -979,9 +979,10 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
   if (self->authentication_started) return SV_NOT_SUPPORTED;
 
 
+  sign_algo_t *algo = &(self->signature_info->algo);
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    SVI_THROW(check_type_of_key(self, public_key, public_key_size));
+    SVI_THROW(openssl_get_algo_of_public_key(public_key, public_key_size, algo));
     // Allocate memory and copy |public_key|.
     self->signature_info->public_key = malloc(public_key_size);
     SVI_THROW_IF(!self->signature_info->public_key, SVI_MEMORY);

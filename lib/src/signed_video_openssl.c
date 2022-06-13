@@ -525,7 +525,7 @@ signed_video_generate_private_key(sign_algo_t algo,
 }
 
 svi_rc
-check_type_of_key(signed_video_t *self, const char *public_key, size_t public_key_size)
+openssl_get_algo_of_public_key(const char *public_key, size_t public_key_size, sign_algo_t *algo)
 {
   EVP_PKEY *pkey = NULL;
   BIO *bp = BIO_new_mem_buf(public_key, (int)public_key_size);
@@ -537,9 +537,9 @@ check_type_of_key(signed_video_t *self, const char *public_key, size_t public_ke
     SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
 
     if (EVP_PKEY_base_id(pkey) == EVP_PKEY_EC) {
-      self->signature_info->algo = SIGN_ALGO_ECDSA;
+      *algo = SIGN_ALGO_ECDSA;
     } else if (EVP_PKEY_base_id(pkey) == EVP_PKEY_RSA) {
-      self->signature_info->algo = SIGN_ALGO_RSA;
+      *algo = SIGN_ALGO_RSA;
     } else {
       SVI_THROW(SVI_NOT_SUPPORTED);
     }
