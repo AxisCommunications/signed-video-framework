@@ -25,6 +25,7 @@
 #include "signed_video_defines.h"  // svi_rc
 #include "includes/signed_video_common.h"  // signed_video_t
 
+/* Checks algorithm of the public key */
 svi_rc
 openssl_get_algo_of_public_key(const char *public_key, size_t public_key_size, sign_algo_t *algo);
 
