@@ -58,12 +58,6 @@ struct validation_stats {
   bool public_key_has_changed;
 };
 
-static signed_video_t *
-generate_and_set_private_key_on_camera_side(struct sv_setting settings, bool add_public_key_to_sei, nalu_list_item_t *i_nalu, nalu_list_item_t **sei);
-static void validation_helper_function(signed_video_t *sv, nalu_list_item_t *sei, 
-    bool wrong_key, signature_info_t
-    *signature_info, SignedVideoCodec codec);
-
 // TODO: Will be used in the future, when the authenticity report is being populated.
 #if 0
 static bool
@@ -1632,24 +1626,24 @@ END_TEST
 #endif
 
 static signed_video_t *
-generate_and_set_private_key_on_camera_side(struct sv_setting settings, bool add_public_key_to_sei, nalu_list_item_t *i_nalu, nalu_list_item_t **sei)
+generate_and_set_private_key_on_camera_side(struct sv_setting setting, bool add_public_key_to_sei, nalu_list_item_t *i_nalu, nalu_list_item_t **sei)
 {
   SignedVideoReturnCode sv_rc;
   char *private_key = NULL;
   size_t private_key_size = 0;
   signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
 
-  signed_video_t *sv_camera = signed_video_create(settings.codec);
+  signed_video_t *sv_camera = signed_video_create(setting.codec);
   ck_assert(sv_camera);
   // Read and set content of private_key.
-  sv_rc = signed_video_generate_private_key(settings.algo, "./", &private_key, &private_key_size);
+  sv_rc = signed_video_generate_private_key(setting.algo, "./", &private_key, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_private_key(sv_camera, settings.algo, private_key, private_key_size);
+  sv_rc = signed_video_set_private_key(sv_camera, setting.algo, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   sv_rc = signed_video_add_public_key_to_sei(sv_camera, add_public_key_to_sei);
   // Setting validation level.
-  sv_rc = signed_video_set_authenticity_level(sv_camera, settings.auth_level);
+  sv_rc = signed_video_set_authenticity_level(sv_camera, setting.auth_level);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Add an I-NALU to trigger a SEI.
@@ -1657,11 +1651,11 @@ generate_and_set_private_key_on_camera_side(struct sv_setting settings, bool add
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
   ck_assert_int_eq(sv_rc, SV_OK);
-  *sei = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, settings.codec);
+  *sei = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, setting.codec);
   sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NOTHING);
-  ck_assert(tag_is_present(*sei, settings.codec, PUBLIC_KEY_TAG) == add_public_key_to_sei);
+  ck_assert(tag_is_present(*sei, setting.codec, PUBLIC_KEY_TAG) == add_public_key_to_sei);
   free(private_key);
 
   return sv_camera;
@@ -1681,7 +1675,7 @@ static void validation_helper_function(signed_video_t *sv, nalu_list_item_t *sei
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(!auth_report);
 
-  if (signature_info != NULL) {
+  if (signature_info) {
     sv_rc = signed_video_set_public_key(
         sv, signature_info->public_key, signature_info->public_key_size);
     ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
