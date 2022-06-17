@@ -19,7 +19,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 #include <assert.h>  // assert
-#include <openssl/pem.h>  // PEM_*
 #include <stdlib.h>  // free
 
 #include "includes/signed_video_auth.h"
@@ -30,7 +29,7 @@
 #include "signed_video_h26x_internal.h"  // gop_state_reset(), update_gop_hash()
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_append()
 #include "signed_video_internal.h"  // gop_info_t, gop_state_t, reset_gop_hash()
-#include "signed_video_openssl_internal.h"
+#include "signed_video_openssl_internal.h"  // openssl_get_algo_of_public_key()
 #include "signed_video_tlv.h"  // tlv_find_tag()
 
 static svi_rc
@@ -974,10 +973,7 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
 {
   if (!self || !public_key || public_key_size == 0) return SV_INVALID_PARAMETER;
   if (self->signature_info->public_key) return SV_NOT_SUPPORTED;
-
-  // Return SV_NOT_SUPPORTED if not called from start of stream
   if (self->authentication_started) return SV_NOT_SUPPORTED;
-
 
   sign_algo_t *algo = &(self->signature_info->algo);
   svi_rc status = SVI_UNKNOWN;

@@ -23,7 +23,7 @@
 #define __SIGNED_VIDEO_OPENSSL_INTERNAL_H__
 
 #include "signed_video_defines.h"  // svi_rc
-#include "includes/signed_video_common.h"  // signed_video_t
+#include "includes/signed_video_interfaces.h"  // sign_algo_t
 
 /* Checks algorithm of the public key */
 svi_rc
