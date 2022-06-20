@@ -1713,33 +1713,33 @@ static void validation_helper_function(signed_video_t *sv, nalu_list_item_t *sei
   }
 }
 
-typedef struct pk_setting {
-  bool pk_in_sei;
-  bool wrong_pk;
-  bool signature_info;
-  bool set_public_key;
-} pk_setting;
-
-pk_setting pk_tests[6] = {
-  // Public key on validation side from start
-  {false, false, false, true},
-  // Public key in sei and on validation side from start
-  {true, false, false, true},
-  // No public key
-  {false, false, false, false},
-  // Public key on validation side later
-  {false, false, true, false},
-  // Public key in sei and on validation side later
-  {true, false, true, false},
-  // Public key in sei and bad public key on validation_side
-  {true, true, true, false},
-};
-
 /* Test description */
 START_TEST(public_key_on_validation_side_from_start)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  struct pk_setting {
+    bool pk_in_sei;
+    bool wrong_pk;
+    bool use_signature_info;
+    bool set_pk;
+  };
+
+  struct pk_setting pk_tests[6] = {
+    // Public key on validation side from start
+    {false, false, false, true},
+    // Public key in sei and on validation side from start
+    {true, false, false, true},
+    // No public key
+    {false, false, false, false},
+    // Public key on validation side later
+    {false, false, true, false},
+    // Public key in sei and on validation side later
+    {true, false, true, false},
+    // Public key in sei and bad public key on validation_side
+    {true, true, true, false},
+  };
 
   for (int j = 0; j < 6; j++) {
     SignedVideoReturnCode sv_rc;
@@ -1767,22 +1767,20 @@ START_TEST(public_key_on_validation_side_from_start)
       ck_assert_int_eq(sv_rc, SV_OK);
     }
 
-    if (pk_tests[j].set_public_key) {
+    if (pk_tests[j].set_pk) {
       // Set public key
       sv_rc = signed_video_set_public_key(
           sv_vms, sv_camera->signature_info->public_key, sv_camera->signature_info->public_key_size);
       ck_assert_int_eq(sv_rc, SV_OK);
     }
 
-    signature_info_t *sign_info;
-    if (pk_tests[j].signature_info) {
+    signature_info_t *sign_info = NULL;
+    if (pk_tests[j].use_signature_info) {
       if (pk_tests[j].wrong_pk) {
         sign_info = &sign_info_wrong_key;
       } else {
         sign_info = sv_camera->signature_info;
       }
-    } else {
-      sign_info = NULL;
     }
     validation_helper_function(sv_vms, sei, pk_tests[j].wrong_pk, sign_info, codec);
 
@@ -1833,8 +1831,8 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
       signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  // TODO: This test is correct but currently one I-frame is not enough. The state "ok with missing
-  // info" will be used until the bug is fixed.
+  // TODO: This test is correct but currently one I-frame is not enough. The state "signature
+  // present" will be used until the bug is fixed.
   ck_assert_int_eq(auth_report->latest_validation.authenticity, SV_AUTH_RESULT_SIGNATURE_PRESENT);
 
   // Free nalu_list_item and session.
