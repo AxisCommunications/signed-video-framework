@@ -988,11 +988,6 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
     self->has_public_key = true;
 
   SVI_CATCH()
-  {
-    // Remove key upon failure.
-    free(self->signature_info->public_key);
-    self->signature_info->public_key = NULL;
-  }
   SVI_DONE(status)
 
   return svi_rc_to_signed_video_rc(status);
