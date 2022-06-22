@@ -1626,44 +1626,44 @@ END_TEST
 #endif
 
 static signed_video_t *
-generate_and_set_private_key_on_camera_side(struct sv_setting setting, bool add_public_key_to_sei,
-    nalu_list_item_t *i_nalu, nalu_list_item_t **sei)
+generate_and_set_private_key_on_camera_side(struct sv_setting setting, bool add_public_key_to_sei, nalu_list_item_t **sei)
 {
   SignedVideoReturnCode sv_rc;
   char *private_key = NULL;
   size_t private_key_size = 0;
   signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, setting.codec);
 
-  signed_video_t *sv_camera = signed_video_create(setting.codec);
-  ck_assert(sv_camera);
+  signed_video_t *sv = signed_video_create(setting.codec);
+  ck_assert(sv);
   // Read and set content of private_key.
   sv_rc = signed_video_generate_private_key(setting.algo, "./", &private_key, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_private_key(sv_camera, setting.algo, private_key, private_key_size);
+  sv_rc = signed_video_set_private_key(sv, setting.algo, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  sv_rc = signed_video_add_public_key_to_sei(sv_camera, add_public_key_to_sei);
-  // Setting validation level.
-  sv_rc = signed_video_set_authenticity_level(sv_camera, setting.auth_level);
+  sv_rc = signed_video_add_public_key_to_sei(sv, add_public_key_to_sei);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_authenticity_level(sv, setting.auth_level);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Add an I-NALU to trigger a SEI.
-  sv_rc = signed_video_add_nalu_for_signing(sv_camera, i_nalu->data, i_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
+  sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
   ck_assert_int_eq(sv_rc, SV_OK);
   *sei = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size,
       setting.codec);
-  sv_rc = signed_video_get_nalu_to_prepend(sv_camera, &nalu_to_prepend);
+  sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NOTHING);
   ck_assert(tag_is_present(*sei, setting.codec, PUBLIC_KEY_TAG) == add_public_key_to_sei);
   free(private_key);
 
-  return sv_camera;
+  return sv;
 }
 
-static void validation_helper_function(signed_video_t *sv, nalu_list_item_t *sei, bool wrong_key,
+static void validate_public_key_scenario(signed_video_t *sv, nalu_list_item_t *sei, bool wrong_key,
     signature_info_t *signature_info, SignedVideoCodec codec)
 {
   SignedVideoReturnCode sv_rc;
@@ -1684,7 +1684,6 @@ static void validation_helper_function(signed_video_t *sv, nalu_list_item_t *sei
         sv, signature_info->public_key, signature_info->public_key_size);
     ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
   } else {
-
     sv_rc = signed_video_add_nalu_and_authenticate(sv, i_nalu->data, i_nalu->data_size,
         &auth_report);
 
@@ -1697,7 +1696,7 @@ static void validation_helper_function(signed_video_t *sv, nalu_list_item_t *sei
     if (public_key_present) {
       ck_assert(auth_report);
       latest = &(auth_report->latest_validation);
-      ck_assert(latest);
+      ck_assert(latest->public_key_has_changed == wrong_key);
 
       if (wrong_key) {
         ck_assert(latest->public_key_has_changed);
@@ -1711,8 +1710,8 @@ static void validation_helper_function(signed_video_t *sv, nalu_list_item_t *sei
     signed_video_authenticity_report_free(auth_report);
 
     // Free nalu_list_item and session.
-    signed_video_free(sv);
-    nalu_list_free_item(sei);
+//    signed_video_free(sv);
+//    nalu_list_free_item(sei);
     nalu_list_free_item(i_nalu);
   }
 }
@@ -1723,76 +1722,76 @@ static void validation_helper_function(signed_video_t *sv, nalu_list_item_t *sei
  *
  * Verify that it is not valid to add a manipulated key or set a public key in the middle of a
  * stream.
+ *
+ * Default is when a public key is added to the SEI.
  */
-START_TEST(set_public_key)
+START_TEST(test_public_key_scenarios)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
   struct pk_setting {
     bool pk_in_sei;
-    bool wrong_pk;
-    bool use_signature_info;
-    bool set_pk;
+    bool use_wrong_pk;
+    bool set_pk_after_session_start;
+    bool set_pk_before_session_start;
   };
 
   struct pk_setting pk_tests[] = {
-    // Public key on validation side from start
+    // No public key in SEI. The correct public key is added to Signed Video before starting the
+    // session.
     {false, false, false, true},
-    // Public key in sei and on validation side from start
+    // Public key present in SEI. The correct public key is also added to Signed Video before
+    // starting the session.
     {true, false, false, true},
-    // No public key
+    // No public key in SEI and no public key added to Signed Video.
     {false, false, false, false},
-    // Public key on validation side later
+    // No public key in SEI. The correct public key is added to Signed Video after the session has
+    // started.
     {false, false, true, false},
-    // Public key in sei and on validation side later
+    // Public key present in SEI. The correct public key is also added to Signed Video after the
+    // session has started.
     {true, false, true, false},
-    // Public key in sei and bad public key on validation side
-    {true, true, true, false},
+    // Public key present in SEI. A manipulated public key is also added to Signed Video before
+    // starting the session.
+    {true, true, false, true},
   };
 
-  for (int j = 0; j < (int) (sizeof(pk_tests) / sizeof(*pk_tests)); j++) {
+  for (size_t j = 0; j < sizeof(pk_tests) / sizeof(*pk_tests); j++) {
     SignedVideoReturnCode sv_rc;
     SignedVideoCodec codec = settings[_i].codec;
-    nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
     nalu_list_item_t *sei = NULL;
     signed_video_t *sv_camera = NULL;
     sign_algo_t algo = settings[_i].algo;
     char *private_key = NULL;
 
     sv_camera = generate_and_set_private_key_on_camera_side(settings[_i], pk_tests[j].pk_in_sei,
-        i_nalu, &sei);
+        &sei);
 
     // On validation side
     signed_video_t *sv_vms = signed_video_create(codec);
 
     signature_info_t sign_info_wrong_key = {0};
-    if (pk_tests[j].wrong_pk) {
-      // Generate a new private key in order to extract a bad private key (a key not compatible with
-      // the one generated on the camera side)
-      signed_video_generate_private_key( algo, "./", (char **)&sign_info_wrong_key.private_key,
-          &sign_info_wrong_key.private_key_size);
-      openssl_read_pubkey_from_private_key(&sign_info_wrong_key);
-      // Set public key
-      sv_rc = signed_video_set_public_key(sv_vms, sign_info_wrong_key.public_key,
-          sign_info_wrong_key.public_key_size); ck_assert_int_eq(sv_rc, SV_OK);
-    }
+    // Generate a new private key in order to extract a bad private key (a key not compatible with
+    // the one generated on the camera side)
+    signed_video_generate_private_key( algo, "./", (char **)&sign_info_wrong_key.private_key,
+        &sign_info_wrong_key.private_key_size);
+    openssl_read_pubkey_from_private_key(&sign_info_wrong_key);
 
-    if (pk_tests[j].set_pk) {
+    signature_info_t *sign_info = sv_camera->signature_info;
+    if (pk_tests[j].use_wrong_pk) {
+      sign_info = &sign_info_wrong_key;
+    }
+    if (pk_tests[j].set_pk_before_session_start) {
       // Set public key
-      sv_rc = signed_video_set_public_key( sv_vms, sv_camera->signature_info->public_key,
-          sv_camera->signature_info->public_key_size); ck_assert_int_eq(sv_rc, SV_OK);
+      sv_rc = signed_video_set_public_key( sv_vms, sign_info->public_key,
+          sign_info->public_key_size);
+      ck_assert_int_eq(sv_rc, SV_OK);
     }
-
-    signature_info_t *sign_info = NULL;
-    if (pk_tests[j].use_signature_info) {
-      if (pk_tests[j].wrong_pk) {
-        sign_info = &sign_info_wrong_key;
-      } else {
-        sign_info = sv_camera->signature_info;
-      }
+    if (!pk_tests[j].set_pk_after_session_start) {
+      sign_info = NULL;
     }
-    validation_helper_function(sv_vms, sei, pk_tests[j].wrong_pk, sign_info, codec);
+    validate_public_key_scenario(sv_vms, sei, pk_tests[j].use_wrong_pk, sign_info, codec);
 
     signed_video_free(sv_camera);
     free(private_key);
@@ -1815,7 +1814,7 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   signed_video_t *sv_camera = NULL;
 
   // On camera side
-  sv_camera = generate_and_set_private_key_on_camera_side(settings[_i], false, i_nalu, &sei);
+  sv_camera = generate_and_set_private_key_on_camera_side(settings[_i], false, &sei);
 
   // On validation side
   signed_video_t *sv_vms = signed_video_create(codec);
@@ -1901,7 +1900,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, no_signature, s, e);
   tcase_add_loop_test(tc, multislice_no_signature, s, e);
   tcase_add_loop_test(tc, late_public_key_and_no_sei_before_key_arrives, s, e);
-  tcase_add_loop_test(tc, set_public_key, s, e);
+  tcase_add_loop_test(tc, test_public_key_scenarios, s, e);
   tcase_add_loop_test(tc, no_public_key_in_sei_and_bad_public_key_on_validation_side, s, e);
   tcase_add_loop_test(tc, fallback_to_gop_level, s, e);
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS

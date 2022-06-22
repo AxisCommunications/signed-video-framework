@@ -257,7 +257,10 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
  *
  * This function allows the user to add the public key to the current Signed Video session. The
  * operation has to be performed before the session starts. It is not allowed to change the public
- * key on the fly.
+ * key on the fly, for which SV_NOT_SUPPORTED is returned.
+ *
+ * If the public key is added for a session already including a public key in the SEI, the key in
+ * the SEI rules the other key.
  *
  * The |public_key| data is assumed to be in PEM format.
  *
