@@ -45,8 +45,28 @@ typedef enum {
   // validation.
   SV_AUTH_RESULT_OK = 4,
   // Successfully verified all NALUs that could be verified, and all expected NALUs are present.
+  SV_AUTH_RESULT_VERSION_MISMATCH = 5,
+  // Video has been signed with a version newer than that used by the validation part. Correct
+  // validation cannot be guaranteed. The user is encouraged to update the validation code with a
+  // newer version.
   SV_AUTH_NUM_SIGNED_GOP_VALID_STATES
 } SignedVideoAuthenticityResult;
+
+/**
+ * Status of public key validation
+ */
+typedef enum {
+  SV_PUBKEY_VALIDATION_NOT_FEASIBLE = 0,
+  // There are no means to verify the public key. This happens if no attestation exists or if the
+  // public key was not part of the stream.
+  SV_PUBKEY_VALIDATION_NOT_OK = 1,
+  // The Public key in the SEI was not validated successfully. The video might be correct, but its
+  // origin could not be verified.
+  SV_PUBKEY_VALIDATION_OK = 2,
+  // The Public key in the stream was validated successfully. The origin of the key is correct and
+  // trustworthy when validating the video.
+  SV_PUBKEY_VALIDATION_NUM_STATES
+} SignedVideoPublicKeyValidation;
 
 /**
  * Struct storing the latest validation result. In general, that spans an entire GOP, but for long
@@ -94,6 +114,10 @@ typedef struct {
   // is still ignored.
   //   ..._..PP_P
   //         .._...PPP
+  SignedVideoPublicKeyValidation public_key_validation;
+  // The result of the latest Public key validation. If the Public key is present in the SEI, it has
+  // to be validated to associate the video with a source. If it is not feasible to validate the
+  // Public key, it should be validated manually to secure proper video authenticity.
 } signed_video_latest_validation_t;
 
 /**

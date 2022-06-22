@@ -25,6 +25,7 @@
 #include <stdlib.h>  // calloc, free, realloc
 #include <string.h>  // strlen, strcpy
 
+#include "includes/signed_video_common.h"  // signed_video_compare_versions()
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_get_validation_str()
 
 // Adding accumulated authenticity results, valuable for screening a file, is work in progress.
@@ -161,6 +162,7 @@ transfer_latest_validation(signed_video_latest_validation_t *dst,
     dst->number_of_expected_picture_nalus = src->number_of_expected_picture_nalus;
     dst->number_of_received_picture_nalus = src->number_of_received_picture_nalus;
     dst->number_of_pending_picture_nalus = src->number_of_pending_picture_nalus;
+    dst->public_key_validation = src->public_key_validation;
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -242,6 +244,7 @@ latest_validation_init(signed_video_latest_validation_t *self)
   self->number_of_expected_picture_nalus = -1;
   self->number_of_received_picture_nalus = -1;
   self->number_of_pending_picture_nalus = 0;
+  self->public_key_validation = SV_PUBKEY_VALIDATION_NOT_FEASIBLE;
 
   free(self->validation_str);
   self->validation_str = NULL;
@@ -299,6 +302,12 @@ signed_video_get_authenticity_report(signed_video_t *self)
     SVI_THROW(transfer_authenticity(authenticity_report, self->authenticity));
     h26x_nalu_list_clean_up(self->nalu_list);
     DEBUG_LOG("Validation statuses 'oldest -> latest' = %s", validation_str);
+    // Check for version mismatch. If |version_on_signing_side| is newer than |this_version| the
+    // authenticity result may not be reliable, hence change status.
+    if (signed_video_compare_versions(
+            authenticity_report->this_version, authenticity_report->version_on_signing_side) == 2) {
+      authenticity_report->latest_validation.authenticity = SV_AUTH_RESULT_VERSION_MISMATCH;
+    }
   SVI_CATCH()
   {
     signed_video_authenticity_report_free(authenticity_report);

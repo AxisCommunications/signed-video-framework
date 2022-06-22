@@ -41,6 +41,7 @@ typedef enum {
   SV_NOT_SUPPORTED = -12,  // The operation is not supported
   SV_INCOMPATIBLE_VERSION = -15,  // Incompatible software version
   SV_EXTERNAL_ERROR = -20,  // Failure in external code, e.g., plugin or OpenSSL
+  SV_VENDOR_ERROR = -21,  // Failure in vendor specific code
   SV_AUTHENTICATION_ERROR = -30,  // Failure related to validating the authenticity
   SV_UNKNOWN_FAILURE = -100,  // Unknown failure
 } SignedVideoReturnCode;

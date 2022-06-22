@@ -19,7 +19,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 #include <check.h>
-#include <stdlib.h>
+#include <stdlib.h>  // abs()
 #include <string.h>
 
 #include "lib/src/includes/signed_video_common.h"
@@ -460,9 +460,9 @@ START_TEST(sei_increase_with_gop_length)
   if (settings[_i].recurrence == SV_RECURRENCE_ONE) {
     if (auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
       // Verify constant size. Note that the size differs if more emulation prevention bytes have
-      // been added in one SEI compared to the other. That is not the case here though.
-      ck_assert_uint_eq(sei_1->data_size, sei_2->data_size);
-      ck_assert_uint_eq(sei_2->data_size, sei_3->data_size);
+      // been added in one SEI compared to the other. Allow for one extra byte.
+      ck_assert_int_le(abs((int)sei_1->data_size - (int)sei_2->data_size), 1);
+      ck_assert_int_le(abs((int)sei_2->data_size - (int)sei_3->data_size), 1);
     } else if (auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
       // Verify increased size.
       ck_assert_uint_lt(sei_1->data_size, sei_2->data_size);

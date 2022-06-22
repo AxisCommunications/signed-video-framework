@@ -833,28 +833,29 @@ END_TEST
 static nalu_list_t *
 generate_delayed_sei_list(struct sv_setting setting)
 {
-  nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPIPPPIP", setting);
-  nalu_list_check_str(list, "GIPPPGIPPPGIPPPGIPPPGIP");
+  // Make first GOP one P-frame longer to trigger recurrence on second I-frame.
+  nalu_list_t *list = create_signed_nalus("IPPPPIPPPIPPPIPPPIP", setting);
+  nalu_list_check_str(list, "GIPPPPGIPPPGIPPPGIPPPGIP");
 
   // Remove each SEI in the list and append it 2 items later (which in practice becomes 1 item later
   // since we just removed the SEI).
   nalu_list_item_t *sei = nalu_list_remove_item(list, 1);
   nalu_list_item_check_str(sei, "G");
   nalu_list_append_item(list, sei, 2);
-  sei = nalu_list_remove_item(list, 6);
+  sei = nalu_list_remove_item(list, 7);
   nalu_list_item_check_str(sei, "G");
-  nalu_list_append_item(list, sei, 7);
-  sei = nalu_list_remove_item(list, 11);
+  nalu_list_append_item(list, sei, 8);
+  sei = nalu_list_remove_item(list, 12);
   nalu_list_item_check_str(sei, "G");
-  nalu_list_append_item(list, sei, 12);
-  sei = nalu_list_remove_item(list, 16);
+  nalu_list_append_item(list, sei, 13);
+  sei = nalu_list_remove_item(list, 17);
   nalu_list_item_check_str(sei, "G");
-  nalu_list_append_item(list, sei, 17);
-  sei = nalu_list_remove_item(list, 21);
+  nalu_list_append_item(list, sei, 18);
+  sei = nalu_list_remove_item(list, 22);
   nalu_list_item_check_str(sei, "G");
-  nalu_list_append_item(list, sei, 22);
+  nalu_list_append_item(list, sei, 23);
 
-  nalu_list_check_str(list, "IPGPPIPGPPIPGPPIPGPPIPG");
+  nalu_list_check_str(list, "IPGPPPIPGPPIPGPPIPGPPIPG");
   return list;
 }
 
@@ -874,11 +875,9 @@ START_TEST(all_seis_arrive_late)
   // pending NALUs
   struct validation_stats expected = {.valid_gops = 5, .pending_nalus = 10};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
-    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
-      expected.valid_gops = 3;
-      expected.pending_nalus = 6;
-      expected.has_signature = 2;
-    }
+    expected.valid_gops = 4;
+    expected.pending_nalus = 8;  // 2 * valid_gops
+    expected.has_signature = 1;  // First validation result
   }
   validate_nalu_list(NULL, list, expected);
 
@@ -930,6 +929,65 @@ START_TEST(lost_g_before_late_sei_arrival)
       expected.pending_nalus = 4;
       expected.has_signature = 2;
     }
+  }
+  validate_nalu_list(NULL, list, expected);
+
+  nalu_list_free(list);
+}
+END_TEST
+
+/* Test description
+ * Consider a scenario where the validation side starts recording a video stream from the second
+ * GOP, and the SEIs arrive late. This test validates proper results if the second SEI is lost and
+ * the first SEI arrives inside the second GOP.
+ */
+START_TEST(lost_g_and_gop_with_late_sei_arrival)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  nalu_list_t *list = create_signed_nalus("IPIPPPIPPPIP", settings[_i]);
+  nalu_list_check_str(list, "GIPGIPPPGIPPPGIP");
+
+  // Get the first SEI, to be added back later.
+  nalu_list_item_t *sei = nalu_list_pop_first_item(list);
+  nalu_list_item_check_str(sei, "G");
+  nalu_list_check_str(list, "IPGIPPPGIPPPGIP");
+
+  // Remove the first GOP to mimic the start of the validation side.
+  remove_item_then_check_and_free(list, 1, "I");
+  nalu_list_check_str(list, "PGIPPPGIPPPGIP");
+  remove_item_then_check_and_free(list, 1, "P");
+  nalu_list_check_str(list, "GIPPPGIPPPGIP");
+  remove_item_then_check_and_free(list, 1, "G");
+  nalu_list_check_str(list, "IPPPGIPPPGIP");
+
+  // Inject the SEI into the second GOP.
+  nalu_list_append_item(list, sei, 2);
+  nalu_list_check_str(list, "IPGPPGIPPPGIP");
+
+  // Move the remaining SEIs.
+  sei = nalu_list_remove_item(list, 6);
+  nalu_list_item_check_str(sei, "G");
+  nalu_list_check_str(list, "IPGPPIPPPGIP");
+  nalu_list_append_item(list, sei, 7);
+  nalu_list_check_str(list, "IPGPPIPGPPGIP");
+
+  sei = nalu_list_remove_item(list, 11);
+  nalu_list_item_check_str(sei, "G");
+  nalu_list_check_str(list, "IPGPPIPGPPIP");
+  nalu_list_append_item(list, sei, 12);
+  nalu_list_check_str(list, "IPGPPIPGPPIPG");
+
+  // We will get 6 pending nalus:
+  //
+  // IPG         has_signature & 2 pending (IP)
+  // IP(G)PPIPG  valid & 2 pending (last IP) since they will be validated next time
+  // IP(G)PPIPG  valid & 2 pending (last IP)
+  struct validation_stats expected = {.valid_gops = 2, .pending_nalus = 6, .has_signature = 1};
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    // The two pending NALUs of the first validation will not be noticed.
+    expected.pending_nalus = 4;
   }
   validate_nalu_list(NULL, list, expected);
 
@@ -1121,28 +1179,44 @@ END_TEST
  * 4b. Validate without a reset.
  */
 static nalu_list_t *
-mimic_au_fast_forward_and_get_list(struct sv_setting setting)
+mimic_au_fast_forward_and_get_list(signed_video_t *sv, struct sv_setting setting)
 {
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", setting);
-  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGI");
+  nalu_list_t *list = create_signed_nalus("IPPPPIPPPIPPPIPPPIPPPI", setting);
+  nalu_list_check_str(list, "GIPPPPGIPPPGIPPPGIPPPGIPPPGI");
 
-  // Extract the first 3 NALUs from the list. This should be the empty GOP and in the middle of the
-  // next GOP: GIP PGIPPGIPPGIPPGI. These are the NALUs to be processed before the fast forward.
-  nalu_list_t *pre_fast_forward = nalu_list_pop(list, 3);
-  nalu_list_check_str(pre_fast_forward, "GIP");
-  nalu_list_check_str(list, "PGIPPGIPPGIPPGI");
+  // Extract the first 9 NALUs from the list. This should be the empty GOP, a full GOP and in the
+  // middle of the next GOP: GIPPPPGIP PPGIPPPGIPPPGI. These are the NALUs to be processed before
+  // the fast forward.
+  nalu_list_t *pre_fast_forward = nalu_list_pop(list, 9);
+  nalu_list_check_str(pre_fast_forward, "GIPPPPGIP");
+  nalu_list_check_str(list, "PPGIPPPGIPPPGIPPPGI");
 
-  // Mimic fast forward by removing 5 NALUs ending up at the second next gop-info SEI-NALU: PGIPP
-  // GIPPGIPPGI. A fast forward is always done to an I-NALU, and if we use the access unit (AU)
-  // format, also the preceding SEI-NALU will be present.
-  int remove_items = 5;
+  // Validate the video before fast forward using the user created session |sv|.
+  //
+  // GI      -> .P          (valid)
+  // IPPPPGI ->  .....P     (valid)
+  //
+  // Total number of pending NALUs = 1 + 1 = 2
+  struct validation_stats expected = {.valid_gops = 2, .pending_nalus = 2};
+  if (setting.recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    // GI      -> UU          (SV_AUTH_RESULT_SIGNATURE_PRESENT)
+    // IPPPPGI -> ......P     (valid)
+    expected.valid_gops = 1;
+    expected.pending_nalus = 1;
+    expected.has_signature = 1;
+  }
+  validate_nalu_list(sv, pre_fast_forward, expected);
+  nalu_list_free(pre_fast_forward);
+
+  // Mimic fast forward by removing 7 NALUs ending up at the second next SEI: PGIPP GIPPGIPPGI.
+  // A fast forward is always done to an I-NALU, and if we use the access unit (AU) format, also the
+  // preceding SEI-NALU will be present.
+  int remove_items = 7;
   while (remove_items--) {
     nalu_list_item_t *item = nalu_list_pop_first_item(list);
     nalu_list_free_item(item);
   }
-  nalu_list_check_str(list, "GIPPGIPPGI");
-
-  nalu_list_free(pre_fast_forward);
+  nalu_list_check_str(list, "GIPPPGIPPPGI");
 
   return list;
 }
@@ -1152,33 +1226,22 @@ START_TEST(fast_forward_stream_with_reset)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  // Create a new session.
+  // Create a session.
   signed_video_t *sv = signed_video_create(settings[_i].codec);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
-  nalu_list_t *list = mimic_au_fast_forward_and_get_list(settings[_i]);
+  nalu_list_t *list = mimic_au_fast_forward_and_get_list(sv, settings[_i]);
   // Reset session before we start validating.
   ck_assert_int_eq(signed_video_reset(sv), SV_OK);
-  // We should get one GOP marked as SV_AUTH_RESULT_SIGNATURE_PRESENT right after the reset. One
-  // pending NALU per GOP.
-  struct validation_stats expected = {};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
-    if (settings[_i].recurrence == SV_RECURRENCE_ONE) {
-      expected.valid_gops = 2;
-      expected.pending_nalus = 3;
-      expected.has_signature = 1;
-    }
-    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
-      expected.valid_gops = 2;
-      expected.pending_nalus = 2;
-      expected.has_signature = 1;
-    }
-  }
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
-    expected.valid_gops = 2;
-    expected.pending_nalus = 3;
-    expected.has_signature = 1;
-  }
+  // Validate GIPPPGIPPPGI:
+  //
+  // GI      -> UP           (SV_AUTH_RESULT_SIGNATURE_PRESENT)
+  // GIPPPGI -> U.....P      (valid)
+  // IPPPGI  ->       .....P (valid)
+  //
+  // Total number of pending NALUs = 1 + 1 + 1 = 3
+  const struct validation_stats expected = {
+      .valid_gops = 2, .pending_nalus = 3, .has_signature = 1};
 
   validate_nalu_list(sv, list, expected);
   // Free list and session.
@@ -1192,31 +1255,20 @@ START_TEST(fast_forward_stream_without_reset)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  // Create a new session for H265.
+  // Create a session.
   signed_video_t *sv = signed_video_create(settings[_i].codec);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
-  nalu_list_t *list = mimic_au_fast_forward_and_get_list(settings[_i]);
-  // Start validating without resetting the session.  We will get an invalid GOP since the fast
-  // forward is equivalent with dropping NALUs. One pending NALU per GOP.
-  struct validation_stats expected = {};
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
-    if (settings[_i].recurrence == SV_RECURRENCE_ONE) {
-      expected.valid_gops = 2;
-      expected.pending_nalus = 3;
-      expected.has_signature = 1;
-    }
-    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
-      expected.valid_gops = 2;
-      expected.pending_nalus = 2;
-      expected.has_signature = 1;
-    }
-  }
-  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
-    expected.valid_gops = 2;
-    expected.pending_nalus = 3;
-    expected.has_signature = 1;
-  }
+  nalu_list_t *list = mimic_au_fast_forward_and_get_list(sv, settings[_i]);
+  // Validate IP GIPPPGIPPPGI (without reset, i.e., started with IP before fast forward):
+  //
+  // GI      -> NMMUP           (invalid, 2 missing)
+  // GIPPPGI ->    UN....P      (invalid)
+  // IPPPGI  ->          .....P (valid)
+  //
+  // Total number of pending NALUs = 1 + 1 + 1 = 3
+  const struct validation_stats expected = {
+      .valid_gops = 1, .invalid_gops = 2, .missed_nalus = 2, .pending_nalus = 3};
 
   validate_nalu_list(sv, list, expected);
 
@@ -1227,29 +1279,44 @@ START_TEST(fast_forward_stream_without_reset)
 END_TEST
 
 static nalu_list_t *
-mimic_au_fast_forward_on_late_seis_and_get_list(struct sv_setting setting)
+mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_setting setting)
 {
   nalu_list_t *list = generate_delayed_sei_list(setting);
-  nalu_list_check_str(list, "IPGPPIPGPPIPGPPIPGPPIPG");
+  nalu_list_check_str(list, "IPGPPPIPGPPIPGPPIPGPPIPG");
 
-  // Extract the first 3 NALUs from the list. This should be the empty GOP and in the middle of the
-  // next GOP: IPG PPIPGPPIPGPPIPGPPIPG. These are the NALUs to be processed before the fast
-  // forward.
-  nalu_list_t *pre_fast_forward = nalu_list_pop(list, 3);
-  nalu_list_check_str(pre_fast_forward, "IPG");
-  nalu_list_check_str(list, "PPIPGPPIPGPPIPGPPIPG");
+  // Extract the first 9 NALUs from the list. This should be the empty GOP, a full GOP and in the
+  // middle of the next GOP: IPGPPPIPG PPIPGPPIPGPPIPG. These are the NALUs to be processed before
+  // the fast forward.
+  nalu_list_t *pre_fast_forward = nalu_list_pop(list, 9);
+  nalu_list_check_str(pre_fast_forward, "IPGPPPIPG");
+  nalu_list_check_str(list, "PPIPGPPIPGPPIPG");
 
-  // Mimic fast forward by removing 7 NALUs ending up at the start of a later GOP: PPIPGPP
-  // IPGPPIPGPPIPG. A fast forward is always done to an I-NALU. The first SEI showing up is
-  // associated with the now removed NALUs.
+  // Validate the video before fast forward using the user created session |sv|.
+  //
+  // IPG         -> PP.         (valid)
+  // IPGPPPIPG   -> ......PP.   (valid)
+  //
+  // Total number of pending NALUs = 2 + 2 = 4
+  struct validation_stats expected = {.valid_gops = 2, .pending_nalus = 4};
+  if (setting.recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    // IPG       -> UUU         (SV_AUTH_RESULT_SIGNATURE_PRESENT)
+    // IPGPPPIPG -> ......PP.   (valid)
+    expected.valid_gops = 1;
+    expected.pending_nalus = 2;
+    expected.has_signature = 1;
+  }
+  validate_nalu_list(sv, pre_fast_forward, expected);
+  nalu_list_free(pre_fast_forward);
+
+  // Mimic fast forward by removing 7 NALUs ending up at the start of a later GOP: PPIPGPP IPGPPIPG.
+  // A fast forward is always done to an I-NALU. The first SEI showing up is associated with the now
+  // removed NALUs.
   int remove_items = 7;
   while (remove_items--) {
     nalu_list_item_t *item = nalu_list_pop_first_item(list);
     nalu_list_free_item(item);
   }
-  nalu_list_check_str(list, "IPGPPIPGPPIPG");
-
-  nalu_list_free(pre_fast_forward);
+  nalu_list_check_str(list, "IPGPPIPG");
 
   return list;
 }
@@ -1263,23 +1330,16 @@ START_TEST(fast_forward_stream_with_delayed_seis)
   signed_video_t *sv = signed_video_create(settings[_i].codec);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
-  nalu_list_t *list = mimic_au_fast_forward_on_late_seis_and_get_list(settings[_i]);
+  nalu_list_t *list = mimic_au_fast_forward_on_late_seis_and_get_list(sv, settings[_i]);
   // Reset session before we start validating.
   ck_assert_int_eq(signed_video_reset(sv), SV_OK);
+  // Validate IPGPPIPG:
   //
   // IPG      -> PPU           (SV_AUTH_RESULT_SIGNATURE_PRESENT)
   // IPGPPIPG -> ..U..PP.      (valid)
-  // IPGPPIPG ->      .....PP. (valid)
   //
-  // Total number of pending NALUs = 2 + 2 + 2 = 6
-  struct validation_stats expected = {.valid_gops = 2, .pending_nalus = 6, .has_signature = 1};
-  /*if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
-    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
-      expected.valid_gops = 2;
-      expected.pending_nalus = 4;
-      expected.has_signature = 1;
-    }
-  }*/
+  // Total number of pending NALUs = 2 + 2 = 4
+  struct validation_stats expected = {.valid_gops = 1, .pending_nalus = 4, .has_signature = 1};
 
   validate_nalu_list(sv, list, expected);
   // Free list and session.
@@ -1570,6 +1630,9 @@ START_TEST(vendor_axis_communications_operation)
   ck_assert_int_eq(sv_rc, SV_OK);
   free(attestation);
 
+  sv_rc = signed_video_set_product_info(sv, HW_ID, FW_VER, NULL, "Axis Communications AB", ADDR);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
   // // Check setting recurrence.
   // sv_rc = signed_video_set_recurrence_interval_frames(sv, 1);
   // ck_assert_int_eq(sv_rc, SV_OK);
@@ -1610,6 +1673,7 @@ START_TEST(vendor_axis_communications_operation)
     latest = &(auth_report->latest_validation);
     ck_assert(latest);
     ck_assert_int_eq(strcmp(latest->validation_str, ".P"), 0);
+    ck_assert_int_eq(latest->public_key_validation, SV_PUBKEY_VALIDATION_NOT_OK);
     // We are done with auth_report.
     latest = NULL;
     signed_video_authenticity_report_free(auth_report);
@@ -1888,6 +1952,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, sei_arrives_late, s, e);
   tcase_add_loop_test(tc, all_seis_arrive_late, s, e);
   tcase_add_loop_test(tc, lost_g_before_late_sei_arrival, s, e);
+  tcase_add_loop_test(tc, lost_g_and_gop_with_late_sei_arrival, s, e);
   tcase_add_loop_test(tc, lost_all_nalus_between_two_seis, s, e);
   tcase_add_loop_test(tc, add_one_sei_nalu_after_signing, s, e);
   tcase_add_loop_test(tc, camera_reset_on_signing_side, s, e);
