@@ -1760,13 +1760,14 @@ static void validate_public_key_scenario(signed_video_t *sv, nalu_list_item_t *s
     if (public_key_present) {
       ck_assert(auth_report);
       latest = &(auth_report->latest_validation);
-      ck_assert(latest->public_key_has_changed == wrong_key);
+      ck_assert(latest);
+      if (tag_is_present(sei, codec, PUBLIC_KEY_TAG)) {
+        ck_assert(latest->public_key_has_changed == wrong_key);
+      }
 
       if (wrong_key) {
-        ck_assert(latest->public_key_has_changed);
         ck_assert_int_eq(latest->authenticity, SV_AUTH_RESULT_NOT_OK);
       } else {
-        ck_assert(!(latest->public_key_has_changed));
         ck_assert_int_eq(latest->authenticity, SV_AUTH_RESULT_OK);
       }
     }
@@ -1774,8 +1775,6 @@ static void validate_public_key_scenario(signed_video_t *sv, nalu_list_item_t *s
     signed_video_authenticity_report_free(auth_report);
 
     // Free nalu_list_item and session.
-//    signed_video_free(sv);
-//    nalu_list_free_item(sei);
     nalu_list_free_item(i_nalu);
   }
 }
@@ -1819,6 +1818,8 @@ START_TEST(test_public_key_scenarios)
     // Public key present in SEI. A manipulated public key is also added to Signed Video before
     // starting the session.
     {true, true, false, true},
+    // Activate when TODO in the test below is fixed.
+//    {false, true, false, true},
   };
 
   for (size_t j = 0; j < sizeof(pk_tests) / sizeof(*pk_tests); j++) {
@@ -1848,7 +1849,7 @@ START_TEST(test_public_key_scenarios)
     }
     if (pk_tests[j].set_pk_before_session_start) {
       // Set public key
-      sv_rc = signed_video_set_public_key( sv_vms, sign_info->public_key,
+      sv_rc = signed_video_set_public_key(sv_vms, sign_info->public_key,
           sign_info->public_key_size);
       ck_assert_int_eq(sv_rc, SV_OK);
     }
@@ -1858,6 +1859,8 @@ START_TEST(test_public_key_scenarios)
     validate_public_key_scenario(sv_vms, sei, pk_tests[j].use_wrong_pk, sign_info, codec);
 
     signed_video_free(sv_camera);
+    signed_video_free(sv_vms);
+    free(sei);
     free(private_key);
   }
 }

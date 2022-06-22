@@ -721,8 +721,8 @@ prepare_for_validation(signed_video_t *self)
       memcpy(signature_info->hash, self->gop_info->gop_hash, HASH_DIGEST_SIZE);
     }
 
-    SVI_THROW_IF_WITH_MSG(
-        gop_state->signing_present && !self->has_public_key, SVI_UNKNOWN, "No public key present");
+    SVI_THROW_IF_WITH_MSG(gop_state->signing_present && !self->has_public_key, SVI_NOT_SUPPORTED,
+        "No public key present");
 
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // If "Axis Communications AB" can be identified from the |product_info|, get
