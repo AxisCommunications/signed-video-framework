@@ -1858,7 +1858,6 @@ START_TEST(test_public_key_scenarios)
       sign_info = &sign_info_wrong_key;
     }
     if (pk_tests[j].set_pk_before_session_start) {
-      // Set public key
       sv_rc =
           signed_video_set_public_key(sv_vms, sign_info->public_key, sign_info->public_key_size);
       ck_assert_int_eq(sv_rc, SV_OK);
