@@ -546,7 +546,7 @@ openssl_get_algo_of_public_key(const char *public_key, size_t public_key_size, s
   SVI_CATCH()
   SVI_DONE(status)
 
-  free(pkey);
+  EVP_PKEY_free(pkey);
 
   return status;
 }
