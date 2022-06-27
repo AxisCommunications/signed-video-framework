@@ -1807,28 +1807,28 @@ START_TEST(test_public_key_scenarios)
   struct pk_setting {
     bool pk_in_sei;
     bool use_wrong_pk;
-    bool set_pk_after_session_start;
     bool set_pk_before_session_start;
+    bool set_pk_after_session_start;
   };
 
   struct pk_setting pk_tests[] = {
       // No public key in SEI. The correct public key is added to Signed Video before starting the
       // session.
-      {false, false, false, true},
+      {false, false, true, false},
       // Public key present in SEI. The correct public key is also added to Signed Video before
       // starting the session.
-      {true, false, false, true},
+      {true, false, true, false},
       // No public key in SEI and no public key added to Signed Video.
       {false, false, false, false},
       // No public key in SEI. The correct public key is added to Signed Video after the session has
       // started.
-      {false, false, true, false},
+      {false, false, false, true},
       // Public key present in SEI. The correct public key is also added to Signed Video after the
       // session has started.
-      {true, false, true, false},
+      {true, false, false, true},
       // Public key present in SEI. A manipulated public key is also added to Signed Video before
       // starting the session.
-      {true, true, false, true},
+      {true, true, true, false},
       // Activate when TODO in the test below is fixed.
       //    {false, true, false, true},
   };
