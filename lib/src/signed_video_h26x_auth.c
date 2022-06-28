@@ -32,6 +32,7 @@
 #include "signed_video_h26x_internal.h"  // gop_state_reset(), update_gop_hash()
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_append()
 #include "signed_video_internal.h"  // gop_info_t, gop_state_t, reset_gop_hash()
+#include "signed_video_openssl_internal.h"  // openssl_get_algo_of_public_key()
 #include "signed_video_tlv.h"  // tlv_find_tag()
 
 static svi_rc
@@ -720,8 +721,8 @@ prepare_for_validation(signed_video_t *self)
       memcpy(signature_info->hash, self->gop_info->gop_hash, HASH_DIGEST_SIZE);
     }
 
-    SVI_THROW_IF_WITH_MSG(
-        gop_state->signing_present && !self->has_public_key, SVI_UNKNOWN, "No public key present");
+    SVI_THROW_IF_WITH_MSG(gop_state->signing_present && !self->has_public_key, SVI_NOT_SUPPORTED,
+        "No public key present");
 
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // If "Axis Communications AB" can be identified from the |product_info|, get
@@ -987,6 +988,8 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
 {
   if (!self || !nalu_data || nalu_data_size == 0) return SV_INVALID_PARAMETER;
 
+  self->authentication_started = true;
+
   // If the user requests an authenticity report, initialize to NULL.
   if (authenticity) *authenticity = NULL;
 
@@ -998,6 +1001,31 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
     if (self->gop_state.has_auth_result) {
       if (authenticity) *authenticity = signed_video_get_authenticity_report(self);
     }
+
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  return svi_rc_to_signed_video_rc(status);
+}
+
+SignedVideoReturnCode
+signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t public_key_size)
+{
+  if (!self || !public_key || public_key_size == 0) return SV_INVALID_PARAMETER;
+  if (self->signature_info->public_key) return SV_NOT_SUPPORTED;
+  if (self->authentication_started) return SV_NOT_SUPPORTED;
+
+  sign_algo_t *algo = &(self->signature_info->algo);
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    SVI_THROW(openssl_get_algo_of_public_key(public_key, public_key_size, algo));
+    // Allocate memory and copy |public_key|.
+    self->signature_info->public_key = malloc(public_key_size);
+    SVI_THROW_IF(!self->signature_info->public_key, SVI_MEMORY);
+    memcpy(self->signature_info->public_key, public_key, public_key_size);
+
+    self->signature_info->public_key_size = public_key_size;
+    self->has_public_key = true;
 
   SVI_CATCH()
   SVI_DONE(status)

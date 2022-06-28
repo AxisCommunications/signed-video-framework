@@ -279,6 +279,25 @@ signed_video_set_private_key(signed_video_t *self,
     size_t private_key_size);
 
 /**
+ * @brief Setter for adding the Public key to the SEI or not
+ *
+ * If the public key, used to verify the signatures, cannot be secured through a hardware
+ * certificate or key attestation, it should not be added to the video stream. Without securing it,
+ * anyone can sign arbitrary (tampered) videos.
+ *
+ * This function should be used before starting the Signed Video session. If it is not used, the
+ * public key is added to the SEI.
+ *
+ * @param self Pointer to the current Signed Video session
+ * @param add_public_key_to_sei Flag to indicate if the public key should be added to the SEI
+ *   (default true)
+ *
+ * @return A Signed Video Return Code (SignedVideoReturnCode)
+ */
+SignedVideoReturnCode
+signed_video_add_public_key_to_sei(signed_video_t *self, bool add_public_key_to_sei);
+
+/**
  * @brief Sets the authenticity level to be used.
  *
  * The framework supports two levels of authenticity; GOP and Frame, where Frame is default. At GOP

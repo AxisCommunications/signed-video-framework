@@ -128,6 +128,7 @@ struct _signed_video_t {
   // Private structures
   gop_info_t *gop_info;
   SignedVideoAuthenticityLevel authenticity_level;
+  bool add_public_key_to_sei;
 
   // Frames to prepend list
   signed_video_nalu_to_prepend_t nalus_to_prepend_list[MAX_NALUS_TO_PREPEND];
@@ -146,6 +147,7 @@ struct _signed_video_t {
   // when added, that is, in signed_video_add_nalu_and_authenticate(). Items are removed when
   // reported through the authenticity_report.
   h26x_nalu_list_t *nalu_list;
+  bool authentication_started;
 
   gop_state_t gop_state;
   gop_info_detected_t gop_info_detected;

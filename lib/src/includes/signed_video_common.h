@@ -54,7 +54,7 @@ typedef enum {
 typedef enum { SV_CODEC_H264 = 0, SV_CODEC_H265 = 1, SV_CODEC_NUM } SignedVideoCodec;
 
 /**
- * @brief Create a new signed video session.
+ * @brief Creates a new signed video session.
  *
  * Creates a signed_video_t object which the user should keep across the entire streaming session.
  * The user is responsible to free the memory at the end of the session by calling the
