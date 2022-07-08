@@ -118,6 +118,10 @@ typedef struct {
   // The result of the latest Public key validation. If the Public key is present in the SEI, it has
   // to be validated to associate the video with a source. If it is not feasible to validate the
   // Public key, it should be validated manually to secure proper video authenticity.
+  bool has_timestamp;
+  // True if the timestamp member is valid to look at, false otherwise.
+  int64_t timestamp;
+  // User defined timestamp of the first nalu in the GOP.
 } signed_video_latest_validation_t;
 
 /**

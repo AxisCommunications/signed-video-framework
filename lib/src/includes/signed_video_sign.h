@@ -99,11 +99,24 @@ typedef enum {
  * Hence, upon a successful signed_video_add_NALU_for_signing(...) call the user should always call
  * signed_video_get_nalu_to_prepend(...) to get the additional NALUs.
  *
+ * This API has an extension, signed_video_add_nalu_for_signing_with_timestamp, which behaves the
+ * same except a timestamp can be specified as well. The timestamp parameter shall be a UNIX epoch
+ * value in UTC format. The integrator of this signed video framework shall make sure this is true,
+ * so that the client side knows the expected format and is able to convert the timestamp to
+ * whatever format is needed at the client side. If the timestamp is not null and the nalu is the
+ * first in the gop (i.e. the first I-frame slice), it will be included in the general SEI. All
+ * other timestamps and NULL will be disregarded.
+
+ *
+ * The timestamp parameter is user defined, meaning that it is up to the implementer of the library
+ * to make sure the timestamp is correct and in a format which the client implementation can decode
+ * into something human readable.  *
  * For sample code, see the description of signed_video_get_nalu_to_prepend(...) below.
  *
  * @param self Pointer to the signed_video_t object in use.
  * @param nalu_data A pointer to the NALU data
  * @param nalu_data_size The size of the NALU data.
+ * @param timestamp Unix epoch in UTC.
  *
  * @returns SV_OK            - the NALU was processed successfully.
  *          SV_NOT_SUPPORTED - signed_video_set_private_key(...) has not been set
@@ -117,6 +130,12 @@ SignedVideoReturnCode
 signed_video_add_nalu_for_signing(signed_video_t *self,
     const uint8_t *nalu_data,
     size_t nalu_data_size);
+
+SignedVideoReturnCode
+signed_video_add_nalu_for_signing_with_timestamp(signed_video_t *self,
+    const uint8_t *nalu_data,
+    size_t nalu_data_size,
+    const int64_t *timestamp);
 
 /**
  * @brief Gets generated NALUs to prepend the latest added NALU

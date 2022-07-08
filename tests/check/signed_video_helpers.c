@@ -57,6 +57,8 @@ const char *axisDummyCertificateChain =
     "w3S8HMYSvMWbTCzN+qnq+GV1goSS6vjVr95EpDxCVIxkKOvuxhyVDg==\n"
     "-----END CERTIFICATE-----";
 
+const int64_t g_testTimestamp = 42;
+
 char private_key_rsa[RSA_PRIVATE_KEY_ALLOC_BYTES];
 size_t private_key_size_rsa;
 char private_key_ecdsa[ECDSA_PRIVATE_KEY_ALLOC_BYTES];
@@ -170,7 +172,7 @@ create_signed_nalus_with_sv(signed_video_t *sv, const char *str)
 
   // Loop through the NALUs and add for signing.
   while (item) {
-    rc = signed_video_add_nalu_for_signing(sv, item->data, item->data_size);
+    rc = signed_video_add_nalu_for_signing_ts(sv, item->data, item->data_size, &g_testTimestamp);
     ck_assert_int_eq(rc, SV_OK);
     // Pull NALUs to prepend or append and inject into the NALU list.
     pull_nalus(sv, item);

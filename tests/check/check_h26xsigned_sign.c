@@ -29,6 +29,7 @@
 #include "lib/src/includes/sv_vendor_axis_communications.h"
 #endif
 #include "lib/src/signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
+#include "lib/src/signed_video_h26x_internal.h"  // h26x_nalu_t
 #include "lib/src/signed_video_internal.h"  // set_hash_list_size()
 #include "lib/src/signed_video_tlv.h"  // tlv_find_tag()
 #include "nalu_list.h"
@@ -159,6 +160,25 @@ START_TEST(api_inputs)
   // An invalid NALU should return silently.
   sv_rc = signed_video_add_nalu_for_signing(sv, invalid->data, invalid->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Timestamp version of the API.
+  // Zero sized nalus are invalid, as well as NULL pointers except for the timestamp
+  sv_rc = signed_video_add_nalu_for_signing_ts(NULL, p_nalu->data, p_nalu->data_size, &g_testTimestamp);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  sv_rc = signed_video_add_nalu_for_signing_ts(sv, NULL, p_nalu->data_size, &g_testTimestamp);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  sv_rc = signed_video_add_nalu_for_signing_ts(sv, p_nalu->data, 0, &g_testTimestamp);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  // An invalid NALU should return silently.
+  sv_rc = signed_video_add_nalu_for_signing_ts(sv, invalid->data, invalid->data_size, &g_testTimestamp);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  // Timestamp can be null
+  sv_rc = signed_video_add_nalu_for_signing_ts(sv, p_nalu->data, p_nalu->data_size, NULL);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  // Valid call
+  sv_rc = signed_video_add_nalu_for_signing_ts(sv, p_nalu->data, p_nalu->data_size, &g_testTimestamp);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
   // TODO: Add check on |sv| to make sure nothing has changed.
   // Checking signed_video_get_nalu_to_prepend() for NULL pointers.
   sv_rc = signed_video_get_nalu_to_prepend(NULL, &nalu_to_prepend);
@@ -588,6 +608,90 @@ START_TEST(recurrence)
 }
 END_TEST
 
+/* Test description
+ * Verify that the new API for adding a timestamp with the NALU for signing doesn't change the
+ * result when the timestamp is not present (NULL) compared to the old API.
+ * The operation is as follows:
+ * 1. Setup two signed_video_t sessions
+ * 2. Add NALU for signing with the new and old API supporting timestamp
+ * 3. Get the NALU to prepend
+ * 4. Check that the sizes and contents of hashable data are identical
+ */
+START_TEST(correct_timestamp)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+  SignedVideoCodec codec = settings[_i].codec;
+  signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
+  signed_video_nalu_to_prepend_t nalu_to_prepend_ts = {0};
+  SignedVideoReturnCode sv_rc;
+
+  signed_video_t *sv = signed_video_create(codec);
+  signed_video_t *sv_ts = signed_video_create(codec);
+  ck_assert(sv);
+  ck_assert(sv_ts);
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+
+  // Setup the key
+  sv_rc =
+      signed_video_generate_private_key(settings[_i].algo, "./", &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  sv_rc = signed_video_set_private_key(sv, settings[_i].algo, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  sv_rc = signed_video_set_private_key(sv_ts, settings[_i].algo, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_authenticity_level(sv_ts, settings[_i].auth_level);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Test old API without timestamp
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(nalu_to_prepend.prepend_instruction != SIGNED_VIDEO_PREPEND_NOTHING);
+
+  // Test new API with timestamp as NULL. It should give the same result as the old API
+  sv_rc = signed_video_add_nalu_for_signing_ts(sv_ts, i_nalu->data, i_nalu->data_size, NULL);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_get_nalu_to_prepend(sv_ts, &nalu_to_prepend_ts);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(nalu_to_prepend_ts.prepend_instruction != SIGNED_VIDEO_PREPEND_NOTHING);
+  
+  // Verify the sizes of the nalus
+  ck_assert(nalu_to_prepend.nalu_data_size > 0);
+  ck_assert(nalu_to_prepend_ts.nalu_data_size > 0);
+  ck_assert(nalu_to_prepend.nalu_data_size == nalu_to_prepend_ts.nalu_data_size);
+
+  // Get the hashable data (includes the signature)
+  h26x_nalu_t nalu =
+    parse_nalu_info(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec, false);
+  h26x_nalu_t nalu_ts =
+    parse_nalu_info(nalu_to_prepend_ts.nalu_data, nalu_to_prepend_ts.nalu_data_size, codec, false);
+
+  // Remove the signature
+  update_hashable_data(&nalu);
+  update_hashable_data(&nalu_ts);
+
+  // Verify that hashable data sizes and data contents are identical
+  ck_assert(nalu.hashable_data_size == nalu_ts.hashable_data_size);
+  ck_assert(nalu.hashable_data_size > 0);
+  ck_assert(!memcmp(nalu.hashable_data, nalu_ts.hashable_data, nalu.hashable_data_size));
+
+  signed_video_nalu_data_free(nalu_to_prepend.nalu_data);
+  signed_video_nalu_data_free(nalu_to_prepend_ts.nalu_data);
+  nalu_list_free_item(i_nalu);
+  signed_video_free(sv);
+  signed_video_free(sv_ts);
+  free(private_key);
+}
+END_TEST
+
 static Suite *
 signed_video_suite(void)
 {
@@ -616,6 +720,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, fallback_to_gop_level, s, e);
   tcase_add_loop_test(tc, undefined_nalu_in_sequence, s, e);
   tcase_add_loop_test(tc, recurrence, s, e);
+  tcase_add_loop_test(tc, correct_timestamp, s, e);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);

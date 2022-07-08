@@ -232,7 +232,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
   if (*payload) {
     DEBUG_LOG("Payload is not empty, *payload must be NULL");
-    return 0;
+    return SVI_OK;
   }
 
   // Reset |signature_hash_type| to |GOP_HASH|. If the |hash_list| is successfully added,
@@ -373,6 +373,8 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
     // End of GOP. Reset flag to get new reference.
     self->gop_info->has_reference_hash = false;
+    // Reset the timestamp to avoid including a duplicate in the next SEI.
+    gop_info->has_timestamp = false;
 
     SVI_THROW(sv_rc_to_svi_rc(sv_interface_sign_hash(self->plugin_handle, signature_info)));
 
@@ -490,6 +492,15 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
     const uint8_t *nalu_data,
     size_t nalu_data_size)
 {
+  return signed_video_add_nalu_for_signing_with_timestamp(self, nalu_data, nalu_data_size, NULL);
+}
+
+SignedVideoReturnCode
+signed_video_add_nalu_for_signing_with_timestamp(signed_video_t *self,
+    const uint8_t *nalu_data,
+    size_t nalu_data_size,
+    const int64_t *timestamp)
+{
   if (!self || !nalu_data || !nalu_data_size) {
     DEBUG_LOG("Invalid input parameters: (%p, %p, %zu)", self, nalu_data, nalu_data_size);
     return SV_INVALID_PARAMETER;
@@ -522,6 +533,12 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
     if (nalu.is_first_nalu_in_gop) {
       // An I-NALU indicates the start of a new GOP, hence prepend with SEI-NALUs. This also means
       // that the signing feature is present.
+
+      // Store the timestamp for the first nalu in gop
+      if (timestamp) {
+        self->gop_info->timestamp = *timestamp;
+        self->gop_info->has_timestamp = true;
+      }
 
       uint8_t *payload = NULL;
       uint8_t *payload_signature_ptr = NULL;

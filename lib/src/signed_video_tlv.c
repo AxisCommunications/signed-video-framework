@@ -192,13 +192,19 @@ encode_general(signed_video_t *self, uint8_t *data)
   size_t data_size = 0;
   uint32_t gop_counter = gop_info->global_gop_counter + 1;
   uint16_t num_nalus_in_gop_hash = gop_info->num_nalus_in_gop_hash;
-  const uint8_t version = 1;
+  const uint8_t version = 2;
+  int64_t timestamp = self->gop_info->timestamp;
+  uint8_t flags = 0;
 
   // Get size of data
   data_size += sizeof(version);
   data_size += sizeof(gop_counter);
   data_size += sizeof(num_nalus_in_gop_hash);
   data_size += SV_VERSION_BYTES;
+  data_size += sizeof(flags);
+  if (gop_info->has_timestamp) {
+    data_size += sizeof(timestamp);
+  }
 
   if (!data) {
     DEBUG_LOG("Returning computed size %zu", data_size);
@@ -223,6 +229,21 @@ encode_general(signed_video_t *self, uint8_t *data)
 
   for (int i = 0; i < SV_VERSION_BYTES; i++) {
     write_byte(last_two_bytes, &data_ptr, (uint8_t)self->code_version[i], true);
+  }
+
+  // Write bool flags; 1 byte
+  flags |= (gop_info->has_timestamp << 0) & 0x01;
+  write_byte(last_two_bytes, &data_ptr, flags, true);
+  if (gop_info->has_timestamp) {
+    // Write timestamp; 8 bytes
+    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 56) & 0x000000ff), true);
+    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 48) & 0x000000ff), true);
+    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 40) & 0x000000ff), true);
+    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 32) & 0x000000ff), true);
+    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 24) & 0x000000ff), true);
+    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 16) & 0x000000ff), true);
+    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 8) & 0x000000ff), true);
+    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp)&0x000000ff), true);
   }
 
   gop_info->global_gop_counter = gop_counter;
@@ -256,26 +277,23 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
     }
     bytes_to_version_str(self->code_version, self->authenticity->version_on_signing_side);
 
+    if (version == 2) {
+      // Read bool flags
+      uint8_t flags = 0;
+      data_ptr += read_8bits(data_ptr, &flags);
+      gop_info->has_timestamp = flags & 0x01;
+      self->latest_validation->has_timestamp = gop_info->has_timestamp;
+      if (gop_info->has_timestamp) {
+        data_ptr += read_64bits_signed(data_ptr, &gop_info->timestamp);
+        self->latest_validation->timestamp = gop_info->timestamp;
+      }
+    }
+
     SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
   SVI_CATCH()
   SVI_DONE(status)
 
   return status;
-}
-
-void
-write_byte_many(uint8_t **dest,
-    char *src,
-    size_t size,
-    uint16_t *last_two_bytes,
-    bool do_emulation_prevention)
-{
-  if (!src) return;
-
-  for (size_t ii = 0; ii < size; ++ii) {
-    uint8_t ch = src[ii];
-    write_byte(last_two_bytes, dest, ch, do_emulation_prevention);
-  }
 }
 
 /**
@@ -1047,13 +1065,38 @@ tlv_find_and_decode_recurrent_tags(signed_video_t *self,
 }
 
 size_t
+read_64bits(const uint8_t *p, uint64_t *val)
+{
+  if (!p || !val) return 0;
+  *val = ((uint64_t)p[0]) << 56;
+  *val += ((uint64_t)p[1]) << 48;
+  *val += ((uint64_t)p[2]) << 40;
+  *val += ((uint64_t)p[3]) << 32;
+  *val += ((uint64_t)p[4]) << 24;
+  *val += ((uint64_t)p[5]) << 16;
+  *val += ((uint64_t)p[6]) << 8;
+  *val += (uint64_t)p[7];
+
+  return 8;
+}
+
+size_t
+read_64bits_signed(const uint8_t *p, int64_t *val)
+{
+  uint64_t tmp_val = 0;
+  size_t bytes_read = read_64bits(p, &tmp_val);
+  *val = (int64_t)tmp_val;
+  return bytes_read;
+}
+
+size_t
 read_32bits(const uint8_t *p, uint32_t *val)
 {
   if (!p || !val) return 0;
-  *val = (uint32_t)(p[0] << 24);
-  *val += (uint32_t)(p[1] << 16);
-  *val += (uint32_t)(p[2] << 8);
-  *val += (uint32_t)(p[3]);
+  *val = ((uint32_t)p[0]) << 24;
+  *val += ((uint32_t)p[1]) << 16;
+  *val += ((uint32_t)p[2]) << 8;
+  *val += (uint32_t)p[3];
 
   return 4;
 }
@@ -1062,10 +1105,38 @@ size_t
 read_16bits(const uint8_t *p, uint16_t *val)
 {
   if (!p || !val) return 0;
-  *val = (uint16_t)(p[0] << 8);
-  *val += (uint16_t)(p[1]);
+  *val = ((uint16_t)p[0]) << 8;
+  *val += (uint16_t)p[1];
 
   return 2;
+}
+
+size_t
+read_8bits(const uint8_t *p, uint8_t *val)
+{
+  if (!p || !val) return 0;
+  *val = *p;
+
+  return 1;
+}
+
+uint8_t
+read_byte(uint16_t *last_two_bytes, const uint8_t **data, bool do_emulation_prevention)
+{
+  uint8_t curr_byte = **data;
+  if (do_emulation_prevention && curr_byte == 0x03 && *last_two_bytes == 0) {
+    // Emulation prevention byte (0x03) detected. Move to next byte and return.
+    *last_two_bytes <<= 8;
+    *last_two_bytes |= (uint16_t)curr_byte;
+    (*data)++;
+    curr_byte = **data;
+  }
+
+  *last_two_bytes <<= 8;
+  *last_two_bytes |= (uint16_t)curr_byte;
+  (*data)++;
+
+  return curr_byte;
 }
 
 void
@@ -1088,21 +1159,17 @@ write_byte(uint16_t *last_two_bytes,
   *last_two_bytes |= (uint16_t)curr_byte;
 }
 
-uint8_t
-read_byte(uint16_t *last_two_bytes, const uint8_t **data, bool do_emulation_prevention)
+void
+write_byte_many(uint8_t **dest,
+    char *src,
+    size_t size,
+    uint16_t *last_two_bytes,
+    bool do_emulation_prevention)
 {
-  uint8_t curr_byte = **data;
-  if (do_emulation_prevention && curr_byte == 0x03 && *last_two_bytes == 0) {
-    // Emulation prevention byte (0x03) detected. Move to next byte and return.
-    *last_two_bytes <<= 8;
-    *last_two_bytes |= (uint16_t)curr_byte;
-    (*data)++;
-    curr_byte = **data;
+  if (!src) return;
+
+  for (size_t ii = 0; ii < size; ++ii) {
+    uint8_t ch = src[ii];
+    write_byte(last_two_bytes, dest, ch, do_emulation_prevention);
   }
-
-  *last_two_bytes <<= 8;
-  *last_two_bytes |= (uint16_t)curr_byte;
-  (*data)++;
-
-  return curr_byte;
 }
