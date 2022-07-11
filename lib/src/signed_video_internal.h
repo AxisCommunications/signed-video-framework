@@ -72,6 +72,8 @@ typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 
 #define HASH_LIST_SIZE (HASH_DIGEST_SIZE * MAX_GOP_LENGTH)
 
+#define SIZE_OF_SIGNING_REQUEST_QUEUE 3
+
 /**
  * The authentication state machine
  * The process of validating the authenticity of a video is described by a set of operating states.
@@ -267,5 +269,17 @@ free_and_reset_nalu_to_prepend_list(signed_video_t *signed_video);
 /* Frees all allocated memory of payload pointers in the buffer. */
 void
 free_payload_buffer(uint8_t *payload_buffer[]);
+
+/* Gets the oldest signing request from the queue and moves the queue one index to the front. */
+void
+get_signing_request_from_queue(uint8_t *end_of_queue_idx,
+    uint8_t queue[SIZE_OF_SIGNING_REQUEST_QUEUE],
+    uint8_t *payload);
+
+/* Adds one signing request to the queue. */
+void
+add_signing_request_to_queue(uint8_t *payload,
+    uint8_t *end_of_queue_idx,
+    uint8_t queue[SIZE_OF_SIGNING_REQUEST_QUEUE]);
 
 #endif  // __SIGNED_VIDEO_INTERNAL__

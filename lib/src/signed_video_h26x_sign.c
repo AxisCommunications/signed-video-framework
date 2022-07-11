@@ -196,6 +196,36 @@ free_and_reset_nalu_to_prepend_list(signed_video_t *self)
   self->num_nalus_to_prepend = 0;
 }
 
+/* Gets the front element of the queue, which is the oldest signing request, and shifts the other
+ * signing requests one index closer to the front of the queue.
+ */
+void
+get_signing_request_from_queue(uint8_t *end_of_queue_idx, uint8_t
+    queue[SIZE_OF_SIGNING_REQUEST_QUEUE], uint8_t *payload)
+{
+  if (!payload || !end_of_queue_idx || !queue) return;
+  *payload = queue[0];
+  for (uint8_t j = 0; j < *end_of_queue_idx + 1; j++) {
+    queue[j] = queue[j + 1];
+  }
+  if (*end_of_queue_idx) {
+    --(*end_of_queue_idx);
+  }
+}
+
+/* Adds a signing request to the signing request queue
+ */
+void
+add_signing_request_to_queue(uint8_t *payload, uint8_t *end_of_queue_idx, uint8_t
+    queue[SIZE_OF_SIGNING_REQUEST_QUEUE])
+{
+  if (!payload || !end_of_queue_idx || !queue) return;
+  queue[*end_of_queue_idx] = *payload;
+  if (*end_of_queue_idx < SIZE_OF_SIGNING_REQUEST_QUEUE - 1) {
+    ++(*end_of_queue_idx);
+  }
+}
+
 /* This function generates a SEI NALU of type "user data unregistered". The payload encoded in this
  * SEI is constructed using a set of TLVs. The TLVs are organized as follows;
  *  | metadata | maybe hash_list | signature |
@@ -518,7 +548,7 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
     SVI_THROW(hash_and_add(self, &nalu));
     // Depending on the input NALU, we need to take different actions. If the input is an I-NALU we
     // have a transition to a new GOP. Then we need to generate the necessary SEI-NALU(s) and put in
-    // prepend_list.  For all other valid NALUs, simply hash and proceed.
+    // prepend_list. For all other valid NALUs, simply hash and proceed.
     if (nalu.is_first_nalu_in_gop) {
       // An I-NALU indicates the start of a new GOP, hence prepend with SEI-NALUs. This also means
       // that the signing feature is present.
@@ -527,7 +557,20 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
       uint8_t *payload_signature_ptr = NULL;
       signing_present = 0;  // About to add SEI NALUs.
 
+      uint8_t queue[SIZE_OF_SIGNING_REQUEST_QUEUE];
+      uint8_t *end_of_queue_idx = NULL;
+      end_of_queue_idx = (uint8_t*)malloc(sizeof(uint8_t));
+      *end_of_queue_idx = 0;
+
       SVI_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
+
+      // Add |payload| to the signing request queue.
+      add_signing_request_to_queue(payload, end_of_queue_idx, queue);
+      // Get the oldest |payload| from the queue.
+      get_signing_request_from_queue(end_of_queue_idx, queue, payload);
+
+      free(end_of_queue_idx);
+
       // Add |payload| to buffer. Will be picked up again when the signature has been generated.
       add_payload_to_buffer(self, payload, payload_signature_ptr);
       // Now we are done with the previous GOP. The gop_hash was reset right after signing and
