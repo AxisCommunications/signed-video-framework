@@ -72,8 +72,6 @@ typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 
 #define HASH_LIST_SIZE (HASH_DIGEST_SIZE * MAX_GOP_LENGTH)
 
-#define SIZE_OF_SIGNING_REQUEST_QUEUE 3
-
 /**
  * The authentication state machine
  * The process of validating the authenticity of a video is described by a set of operating states.
