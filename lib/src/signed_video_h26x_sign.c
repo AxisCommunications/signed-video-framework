@@ -119,8 +119,9 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   // Transfer oldest pointer in |payload_buffer| to local |payload|
   uint8_t *payload = self->payload_buffer[0];
   uint8_t *payload_signature_ptr = self->payload_buffer[1];
-  self->payload_buffer[0] = NULL;  // Set to NULL since pointer has been transferred.
-  self->payload_buffer[1] = NULL;  // Set to NULL since pointer has been transferred.
+  for (uint8_t j = 0; j < buffer_end - 1; j++) {
+    self->payload_buffer[self->payload_buffer_idx] = self->payload_buffer[self->payload_buffer_idx + 2];
+  }
 
   // If the signature could not be generated |signature_size| equals zero. Free the started SEI and
   // move on. This is a valid operation. What will happen is that the video will have an unsigned
@@ -194,36 +195,6 @@ free_and_reset_nalu_to_prepend_list(signed_video_t *self)
     reset_nalu_to_prepend(&self->nalus_to_prepend_list[ii]);
   }
   self->num_nalus_to_prepend = 0;
-}
-
-/* Gets the front element of the queue, which is the oldest signing request, and shifts the other
- * signing requests one index closer to the front of the queue.
- */
-void
-get_signing_request_from_queue(uint8_t *end_of_queue_idx, uint8_t
-    queue[SIZE_OF_SIGNING_REQUEST_QUEUE], uint8_t *payload)
-{
-  if (!payload || !end_of_queue_idx || !queue) return;
-  *payload = queue[0];
-  for (uint8_t j = 0; j < *end_of_queue_idx + 1; j++) {
-    queue[j] = queue[j + 1];
-  }
-  if (*end_of_queue_idx) {
-    --(*end_of_queue_idx);
-  }
-}
-
-/* Adds a signing request to the signing request queue
- */
-void
-add_signing_request_to_queue(uint8_t *payload, uint8_t *end_of_queue_idx, uint8_t
-    queue[SIZE_OF_SIGNING_REQUEST_QUEUE])
-{
-  if (!payload || !end_of_queue_idx || !queue) return;
-  queue[*end_of_queue_idx] = *payload;
-  if (*end_of_queue_idx < SIZE_OF_SIGNING_REQUEST_QUEUE - 1) {
-    ++(*end_of_queue_idx);
-  }
 }
 
 /* This function generates a SEI NALU of type "user data unregistered". The payload encoded in this
@@ -557,19 +528,7 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
       uint8_t *payload_signature_ptr = NULL;
       signing_present = 0;  // About to add SEI NALUs.
 
-      uint8_t queue[SIZE_OF_SIGNING_REQUEST_QUEUE];
-      uint8_t *end_of_queue_idx = NULL;
-      end_of_queue_idx = (uint8_t*)malloc(sizeof(uint8_t));
-      *end_of_queue_idx = 0;
-
       SVI_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
-
-      // Add |payload| to the signing request queue.
-      add_signing_request_to_queue(payload, end_of_queue_idx, queue);
-      // Get the oldest |payload| from the queue.
-      get_signing_request_from_queue(end_of_queue_idx, queue, payload);
-
-      free(end_of_queue_idx);
 
       // Add |payload| to buffer. Will be picked up again when the signature has been generated.
       add_payload_to_buffer(self, payload, payload_signature_ptr);

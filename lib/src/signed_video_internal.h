@@ -270,16 +270,4 @@ free_and_reset_nalu_to_prepend_list(signed_video_t *signed_video);
 void
 free_payload_buffer(uint8_t *payload_buffer[]);
 
-/* Gets the oldest signing request from the queue and moves the queue one index to the front. */
-void
-get_signing_request_from_queue(uint8_t *end_of_queue_idx,
-    uint8_t queue[SIZE_OF_SIGNING_REQUEST_QUEUE],
-    uint8_t *payload);
-
-/* Adds one signing request to the queue. */
-void
-add_signing_request_to_queue(uint8_t *payload,
-    uint8_t *end_of_queue_idx,
-    uint8_t queue[SIZE_OF_SIGNING_REQUEST_QUEUE]);
-
 #endif  // __SIGNED_VIDEO_INTERNAL__
