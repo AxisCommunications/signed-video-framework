@@ -1184,6 +1184,7 @@ signed_video_reset(signed_video_t *self)
     gop_state_init(&(self->gop_state));
     gop_info_detected_init(&(self->gop_info_detected));
     latest_validation_init(self->latest_validation);
+    accumulated_validation_init(self->accumulated_validation);
     // Empty the |nalu_list|.
     h26x_nalu_list_free_items(self->nalu_list);
 

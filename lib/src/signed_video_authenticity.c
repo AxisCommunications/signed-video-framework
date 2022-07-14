@@ -42,8 +42,6 @@ static svi_rc
 transfer_authenticity(signed_video_authenticity_t *dst, const signed_video_authenticity_t *src);
 /* Init and update functions. */
 static void
-accumulated_validation_init(signed_video_accumulated_validation_t *self);
-static void
 authenticity_report_init(signed_video_authenticity_t *authenticity_report);
 static void
 update_accumulated_validation(const signed_video_latest_validation_t *latest,
@@ -171,10 +169,12 @@ transfer_authenticity(signed_video_authenticity_t *dst, const signed_video_authe
  * Group of functions that initializes or updates structs.
  */
 
-static void
+void
 accumulated_validation_init(signed_video_accumulated_validation_t *self)
 {
-  assert(self);
+  // This call can be made before an authenticity report exists, e.g., if a reset is done right
+  // after creating a session, or done on the signing side.
+  if (!self) return;
 
   self->authenticity = SV_AUTH_RESULT_NOT_SIGNED;
   self->public_key_has_changed = false;
@@ -188,8 +188,8 @@ accumulated_validation_init(signed_video_accumulated_validation_t *self)
 void
 latest_validation_init(signed_video_latest_validation_t *self)
 {
-  // This call can be called before an authenticity report exists, e.g., if a reset is done right
-  // after creating a session.
+  // This call can be made before an authenticity report exists, e.g., if a reset is done right
+  // after creating a session, or done on the signing side.
   if (!self) return;
 
   self->authenticity = SV_AUTH_RESULT_NOT_SIGNED;
