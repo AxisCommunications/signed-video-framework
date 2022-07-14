@@ -520,17 +520,21 @@ h26x_nalu_list_get_validation_str(const h26x_nalu_list_t *list)
 }
 
 /* Cleans up the list by removing the validated items. */
-void
+unsigned int
 h26x_nalu_list_clean_up(h26x_nalu_list_t *list)
 {
-  if (!list) return;
+  if (!list) return 0;
 
   // Remove validated items.
+  unsigned int removed_items = 0;
   h26x_nalu_list_item_t *item = list->first_item;
   while (item && item->validation_status != 'P' && !item->need_second_verification) {
     h26x_nalu_list_remove_and_free_item(list, list->first_item);
     item = list->first_item;
+    removed_items++;
   }
+
+  return removed_items;
 }
 
 /* Prints all items in the list. */

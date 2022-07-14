@@ -97,9 +97,8 @@ transfer_accumulated_validation(signed_video_accumulated_validation_t *dst,
   dst->authenticity = src->authenticity;
   dst->public_key_has_changed = src->public_key_has_changed;
   dst->number_of_received_nalus = src->number_of_received_nalus;
-  dst->number_of_expected_picture_nalus = src->number_of_expected_picture_nalus;
-  dst->number_of_received_picture_nalus = src->number_of_received_picture_nalus;
-  dst->number_of_pending_picture_nalus = src->number_of_pending_picture_nalus;
+  dst->number_of_validated_nalus = src->number_of_validated_nalus;
+  dst->number_of_pending_nalus = src->number_of_pending_nalus;
   dst->public_key_validation = src->public_key_validation;
 
   return SVI_OK;
@@ -179,9 +178,8 @@ accumulated_validation_init(signed_video_accumulated_validation_t *self)
   self->authenticity = SV_AUTH_RESULT_NOT_SIGNED;
   self->public_key_has_changed = false;
   self->number_of_received_nalus = 0;
-  self->number_of_expected_picture_nalus = 0;
-  self->number_of_received_picture_nalus = 0;
-  self->number_of_pending_picture_nalus = 0;
+  self->number_of_validated_nalus = 0;
+  self->number_of_pending_nalus = 0;
   self->public_key_validation = SV_PUBKEY_VALIDATION_NOT_FEASIBLE;
 }
 
@@ -228,22 +226,6 @@ update_accumulated_validation(const signed_video_latest_validation_t *latest,
 
   accumulated->public_key_has_changed |= latest->public_key_has_changed;
 
-  if (latest->authenticity > SV_AUTH_RESULT_SIGNATURE_PRESENT &&
-      latest->number_of_expected_picture_nalus < 0) {
-    accumulated->number_of_expected_picture_nalus = -1;
-  } else if (accumulated->number_of_expected_picture_nalus >= 0 &&
-      latest->number_of_expected_picture_nalus >= 0) {
-    accumulated->number_of_expected_picture_nalus += latest->number_of_expected_picture_nalus;
-  }
-
-  if (latest->authenticity > SV_AUTH_RESULT_SIGNATURE_PRESENT &&
-      latest->number_of_received_picture_nalus < 0) {
-    accumulated->number_of_received_picture_nalus = -1;
-  } else if (accumulated->number_of_received_picture_nalus >= 0 &&
-      latest->number_of_received_picture_nalus >= 0) {
-    accumulated->number_of_received_picture_nalus += latest->number_of_received_picture_nalus;
-  }
-
   if (accumulated->public_key_validation != SV_PUBKEY_VALIDATION_NOT_OK) {
     accumulated->public_key_validation = latest->public_key_validation;
   }
@@ -282,18 +264,18 @@ signed_video_get_authenticity_report(signed_video_t *self)
         allocate_memory_and_copy_string(&self->latest_validation->validation_str, validation_str));
     DEBUG_LOG("Validation statuses 'oldest -> latest' = %s", validation_str);
 
-    h26x_nalu_list_clean_up(self->nalu_list);
     // Check for version mismatch. If |version_on_signing_side| is newer than |this_version| the
     // authenticity result may not be reliable, hence change status.
     if (signed_video_compare_versions(
             authenticity_report->this_version, authenticity_report->version_on_signing_side) == 2) {
       authenticity_report->latest_validation.authenticity = SV_AUTH_RESULT_VERSION_MISMATCH;
     }
+    const unsigned int number_of_removed_nalus = h26x_nalu_list_clean_up(self->nalu_list);
     // Update the |accumulated_validation| w.r.t. the |latest_validation| and set number of pending
     // picture NALUs by counting pending items in the cleaned up list.
     update_accumulated_validation(self->latest_validation, self->accumulated_validation);
-    self->accumulated_validation->number_of_pending_picture_nalus =
-        h26x_nalu_list_num_pending_items(self->nalu_list);
+    self->accumulated_validation->number_of_validated_nalus += number_of_removed_nalus;
+    self->accumulated_validation->number_of_pending_nalus = self->nalu_list->num_items;
 
     SVI_THROW(transfer_authenticity(authenticity_report, self->authenticity));
   SVI_CATCH()
