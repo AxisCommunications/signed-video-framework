@@ -121,6 +121,33 @@ typedef struct {
 } signed_video_latest_validation_t;
 
 /**
+ * A struct holding information of the overall authenticity of the session. Typically, this
+ * information is used after screening an entire file, or when closing a session.
+ */
+typedef struct {
+  SignedVideoAuthenticityResult authenticity;
+  // The overall authenticity of the session.
+  bool public_key_has_changed;
+  // A new Public key has been detected. Signing an ongoing stream with a new key is not allowed.
+  unsigned int number_of_received_nalus;
+  // Total number of NALUs, excluding SEI, PPS/SPS/VPS, AUD etc., that have been received.
+  int number_of_expected_picture_nalus;
+  // Indicates how many picture NALUs (i.e., excluding SEI, PPS/SPS/VPS, AUD) expected. A negative
+  // value indicates that such information is lacking due to a missing, or tampered, SEI.
+  int number_of_received_picture_nalus;
+  // Indicates how many picture NALUs (i.e., excluding SEI, PPS/SPS/VPS, AUD) have been received,
+  // and used to verify the signatures. If the signed video feature is disabled, or an error
+  // occurred during validation, a negative value is set.
+  int number_of_pending_picture_nalus;
+  // Indicates how many picture NALUs (i.e., excluding SEI, PPS/SPS/VPS, AUD) are currently pending
+  // validation. That is, defines the length of the dangling end.
+  SignedVideoPublicKeyValidation public_key_validation;
+  // The result of the Public key validation. If the Public key is present in the SEI, it has to be
+  // validated to associate the video with a source. If it is not feasible to validate the Public
+  // key, it should be validated manually to secure proper video authenticity.
+} signed_video_accumulated_validation_t;
+
+/**
  * Struct for holding strings to selected product information
  */
 typedef struct {
@@ -146,6 +173,8 @@ typedef struct {
   // Information about the product provided in a struct.
   signed_video_latest_validation_t latest_validation;
   // Holds the information of the latest validation.
+  signed_video_accumulated_validation_t accumulated_validation;
+  // Holds the information of the total validation since the first added NALU.
 } signed_video_authenticity_t;
 
 /**
