@@ -98,9 +98,9 @@ add_payload_to_buffer(signed_video_t *self, uint8_t *payload, uint8_t *payload_s
     return;
   }
 
-  self->payload_buffer[2 * self->payload_buffer_idx] = payload;
-  self->payload_buffer[2 * self->payload_buffer_idx + 1] = payload_signature_ptr;
-  self->payload_buffer_idx += 1;
+  self->payload_buffer[self->payload_buffer_idx] = payload;
+  self->payload_buffer[self->payload_buffer_idx + 1] = payload_signature_ptr;
+  self->payload_buffer_idx += 2;
 }
 
 /* Picks the oldest payload from the payload_buffer and completes it with the generated signature.
@@ -109,6 +109,7 @@ static svi_rc
 complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
 {
   assert(self);
+  if (self->payload_buffer_idx < 1) return SVI_NOT_SUPPORTED;
 
   // Get the oldest payload.
   const int buffer_end = self->payload_buffer_idx;
@@ -119,9 +120,6 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   // Transfer oldest pointer in |payload_buffer| to local |payload|
   uint8_t *payload = self->payload_buffer[0];
   uint8_t *payload_signature_ptr = self->payload_buffer[1];
-  for (uint8_t j = 0; j < buffer_end - 1; j++) {
-    self->payload_buffer[self->payload_buffer_idx] = self->payload_buffer[self->payload_buffer_idx + 2];
-  }
 
   // If the signature could not be generated |signature_size| equals zero. Free the started SEI and
   // move on. This is a valid operation. What will happen is that the video will have an unsigned
@@ -160,15 +158,12 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
 done:
   // Done with the SEI payload. Move |payload_buffer|. This should be done even if we caught a
   // failure.
-  if (buffer_end > 0) {
-    for (int i = 2; i < buffer_end; i++) {
-      self->payload_buffer[2 * (i - 1)] = self->payload_buffer[2 * i];
-      self->payload_buffer[2 * (i - 1) + 1] = self->payload_buffer[2 * i + 1];
-    }
-    self->payload_buffer[2 * (buffer_end - 1)] = NULL;
-    self->payload_buffer[2 * (buffer_end - 1) + 1] = NULL;
-    self->payload_buffer_idx -= 1;
+  for (uint8_t j = 0; j < buffer_end - 2; j++) {
+    self->payload_buffer[j] = self->payload_buffer[j + 2];
   }
+  self->payload_buffer[buffer_end - 1] = NULL;
+  self->payload_buffer[buffer_end - 2] = NULL;
+  self->payload_buffer_idx -= 2;
 
   return status;
 }
@@ -529,7 +524,6 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
       signing_present = 0;  // About to add SEI NALUs.
 
       SVI_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
-
       // Add |payload| to buffer. Will be picked up again when the signature has been generated.
       add_payload_to_buffer(self, payload, payload_signature_ptr);
       // Now we are done with the previous GOP. The gop_hash was reset right after signing and
