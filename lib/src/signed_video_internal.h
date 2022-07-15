@@ -46,7 +46,7 @@ typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 #define HASH_DIGEST_SIZE (256 / 8)
 
 #define SV_VERSION_BYTES 3
-#define SIGNED_VIDEO_VERSION "v1.1.8"
+#define SIGNED_VIDEO_VERSION "v1.1.9"
 #define SV_VERSION_MAX_STRLEN 13  // Longest possible string
 
 #define DEFAULT_AUTHENTICITY_LEVEL SV_AUTHENTICITY_LEVEL_FRAME
