@@ -92,7 +92,7 @@ add_payload_to_buffer(signed_video_t *self, uint8_t *payload, uint8_t *payload_s
 {
   assert(self);
 
-  if (self->payload_buffer_idx >= MAX_NALUS_TO_PREPEND) {
+  if (self->payload_buffer_idx >= 2 * MAX_NALUS_TO_PREPEND) {
     // Not enough space for this payload. Free the memory and return.
     free(payload);
     return;
@@ -109,7 +109,7 @@ static svi_rc
 complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
 {
   assert(self);
-  if (self->payload_buffer_idx < 1) return SVI_NOT_SUPPORTED;
+  if (self->payload_buffer_idx < 2) return SVI_NOT_SUPPORTED;
 
   // Get the oldest payload.
   const int buffer_end = self->payload_buffer_idx;
@@ -158,7 +158,7 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
 done:
   // Done with the SEI payload. Move |payload_buffer|. This should be done even if we caught a
   // failure.
-  for (uint8_t j = 0; j < buffer_end - 2; j++) {
+  for (int j = 0; j < buffer_end - 2; j++) {
     self->payload_buffer[j] = self->payload_buffer[j + 2];
   }
   self->payload_buffer[buffer_end - 1] = NULL;
