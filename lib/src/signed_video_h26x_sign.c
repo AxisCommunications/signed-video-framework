@@ -72,7 +72,7 @@ h26x_set_nal_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDT
       return;
   }
   for (int i = 0; i < UUID_LEN; i++) {
-    write_byte(&self->last_two_bytes[0], payload, uuid[i], true);
+    write_byte(&self->last_two_bytes, payload, uuid[i], true);
   }
 }
 
@@ -106,11 +106,7 @@ add_payload_to_buffer(signed_video_t *self,
 
   self->payload_buffer[self->payload_buffer_idx] = payload;
   self->payload_buffer[self->payload_buffer_idx + 1] = payload_signature_ptr;
-  if (self->payload_buffer_idx != 0) {
-    self->last_two_bytes[self->payload_buffer_idx / 2] = last_two_bytes;
-  } else {
-    self->last_two_bytes[self->payload_buffer_idx] = last_two_bytes;
-  }
+  self->last_two_bytes_buffer[self->payload_buffer_idx / 2] = last_two_bytes;
   self->payload_buffer_idx += 2;
 }
 
@@ -131,6 +127,7 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   // Transfer oldest pointer in |payload_buffer| to local |payload|
   uint8_t *payload = self->payload_buffer[0];
   uint8_t *payload_signature_ptr = self->payload_buffer[1];
+  self->last_two_bytes = self->last_two_bytes_buffer[0];
 
   // If the signature could not be generated |signature_size| equals zero. Free the started SEI and
   // move on. This is a valid operation. What will happen is that the video will have an unsigned
@@ -171,11 +168,13 @@ done:
   // failure.
   for (int j = 0; j < buffer_end - 2; j++) {
     self->payload_buffer[j] = self->payload_buffer[j + 2];
-    self->last_two_bytes[j] = self->last_two_bytes[j + 1];
+  }
+  for (int k = 0; k < (buffer_end / 2) - 1; k++) {
+    self->last_two_bytes_buffer[k] = self->last_two_bytes_buffer[k + 1];
   }
   self->payload_buffer[buffer_end - 1] = NULL;
   self->payload_buffer[buffer_end - 2] = NULL;
-  self->last_two_bytes[(buffer_end / 2) - 1] = LAST_TWO_BYTES_INIT_VALUE;
+  self->last_two_bytes_buffer[(buffer_end / 2) - 1] = LAST_TWO_BYTES_INIT_VALUE;
   self->payload_buffer_idx -= 2;
 
   return status;
@@ -300,7 +299,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     uint8_t *payload_ptr = *payload;
 
     // Start writing bytes.
-    uint16_t *last_two_bytes = &self->last_two_bytes[0];
+    uint16_t *last_two_bytes = &self->last_two_bytes_buffer[self->payload_buffer_idx / 2];
     // Start code prefix
     *payload_ptr++ = 0x00;
     *payload_ptr++ = 0x00;
@@ -408,7 +407,7 @@ get_sign_and_complete_sei_nalu(signed_video_t *self,
   const sv_tlv_tag_t gop_info_encoders[] = {
       SIGNATURE_TAG,
   };
-  uint16_t *last_two_bytes = &self->last_two_bytes[0];
+  uint16_t *last_two_bytes = &self->last_two_bytes;
   uint8_t *payload_ptr = payload_signature_ptr;
   if (!payload_ptr) {
     DEBUG_LOG("No SEI to finalize");
@@ -538,7 +537,7 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
 
       SVI_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
       // Add |payload| to buffer. Will be picked up again when the signature has been generated.
-      add_payload_to_buffer(self, payload, payload_signature_ptr, self->last_two_bytes[0]);
+      add_payload_to_buffer(self, payload, payload_signature_ptr, self->last_two_bytes);
       // Now we are done with the previous GOP. The gop_hash was reset right after signing and
       // adding it to the SEI NALU. Now it is time to start a new GOP, that is, hash and add this
       // first NALU of the GOP.

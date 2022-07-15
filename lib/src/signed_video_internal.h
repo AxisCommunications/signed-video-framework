@@ -122,7 +122,7 @@ struct _gop_info_detected_t {
 
 struct _signed_video_t {
   int code_version[SV_VERSION_BYTES];
-  uint16_t last_two_bytes[MAX_NALUS_TO_PREPEND];
+  uint16_t last_two_bytes;
   SignedVideoCodec codec;  // Codec used in this session.
 
   // Private structures
@@ -137,6 +137,7 @@ struct _signed_video_t {
   // of the payload and the second location to where the signature is about to be added.
   uint8_t *payload_buffer[MAX_NALUS_TO_PREPEND * 2];
   int payload_buffer_idx;  // Pointer to the current free location of the buffer.
+  uint16_t last_two_bytes_buffer[MAX_NALUS_TO_PREPEND];
 
   // TODO: Collect everything needed by the authentication part only in one struct/object, which
   // then is not needed to be created on the signing side, saving some memory.
