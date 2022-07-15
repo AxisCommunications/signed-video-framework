@@ -122,7 +122,7 @@ struct _gop_info_detected_t {
 
 struct _signed_video_t {
   int code_version[SV_VERSION_BYTES];
-  uint16_t last_two_bytes;
+  uint16_t last_two_bytes[MAX_NALUS_TO_PREPEND];
   SignedVideoCodec codec;  // Codec used in this session.
 
   // Private structures

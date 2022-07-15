@@ -208,7 +208,7 @@ encode_general(signed_video_t *self, uint8_t *data)
   DEBUG_LOG("Encoding GOP counter = %u", gop_counter);
 
   uint8_t *data_ptr = data;
-  uint16_t *last_two_bytes = &self->last_two_bytes;
+  uint16_t *last_two_bytes = &self->last_two_bytes[0];
   // Fill Camera Info data
   // Version
   write_byte(last_two_bytes, &data_ptr, version, true);
@@ -348,7 +348,7 @@ encode_product_info(signed_video_t *self, uint8_t *data)
   if (!data) return data_size;
 
   uint8_t *data_ptr = data;
-  uint16_t *last_two_bytes = &self->last_two_bytes;
+  uint16_t *last_two_bytes = &self->last_two_bytes[0];
   uint8_t str_end_byte = '\0';
   // Version
   write_byte(last_two_bytes, &data_ptr, version, true);
@@ -484,7 +484,7 @@ encode_arbitrary_data(signed_video_t *self, uint8_t *data)
   if (!data) return data_size;
 
   uint8_t *data_ptr = data;
-  uint16_t *last_two_bytes = &self->last_two_bytes;
+  uint16_t *last_two_bytes = &self->last_two_bytes[0];
   // Version
   write_byte(last_two_bytes, &data_ptr, version, true);
 
@@ -558,7 +558,7 @@ encode_public_key(signed_video_t *self, uint8_t *data)
   if (!data) return data_size;
 
   uint8_t *data_ptr = data;
-  uint16_t *last_two_bytes = &self->last_two_bytes;
+  uint16_t *last_two_bytes = &self->last_two_bytes[0];
   uint8_t *public_key = signature_info->public_key;
 
   // Fill Camera Info data
@@ -647,7 +647,7 @@ encode_hash_list(signed_video_t *self, uint8_t *data)
   if (!data) return data_size;
 
   uint8_t *data_ptr = data;
-  uint16_t *last_two_bytes = &self->last_two_bytes;
+  uint16_t *last_two_bytes = &self->last_two_bytes[0];
   // Write version
   write_byte(last_two_bytes, &data_ptr, version, true);
   // Write hash_list data
@@ -728,7 +728,7 @@ encode_signature(signed_video_t *self, uint8_t *data)
   if (!data) return data_size;
 
   uint8_t *data_ptr = data;
-  uint16_t *last_two_bytes = &self->last_two_bytes;
+  uint16_t *last_two_bytes = &self->last_two_bytes[0];
   uint16_t signature_size = (uint16_t)signature_info->signature_size;
   // Write version
   write_byte(last_two_bytes, &data_ptr, version, true);
@@ -814,7 +814,7 @@ static size_t
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 encode_axis_communications(signed_video_t *self, uint8_t *data)
 {
-  return encode_axis_communications_handle(self->vendor_handle, &self->last_two_bytes, data);
+  return encode_axis_communications_handle(self->vendor_handle, &self->last_two_bytes[0], data);
 #else
 encode_axis_communications(signed_video_t ATTR_UNUSED *self, uint8_t ATTR_UNUSED *data)
 {
@@ -869,7 +869,7 @@ tlv_encode_or_get_size_generic(signed_video_t *self, const sv_tlv_tuple_t tlv, u
   }
 
   uint8_t *data_ptr = data;
-  uint16_t *last_two_bytes = &self->last_two_bytes;
+  uint16_t *last_two_bytes = &self->last_two_bytes[0];
   // Write Tag
   write_byte(last_two_bytes, &data_ptr, (uint8_t)tlv.tag, true);
   // Write length
