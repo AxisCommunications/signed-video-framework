@@ -266,8 +266,8 @@ signed_video_get_authenticity_report(signed_video_t *self)
     // Check for version mismatch. If |version_on_signing_side| is newer than |this_version| the
     // authenticity result may not be reliable, hence change status.
     if (signed_video_compare_versions(
-            authenticity_report->this_version, authenticity_report->version_on_signing_side) == 2) {
-      authenticity_report->latest_validation.authenticity = SV_AUTH_RESULT_VERSION_MISMATCH;
+            self->authenticity->this_version, self->authenticity->version_on_signing_side) == 2) {
+      self->authenticity->latest_validation.authenticity = SV_AUTH_RESULT_VERSION_MISMATCH;
     }
     const unsigned int number_of_removed_nalus = h26x_nalu_list_clean_up(self->nalu_list);
     // Update the |accumulated_validation| w.r.t. the |latest_validation| and set number of pending
