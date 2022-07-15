@@ -529,9 +529,11 @@ h26x_nalu_list_clean_up(h26x_nalu_list_t *list)
   unsigned int removed_items = 0;
   h26x_nalu_list_item_t *item = list->first_item;
   while (item && item->validation_status != 'P' && !item->need_second_verification) {
+    if (item->validation_status != 'M') {
+      removed_items++;
+    }
     h26x_nalu_list_remove_and_free_item(list, list->first_item);
     item = list->first_item;
-    removed_items++;
   }
 
   return removed_items;

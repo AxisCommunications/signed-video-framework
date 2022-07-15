@@ -1001,6 +1001,7 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
 
     SVI_THROW(signed_video_add_h26x_nalu(self, nalu_data, nalu_data_size));
     if (self->gop_state.has_auth_result) {
+      SVI_THROW(update_authenticity_report(self));
       if (authenticity) *authenticity = signed_video_get_authenticity_report(self);
     }
 

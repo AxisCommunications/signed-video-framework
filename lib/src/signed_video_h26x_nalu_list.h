@@ -182,7 +182,7 @@ h26x_nalu_list_get_validation_str(const h26x_nalu_list_t* list);
  *
  * @param list The list to clean from validated items.
  *
- * @returns Number of removed items.
+ * @returns Number of removed items, excluding previously added 'missing' NALUs.
  */
 unsigned int
 h26x_nalu_list_clean_up(h26x_nalu_list_t* list);

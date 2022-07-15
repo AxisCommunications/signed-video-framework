@@ -98,7 +98,7 @@ typedef struct {
   // 'U' : The NALU has an unknown authenticity. This occurs if the NALU could not be parsed, or if
   //     : the SEI is associated with NALUs not part of the validating segment.
   // '_' : The NALU is ignored and therefore not part of the signature. The NALU has no impact on
-  //       the video and is considered validated as authentic.
+  //       the video and is validated as authentic.
   // '.' : The NALU has been validated as authentic.
   // 'N' : The NALU has been validated as not authentic.
   // 'M' : The validation has detected one or more missing NALUs at this position.

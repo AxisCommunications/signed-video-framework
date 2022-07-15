@@ -83,4 +83,7 @@ create_local_authenticity_report_if_needed(signed_video_t *self);
 svi_rc
 allocate_memory_and_copy_string(char **dst_str, const char *src_str);
 
+svi_rc
+update_authenticity_report(signed_video_t *self);
+
 #endif  // __SIGNED_VIDEO_AUTHENTICITY_H__

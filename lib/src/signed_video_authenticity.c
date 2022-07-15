@@ -230,6 +230,44 @@ update_accumulated_validation(const signed_video_latest_validation_t *latest,
   }
 }
 
+svi_rc
+update_authenticity_report(signed_video_t *self)
+{
+  assert(self && self->authenticity);
+
+  char *validation_str = NULL;
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    validation_str = h26x_nalu_list_get_validation_str(self->nalu_list);
+    SVI_THROW(
+        allocate_memory_and_copy_string(&self->latest_validation->validation_str, validation_str));
+    DEBUG_LOG("Validation statuses 'oldest -> latest' = %s", validation_str);
+
+    // Check for version mismatch. If |version_on_signing_side| is newer than |this_version| the
+    // authenticity result may not be reliable, hence change status.
+    if (signed_video_compare_versions(
+            self->authenticity->this_version, self->authenticity->version_on_signing_side) == 2) {
+      self->authenticity->latest_validation.authenticity = SV_AUTH_RESULT_VERSION_MISMATCH;
+    }
+    // Remove validated items from the list.
+    const unsigned int number_of_validated_nalus = h26x_nalu_list_clean_up(self->nalu_list);
+    // Update the |accumulated_validation| w.r.t. the |latest_validation|.
+    update_accumulated_validation(self->latest_validation, self->accumulated_validation);
+    // Only update |number_of_validated_nalus| if the video is signed. Currently, unsigned videos
+    // are validated (as not OK) since SEIs are assumed to arrive within a GOP. From a statistics
+    // point of view, that is not strictly not correct.
+    if (self->accumulated_validation->authenticity != SV_AUTH_RESULT_NOT_SIGNED) {
+      self->accumulated_validation->number_of_validated_nalus += number_of_validated_nalus;
+    }
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  free(validation_str);
+
+  return status;
+}
+
 /**
  * Sets shortcuts to parts in |authenticity|. No ownership is transferred so pointers can safely be
  * replaced.
@@ -252,29 +290,18 @@ signed_video_get_authenticity_report(signed_video_t *self)
   // Return a nullptr if no local authenticity report exists.
   if (self->authenticity == NULL) return NULL;
 
-  char *validation_str = NULL;
   signed_video_authenticity_t *authenticity_report = signed_video_authenticity_report_create();
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     SVI_THROW_IF(!authenticity_report, SVI_MEMORY);
-    validation_str = h26x_nalu_list_get_validation_str(self->nalu_list);
-    SVI_THROW(
-        allocate_memory_and_copy_string(&self->latest_validation->validation_str, validation_str));
-    DEBUG_LOG("Validation statuses 'oldest -> latest' = %s", validation_str);
-
-    // Check for version mismatch. If |version_on_signing_side| is newer than |this_version| the
-    // authenticity result may not be reliable, hence change status.
-    if (signed_video_compare_versions(
-            self->authenticity->this_version, self->authenticity->version_on_signing_side) == 2) {
-      self->authenticity->latest_validation.authenticity = SV_AUTH_RESULT_VERSION_MISMATCH;
+    // Update |number_of_pending_nalus| since that may have changed since |latest_validation|.
+    signed_video_accumulated_validation_t *accumulated = self->accumulated_validation;
+    if (accumulated->authenticity == SV_AUTH_RESULT_NOT_SIGNED) {
+      accumulated->number_of_pending_nalus = accumulated->number_of_received_nalus;
+    } else {
+      accumulated->number_of_pending_nalus = self->nalu_list->num_items;
     }
-    const unsigned int number_of_removed_nalus = h26x_nalu_list_clean_up(self->nalu_list);
-    // Update the |accumulated_validation| w.r.t. the |latest_validation| and set number of pending
-    // picture NALUs by counting pending items in the cleaned up list.
-    update_accumulated_validation(self->latest_validation, self->accumulated_validation);
-    self->accumulated_validation->number_of_validated_nalus += number_of_removed_nalus;
-    self->accumulated_validation->number_of_pending_nalus = self->nalu_list->num_items;
 
     SVI_THROW(transfer_authenticity(authenticity_report, self->authenticity));
   SVI_CATCH()
@@ -286,7 +313,6 @@ signed_video_get_authenticity_report(signed_video_t *self)
 
   // Sanity check the output since we do not return a SignedVideoReturnCode.
   assert(((status == SVI_OK) ? (authenticity_report != NULL) : (authenticity_report == NULL)));
-  free(validation_str);
 
   return authenticity_report;
 }
