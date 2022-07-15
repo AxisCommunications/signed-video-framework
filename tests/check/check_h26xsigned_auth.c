@@ -25,9 +25,9 @@
 
 #include "lib/src/includes/signed_video_auth.h"  // signed_video_authenticity_t
 #include "lib/src/includes/signed_video_common.h"  // signed_video_t
+#include "lib/src/includes/signed_video_openssl.h"  // signed_video_generate_private_key()
 #include "lib/src/includes/signed_video_sign.h"  // signed_video_set_authenticity_level()
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
-#include "lib/src/includes/signed_video_openssl.h"  // signed_video_generate_private_key()
 #include "lib/src/includes/sv_vendor_axis_communications.h"
 #endif
 #ifdef SV_UNIT_TEST
