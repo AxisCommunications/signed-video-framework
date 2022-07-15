@@ -616,7 +616,7 @@ signed_video_set_end_of_stream(signed_video_t *self)
 
   uint8_t *payload = NULL;
   uint8_t *payload_signature_ptr = NULL;
-  uint16_t last_two_bytes = 0;
+  uint16_t last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     SVI_THROW(prepare_for_nalus_to_prepend(self));
