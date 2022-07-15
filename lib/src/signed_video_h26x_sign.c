@@ -40,7 +40,10 @@ get_sign_and_complete_sei_nalu(signed_video_t *self,
 
 /* Functions for payload_buffer. */
 static void
-add_payload_to_buffer(signed_video_t *self, uint8_t *payload_ptr, uint8_t *payload_signature_ptr, uint16_t last_two_bytes);
+add_payload_to_buffer(signed_video_t *self,
+    uint8_t *payload_ptr,
+    uint8_t *payload_signature_ptr,
+    uint16_t last_two_bytes);
 static svi_rc
 complete_sei_nalu_and_add_to_prepend(signed_video_t *self);
 
@@ -88,7 +91,10 @@ free_payload_buffer(uint8_t *payload_buffer[])
 
 /* Adds the |payload| to the next available slot in |payload_buffer|. */
 static void
-add_payload_to_buffer(signed_video_t *self, uint8_t *payload, uint8_t *payload_signature_ptr, uint16_t last_two_bytes)
+add_payload_to_buffer(signed_video_t *self,
+    uint8_t *payload,
+    uint8_t *payload_signature_ptr,
+    uint16_t last_two_bytes)
 {
   assert(self);
 
@@ -100,7 +106,7 @@ add_payload_to_buffer(signed_video_t *self, uint8_t *payload, uint8_t *payload_s
 
   self->payload_buffer[self->payload_buffer_idx] = payload;
   self->payload_buffer[self->payload_buffer_idx + 1] = payload_signature_ptr;
-  if (self->payload_buffer_idx != 0){
+  if (self->payload_buffer_idx != 0) {
     self->last_two_bytes[self->payload_buffer_idx / 2] = last_two_bytes;
   } else {
     self->last_two_bytes[self->payload_buffer_idx] = last_two_bytes;
@@ -165,9 +171,11 @@ done:
   // failure.
   for (int j = 0; j < buffer_end - 2; j++) {
     self->payload_buffer[j] = self->payload_buffer[j + 2];
+    self->last_two_bytes[j] = self->last_two_bytes[j + 1];
   }
   self->payload_buffer[buffer_end - 1] = NULL;
   self->payload_buffer[buffer_end - 2] = NULL;
+  self->last_two_bytes[(buffer_end / 2) - 1] = LAST_TWO_BYTES_INIT_VALUE;
   self->payload_buffer_idx -= 2;
 
   return status;
