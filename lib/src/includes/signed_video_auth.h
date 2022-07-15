@@ -98,7 +98,7 @@ typedef struct {
   // 'U' : The NALU has an unknown authenticity. This occurs if the NALU could not be parsed, or if
   //     : the SEI is associated with NALUs not part of the validating segment.
   // '_' : The NALU is ignored and therefore not part of the signature. The NALU has no impact on
-  //       the video and can be considered authentic.
+  //       the video and is considered validated as authentic.
   // '.' : The NALU has been validated as authentic.
   // 'N' : The NALU has been validated as not authentic.
   // 'M' : The validation has detected one or more missing NALUs at this position.
@@ -128,14 +128,15 @@ typedef struct {
   SignedVideoAuthenticityResult authenticity;
   // The overall authenticity of the session.
   bool public_key_has_changed;
-  // A new Public key has been detected. Signing an ongoing stream with a new key is not allowed.
+  // A new Public key has been detected. Signing an ongoing stream with a new key is not allowed. If
+  // this flag is set the |authenticity| is automatically set to SV_AUTH_RESULT_NOT_OK.
   unsigned int number_of_received_nalus;
-  // Total number of NALUs, including SEI, PPS/SPS/VPS, AUD etc., that have been received.
+  // Total number of received NALUs, that is all NALUs added for validation.
   unsigned int number_of_validated_nalus;
-  // Total number of NALUs, including SEI, PPS/SPS/VPS, AUD etc., that have been validated.
+  // Total number of validated NALUs, that is, how many of the received NALUs that so far have been
+  // validated.
   unsigned int number_of_pending_nalus;
-  // Indicates how many NALUs, including SEI, PPS/SPS/VPS, AUD, etc., that are currently pending
-  // validation. That is, this defines the length of the dangling end.
+  // The number of NALUs that currently are pending validation.
   SignedVideoPublicKeyValidation public_key_validation;
   // The result of the Public key validation. If the Public key is present in the SEI, it has to be
   // validated to associate the video with a source. If it is not feasible to validate the Public

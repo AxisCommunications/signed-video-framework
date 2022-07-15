@@ -37,16 +37,6 @@ svi_rc
 transfer_product_info(signed_video_product_info_t *dst, const signed_video_product_info_t *src);
 
 /**
- * @brief Initializes a signed_video_accumulated_validation_t struct
- *
- * Counters are initialized to -1, etc.
- *
- * @param self The struct to initialize.
- */
-void
-accumulated_validation_init(signed_video_accumulated_validation_t *self);
-
-/**
  * @brief Initializes a signed_video_latest_validation_t struct
  *
  * Counters are initialized to -1 and lists are NULL pointers.
@@ -55,6 +45,16 @@ accumulated_validation_init(signed_video_accumulated_validation_t *self);
  */
 void
 latest_validation_init(signed_video_latest_validation_t *self);
+
+/**
+ * @brief Initializes a signed_video_accumulated_validation_t struct
+ *
+ * Counters are initialized to -1, etc.
+ *
+ * @param self The struct to initialize.
+ */
+void
+accumulated_validation_init(signed_video_accumulated_validation_t *self);
 
 /**
  * @brief Maybe creates a local authenticity report

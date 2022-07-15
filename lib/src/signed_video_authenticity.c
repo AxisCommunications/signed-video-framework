@@ -30,14 +30,12 @@
 
 // Adding accumulated authenticity results, valuable for screening a file, is work in progress.
 /* Transfer functions. */
-#ifdef ACCUMULATED_VALIDATION
-static svi_rc
-transfer_accumulated_validation(signed_video_accumulated_validation_t *dst,
-    const signed_video_accumulated_validation_t *src);
-#endif
 static svi_rc
 transfer_latest_validation(signed_video_latest_validation_t *dst,
     const signed_video_latest_validation_t *src);
+static void
+transfer_accumulated_validation(signed_video_accumulated_validation_t *dst,
+    const signed_video_accumulated_validation_t *src);
 static svi_rc
 transfer_authenticity(signed_video_authenticity_t *dst, const signed_video_authenticity_t *src);
 /* Init and update functions. */
@@ -88,20 +86,24 @@ catch_error:
  * Group of functions that performs transfer operations between structs.
  */
 
-static svi_rc
-transfer_accumulated_validation(signed_video_accumulated_validation_t *dst,
-    const signed_video_accumulated_validation_t *src)
+svi_rc
+transfer_product_info(signed_video_product_info_t *dst, const signed_video_product_info_t *src)
 {
-  assert(dst && src);
+  // For simplicity we allow nullptrs for both |dst| and |src|. If so, we take no action and return
+  // SVI_OK.
+  if (!src || !dst) return SVI_OK;
 
-  dst->authenticity = src->authenticity;
-  dst->public_key_has_changed = src->public_key_has_changed;
-  dst->number_of_received_nalus = src->number_of_received_nalus;
-  dst->number_of_validated_nalus = src->number_of_validated_nalus;
-  dst->number_of_pending_nalus = src->number_of_pending_nalus;
-  dst->public_key_validation = src->public_key_validation;
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    SVI_THROW(allocate_memory_and_copy_string(&dst->hardware_id, src->hardware_id));
+    SVI_THROW(allocate_memory_and_copy_string(&dst->firmware_version, src->firmware_version));
+    SVI_THROW(allocate_memory_and_copy_string(&dst->serial_number, src->serial_number));
+    SVI_THROW(allocate_memory_and_copy_string(&dst->manufacturer, src->manufacturer));
+    SVI_THROW(allocate_memory_and_copy_string(&dst->address, src->address));
+  SVI_CATCH()
+  SVI_DONE(status)
 
-  return SVI_OK;
+  return status;
 }
 
 static svi_rc
@@ -125,24 +127,18 @@ transfer_latest_validation(signed_video_latest_validation_t *dst,
   return status;
 }
 
-svi_rc
-transfer_product_info(signed_video_product_info_t *dst, const signed_video_product_info_t *src)
+static void
+transfer_accumulated_validation(signed_video_accumulated_validation_t *dst,
+    const signed_video_accumulated_validation_t *src)
 {
-  // For simplicity we allow nullptrs for both |dst| and |src|. If so, we take no action and return
-  // SVI_OK.
-  if (!src || !dst) return SVI_OK;
+  assert(dst && src);
 
-  svi_rc status = SVI_UNKNOWN;
-  SVI_TRY()
-    SVI_THROW(allocate_memory_and_copy_string(&dst->hardware_id, src->hardware_id));
-    SVI_THROW(allocate_memory_and_copy_string(&dst->firmware_version, src->firmware_version));
-    SVI_THROW(allocate_memory_and_copy_string(&dst->serial_number, src->serial_number));
-    SVI_THROW(allocate_memory_and_copy_string(&dst->manufacturer, src->manufacturer));
-    SVI_THROW(allocate_memory_and_copy_string(&dst->address, src->address));
-  SVI_CATCH()
-  SVI_DONE(status)
-
-  return status;
+  dst->authenticity = src->authenticity;
+  dst->public_key_has_changed = src->public_key_has_changed;
+  dst->number_of_received_nalus = src->number_of_received_nalus;
+  dst->number_of_validated_nalus = src->number_of_validated_nalus;
+  dst->number_of_pending_nalus = src->number_of_pending_nalus;
+  dst->public_key_validation = src->public_key_validation;
 }
 
 static svi_rc
@@ -156,8 +152,7 @@ transfer_authenticity(signed_video_authenticity_t *dst, const signed_video_authe
     strcpy(dst->this_version, SIGNED_VIDEO_VERSION);
     SVI_THROW(transfer_product_info(&dst->product_info, &src->product_info));
     SVI_THROW(transfer_latest_validation(&dst->latest_validation, &src->latest_validation));
-    SVI_THROW(transfer_accumulated_validation(
-        &dst->accumulated_validation, &src->accumulated_validation));
+    transfer_accumulated_validation(&dst->accumulated_validation, &src->accumulated_validation);
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -167,21 +162,6 @@ transfer_authenticity(signed_video_authenticity_t *dst, const signed_video_authe
 /**
  * Group of functions that initializes or updates structs.
  */
-
-void
-accumulated_validation_init(signed_video_accumulated_validation_t *self)
-{
-  // This call can be made before an authenticity report exists, e.g., if a reset is done right
-  // after creating a session, or done on the signing side.
-  if (!self) return;
-
-  self->authenticity = SV_AUTH_RESULT_NOT_SIGNED;
-  self->public_key_has_changed = false;
-  self->number_of_received_nalus = 0;
-  self->number_of_validated_nalus = 0;
-  self->number_of_pending_nalus = 0;
-  self->public_key_validation = SV_PUBKEY_VALIDATION_NOT_FEASIBLE;
-}
 
 void
 latest_validation_init(signed_video_latest_validation_t *self)
@@ -199,6 +179,21 @@ latest_validation_init(signed_video_latest_validation_t *self)
 
   free(self->validation_str);
   self->validation_str = NULL;
+}
+
+void
+accumulated_validation_init(signed_video_accumulated_validation_t *self)
+{
+  // This call can be made before an authenticity report exists, e.g., if a reset is done right
+  // after creating a session, or done on the signing side.
+  if (!self) return;
+
+  self->authenticity = SV_AUTH_RESULT_NOT_SIGNED;
+  self->public_key_has_changed = false;
+  self->number_of_received_nalus = 0;
+  self->number_of_validated_nalus = 0;
+  self->number_of_pending_nalus = 0;
+  self->public_key_validation = SV_PUBKEY_VALIDATION_NOT_FEASIBLE;
 }
 
 static void
@@ -219,8 +214,12 @@ update_accumulated_validation(const signed_video_latest_validation_t *latest,
     signed_video_accumulated_validation_t *accumulated)
 {
   if (accumulated->authenticity <= SV_AUTH_RESULT_SIGNATURE_PRESENT) {
+    // Still either pending validation or video has no signature. Update with the result from
+    // |latest|.
     accumulated->authenticity = latest->authenticity;
   } else if (latest->authenticity < accumulated->authenticity) {
+    // |latest| has validated a worse authenticity compared to what we have validated so far. Update
+    // with this worse result, since that is what should rule the total validation.
     accumulated->authenticity = latest->authenticity;
   }
 
