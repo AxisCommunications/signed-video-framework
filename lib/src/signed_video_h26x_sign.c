@@ -299,7 +299,9 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     uint8_t *payload_ptr = *payload;
 
     // Start writing bytes.
-    uint16_t *last_two_bytes = &self->last_two_bytes_buffer[self->payload_buffer_idx / 2];
+    // Reset last_two_bytes before writing bytes
+    self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
+    uint16_t *last_two_bytes = &self->last_two_bytes;
     // Start code prefix
     *payload_ptr++ = 0x00;
     *payload_ptr++ = 0x00;
@@ -615,12 +617,11 @@ signed_video_set_end_of_stream(signed_video_t *self)
 
   uint8_t *payload = NULL;
   uint8_t *payload_signature_ptr = NULL;
-  uint16_t last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     SVI_THROW(prepare_for_nalus_to_prepend(self));
     SVI_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
-    add_payload_to_buffer(self, payload, payload_signature_ptr, last_two_bytes);
+    add_payload_to_buffer(self, payload, payload_signature_ptr, self->last_two_bytes);
     // Fetch the signature. If it is not ready we exit without generating the SEI.
     signature_info_t *signature_info = self->signature_info;
     SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
