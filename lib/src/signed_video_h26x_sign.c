@@ -86,7 +86,7 @@ free_payload_buffer(uint8_t *payload_buffer[])
   }
 }
 
-/* Adds the payload to the next available slot in |payload_buffer| and |last_two_bytes| to the
+/* Adds the |payload| to the next available slot in |payload_buffer| and |last_two_bytes| to the
  * next available slot in |last_two_bytes_buffer|. */
 static void
 add_payload_to_buffer(signed_video_t *self, uint8_t *payload, uint8_t *payload_signature_ptr)
@@ -294,8 +294,6 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     uint8_t *payload_ptr = *payload;
 
     // Start writing bytes.
-    // Reset last_two_bytes before writing bytes
-    self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
     uint16_t *last_two_bytes = &self->last_two_bytes;
     // Start code prefix
     *payload_ptr++ = 0x00;
