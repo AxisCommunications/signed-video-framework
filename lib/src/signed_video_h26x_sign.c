@@ -294,6 +294,8 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     uint8_t *payload_ptr = *payload;
 
     // Start writing bytes.
+    // Reset last_two_bytes before writing bytes
+    self->last_two_bytes = self->last_two_bytes_buffer[self->payload_buffer_idx / 2];
     uint16_t *last_two_bytes = &self->last_two_bytes;
     // Start code prefix
     *payload_ptr++ = 0x00;
