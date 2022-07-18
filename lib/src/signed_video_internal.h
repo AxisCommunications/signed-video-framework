@@ -137,6 +137,8 @@ struct _signed_video_t {
   // of the payload and the second location to where the signature is about to be added.
   uint8_t *payload_buffer[MAX_NALUS_TO_PREPEND * 2];
   int payload_buffer_idx;  // Pointer to the current free location of the buffer.
+  // Buffer of last_two_bytes. Writing of the SEI is split in time and it is necessary to pick up
+  // this value when we continue writing.
   uint16_t last_two_bytes_buffer[MAX_NALUS_TO_PREPEND];
 
   // TODO: Collect everything needed by the authentication part only in one struct/object, which
