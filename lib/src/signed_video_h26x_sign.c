@@ -86,21 +86,23 @@ free_payload_buffer(uint8_t *payload_buffer[])
   }
 }
 
-/* Adds the |payload| to the next available slot in |payload_buffer|. */
+/* Adds the |payload| to the next available slot in |payload_buffer| and |last_two_bytes| to the
+ * next available slot in |last_two_bytes_buffer|. */
 static void
 add_payload_to_buffer(signed_video_t *self, uint8_t *payload, uint8_t *payload_signature_ptr)
 {
   assert(self);
 
-  if (self->payload_buffer_idx >= MAX_NALUS_TO_PREPEND) {
+  if (self->payload_buffer_idx >= 2 * MAX_NALUS_TO_PREPEND) {
     // Not enough space for this payload. Free the memory and return.
     free(payload);
     return;
   }
 
-  self->payload_buffer[2 * self->payload_buffer_idx] = payload;
-  self->payload_buffer[2 * self->payload_buffer_idx + 1] = payload_signature_ptr;
-  self->payload_buffer_idx += 1;
+  self->payload_buffer[self->payload_buffer_idx] = payload;
+  self->payload_buffer[self->payload_buffer_idx + 1] = payload_signature_ptr;
+  self->last_two_bytes_buffer[self->payload_buffer_idx / 2] = self->last_two_bytes;
+  self->payload_buffer_idx += 2;
 }
 
 /* Picks the oldest payload from the payload_buffer and completes it with the generated signature.
@@ -109,6 +111,7 @@ static svi_rc
 complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
 {
   assert(self);
+  if (self->payload_buffer_idx < 2) return SVI_NOT_SUPPORTED;
 
   // Get the oldest payload.
   const int buffer_end = self->payload_buffer_idx;
@@ -119,8 +122,7 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   // Transfer oldest pointer in |payload_buffer| to local |payload|
   uint8_t *payload = self->payload_buffer[0];
   uint8_t *payload_signature_ptr = self->payload_buffer[1];
-  self->payload_buffer[0] = NULL;  // Set to NULL since pointer has been transferred.
-  self->payload_buffer[1] = NULL;  // Set to NULL since pointer has been transferred.
+  self->last_two_bytes = self->last_two_bytes_buffer[0];
 
   // If the signature could not be generated |signature_size| equals zero. Free the started SEI and
   // move on. This is a valid operation. What will happen is that the video will have an unsigned
@@ -159,15 +161,16 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
 done:
   // Done with the SEI payload. Move |payload_buffer|. This should be done even if we caught a
   // failure.
-  if (buffer_end > 0) {
-    for (int i = 2; i < buffer_end; i++) {
-      self->payload_buffer[2 * (i - 1)] = self->payload_buffer[2 * i];
-      self->payload_buffer[2 * (i - 1) + 1] = self->payload_buffer[2 * i + 1];
-    }
-    self->payload_buffer[2 * (buffer_end - 1)] = NULL;
-    self->payload_buffer[2 * (buffer_end - 1) + 1] = NULL;
-    self->payload_buffer_idx -= 1;
+  for (int j = 0; j < buffer_end - 2; j++) {
+    self->payload_buffer[j] = self->payload_buffer[j + 2];
   }
+  for (int k = 0; k < (buffer_end / 2) - 1; k++) {
+    self->last_two_bytes_buffer[k] = self->last_two_bytes_buffer[k + 1];
+  }
+  self->payload_buffer[buffer_end - 1] = NULL;
+  self->payload_buffer[buffer_end - 2] = NULL;
+  self->last_two_bytes_buffer[(buffer_end / 2) - 1] = LAST_TWO_BYTES_INIT_VALUE;
+  self->payload_buffer_idx -= 2;
 
   return status;
 }
@@ -291,6 +294,8 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     uint8_t *payload_ptr = *payload;
 
     // Start writing bytes.
+    // Reset last_two_bytes before writing bytes
+    self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
     uint16_t *last_two_bytes = &self->last_two_bytes;
     // Start code prefix
     *payload_ptr++ = 0x00;
@@ -518,7 +523,7 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
     SVI_THROW(hash_and_add(self, &nalu));
     // Depending on the input NALU, we need to take different actions. If the input is an I-NALU we
     // have a transition to a new GOP. Then we need to generate the necessary SEI-NALU(s) and put in
-    // prepend_list.  For all other valid NALUs, simply hash and proceed.
+    // prepend_list. For all other valid NALUs, simply hash and proceed.
     if (nalu.is_first_nalu_in_gop) {
       // An I-NALU indicates the start of a new GOP, hence prepend with SEI-NALUs. This also means
       // that the signing feature is present.
