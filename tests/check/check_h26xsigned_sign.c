@@ -163,20 +163,20 @@ START_TEST(api_inputs)
 
   // Timestamp version of the API.
   // Zero sized nalus are invalid, as well as NULL pointers except for the timestamp
-  sv_rc = signed_video_add_nalu_for_signing_ts(NULL, p_nalu->data, p_nalu->data_size, &g_testTimestamp);
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(NULL, p_nalu->data, p_nalu->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_add_nalu_for_signing_ts(sv, NULL, p_nalu->data_size, &g_testTimestamp);
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(sv, NULL, p_nalu->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_add_nalu_for_signing_ts(sv, p_nalu->data, 0, &g_testTimestamp);
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(sv, p_nalu->data, 0, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   // An invalid NALU should return silently.
-  sv_rc = signed_video_add_nalu_for_signing_ts(sv, invalid->data, invalid->data_size, &g_testTimestamp);
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(sv, invalid->data, invalid->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Timestamp can be null
-  sv_rc = signed_video_add_nalu_for_signing_ts(sv, p_nalu->data, p_nalu->data_size, NULL);
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(sv, p_nalu->data, p_nalu->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Valid call
-  sv_rc = signed_video_add_nalu_for_signing_ts(sv, p_nalu->data, p_nalu->data_size, &g_testTimestamp);
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(sv, p_nalu->data, p_nalu->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // TODO: Add check on |sv| to make sure nothing has changed.
@@ -657,7 +657,7 @@ START_TEST(correct_timestamp)
   ck_assert(nalu_to_prepend.prepend_instruction != SIGNED_VIDEO_PREPEND_NOTHING);
 
   // Test new API with timestamp as NULL. It should give the same result as the old API
-  sv_rc = signed_video_add_nalu_for_signing_ts(sv_ts, i_nalu->data, i_nalu->data_size, NULL);
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(sv_ts, i_nalu->data, i_nalu->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_get_nalu_to_prepend(sv_ts, &nalu_to_prepend_ts);
   ck_assert_int_eq(sv_rc, SV_OK);
