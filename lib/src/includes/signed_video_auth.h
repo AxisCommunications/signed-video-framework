@@ -121,7 +121,7 @@ typedef struct {
   bool has_timestamp;
   // True if the timestamp member is valid to look at, false otherwise.
   int64_t timestamp;
-  // User defined timestamp of the first nalu in the GOP.
+  // Unix epoch UTC timestamp of the latest signed NALU.
 } signed_video_latest_validation_t;
 
 /**

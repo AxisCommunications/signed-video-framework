@@ -534,7 +534,7 @@ signed_video_add_nalu_for_signing_with_timestamp(signed_video_t *self,
       // An I-NALU indicates the start of a new GOP, hence prepend with SEI-NALUs. This also means
       // that the signing feature is present.
 
-      // Store the timestamp for the first nalu in gop
+      // Store the timestamp for the first nalu in gop.
       if (timestamp) {
         self->gop_info->timestamp = *timestamp;
         self->gop_info->has_timestamp = true;

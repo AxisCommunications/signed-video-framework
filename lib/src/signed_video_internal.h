@@ -231,7 +231,7 @@ struct _gop_info_t {
   int verified_signature_hash;  // Status of last hash-signature-pair verification. Has 1 for
   // success, 0 for fail, and -1 for error.
   bool has_timestamp;  // True if timestamp exists and has not yet been written to SEI.
-  int64_t timestamp;  // User defined timestamp of the first nalu in GOP
+  int64_t timestamp;  // Unix epoch UTC timestamp of the first nalu in GOP
 };
 
 void

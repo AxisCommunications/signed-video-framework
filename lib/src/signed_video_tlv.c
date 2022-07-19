@@ -277,7 +277,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
     }
     bytes_to_version_str(self->code_version, self->authenticity->version_on_signing_side);
 
-    if (version == 2) {
+    if (version >= 2) {
       // Read bool flags
       uint8_t flags = 0;
       data_ptr += read_8bits(data_ptr, &flags);
