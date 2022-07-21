@@ -85,9 +85,15 @@ tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bo
  * @returns Number of bytes read.
  */
 size_t
+read_64bits_signed(const uint8_t *p, int64_t *val);
+size_t
+read_64bits(const uint8_t *p, uint64_t *val);
+size_t
 read_32bits(const uint8_t *p, uint32_t *val);
 size_t
 read_16bits(const uint8_t *p, uint16_t *val);
+size_t
+read_8bits(const uint8_t *p, uint8_t *val);
 
 /**
  * @brief Writes many bytes to payload w/wo emulation prevention

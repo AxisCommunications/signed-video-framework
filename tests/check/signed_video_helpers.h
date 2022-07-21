@@ -22,6 +22,7 @@
 #define __SIGNED_VIDEO_HELPERS_H__
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "lib/src/includes/signed_video_common.h"  // signed_video_t, SignedVideoCodec
 #include "lib/src/includes/signed_video_interfaces.h"  // sign_algo_t
@@ -57,6 +58,8 @@ struct sv_setting {
 extern const struct sv_setting settings[NUM_SETTINGS];
 
 extern const char *axisDummyCertificateChain;
+
+extern const int64_t g_testTimestamp;
 
 /* Creates a signed_video_t session and initialize it by setting
  * 1. a path to openssl keys
