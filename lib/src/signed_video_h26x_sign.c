@@ -73,13 +73,11 @@ h26x_set_nal_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDT
   }
 }
 
-/* Frees all payloads in the |payload_buffer|. Declared in signed_video_internal.h */
+/* Frees all payloads in the |free_sei_data_buffer|. Declared in signed_video_internal.h */
 void
 free_sei_data_buffer(sei_data_t sei_data_buffer[])
 {
   for (int i = 0; i < MAX_NALUS_TO_PREPEND; i++) {
-    // Note that the first location of the payload pointer pair points to the location of the
-    // memory.
     free(sei_data_buffer[i].payload);
     sei_data_buffer[i].payload = NULL;
     sei_data_buffer[i].payload_signature_ptr = NULL;
@@ -105,8 +103,9 @@ add_payload_to_buffer(signed_video_t *self, uint8_t *payload, uint8_t *payload_s
   self->sei_data_buffer_idx += 1;
 }
 
-/* Picks the oldest payload from the payload_buffer and completes it with the generated signature.
- * If we have no signature the SEI payload is freed and not added to the video session. */
+/* Picks the oldest payload from the |sei_data_buffer| and completes it with the generated signature
+ * and the last two bytes. If we have no signature the SEI payload is freed and not added to the
+ * video session. */
 static svi_rc
 complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
 {
@@ -122,7 +121,7 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   // Transfer oldest pointer in |payload_buffer| to local |payload|
   uint8_t *payload = self->sei_data_buffer[0].payload;
   uint8_t *payload_signature_ptr = self->sei_data_buffer[0].payload_signature_ptr;
-  self->last_two_bytes = self->last_two_bytes_buffer[0];
+  self->last_two_bytes = self->sei_data_buffer[0].last_two_bytes;
 
   // If the signature could not be generated |signature_size| equals zero. Free the started SEI and
   // move on. This is a valid operation. What will happen is that the video will have an unsigned
@@ -159,7 +158,7 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   SVI_DONE(status)
 
 done:
-  // Done with the SEI payload. Move |payload_buffer|. This should be done even if we caught a
+  // Done with the SEI payload. Move |sei_data_buffer|. This should be done even if we caught a
   // failure.
   for (int j = 0; j < sei_data_buffer_end - 1; j++) {
     self->sei_data_buffer[j] = self->sei_data_buffer[j + 1];

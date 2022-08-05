@@ -140,12 +140,15 @@ struct _signed_video_t {
   // Frames to prepend list
   signed_video_nalu_to_prepend_t nalus_to_prepend_list[MAX_NALUS_TO_PREPEND];
   int num_nalus_to_prepend;
-  // Buffer of payload pointer pairs. Each pair holds the memory for a SEI in preparation and to be
-  // added to the prepend list. The first location of the pair is pointing to the allocated memory
-  // of the payload and the second location to where the signature is about to be added.
-  // Buffer of last_two_bytes. Writing of the SEI is split in time and it is necessary to pick up
-  // this value when we continue writing.
-  uint16_t last_two_bytes_buffer[MAX_NALUS_TO_PREPEND];
+
+  // Buffer of last two bytes and payload pointer pairs. Writing of the SEI is split in time and it
+  // is therefore necessary to pick up the value of |last_two_bytes| when we continue writing. Each
+  // pair, consisting of |payload| and |payload_signature_ptr|, holds the memory for a SEI in
+  // preparation and to be added to the prepend list. |payload| is pointing to the allocated memory
+  // of the payload and |payload_signature_ptr| to where the signature is
+  // about to be added.
+  sei_data_t sei_data_buffer[MAX_NALUS_TO_PREPEND];
+  int sei_data_buffer_idx;
 
   // TODO: Collect everything needed by the authentication part only in one struct/object, which
   // then is not needed to be created on the signing side, saving some memory.
@@ -198,9 +201,6 @@ struct _signed_video_t {
   // Vendor encoders for signing. Only works with one vendor.
   const sv_tlv_tag_t *vendor_encoders;
   size_t num_vendor_encoders;
-
-  sei_data_t sei_data_buffer[MAX_NALUS_TO_PREPEND];
-  int sei_data_buffer_idx;
 };
 
 typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;
