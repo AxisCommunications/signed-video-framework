@@ -33,6 +33,7 @@
 typedef struct _gop_info_t gop_info_t;
 typedef struct _gop_state_t gop_state_t;
 typedef struct _gop_info_detected_t gop_info_detected_t;
+typedef struct _sei_data_t sei_data_t;
 
 // Forward declare h26x_nalu_list_t here for signed_video_t.
 typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
@@ -120,6 +121,12 @@ struct _gop_info_detected_t {
   // example when this happens is if an entire AU is lost including both the SEI and the I NALU.
 };
 
+struct _sei_data_t {
+  uint8_t *payload;  // Pointer to the allocated SEI data
+  uint8_t *payload_signature_ptr;
+  uint16_t last_two_bytes;
+};
+
 struct _signed_video_t {
   int code_version[SV_VERSION_BYTES];
   uint16_t last_two_bytes;
@@ -136,8 +143,6 @@ struct _signed_video_t {
   // Buffer of payload pointer pairs. Each pair holds the memory for a SEI in preparation and to be
   // added to the prepend list. The first location of the pair is pointing to the allocated memory
   // of the payload and the second location to where the signature is about to be added.
-  uint8_t *payload_buffer[MAX_NALUS_TO_PREPEND * 2];
-  int payload_buffer_idx;  // Pointer to the current free location of the buffer.
   // Buffer of last_two_bytes. Writing of the SEI is split in time and it is necessary to pick up
   // this value when we continue writing.
   uint16_t last_two_bytes_buffer[MAX_NALUS_TO_PREPEND];
@@ -193,6 +198,9 @@ struct _signed_video_t {
   // Vendor encoders for signing. Only works with one vendor.
   const sv_tlv_tag_t *vendor_encoders;
   size_t num_vendor_encoders;
+
+  sei_data_t sei_data_buffer[MAX_NALUS_TO_PREPEND];
+  int sei_data_buffer_idx;
 };
 
 typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;
@@ -271,8 +279,8 @@ product_info_free_members(signed_video_product_info_t *product_info);
 void
 free_and_reset_nalu_to_prepend_list(signed_video_t *signed_video);
 
-/* Frees all allocated memory of payload pointers in the buffer. */
+/* Frees all allocated memory of payload pointers in the SEI data buffer. */
 void
-free_payload_buffer(uint8_t *payload_buffer[]);
+free_sei_data_buffer(sei_data_t sei_data_buffer[]);
 
 #endif  // __SIGNED_VIDEO_INTERNAL__
