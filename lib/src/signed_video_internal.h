@@ -33,12 +33,6 @@
 typedef struct _gop_info_t gop_info_t;
 typedef struct _gop_state_t gop_state_t;
 typedef struct _gop_info_detected_t gop_info_detected_t;
-// Buffer of stop bytes and payload pointer pairs. Writing of the SEI is split in time and it
-// is therefore necessary to pick up the value of |last_two_bytes| when we continue writing. Each
-// pair, consisting of |payload| and |payload_signature_ptr|, holds the memory for a SEI in
-// preparation and to be added to the prepend list. |payload| is pointing to the allocated memory
-// of the payload and |payload_signature_ptr| to where the signature is
-// about to be added.
 typedef struct _sei_data_t sei_data_t;
 
 // Forward declare h26x_nalu_list_t here for signed_video_t.
@@ -127,6 +121,12 @@ struct _gop_info_detected_t {
   // example when this happens is if an entire AU is lost including both the SEI and the I NALU.
 };
 
+// Buffer of last two bytes and payload pointer pairs. Writing of the SEI is split in time and it
+// is therefore necessary to pick up the value of |last_two_bytes| when we continue writing. Each
+// pair, consisting of |payload| and |payload_signature_ptr|, holds the memory for a SEI in
+// preparation and to be added to the prepend list. |payload| is pointing to the allocated memory
+// of the payload and |payload_signature_ptr| to where the signature is
+// about to be added.
 struct _sei_data_t {
   uint8_t *payload;  // Pointer to the allocated SEI data
   uint8_t *payload_signature_ptr;
