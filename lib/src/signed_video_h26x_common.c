@@ -1135,9 +1135,6 @@ signed_video_create(SignedVideoCodec codec)
     gop_info_detected_init(&(self->gop_info_detected));
 
     self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
-    for (int i = 0; i < MAX_NALUS_TO_PREPEND; i++) {
-      self->sei_data_buffer[i].last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
-    }
 
     self->recurrence = RECURRENCE_ALWAYS;
     self->recurrence_offset = RECURRENCE_OFFSET_DEFAULT;

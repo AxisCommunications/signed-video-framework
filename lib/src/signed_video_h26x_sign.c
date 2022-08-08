@@ -73,7 +73,7 @@ h26x_set_nal_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDT
   }
 }
 
-/* Frees all payloads in the |free_sei_data_buffer|. Declared in signed_video_internal.h */
+/* Frees all payloads in the |sei_data_buffer|. Declared in signed_video_internal.h */
 void
 free_sei_data_buffer(sei_data_t sei_data_buffer[])
 {
@@ -104,13 +104,13 @@ add_payload_to_buffer(signed_video_t *self, uint8_t *payload, uint8_t *payload_s
 }
 
 /* Picks the oldest payload from the |sei_data_buffer| and completes it with the generated signature
- * and the last two bytes. If we have no signature the SEI payload is freed and not added to the
+ * and the stop byte. If we have no signature the SEI payload is freed and not added to the
  * video session. */
 static svi_rc
 complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
 {
   assert(self);
-  if (self->sei_data_buffer_idx < 0) return SVI_NOT_SUPPORTED;
+  if (self->sei_data_buffer_idx < 1) return SVI_NOT_SUPPORTED;
 
   // Get the oldest sei data
   const int sei_data_buffer_end = self->sei_data_buffer_idx;
