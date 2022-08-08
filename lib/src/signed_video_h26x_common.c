@@ -1135,9 +1135,6 @@ signed_video_create(SignedVideoCodec codec)
     gop_info_detected_init(&(self->gop_info_detected));
 
     self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
-    for (int i = 0; i < MAX_NALUS_TO_PREPEND; i++) {
-      self->last_two_bytes_buffer[i] = LAST_TWO_BYTES_INIT_VALUE;
-    }
 
     self->recurrence = RECURRENCE_ALWAYS;
     self->recurrence_offset = RECURRENCE_OFFSET_DEFAULT;
@@ -1212,7 +1209,7 @@ signed_video_free(signed_video_t *self)
 
   // Free any NALUs left to prepend.
   free_and_reset_nalu_to_prepend_list(self);
-  free_payload_buffer(self->payload_buffer);
+  free_sei_data_buffer(self->sei_data_buffer);
 
   h26x_nalu_list_free(self->nalu_list);
 

@@ -73,16 +73,14 @@ h26x_set_nal_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDT
   }
 }
 
-/* Frees all payloads in the |payload_buffer|. Declared in signed_video_internal.h */
+/* Frees all payloads in the |sei_data_buffer|. Declared in signed_video_internal.h */
 void
-free_payload_buffer(uint8_t *payload_buffer[])
+free_sei_data_buffer(sei_data_t sei_data_buffer[])
 {
   for (int i = 0; i < MAX_NALUS_TO_PREPEND; i++) {
-    // Note that the first location of the payload pointer pair points to the location of the
-    // memory.
-    free(payload_buffer[2 * i]);
-    payload_buffer[2 * i] = NULL;
-    payload_buffer[2 * i + 1] = NULL;
+    free(sei_data_buffer[i].payload);
+    sei_data_buffer[i].payload = NULL;
+    sei_data_buffer[i].payload_signature_ptr = NULL;
   }
 }
 
@@ -93,36 +91,37 @@ add_payload_to_buffer(signed_video_t *self, uint8_t *payload, uint8_t *payload_s
 {
   assert(self);
 
-  if (self->payload_buffer_idx >= 2 * MAX_NALUS_TO_PREPEND) {
+  if (self->sei_data_buffer_idx >= MAX_NALUS_TO_PREPEND) {
     // Not enough space for this payload. Free the memory and return.
     free(payload);
     return;
   }
 
-  self->payload_buffer[self->payload_buffer_idx] = payload;
-  self->payload_buffer[self->payload_buffer_idx + 1] = payload_signature_ptr;
-  self->last_two_bytes_buffer[self->payload_buffer_idx / 2] = self->last_two_bytes;
-  self->payload_buffer_idx += 2;
+  self->sei_data_buffer[self->sei_data_buffer_idx].payload = payload;
+  self->sei_data_buffer[self->sei_data_buffer_idx].payload_signature_ptr = payload_signature_ptr;
+  self->sei_data_buffer[self->sei_data_buffer_idx].last_two_bytes = self->last_two_bytes;
+  self->sei_data_buffer_idx += 1;
 }
 
-/* Picks the oldest payload from the payload_buffer and completes it with the generated signature.
- * If we have no signature the SEI payload is freed and not added to the video session. */
+/* Picks the oldest payload from the |sei_data_buffer| and completes it with the generated signature
+ * and the stop byte. If we have no signature the SEI payload is freed and not added to the
+ * video session. */
 static svi_rc
 complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
 {
   assert(self);
-  if (self->payload_buffer_idx < 2) return SVI_NOT_SUPPORTED;
+  if (self->sei_data_buffer_idx < 1) return SVI_NOT_SUPPORTED;
 
-  // Get the oldest payload.
-  const int buffer_end = self->payload_buffer_idx;
-  assert(buffer_end <= MAX_NALUS_TO_PREPEND);
+  // Get the oldest sei data
+  const int sei_data_buffer_end = self->sei_data_buffer_idx;
+  assert(sei_data_buffer_end <= MAX_NALUS_TO_PREPEND);
   SignedVideoPrependInstruction prepend_instruction = SIGNED_VIDEO_PREPEND_NOTHING;
   size_t data_size = 0;
   svi_rc status = SVI_UNKNOWN;
   // Transfer oldest pointer in |payload_buffer| to local |payload|
-  uint8_t *payload = self->payload_buffer[0];
-  uint8_t *payload_signature_ptr = self->payload_buffer[1];
-  self->last_two_bytes = self->last_two_bytes_buffer[0];
+  uint8_t *payload = self->sei_data_buffer[0].payload;
+  uint8_t *payload_signature_ptr = self->sei_data_buffer[0].payload_signature_ptr;
+  self->last_two_bytes = self->sei_data_buffer[0].last_two_bytes;
 
   // If the signature could not be generated |signature_size| equals zero. Free the started SEI and
   // move on. This is a valid operation. What will happen is that the video will have an unsigned
@@ -159,18 +158,15 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   SVI_DONE(status)
 
 done:
-  // Done with the SEI payload. Move |payload_buffer|. This should be done even if we caught a
+  // Done with the SEI payload. Move |sei_data_buffer|. This should be done even if we caught a
   // failure.
-  for (int j = 0; j < buffer_end - 2; j++) {
-    self->payload_buffer[j] = self->payload_buffer[j + 2];
+  for (int j = 0; j < sei_data_buffer_end - 1; j++) {
+    self->sei_data_buffer[j] = self->sei_data_buffer[j + 1];
   }
-  for (int k = 0; k < (buffer_end / 2) - 1; k++) {
-    self->last_two_bytes_buffer[k] = self->last_two_bytes_buffer[k + 1];
-  }
-  self->payload_buffer[buffer_end - 1] = NULL;
-  self->payload_buffer[buffer_end - 2] = NULL;
-  self->last_two_bytes_buffer[(buffer_end / 2) - 1] = LAST_TWO_BYTES_INIT_VALUE;
-  self->payload_buffer_idx -= 2;
+  self->sei_data_buffer[sei_data_buffer_end - 1].payload = NULL;
+  self->sei_data_buffer[sei_data_buffer_end - 1].payload_signature_ptr = NULL;
+  self->sei_data_buffer[sei_data_buffer_end - 1].last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
+  self->sei_data_buffer_idx -= 1;
 
   return status;
 }
