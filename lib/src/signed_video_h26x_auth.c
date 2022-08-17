@@ -896,7 +896,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
  *
  * In this function we update the h26x_nalu_t member |hashable_data_size| w.r.t. that. The pointer
  * to the start is still the same. */
-static void
+void
 update_hashable_data(h26x_nalu_t *nalu)
 {
   assert(nalu && (nalu->is_valid > 0));
@@ -1003,6 +1003,8 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
     if (self->gop_state.has_auth_result) {
       SVI_THROW(update_authenticity_report(self));
       if (authenticity) *authenticity = signed_video_get_authenticity_report(self);
+      // Reset the timestamp for the next report.
+      self->latest_validation->has_timestamp = false;
     }
 
   SVI_CATCH()

@@ -1210,7 +1210,7 @@ signed_video_free(signed_video_t *self)
 
   // Free any NALUs left to prepend.
   free_and_reset_nalu_to_prepend_list(self);
-  free_payload_buffer(self->payload_buffer);
+  free_sei_data_buffer(self->sei_data_buffer);
 
   h26x_nalu_list_free(self->nalu_list);
 

@@ -56,6 +56,7 @@ struct validation_stats {
   int pending_nalus;
   int has_signature;
   bool public_key_has_changed;
+  bool has_no_timestamp;
   signed_video_accumulated_validation_t *final_validation;
 };
 
@@ -155,6 +156,7 @@ validate_nalu_list(signed_video_t *sv, nalu_list_t *list, struct validation_stat
   int pending_nalus = 0;
   int has_signature = 0;
   bool public_key_has_changed = false;
+  bool has_timestamp = false;
   // Pop one NALU at a time.
   nalu_list_item_t *item = nalu_list_pop_first_item(list);
   while (item) {
@@ -190,6 +192,12 @@ validate_nalu_list(signed_video_t *sv, nalu_list_t *list, struct validation_stat
           break;
       }
       public_key_has_changed |= latest->public_key_has_changed;
+      has_timestamp |= latest->has_timestamp;
+
+      if (latest->has_timestamp) {
+        ck_assert_int_eq(latest->timestamp, g_testTimestamp);
+      }
+
       // Check if product_info has been received and set correctly.
       if ((latest->authenticity != SV_AUTH_RESULT_NOT_SIGNED) &&
           (latest->authenticity != SV_AUTH_RESULT_SIGNATURE_PRESENT)) {
@@ -229,6 +237,7 @@ validate_nalu_list(signed_video_t *sv, nalu_list_t *list, struct validation_stat
   ck_assert_int_eq(pending_nalus, expected.pending_nalus);
   ck_assert_int_eq(has_signature, expected.has_signature);
   ck_assert_int_eq(public_key_has_changed, expected.public_key_has_changed);
+  ck_assert_int_eq(has_timestamp, !expected.has_no_timestamp);
 
   // Get the authenticity report and compare the stats against expected.
   if (expected.final_validation) {
@@ -795,6 +804,7 @@ START_TEST(remove_the_g_nalu)
       expected.invalid_gops = 0;
       expected.pending_nalus = 0;
       expected.has_signature = 4;
+      expected.has_no_timestamp = true;
       expected.final_validation->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
       expected.final_validation->number_of_validated_nalus = 0;
       expected.final_validation->number_of_pending_nalus = 17;
@@ -895,6 +905,7 @@ START_TEST(remove_the_gi_nalus)
       expected.missed_nalus = 0;
       expected.pending_nalus = 0;
       expected.has_signature = 4;
+      expected.has_no_timestamp = true;
       expected.final_validation->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
       expected.final_validation->number_of_validated_nalus = 0;
       expected.final_validation->number_of_pending_nalus = 16;
@@ -1683,8 +1694,10 @@ START_TEST(no_signature)
   //
   // pending_nalus = 4 * 4 = 16
   const struct validation_stats expected = {
-      .unsigned_gops = 4, .pending_nalus = 16, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+    .unsigned_gops = 4, .pending_nalus = 16, .has_no_timestamp = true,
+    .final_validation = &final_validation};
+
+validate_nalu_list(NULL, list, expected);
 
   nalu_list_free(list);
 }
@@ -1711,8 +1724,10 @@ START_TEST(multislice_no_signature)
   //
   // pending_nalus = 4 * 7 = 28
   const struct validation_stats expected = {
-      .unsigned_gops = 4, .pending_nalus = 28, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+      .unsigned_gops = 4, .pending_nalus = 28, .has_no_timestamp = true,
+      .final_validation = &final_validation};
+
+validate_nalu_list(NULL, list, expected);
 
   nalu_list_free(list);
 }

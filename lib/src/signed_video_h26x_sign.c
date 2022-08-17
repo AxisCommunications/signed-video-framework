@@ -73,54 +73,55 @@ h26x_set_nal_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDT
   }
 }
 
-/* Frees all payloads in the |payload_buffer|. Declared in signed_video_internal.h */
+/* Frees all payloads in the |sei_data_buffer|. Declared in signed_video_internal.h */
 void
-free_payload_buffer(uint8_t *payload_buffer[])
+free_sei_data_buffer(sei_data_t sei_data_buffer[])
 {
   for (int i = 0; i < MAX_NALUS_TO_PREPEND; i++) {
-    // Note that the first location of the payload pointer pair points to the location of the
-    // memory.
-    free(payload_buffer[2 * i]);
-    payload_buffer[2 * i] = NULL;
-    payload_buffer[2 * i + 1] = NULL;
+    free(sei_data_buffer[i].payload);
+    sei_data_buffer[i].payload = NULL;
+    sei_data_buffer[i].payload_signature_ptr = NULL;
   }
 }
 
-/* Adds the |payload| to the next available slot in |payload_buffer|. */
+/* Adds the |payload| to the next available slot in |payload_buffer| and |last_two_bytes| to the
+ * next available slot in |last_two_bytes_buffer|. */
 static void
 add_payload_to_buffer(signed_video_t *self, uint8_t *payload, uint8_t *payload_signature_ptr)
 {
   assert(self);
 
-  if (self->payload_buffer_idx >= MAX_NALUS_TO_PREPEND) {
+  if (self->sei_data_buffer_idx >= MAX_NALUS_TO_PREPEND) {
     // Not enough space for this payload. Free the memory and return.
     free(payload);
     return;
   }
 
-  self->payload_buffer[2 * self->payload_buffer_idx] = payload;
-  self->payload_buffer[2 * self->payload_buffer_idx + 1] = payload_signature_ptr;
-  self->payload_buffer_idx += 1;
+  self->sei_data_buffer[self->sei_data_buffer_idx].payload = payload;
+  self->sei_data_buffer[self->sei_data_buffer_idx].payload_signature_ptr = payload_signature_ptr;
+  self->sei_data_buffer[self->sei_data_buffer_idx].last_two_bytes = self->last_two_bytes;
+  self->sei_data_buffer_idx += 1;
 }
 
-/* Picks the oldest payload from the payload_buffer and completes it with the generated signature.
- * If we have no signature the SEI payload is freed and not added to the video session. */
+/* Picks the oldest payload from the |sei_data_buffer| and completes it with the generated signature
+ * and the stop byte. If we have no signature the SEI payload is freed and not added to the
+ * video session. */
 static svi_rc
 complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
 {
   assert(self);
+  if (self->sei_data_buffer_idx < 1) return SVI_NOT_SUPPORTED;
 
-  // Get the oldest payload.
-  const int buffer_end = self->payload_buffer_idx;
-  assert(buffer_end <= MAX_NALUS_TO_PREPEND);
+  // Get the oldest sei data
+  const int sei_data_buffer_end = self->sei_data_buffer_idx;
+  assert(sei_data_buffer_end <= MAX_NALUS_TO_PREPEND);
   SignedVideoPrependInstruction prepend_instruction = SIGNED_VIDEO_PREPEND_NOTHING;
   size_t data_size = 0;
   svi_rc status = SVI_UNKNOWN;
   // Transfer oldest pointer in |payload_buffer| to local |payload|
-  uint8_t *payload = self->payload_buffer[0];
-  uint8_t *payload_signature_ptr = self->payload_buffer[1];
-  self->payload_buffer[0] = NULL;  // Set to NULL since pointer has been transferred.
-  self->payload_buffer[1] = NULL;  // Set to NULL since pointer has been transferred.
+  uint8_t *payload = self->sei_data_buffer[0].payload;
+  uint8_t *payload_signature_ptr = self->sei_data_buffer[0].payload_signature_ptr;
+  self->last_two_bytes = self->sei_data_buffer[0].last_two_bytes;
 
   // If the signature could not be generated |signature_size| equals zero. Free the started SEI and
   // move on. This is a valid operation. What will happen is that the video will have an unsigned
@@ -157,17 +158,15 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   SVI_DONE(status)
 
 done:
-  // Done with the SEI payload. Move |payload_buffer|. This should be done even if we caught a
+  // Done with the SEI payload. Move |sei_data_buffer|. This should be done even if we caught a
   // failure.
-  if (buffer_end > 0) {
-    for (int i = 2; i < buffer_end; i++) {
-      self->payload_buffer[2 * (i - 1)] = self->payload_buffer[2 * i];
-      self->payload_buffer[2 * (i - 1) + 1] = self->payload_buffer[2 * i + 1];
-    }
-    self->payload_buffer[2 * (buffer_end - 1)] = NULL;
-    self->payload_buffer[2 * (buffer_end - 1) + 1] = NULL;
-    self->payload_buffer_idx -= 1;
+  for (int j = 0; j < sei_data_buffer_end - 1; j++) {
+    self->sei_data_buffer[j] = self->sei_data_buffer[j + 1];
   }
+  self->sei_data_buffer[sei_data_buffer_end - 1].payload = NULL;
+  self->sei_data_buffer[sei_data_buffer_end - 1].payload_signature_ptr = NULL;
+  self->sei_data_buffer[sei_data_buffer_end - 1].last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
+  self->sei_data_buffer_idx -= 1;
 
   return status;
 }
@@ -232,7 +231,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
   if (*payload) {
     DEBUG_LOG("Payload is not empty, *payload must be NULL");
-    return 0;
+    return SVI_OK;
   }
 
   // Reset |signature_hash_type| to |GOP_HASH|. If the |hash_list| is successfully added,
@@ -291,6 +290,8 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     uint8_t *payload_ptr = *payload;
 
     // Start writing bytes.
+    // Reset last_two_bytes before writing bytes
+    self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
     uint16_t *last_two_bytes = &self->last_two_bytes;
     // Start code prefix
     *payload_ptr++ = 0x00;
@@ -373,6 +374,8 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
     // End of GOP. Reset flag to get new reference.
     self->gop_info->has_reference_hash = false;
+    // Reset the timestamp to avoid including a duplicate in the next SEI.
+    gop_info->has_timestamp = false;
 
     SVI_THROW(sv_rc_to_svi_rc(sv_interface_sign_hash(self->plugin_handle, signature_info)));
 
@@ -490,6 +493,15 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
     const uint8_t *nalu_data,
     size_t nalu_data_size)
 {
+  return signed_video_add_nalu_for_signing_with_timestamp(self, nalu_data, nalu_data_size, NULL);
+}
+
+SignedVideoReturnCode
+signed_video_add_nalu_for_signing_with_timestamp(signed_video_t *self,
+    const uint8_t *nalu_data,
+    size_t nalu_data_size,
+    const int64_t *timestamp)
+{
   if (!self || !nalu_data || !nalu_data_size) {
     DEBUG_LOG("Invalid input parameters: (%p, %p, %zu)", self, nalu_data, nalu_data_size);
     return SV_INVALID_PARAMETER;
@@ -518,10 +530,16 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
     SVI_THROW(hash_and_add(self, &nalu));
     // Depending on the input NALU, we need to take different actions. If the input is an I-NALU we
     // have a transition to a new GOP. Then we need to generate the necessary SEI-NALU(s) and put in
-    // prepend_list.  For all other valid NALUs, simply hash and proceed.
+    // prepend_list. For all other valid NALUs, simply hash and proceed.
     if (nalu.is_first_nalu_in_gop) {
       // An I-NALU indicates the start of a new GOP, hence prepend with SEI-NALUs. This also means
       // that the signing feature is present.
+
+      // Store the timestamp for the first nalu in gop.
+      if (timestamp) {
+        self->gop_info->timestamp = *timestamp;
+        self->gop_info->has_timestamp = true;
+      }
 
       uint8_t *payload = NULL;
       uint8_t *payload_signature_ptr = NULL;

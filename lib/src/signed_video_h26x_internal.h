@@ -194,6 +194,9 @@ parse_nalu_info(const uint8_t *nalu_data,
     SignedVideoCodec codec,
     bool check_trailing_bytes);
 
+void
+update_hashable_data(h26x_nalu_t *nalu);
+
 #ifdef SV_UNIT_TEST
 /**
  * @brief Sets the recurrence offset for the signed video session

@@ -33,6 +33,7 @@
 typedef struct _gop_info_t gop_info_t;
 typedef struct _gop_state_t gop_state_t;
 typedef struct _gop_info_detected_t gop_info_detected_t;
+typedef struct _sei_data_t sei_data_t;
 
 // Forward declare h26x_nalu_list_t here for signed_video_t.
 typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
@@ -46,7 +47,7 @@ typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 #define HASH_DIGEST_SIZE (256 / 8)
 
 #define SV_VERSION_BYTES 3
-#define SIGNED_VIDEO_VERSION "v1.1.9"
+#define SIGNED_VIDEO_VERSION "v1.1.10"
 #define SV_VERSION_MAX_STRLEN 13  // Longest possible string
 
 #define DEFAULT_AUTHENTICITY_LEVEL SV_AUTHENTICITY_LEVEL_FRAME
@@ -120,6 +121,18 @@ struct _gop_info_detected_t {
   // example when this happens is if an entire AU is lost including both the SEI and the I NALU.
 };
 
+// Buffer of last two bytes and payload pointer pairs. Writing of the SEI is split in time and it
+// is therefore necessary to pick up the value of |last_two_bytes| when we continue writing. Each
+// pair, consisting of |payload| and |payload_signature_ptr|, holds the memory for a SEI in
+// preparation and to be added to the prepend list. |payload| is pointing to the allocated memory
+// of the payload and |payload_signature_ptr| to where the signature is
+// about to be added.
+struct _sei_data_t {
+  uint8_t *payload;  // Pointer to the allocated SEI data
+  uint8_t *payload_signature_ptr;
+  uint16_t last_two_bytes;
+};
+
 struct _signed_video_t {
   int code_version[SV_VERSION_BYTES];
   uint16_t last_two_bytes;
@@ -133,11 +146,9 @@ struct _signed_video_t {
   // Frames to prepend list
   signed_video_nalu_to_prepend_t nalus_to_prepend_list[MAX_NALUS_TO_PREPEND];
   int num_nalus_to_prepend;
-  // Buffer of payload pointer pairs. Each pair holds the memory for a SEI in preparation and to be
-  // added to the prepend list. The first location of the pair is pointing to the allocated memory
-  // of the payload and the second location to where the signature is about to be added.
-  uint8_t *payload_buffer[MAX_NALUS_TO_PREPEND * 2];
-  int payload_buffer_idx;  // Pointer to the current free location of the buffer.
+
+  sei_data_t sei_data_buffer[MAX_NALUS_TO_PREPEND];
+  int sei_data_buffer_idx;
 
   // TODO: Collect everything needed by the authentication part only in one struct/object, which
   // then is not needed to be created on the signing side, saving some memory.
@@ -231,6 +242,8 @@ struct _gop_info_t {
   // detected.
   int verified_signature_hash;  // Status of last hash-signature-pair verification. Has 1 for
   // success, 0 for fail, and -1 for error.
+  bool has_timestamp;  // True if timestamp exists and has not yet been written to SEI.
+  int64_t timestamp;  // Unix epoch UTC timestamp of the first nalu in GOP
 };
 
 void
@@ -267,8 +280,8 @@ product_info_free_members(signed_video_product_info_t *product_info);
 void
 free_and_reset_nalu_to_prepend_list(signed_video_t *signed_video);
 
-/* Frees all allocated memory of payload pointers in the buffer. */
+/* Frees all allocated memory of payload pointers in the SEI data buffer. */
 void
-free_payload_buffer(uint8_t *payload_buffer[]);
+free_sei_data_buffer(sei_data_t sei_data_buffer[]);
 
 #endif  // __SIGNED_VIDEO_INTERNAL__
