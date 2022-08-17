@@ -302,8 +302,12 @@ signed_video_get_authenticity_report(signed_video_t *self)
     // Update |number_of_pending_nalus| since that may have changed since |latest_validation|.
     signed_video_accumulated_validation_t *accumulated = self->accumulated_validation;
     if (accumulated->authenticity == SV_AUTH_RESULT_NOT_SIGNED) {
+      // If the video is (so far) not signed, number of pending NALUs equals the number of added
+      // NALUs for validation.
       accumulated->number_of_pending_nalus = accumulated->number_of_received_nalus;
     } else {
+      // At this point, all validated NALUs up to the first pending NALU have been removed from the
+      // |nalu_list|, hence number of pending NALUs equals number of items in the |nalu_list|.
       accumulated->number_of_pending_nalus = self->nalu_list->num_items;
     }
 
