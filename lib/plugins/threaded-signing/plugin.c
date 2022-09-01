@@ -34,16 +34,20 @@
 #include "includes/signed_video_interfaces.h"
 #include "includes/signed_video_openssl.h"
 
+#define MAX_HASHES 5
+typedef struct _threaded_signature_info_t threaded_signature_info_t;
+
 typedef enum {
-  THREADED_SIGNING_WAITS_FOR_HASH_TO_SIGN,
-  THREADED_SIGNING_HAS_HASH_TO_SIGN,
-  THREADED_SIGNING_SIGNS_HASH,
-  THREADED_SIGNING_HAS_SIGNATURE,
-  THREADED_SIGNING_ERROR,
+  THREADED_SIGNING_ERROR = 1,
 } threaded_signing_plugin_state;
 
-/* Threaded plugin handle maintaining the thread and locks. Further, stores the hash to sign and the
- * written signature (part of |signature_info|): */
+struct _threaded_signature_info_t {
+  uint8_t *signature;
+  size_t size;
+};
+
+/* Threaded plugin handle maintaining the thread and locks. Further, stores the hashes to sign and
+ * the written signatures in two buffers */
 typedef struct _sv_threaded_plugin {
   GThread *thread;
   GMutex mutex;
@@ -52,10 +56,13 @@ typedef struct _sv_threaded_plugin {
   // Variables that has to be r/w under mutex lock.
   bool is_running;
   threaded_signing_plugin_state plugin_state;
-  uint8_t *hash_to_sign;
+  // Hashes to sign buffer
+  uint8_t *input_buffer[MAX_HASHES];
+  int input_buffer_idx;
   size_t hash_size;
-  int nbr_of_unsigned_hashes;  // Tracks hashes that could not be signed.
-
+  // Buffer of written signatures
+  threaded_signature_info_t output_buffer[MAX_HASHES];
+  int output_buffer_idx;
   // Variables that can operate without mutex lock.
   // A local copy of the signature_info is used for signing. The hash to be signed is copied to it
   // when it is time to sign.
@@ -111,16 +118,26 @@ catch_error:
 }
 
 /* Frees all allocated memory and resets members. Excluded are the worker thread members |thread|,
- * |mutex|, |cond| and |is_running|, but also the counter |nbr_of_unsigned_hashes|. */
+ * |mutex|, |cond| and |is_running|. */
 static void
 sv_threaded_plugin_reset(sv_threaded_plugin_t *self)
 {
   local_signature_info_free(self->signature_info);
   self->signature_info = NULL;
-  free(self->hash_to_sign);
-  self->hash_to_sign = NULL;
+
+  const int output_buffer_end = self->output_buffer_idx;
+  for (int i = 0; i < output_buffer_end; i++) {
+    free(self->output_buffer[i].signature);
+    self->output_buffer[i].signature = NULL;
+    self->output_buffer[i].size = 0;
+  }
+
+  const int input_buffer_end = self->input_buffer_idx;
+  for (int i = 0; i < input_buffer_end; i++) {
+    free(self->input_buffer[i]);
+    self->input_buffer[i] = NULL;
+  }
   self->hash_size = 0;
-  self->plugin_state = THREADED_SIGNING_WAITS_FOR_HASH_TO_SIGN;
 }
 
 /* The worker thread waits for a condition signal, triggered when there is a hash to sign. */
@@ -137,15 +154,26 @@ signing_worker_thread(void *user_data)
   g_cond_signal(&self->cond);
 
   while (self->is_running) {
-    // Wait for a signal, triggered when it is time to sign a hash.
-    g_cond_wait(&self->cond, &self->mutex);
-
-    if (self->plugin_state == THREADED_SIGNING_HAS_HASH_TO_SIGN) {
-      // Copy the |hash_to_sign| to |signature_info| and start signing. In principle, it is now
-      // possible to prepare for a new |hash_to_sign|.
+    if (self->input_buffer_idx > 0) {
+      // Get the oldest hash from the input buffer
+      const int input_buffer_end = self->input_buffer_idx;
+      assert(input_buffer_end <= MAX_HASHES);
+      // Copy the hash to |signature_info| and start signing. In principle, it is now possible to
+      // prepare for a new hash.
       assert(self->hash_size == self->signature_info->hash_size);
-      memcpy(self->signature_info->hash, self->hash_to_sign, self->hash_size);
-      self->plugin_state = THREADED_SIGNING_SIGNS_HASH;
+      if (self->signature_info->hash) {
+      }
+      memcpy(self->signature_info->hash, self->input_buffer[0], self->hash_size);
+      if (self->signature_info->hash) {
+      }
+
+      free(self->input_buffer[0]);
+      self->input_buffer[0]= NULL;
+      for (int j = 0; j < input_buffer_end - 1; j++) {
+        self->input_buffer[j]= self->input_buffer[j + 1];
+      }
+      self->input_buffer[input_buffer_end - 1] = NULL;
+      self->input_buffer_idx -= 1;
 
       // Let the signing operate outside a lock. Otherwise sv_interface_get_signature() is blocked,
       // since variables need to be read under a lock.
@@ -153,13 +181,24 @@ signing_worker_thread(void *user_data)
       SignedVideoReturnCode status = openssl_sign_hash(self->signature_info);
 
       g_mutex_lock(&self->mutex);
-      // When successfully done with signing, move |plugin_state| to THREADED_SIGNING_HAS_SIGNATURE,
-      // otherwise move to THREADED_SIGNING_ERROR to report the error when getting the signature.
-      if (status == SV_OK) {
-        self->plugin_state = THREADED_SIGNING_HAS_SIGNATURE;
-      } else {
+      // Allocate memory for the |signature| if necessary.
+      if (!self->output_buffer[self->output_buffer_idx].signature) {
+        self->output_buffer[self->output_buffer_idx].signature = calloc(1, self->signature_info->signature_size);
+      self->output_buffer[self->output_buffer_idx].size = self->signature_info->signature_size;
+      }
+
+      // Copy the |signature| to the output buffer
+      memcpy(self->output_buffer[self->output_buffer_idx].signature, self->signature_info->signature,
+          self->output_buffer[self->output_buffer_idx].size);
+      self->output_buffer_idx++;
+      // If not successfully done with signing, move |plugin_state| to THREADED_SIGNING_ERROR to
+      // report the error when getting the signature.
+      if (status != SV_OK) {
         self->plugin_state = THREADED_SIGNING_ERROR;
       }
+    } else {
+      // Wait for a signal, triggered when it is time to sign a hash.
+      g_cond_wait(&self->cond, &self->mutex);
     }
   };
 
@@ -172,13 +211,9 @@ done:
 /* This function is called from the library upon signing and the input |signature_info| includes
  * all necessary information to do so.
  *
- * The |hash| is copied to |hash_to_sign| and the |plugin_state| is moved to
- * THREADED_SIGNING_HAS_HASH_TO_SIGN. If this is the first time of signing, memory for
- * |self->signature_info| and |hash_to_sign| is allocated and the |private_key| is copied from
- * |signature_info|.
- *
- * Further, if there is no worker thread running or if the latest signing has not yet finished an
- * SV_NOT_SUPPORTED is returned. */
+ * The |hash| is copied to |input_buffer|. If this is the first time of signing, memory for
+ * |output_buffer| and |input_buffer| is allocated and the |private_key| is copied from
+ * |signature_info|. */
 static SignedVideoReturnCode
 threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *signature_info)
 {
@@ -188,14 +223,6 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
   SignedVideoReturnCode status = SV_UNKNOWN_FAILURE;
   g_mutex_lock(&self->mutex);
 
-  // If the signature has not yet been pulled, or even generated, a new signature cannot be
-  // generated without replacing it. Log in |nbr_of_unsigned_hashes| and move to done.
-  if (self->plugin_state != THREADED_SIGNING_WAITS_FOR_HASH_TO_SIGN) {
-    self->nbr_of_unsigned_hashes++;
-    status = SV_OK;
-    goto done;
-  }
-
   // If no |self->signature_info| exists. Allocate necessary memory for it and copy the
   // |private_key| and |algo|.
   if (!self->signature_info) {
@@ -203,10 +230,10 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
     if (!self->signature_info) goto catch_error;
   }
 
-  // Allocate memory for the |hash_to_sign| if necessary.
-  if (!self->hash_to_sign) {
-    self->hash_to_sign = calloc(1, signature_info->hash_size);
-    if (!self->hash_to_sign) goto catch_error;
+  // Allocate memory for the |input_buffer| if necessary.
+  if (!self->input_buffer[self->input_buffer_idx]) {
+    self->input_buffer[self->input_buffer_idx] = calloc(1, signature_info->hash_size);
+    if (!self->input_buffer[self->input_buffer_idx]) goto catch_error;
     self->hash_size = signature_info->hash_size;
   }
 
@@ -215,10 +242,10 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
   if (signature_info->hash_size != self->hash_size) goto catch_error;
 
   // Copy the |hash| ready for signing.
-  memcpy(self->hash_to_sign, signature_info->hash, signature_info->hash_size);
+  memcpy(self->input_buffer[self->input_buffer_idx], signature_info->hash, signature_info->hash_size);
+  self->input_buffer_idx++;
 
   status = SV_OK;
-  self->plugin_state = THREADED_SIGNING_HAS_HASH_TO_SIGN;
 
 catch_error:
   if (status == SV_UNKNOWN_FAILURE) {
@@ -228,17 +255,12 @@ catch_error:
   }
 
   g_cond_signal(&self->cond);
-done:
   g_mutex_unlock(&self->mutex);
 
   return status;
 }
 
-/* If |plugin_state| = THREADED_SIGNING_HAS_SIGNATURE a new |signature| has been written to
- * |signature_info|. The new |signature| is then copied to the output and the |plugin_state|
- * is set to THREADED_SIGNING_WAITS_FOR_HASH_TO_SIGN.
- *
- * Returns true if a new |signature| has been copied to output, otherwise false.
+/* Returns true if a new |signature| has been copied to output, otherwise false.
  * If the hash could not be signed due to a blocked openssl_sign_hash(), |signature_size| is set to
  * zero, but still returning true. */
 static bool
@@ -254,30 +276,34 @@ threaded_openssl_get_signature(sv_threaded_plugin_t *self,
   SignedVideoReturnCode status = SV_OK;
 
   g_mutex_lock(&self->mutex);
-  if (self->plugin_state == THREADED_SIGNING_HAS_SIGNATURE && self->signature_info) {
-    if (self->signature_info->signature_size > max_signature_size) {
+  if (self->output_buffer[0].signature) {
+    if (self->output_buffer[0].size > max_signature_size) {
       // If there is no room to copy the signature, report zero size.
       *written_signature_size = 0;
     } else {
-      memcpy(signature, self->signature_info->signature, self->signature_info->signature_size);
-      *written_signature_size = self->signature_info->signature_size;
+      // Get the oldest signature
+      memcpy(signature, self->output_buffer[0].signature, self->output_buffer[0].size);
+      *written_signature_size = self->output_buffer[0].size;
+      // Free |signature| and move buffer
+      const int output_buffer_end = self->output_buffer_idx;
+      free(self->output_buffer[0].signature);
+      self->output_buffer[0].signature = NULL;
+      for (int j = 0; j < output_buffer_end - 1; j++) {
+        self->output_buffer[j].signature = self->output_buffer[j + 1].signature;
+        self->output_buffer[j].size = self->output_buffer[j + 1].size;
+      }
+      self->output_buffer[output_buffer_end - 1].signature = NULL;
+      self->output_buffer[output_buffer_end - 1].size = 0;
+      self->output_buffer_idx -= 1;
     }
     // Change state and mark as copied.
-    self->plugin_state = THREADED_SIGNING_WAITS_FOR_HASH_TO_SIGN;
     has_copied_signature = true;
   } else if (self->plugin_state == THREADED_SIGNING_ERROR) {
     *written_signature_size = 0;
     // Change state and mark as copied.
-    self->plugin_state = THREADED_SIGNING_WAITS_FOR_HASH_TO_SIGN;
     has_copied_signature = true;
     // Propagate SV_EXTERNAL_ERROR when signing failed.
     status = SV_EXTERNAL_ERROR;
-  } else if (self->plugin_state == THREADED_SIGNING_WAITS_FOR_HASH_TO_SIGN &&
-      self->nbr_of_unsigned_hashes > 0) {
-    // There are unsigned hashes in the pipe. Report them with zero size, since no signature exists.
-    *written_signature_size = 0;
-    self->nbr_of_unsigned_hashes--;
-    has_copied_signature = true;
   }
   g_mutex_unlock(&self->mutex);
 
@@ -328,7 +354,6 @@ sv_interface_setup()
   if (!self) return NULL;
 
   // Initialize |self|.
-  self->plugin_state = THREADED_SIGNING_WAITS_FOR_HASH_TO_SIGN;
   g_mutex_init(&(self->mutex));
   g_cond_init(&(self->cond));
 
