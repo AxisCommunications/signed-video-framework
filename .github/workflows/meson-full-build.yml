@@ -28,7 +28,7 @@ jobs:
     - name: Compile and run tests
       run: ninja -C build_lib test
     - name: Setup meson as default
-      run: meson -Dbuildtype=debug --reconfigure . build_lib
+      run: meson -Dbuildtype=debug -Ddebugprints=false -Dsigningplugin=unthreaded --reconfigure . build_lib
     - name: Compile and run tests
       run: ninja -C build_lib test
     - name: Install valgrind manually
