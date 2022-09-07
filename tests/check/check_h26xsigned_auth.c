@@ -1798,10 +1798,9 @@ validate_public_key_scenario(signed_video_t *sv,
     }
     // We are done with auth_report
     signed_video_authenticity_report_free(auth_report);
-
-    // Free nalu_list_item and session.
-    nalu_list_free_item(i_nalu);
   }
+  // Free nalu_list_item and session.
+  nalu_list_free_item(i_nalu);
 }
 
 /* Test description
@@ -1901,7 +1900,6 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   sign_algo_t algo = settings[_i].algo;
   nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
   nalu_list_item_t *sei = NULL;
-  char *private_key = NULL;
   signed_video_t *sv_camera = NULL;
 
   // On camera side
@@ -1935,12 +1933,13 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   // present" will be used until the bug is fixed.
   ck_assert_int_eq(auth_report->latest_validation.authenticity, SV_AUTH_RESULT_SIGNATURE_PRESENT);
 
+  signed_video_authenticity_report_free(auth_report);
   // Free nalu_list_item and session.
   nalu_list_free_item(sei);
   nalu_list_free_item(i_nalu);
   signed_video_free(sv_vms);
   signed_video_free(sv_camera);
-  free(private_key);
+  free(sign_info.private_key);
   free(sign_info.public_key);
 }
 END_TEST
