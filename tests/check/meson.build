@@ -12,7 +12,7 @@ tests = [
         'signed_video_helpers.h',
         'signed_video_helpers.c',
         'check_h26xsigned_sign.c'
-     ]
+      ]
     ],
 ]
 
