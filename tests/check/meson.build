@@ -1,29 +1,35 @@
 # Test format: [test description, test executable name, sources]
 tests = [
     ['unittest_common',
-     [
-         'check_signed_video_common.c'
-     ]
+      [
+        'check_signed_video_common.c'
+      ]
     ],
     ['unittest_sign',
-     [
-         'nalu_list.h',
-         'nalu_list.c',
-         'signed_video_helpers.h',
-         'signed_video_helpers.c',
-         'check_h26xsigned_sign.c'
-     ]
-    ],
-    ['unittest_auth',
-     [
-         'nalu_list.h',
-         'nalu_list.c',
-         'signed_video_helpers.h',
-         'signed_video_helpers.c',
-         'check_h26xsigned_auth.c'
+      [
+        'nalu_list.h',
+        'nalu_list.c',
+        'signed_video_helpers.h',
+        'signed_video_helpers.c',
+        'check_h26xsigned_sign.c'
      ]
     ],
 ]
+
+if (get_option('signingplugin') != 'threaded_unless_check_dep')
+  # Only include the auth side tests if not threaded
+  tests += [
+      ['unittest_auth',
+        [ 
+          'nalu_list.h',
+          'nalu_list.c',
+          'signed_video_helpers.h',
+          'signed_video_helpers.c',
+          'check_h26xsigned_auth.c' 
+        ] 
+      ] 
+  ]
+endif
 
 testinc = include_directories('.')
 test_env = environment()
