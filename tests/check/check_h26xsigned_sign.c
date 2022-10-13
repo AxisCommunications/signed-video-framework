@@ -819,7 +819,7 @@ signed_video_suite(void)
   //   for (int _i = s; _i < e; _i++) {}
 
   int s = 0;
-  int e = NUM_SETTINGS;
+  int e = 0;
 
   // Add tests
   tcase_add_loop_test(tc, api_inputs, s, e);
@@ -829,7 +829,7 @@ signed_video_suite(void)
 #endif
   // tcase_add_loop_test(tc, correct_nalu_sequence_with_eos, s, e);
   // tcase_add_loop_test(tc, correct_multislice_sequence_with_eos, s, e);
-  tcase_add_loop_test(tc, correct_nalu_sequence_without_eos, s, e);
+  tcase_add_loop_test(tc, correct_nalu_sequence_without_eos, s, 1);
   tcase_add_loop_test(tc, correct_multislice_nalu_sequence_without_eos, s, e);
   tcase_add_loop_test(tc, sei_increase_with_gop_length, s, e);
   tcase_add_loop_test(tc, fallback_to_gop_level, s, e);

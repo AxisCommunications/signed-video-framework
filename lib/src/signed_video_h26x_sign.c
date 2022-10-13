@@ -22,6 +22,7 @@
 #include <stdint.h>  // uint8_t
 #include <stdlib.h>  // free, malloc
 #include <string.h>  // size_t
+#include <unistd.h>
 
 #include "includes/signed_video_openssl.h"  // openssl_read_pubkey_from_private_key()
 #include "includes/signed_video_sign.h"
@@ -498,6 +499,7 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
   return signed_video_add_nalu_for_signing_with_timestamp(self, nalu_data, nalu_data_size, NULL);
 }
 
+static int a = 0;
 SignedVideoReturnCode
 signed_video_add_nalu_for_signing_with_timestamp(signed_video_t *self,
     const uint8_t *nalu_data,
@@ -587,6 +589,8 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
 
     // Only add a SEI if the current NALU is the primary picture NALU and of course if signing is
     // completed.
+    sleep(1);
+    a++;
     if ((nalu.nalu_type == NALU_TYPE_I || nalu.nalu_type == NALU_TYPE_P) && nalu.is_primary_slice &&
         signature_info->signature) {
       SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
