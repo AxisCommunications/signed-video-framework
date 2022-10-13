@@ -161,11 +161,8 @@ signing_worker_thread(void *user_data)
       // Copy the hash to |signature_info| and start signing. In principle, it is now possible to
       // prepare for a new hash.
       assert(self->hash_size == self->signature_info->hash_size);
-      if (self->signature_info->hash) {
-      }
+      assert(self->signature_info->hash);
       memcpy(self->signature_info->hash, self->input_buffer[0], self->hash_size);
-      if (self->signature_info->hash) {
-      }
 
       free(self->input_buffer[0]);
       self->input_buffer[0]= NULL;
