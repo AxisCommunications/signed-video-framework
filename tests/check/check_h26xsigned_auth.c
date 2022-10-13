@@ -1957,7 +1957,7 @@ signed_video_suite(void)
   //   for (int _i = s; _i < e; _i++) {}
 
   int s = 0;
-  int e = NUM_SETTINGS;
+  int e = 0;
 
   // Add tests
   tcase_add_loop_test(tc, invalid_api_inputs, s, e);
