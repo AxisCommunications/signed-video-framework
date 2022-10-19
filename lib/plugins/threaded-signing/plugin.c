@@ -35,14 +35,13 @@
 #include "includes/signed_video_interfaces.h"
 #include "includes/signed_video_openssl.h"
 
-#define MAX_HASHES 60
-typedef struct _threaded_signature_info_t threaded_signature_info_t;
+#define MAX_BUFFER_LENGTH 60
 
-struct _threaded_signature_info_t {
+typedef struct _output_data_t {
   uint8_t *signature;
   size_t size;
-  bool threaded_signing_error;
-};
+  bool signing_error;
+} output_data_t;
 
 /* Threaded plugin handle maintaining the thread and locks. Further, stores the hashes to sign and
  * the written signatures in two buffers */
@@ -58,7 +57,7 @@ typedef struct _sv_threaded_plugin {
   int input_buffer_idx;
   size_t hash_size;
   // Buffer of written signatures
-  threaded_signature_info_t output_buffer[MAX_HASHES];
+  output_data_t output_buffer[MAX_HASHES];
   int output_buffer_idx;
   // Variables that can operate without mutex lock.
   // A local copy of the signature_info is used for signing. The hash to be signed is copied to it
@@ -126,6 +125,7 @@ sv_threaded_plugin_reset(sv_threaded_plugin_t *self)
     free(self->output_buffer[i].signature);
     self->output_buffer[i].signature = NULL;
     self->output_buffer[i].size = 0;
+    signing_error = false;
   }
 
   const int input_buffer_end = self->input_buffer_idx;
@@ -182,26 +182,26 @@ signing_worker_thread(void *user_data)
       }
       g_mutex_lock(&self->mutex);
 
-      self->output_buffer[self->output_buffer_idx].threaded_signing_error = false;
-      // If not successfully done with signing, set |threaded_signing_error| to true to
+      self->output_buffer[self->output_buffer_idx].signing_error = false;
+      // If not successfully done with signing, set |signing_error| to true to
       // report the error when getting the signature.
-      if (status != SV_OK) {
-        self->output_buffer[self->output_buffer_idx].threaded_signing_error = true;
-      } else {
-      // Allocate memory for the |signature| if necessary.
-      if (!self->output_buffer[self->output_buffer_idx].signature) {
-        self->output_buffer[self->output_buffer_idx].signature = calloc(1, self->signature_info->signature_size);
-      self->output_buffer[self->output_buffer_idx].size = self->signature_info->signature_size;
-      }
+      self->output_buffer[self->output_buffer_idx].threaded_signing_error = (status != SV_OK);
 
-      // Copy the |signature| to the output buffer
-      memcpy(self->output_buffer[self->output_buffer_idx].signature, self->signature_info->signature,
-          self->output_buffer[self->output_buffer_idx].size);
-      self->output_buffer_idx++;
+      if (status == SV_OK) {
+        // Allocate memory for the |signature| if necessary.
+        if (!self->output_buffer[self->output_buffer_idx].signature) {
+          self->output_buffer[self->output_buffer_idx].signature = calloc(1, self->signature_info->signature_size);
+          self->output_buffer[self->output_buffer_idx].size = self->signature_info->signature_size;
+        }
+
+        // Copy the |signature| to the output buffer
+        memcpy(self->output_buffer[self->output_buffer_idx].signature, self->signature_info->signature,
+            self->output_buffer[self->output_buffer_idx].size);
+        self->output_buffer_idx++;
       }
     } else {
-    // Wait for a signal, triggered when it is time to sign a hash.
-    g_cond_wait(&self->cond, &self->mutex);
+      // Wait for a signal, triggered when it is time to sign a hash.
+      g_cond_wait(&self->cond, &self->mutex);
     }
   };
 
@@ -301,7 +301,7 @@ threaded_openssl_get_signature(sv_threaded_plugin_t *self,
     }
     // Change state and mark as copied.
     has_copied_signature = true;
-  } else if (self->threaded_signing_error) {
+  } else if (self->signing_error) {
     *written_signature_size = 0;
     // Change state and mark as copied.
     has_copied_signature = true;
