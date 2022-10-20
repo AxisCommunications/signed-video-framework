@@ -28,58 +28,21 @@
 #include "includes/signed_video_common.h"  // signed_video_compare_versions()
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_get_validation_str()
 
-// Adding accumulated authenticity results, valuable for screening a file, is work in progress.
-// #define ACCUMULATED_VALIDATION
-#ifdef ACCUMULATED_VALIDATION
-/**
- * A struct holding information of the overall authenticity of the session. Typically, this
- * information is used after screening an entire file, or when closing a session.
- */
-typedef struct {
-  SignedVideoAuthenticityResult authenticity;
-  // The overall authenticity of the session.
-  int number_of_pending_nalus;
-  // Number of NALUs pending a validation, i.e., the number of NALUs that have not yet been
-  // validated. It includes all valid NALUs, i.e., SV_INVALID_PARAMETER was not returned by
-  // signed_video_add_nalu_and_authenticate(...). If the signed video feature is disabled, or
-  // until the first SEI has arrived, this value is negative.
-  int number_of_nalus_before_first_validation;
-  // Number of NALUs at the beginning of the session that were not possible to validate. If the
-  // signed video feature is disabled, or until the first SEI has arrived, this value is negative.
-  int number_of_unknown_nalus;
-  // Number of NALUs that could not be parsed. If the signed video feature is disabled, or until
-  // the first SEI has arrived, this value is negative.
-  int number_of_invalid_nalus;
-  // Number of NALUs validated as not authentic. If the signed video feature is disabled, or until
-  // the first SEI has arrived, this value is negative.
-  int number_of_missing_nalus;
-  // Number of NALUs identified as missing. If the signed video feature is disabled, or until the
-  // first SEI has arrived, this value is negative.
-  uint8_t list_of_missing_gops_size;
-  unsigned *list_of_missing_gops;
-  // Holds a list of which GOPs were missing counting from zero. If a SEI, keeping that counter, is
-  // lost, the entire GOP is considered missing. If all GOPs are valid this is a NULL pointer.
-} signed_video_accumulated_validation_t;
-#endif
-
 /* Transfer functions. */
-#ifdef ACCUMULATED_VALIDATION
-static svi_rc
-transfer_accumulated_validation(signed_video_accumulated_validation_t *dst,
-    const signed_video_accumulated_validation_t *src);
-#endif
 static svi_rc
 transfer_latest_validation(signed_video_latest_validation_t *dst,
     const signed_video_latest_validation_t *src);
+static void
+transfer_accumulated_validation(signed_video_accumulated_validation_t *dst,
+    const signed_video_accumulated_validation_t *src);
 static svi_rc
 transfer_authenticity(signed_video_authenticity_t *dst, const signed_video_authenticity_t *src);
-/* Init functions. */
-#ifdef ACCUMULATED_VALIDATION
-static void
-accumulated_validation_init(signed_video_accumulated_validation_t *self);
-#endif
+/* Init and update functions. */
 static void
 authenticity_report_init(signed_video_authenticity_t *authenticity_report);
+static void
+update_accumulated_validation(const signed_video_latest_validation_t *latest,
+    signed_video_accumulated_validation_t *accumulated);
 /* Setters. */
 static void
 set_authenticity_shortcuts(signed_video_t *signed_video);
@@ -122,31 +85,25 @@ catch_error:
  * Group of functions that performs transfer operations between structs.
  */
 
-#ifdef ACCUMULATED_VALIDATION
-static svi_rc
-transfer_accumulated_validation(signed_video_accumulated_validation_t *dst,
-    const signed_video_accumulated_validation_t *src)
+svi_rc
+transfer_product_info(signed_video_product_info_t *dst, const signed_video_product_info_t *src)
 {
-  assert(dst && src);
+  // For simplicity we allow nullptrs for both |dst| and |src|. If so, we take no action and return
+  // SVI_OK.
+  if (!src || !dst) return SVI_OK;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    SVI_THROW(struct_member_memory_allocated_and_copy((void *)&dst->list_of_missing_gops,
-        &dst->list_of_missing_gops_size, src->list_of_missing_gops,
-        src->list_of_missing_gops_size));
-
-    dst->authenticity = src->authenticity;
-    dst->number_of_pending_nalus = src->number_of_pending_nalus;
-    dst->number_of_nalus_before_first_validation = src->number_of_nalus_before_first_validation;
-    dst->number_of_unknown_nalus = src->number_of_unknown_nalus;
-    dst->number_of_invalid_nalus = src->number_of_invalid_nalus;
-    dst->number_of_missing_nalus = src->number_of_missing_nalus;
+    SVI_THROW(allocate_memory_and_copy_string(&dst->hardware_id, src->hardware_id));
+    SVI_THROW(allocate_memory_and_copy_string(&dst->firmware_version, src->firmware_version));
+    SVI_THROW(allocate_memory_and_copy_string(&dst->serial_number, src->serial_number));
+    SVI_THROW(allocate_memory_and_copy_string(&dst->manufacturer, src->manufacturer));
+    SVI_THROW(allocate_memory_and_copy_string(&dst->address, src->address));
   SVI_CATCH()
   SVI_DONE(status)
 
   return status;
 }
-#endif
 
 static svi_rc
 transfer_latest_validation(signed_video_latest_validation_t *dst,
@@ -171,24 +128,18 @@ transfer_latest_validation(signed_video_latest_validation_t *dst,
   return status;
 }
 
-svi_rc
-transfer_product_info(signed_video_product_info_t *dst, const signed_video_product_info_t *src)
+static void
+transfer_accumulated_validation(signed_video_accumulated_validation_t *dst,
+    const signed_video_accumulated_validation_t *src)
 {
-  // For simplicity we allow nullptrs for both |dst| and |src|. If so, we take no action and return
-  // SVI_OK.
-  if (!src || !dst) return SVI_OK;
+  assert(dst && src);
 
-  svi_rc status = SVI_UNKNOWN;
-  SVI_TRY()
-    SVI_THROW(allocate_memory_and_copy_string(&dst->hardware_id, src->hardware_id));
-    SVI_THROW(allocate_memory_and_copy_string(&dst->firmware_version, src->firmware_version));
-    SVI_THROW(allocate_memory_and_copy_string(&dst->serial_number, src->serial_number));
-    SVI_THROW(allocate_memory_and_copy_string(&dst->manufacturer, src->manufacturer));
-    SVI_THROW(allocate_memory_and_copy_string(&dst->address, src->address));
-  SVI_CATCH()
-  SVI_DONE(status)
-
-  return status;
+  dst->authenticity = src->authenticity;
+  dst->public_key_has_changed = src->public_key_has_changed;
+  dst->number_of_received_nalus = src->number_of_received_nalus;
+  dst->number_of_validated_nalus = src->number_of_validated_nalus;
+  dst->number_of_pending_nalus = src->number_of_pending_nalus;
+  dst->public_key_validation = src->public_key_validation;
 }
 
 static svi_rc
@@ -202,10 +153,7 @@ transfer_authenticity(signed_video_authenticity_t *dst, const signed_video_authe
     strcpy(dst->this_version, SIGNED_VIDEO_VERSION);
     SVI_THROW(transfer_product_info(&dst->product_info, &src->product_info));
     SVI_THROW(transfer_latest_validation(&dst->latest_validation, &src->latest_validation));
-#ifdef ACCUMULATED_VALIDATION
-    SVI_THROW(transfer_accumulated_validation(
-        &dst->accumulated_validation, &src->accumulated_validation));
-#endif
+    transfer_accumulated_validation(&dst->accumulated_validation, &src->accumulated_validation);
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -213,32 +161,14 @@ transfer_authenticity(signed_video_authenticity_t *dst, const signed_video_authe
 }
 
 /**
- * Group of functions that initializes structs.
+ * Group of functions that initializes or updates structs.
  */
-
-#ifdef ACCUMULATED_VALIDATION
-static void
-accumulated_validation_init(signed_video_accumulated_validation_t *self)
-{
-  assert(self);
-
-  // Initialize signed_video_accumulated_validation_t
-  self->authenticity = SV_AUTH_RESULT_NOT_SIGNED;
-  self->number_of_pending_nalus = -1;
-  self->number_of_nalus_before_first_validation = -1;
-  self->number_of_unknown_nalus = -1;
-  self->number_of_invalid_nalus = -1;
-  self->number_of_missing_nalus = -1;
-  free(self->list_of_missing_gops);
-  self->list_of_missing_gops = NULL;
-}
-#endif
 
 void
 latest_validation_init(signed_video_latest_validation_t *self)
 {
-  // This call can be called before an authenticity report exists, e.g., if a reset is done right
-  // after creating a session.
+  // This call can be made before an authenticity report exists, e.g., if a reset is done right
+  // after creating a session, or done on the signing side.
   if (!self) return;
 
   self->authenticity = SV_AUTH_RESULT_NOT_SIGNED;
@@ -254,6 +184,21 @@ latest_validation_init(signed_video_latest_validation_t *self)
   self->validation_str = NULL;
 }
 
+void
+accumulated_validation_init(signed_video_accumulated_validation_t *self)
+{
+  // This call can be made before an authenticity report exists, e.g., if a reset is done right
+  // after creating a session, or done on the signing side.
+  if (!self) return;
+
+  self->authenticity = SV_AUTH_RESULT_NOT_SIGNED;
+  self->public_key_has_changed = false;
+  self->number_of_received_nalus = 0;
+  self->number_of_validated_nalus = 0;
+  self->number_of_pending_nalus = 0;
+  self->public_key_validation = SV_PUBKEY_VALIDATION_NOT_FEASIBLE;
+}
+
 static void
 authenticity_report_init(signed_video_authenticity_t *authenticity_report)
 {
@@ -264,9 +209,66 @@ authenticity_report_init(signed_video_authenticity_t *authenticity_report)
   authenticity_report->this_version = calloc(1, SV_VERSION_MAX_STRLEN);
 
   latest_validation_init(&authenticity_report->latest_validation);
-#ifdef ACCUMULATED_VALIDATION
   accumulated_validation_init(&authenticity_report->accumulated_validation);
-#endif
+}
+
+static void
+update_accumulated_validation(const signed_video_latest_validation_t *latest,
+    signed_video_accumulated_validation_t *accumulated)
+{
+  if (accumulated->authenticity <= SV_AUTH_RESULT_SIGNATURE_PRESENT) {
+    // Still either pending validation or video has no signature. Update with the result from
+    // |latest|.
+    accumulated->authenticity = latest->authenticity;
+  } else if (latest->authenticity < accumulated->authenticity) {
+    // |latest| has validated a worse authenticity compared to what we have validated so far. Update
+    // with this worse result, since that is what should rule the total validation.
+    accumulated->authenticity = latest->authenticity;
+  }
+
+  accumulated->public_key_has_changed |= latest->public_key_has_changed;
+
+  if (accumulated->public_key_validation != SV_PUBKEY_VALIDATION_NOT_OK) {
+    accumulated->public_key_validation = latest->public_key_validation;
+  }
+}
+
+svi_rc
+update_authenticity_report(signed_video_t *self)
+{
+  assert(self && self->authenticity);
+
+  char *validation_str = NULL;
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    validation_str = h26x_nalu_list_get_validation_str(self->nalu_list);
+    SVI_THROW(
+        allocate_memory_and_copy_string(&self->latest_validation->validation_str, validation_str));
+    DEBUG_LOG("Validation statuses 'oldest -> latest' = %s", validation_str);
+
+    // Check for version mismatch. If |version_on_signing_side| is newer than |this_version| the
+    // authenticity result may not be reliable, hence change status.
+    if (signed_video_compare_versions(
+            self->authenticity->this_version, self->authenticity->version_on_signing_side) == 2) {
+      self->authenticity->latest_validation.authenticity = SV_AUTH_RESULT_VERSION_MISMATCH;
+    }
+    // Remove validated items from the list.
+    const unsigned int number_of_validated_nalus = h26x_nalu_list_clean_up(self->nalu_list);
+    // Update the |accumulated_validation| w.r.t. the |latest_validation|.
+    update_accumulated_validation(self->latest_validation, self->accumulated_validation);
+    // Only update |number_of_validated_nalus| if the video is signed. Currently, unsigned videos
+    // are validated (as not OK) since SEIs are assumed to arrive within a GOP. From a statistics
+    // point of view, that is not strictly not correct.
+    if (self->accumulated_validation->authenticity != SV_AUTH_RESULT_NOT_SIGNED) {
+      self->accumulated_validation->number_of_validated_nalus += number_of_validated_nalus;
+    }
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  free(validation_str);
+
+  return status;
 }
 
 /**
@@ -278,9 +280,7 @@ set_authenticity_shortcuts(signed_video_t *self)
 {
   assert(self && self->authenticity);
   self->latest_validation = &self->authenticity->latest_validation;
-#ifdef ACCUMULATED_VALIDATION
   self->accumulated_validation = &self->authenticity->accumulated_validation;
-#endif
 }
 
 /**
@@ -293,25 +293,24 @@ signed_video_get_authenticity_report(signed_video_t *self)
   // Return a nullptr if no local authenticity report exists.
   if (self->authenticity == NULL) return NULL;
 
-  char *validation_str = NULL;
   signed_video_authenticity_t *authenticity_report = signed_video_authenticity_report_create();
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     SVI_THROW_IF(!authenticity_report, SVI_MEMORY);
-    validation_str = h26x_nalu_list_get_validation_str(self->nalu_list);
-    SVI_THROW(
-        allocate_memory_and_copy_string(&self->latest_validation->validation_str, validation_str));
+    // Update |number_of_pending_nalus| since that may have changed since |latest_validation|.
+    signed_video_accumulated_validation_t *accumulated = self->accumulated_validation;
+    if (accumulated->authenticity == SV_AUTH_RESULT_NOT_SIGNED) {
+      // If the video is (so far) not signed, number of pending NALUs equals the number of added
+      // NALUs for validation.
+      accumulated->number_of_pending_nalus = accumulated->number_of_received_nalus;
+    } else {
+      // At this point, all validated NALUs up to the first pending NALU have been removed from the
+      // |nalu_list|, hence number of pending NALUs equals number of items in the |nalu_list|.
+      accumulated->number_of_pending_nalus = self->nalu_list->num_items;
+    }
 
     SVI_THROW(transfer_authenticity(authenticity_report, self->authenticity));
-    h26x_nalu_list_clean_up(self->nalu_list);
-    DEBUG_LOG("Validation statuses 'oldest -> latest' = %s", validation_str);
-    // Check for version mismatch. If |version_on_signing_side| is newer than |this_version| the
-    // authenticity result may not be reliable, hence change status.
-    if (signed_video_compare_versions(
-            authenticity_report->this_version, authenticity_report->version_on_signing_side) == 2) {
-      authenticity_report->latest_validation.authenticity = SV_AUTH_RESULT_VERSION_MISMATCH;
-    }
   SVI_CATCH()
   {
     signed_video_authenticity_report_free(authenticity_report);
@@ -321,7 +320,6 @@ signed_video_get_authenticity_report(signed_video_t *self)
 
   // Sanity check the output since we do not return a SignedVideoReturnCode.
   assert(((status == SVI_OK) ? (authenticity_report != NULL) : (authenticity_report == NULL)));
-  free(validation_str);
 
   return authenticity_report;
 }
@@ -381,9 +379,6 @@ signed_video_authenticity_report_free(signed_video_authenticity_t *authenticity_
   free(authenticity_report->version_on_signing_side);
   free(authenticity_report->this_version);
   free(authenticity_report->latest_validation.validation_str);
-#ifdef ACCUMULATED_VALIDATION
-  free(authenticity_report->accumulated_validation.list_of_missing_gops);
-#endif
 
   free(authenticity_report);
 }

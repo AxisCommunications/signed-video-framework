@@ -1,0 +1,41 @@
+name: meson full CI
+
+on:
+  push:
+    branches: [ master ]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build_tests:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Update system
+      run: sudo apt-get update
+    - name: Install check manually
+      run: sudo apt-get install check
+    - uses: actions/checkout@v2
+    - name: Install meson
+      run: python -m pip install meson==0.53.2
+    - name: Install ninja
+      run: python -m pip install ninja==1.9.0.post1
+    - name: Setup meson using threaded plugin
+      run: meson -Ddebugprints=false -Dbuildtype=debug -Dsigningplugin=threaded . build_lib
+    - name: Compile and run tests
+      run: ninja -C build_lib test
+    - name: Setup meson with debug prints
+      run: meson -Ddebugprints=true -Dbuildtype=debug -Dsigningplugin=threaded_unless_check_dep --reconfigure . build_lib
+    - name: Compile and run tests
+      run: ninja -C build_lib test
+    - name: Setup meson as default
+      run: meson -Dbuildtype=debug -Ddebugprints=false -Dsigningplugin=unthreaded --reconfigure . build_lib
+    - name: Compile and run tests
+      run: ninja -C build_lib test
+    - name: Install valgrind manually
+      run: sudo apt-get install valgrind
+    - name: Run valgrind on unittest_common
+      run: CK_FORK=no valgrind --leak-check=full $GITHUB_WORKSPACE/build_lib/tests/check/unittest_common
+    - name: Run valgrind on unittest_sign
+      run: CK_FORK=no valgrind --leak-check=full $GITHUB_WORKSPACE/build_lib/tests/check/unittest_sign
+    - name: Run valgrind on unittest_auth
+      run: CK_FORK=no valgrind --leak-check=full $GITHUB_WORKSPACE/build_lib/tests/check/unittest_auth

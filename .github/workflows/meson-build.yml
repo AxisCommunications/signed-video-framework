@@ -1,8 +1,6 @@
 name: meson CI
 
 on:
-  push:
-    branches: [ master ]
   pull_request:
     branches: [ master ]
   # Allows you to run this workflow manually from the Actions tab
@@ -22,7 +20,7 @@ jobs:
     - name: Install ninja
       run: python -m pip install ninja==1.9.0.post1
     - name: Setup meson
-      run: meson -Dtest-settings=true . build_lib
+      run: meson -Dbuildtype=debug . build_lib
     - name: Compile and run tests
       run: ninja -C build_lib test
     - name: Install valgrind manually

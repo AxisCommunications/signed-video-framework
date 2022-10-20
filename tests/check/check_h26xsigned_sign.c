@@ -683,6 +683,8 @@ START_TEST(correct_timestamp)
   ck_assert(nalu.hashable_data_size > 0);
   ck_assert(!memcmp(nalu.hashable_data, nalu_ts.hashable_data, nalu.hashable_data_size));
 
+  free(nalu.tmp_tlv_memory);
+  free(nalu_ts.tmp_tlv_memory);
   signed_video_nalu_data_free(nalu_to_prepend.nalu_data);
   signed_video_nalu_data_free(nalu_to_prepend_ts.nalu_data);
   nalu_list_free_item(i_nalu);
