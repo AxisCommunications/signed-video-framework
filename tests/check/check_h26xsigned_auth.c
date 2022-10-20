@@ -1867,7 +1867,6 @@ START_TEST(file_export_without_dangling_end)
   //               IPPGI ->     (valid) -> ....P
   //
   // One pending NALU per GOP.
-  struct validation_stats expected = {.valid_gops = 4, .pending_nalus = 5, .has_signature = 1};
   // Final validation is OK and all received NALUs, but the last one, are validated.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
