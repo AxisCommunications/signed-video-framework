@@ -949,6 +949,8 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
   h26x_nalu_t nalu = parse_nalu_info(nalu_data, nalu_data_size, self->codec, true);
   DEBUG_LOG("Received a %s of size %zu B", nalu_type_to_str(&nalu), nalu.nalu_data_size);
 
+  self->accumulated_validation->number_of_received_nalus++;
+
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     // If there is no |nalu_list| we failed allocating memory for it.
@@ -999,6 +1001,7 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
 
     SVI_THROW(signed_video_add_h26x_nalu(self, nalu_data, nalu_data_size));
     if (self->gop_state.has_auth_result) {
+      SVI_THROW(update_authenticity_report(self));
       if (authenticity) *authenticity = signed_video_get_authenticity_report(self);
       // Reset the timestamp for the next report.
       self->latest_validation->has_timestamp = false;

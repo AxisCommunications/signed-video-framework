@@ -57,6 +57,7 @@ struct validation_stats {
   int has_signature;
   bool public_key_has_changed;
   bool has_no_timestamp;
+  signed_video_accumulated_validation_t *final_validation;
 };
 
 // TODO: Will be used in the future, when the authenticity report is being populated.
@@ -211,6 +212,13 @@ validate_nalu_list(signed_video_t *sv, nalu_list_t *list, struct validation_stat
             auth_report->version_on_signing_side, auth_report->this_version);
         ck_assert(!check);
       }
+      // Get an authenticity report from separate API and compare accumulated results.
+      signed_video_authenticity_t *extra_auth_report = signed_video_get_authenticity_report(sv);
+      ck_assert_int_eq(
+          memcmp(&auth_report->accumulated_validation, &extra_auth_report->accumulated_validation,
+              sizeof(signed_video_accumulated_validation_t)),
+          0);
+      signed_video_authenticity_report_free(extra_auth_report);
 
       // We are done with auth_report.
       latest = NULL;
@@ -230,6 +238,24 @@ validate_nalu_list(signed_video_t *sv, nalu_list_t *list, struct validation_stat
   ck_assert_int_eq(has_signature, expected.has_signature);
   ck_assert_int_eq(public_key_has_changed, expected.public_key_has_changed);
   ck_assert_int_eq(has_timestamp, !expected.has_no_timestamp);
+
+  // Get the authenticity report and compare the stats against expected.
+  if (expected.final_validation) {
+    auth_report = signed_video_get_authenticity_report(sv);
+    ck_assert_int_eq(
+        auth_report->accumulated_validation.authenticity, expected.final_validation->authenticity);
+    ck_assert_int_eq(auth_report->accumulated_validation.public_key_has_changed,
+        expected.final_validation->public_key_has_changed);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_received_nalus,
+        expected.final_validation->number_of_received_nalus);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_validated_nalus,
+        expected.final_validation->number_of_validated_nalus);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_nalus,
+        expected.final_validation->number_of_pending_nalus);
+    ck_assert_int_eq(auth_report->accumulated_validation.public_key_validation,
+        expected.final_validation->public_key_validation);
+    signed_video_authenticity_report_free(auth_report);
+  }
 
   if (internal_sv) signed_video_free(sv);
 }
@@ -286,8 +312,12 @@ START_TEST(intact_stream)
   nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
   nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
 
+  // All NALUs but the last 'I' are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 26, 25, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP.
-  struct validation_stats expected = {.valid_gops = 7, .pending_nalus = 7};
+  struct validation_stats expected = {
+      .valid_gops = 7, .pending_nalus = 7, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 5;
@@ -309,8 +339,12 @@ START_TEST(intact_multislice_stream)
   nalu_list_t *list = create_signed_nalus("IiPpPpIiPpPpIi", settings[_i]);
   nalu_list_check_str(list, "GIiPpPpGIiPpPpGIi");
 
+  // All NALUs but the last 'I' and 'i' are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 17, 15, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP.
-  struct validation_stats expected = {.valid_gops = 3, .pending_nalus = 3};
+  struct validation_stats expected = {
+      .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 1;
@@ -335,8 +369,12 @@ START_TEST(intact_stream_with_pps_nalu_stream)
   nalu_list_t *list = create_signed_nalus("VIPPIPPI", settings[_i]);
   nalu_list_check_str(list, "VGIPPGIPPGI");
 
+  // All NALUs but the last 'I' are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 11, 10, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP.
-  struct validation_stats expected = {.valid_gops = 3, .pending_nalus = 3};
+  struct validation_stats expected = {
+      .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 1;
@@ -365,8 +403,12 @@ START_TEST(intact_stream_with_pps_bytestream)
   nalu_list_append_item(list, item, 1);
   nalu_list_check_str(list, "GVIPPGIPPGI");
 
+  // All NALUs but the last 'I' are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 11, 10, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP.
-  struct validation_stats expected = {.valid_gops = 3, .pending_nalus = 3};
+  struct validation_stats expected = {
+      .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 1;
@@ -388,8 +430,12 @@ START_TEST(intact_ms_stream_with_pps_nalu_stream)
   nalu_list_t *list = create_signed_nalus("VIiPpPpIiPpPpIi", settings[_i]);
   nalu_list_check_str(list, "VGIiPpPpGIiPpPpGIi");
 
+  // All NALUs but the last 'I' and 'i' are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 18, 16, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP.
-  struct validation_stats expected = {.valid_gops = 3, .pending_nalus = 3};
+  struct validation_stats expected = {
+      .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 1;
@@ -418,8 +464,12 @@ START_TEST(intact_ms_stream_with_pps_bytestream)
   nalu_list_append_item(list, item, 1);
   nalu_list_check_str(list, "GVIiPpPpGIiPpPpGIi");
 
+  // All NALUs but the last 'I' and 'i' are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 18, 16, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP.
-  struct validation_stats expected = {.valid_gops = 3, .pending_nalus = 3};
+  struct validation_stats expected = {
+      .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 1;
@@ -449,8 +499,12 @@ START_TEST(intact_with_undefined_nalu_in_stream)
   nalu_list_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
   nalu_list_check_str(list, "GIPXPGIPPGI");
 
+  // All NALUs but the last 'I' are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 11, 10, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP.
-  struct validation_stats expected = {.valid_gops = 3, .pending_nalus = 3};
+  struct validation_stats expected = {
+      .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 1;
@@ -472,8 +526,12 @@ START_TEST(intact_with_undefined_multislice_nalu_in_stream)
   nalu_list_t *list = create_signed_nalus("IiPpXPpIiPpPpIi", settings[_i]);
   nalu_list_check_str(list, "GIiPpXPpGIiPpPpGIi");
 
+  // All NALUs but the last 'I' and 'i' are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 18, 16, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP.
-  struct validation_stats expected = {.valid_gops = 3, .pending_nalus = 3};
+  struct validation_stats expected = {
+      .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 1;
@@ -506,14 +564,22 @@ START_TEST(remove_one_p_nalu)
   remove_item_then_check_and_free(list, remove_nalu_number, "P");
   nalu_list_check_str(list, "GIPPGIPPGIPPGI");
 
+  // All NALUs but the last 'I' are validated and since one NALU has been removed the authenticity
+  // is NOT OK.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_OK, false, 14, 13, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP.
-  struct validation_stats expected = {
-      .valid_gops = 2, .invalid_gops = 2, .missed_nalus = 1, .pending_nalus = 4};
+  struct validation_stats expected = {.valid_gops = 2,
+      .invalid_gops = 2,
+      .missed_nalus = 1,
+      .pending_nalus = 4,
+      .final_validation = &final_validation};
   // For Frame level we can identify the missing NALU and mark the GOP as valid with missing info.
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
     expected.valid_gops = 3;
     expected.valid_gops_with_missing_info = 1;
     expected.invalid_gops = 0;
+    expected.final_validation->authenticity = SV_AUTH_RESULT_OK_WITH_MISSING_INFO;
   }
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
@@ -558,12 +624,20 @@ START_TEST(interchange_two_p_nalus)
   nalu_list_append_item(list, item, nalu_number);
   nalu_list_check_str(list, "GIPPGIPPPGIPPGI");
 
+  // All NALUs but the last 'I' are validated and since two NALUs have been moved the authenticity
+  // is NOT OK.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP.
-  struct validation_stats expected = {.valid_gops = 2, .invalid_gops = 2, .pending_nalus = 4};
+  struct validation_stats expected = {.valid_gops = 2,
+      .invalid_gops = 2,
+      .pending_nalus = 4,
+      .final_validation = &final_validation};
   // For Frame level we can identify the I NALU, hence the linking between GOPs is intact.
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
     expected.valid_gops = 3;
     expected.invalid_gops = 1;
+    expected.final_validation->number_of_validated_nalus = 14;
   }
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
@@ -603,8 +677,15 @@ START_TEST(modify_one_p_nalu)
   const int modify_nalu_number = 4;
   modify_list_item(list, modify_nalu_number, "P");
 
+  // All NALUs but the last 'I' are validated and since one NALU has been modified the authenticity
+  // is NOT OK.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP.
-  struct validation_stats expected = {.valid_gops = 2, .invalid_gops = 2, .pending_nalus = 4};
+  struct validation_stats expected = {.valid_gops = 2,
+      .invalid_gops = 2,
+      .pending_nalus = 4,
+      .final_validation = &final_validation};
   // For Frame level we can identify the I NALU, hence the linking between GOPs is intact.
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
     expected.valid_gops = 3;
@@ -644,9 +725,16 @@ START_TEST(modify_one_i_nalu)
   const int modify_nalu_number = 6;
   modify_list_item(list, modify_nalu_number, "I");
 
+  // All NALUs but the last 'I' are validated and since one I-NALU has been modified the
+  // authenticity is NOT OK.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP. Note that a modified I-nalu affects two GOPs due to linked hashes,
   // but it will also affect a third if we validate with a gop_hash.
-  struct validation_stats expected = {.valid_gops = 1, .invalid_gops = 3, .pending_nalus = 4};
+  struct validation_stats expected = {.valid_gops = 1,
+      .invalid_gops = 3,
+      .pending_nalus = 4,
+      .final_validation = &final_validation};
   // For Frame level, the first GOP will be marked as valid with missing info since we cannot
   // correctly validate the last NALU (the modified I).
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
@@ -695,6 +783,10 @@ START_TEST(remove_the_g_nalu)
   remove_item_then_check_and_free(list, remove_nalu_number, "G");
   nalu_list_check_str(list, "GIPPGIPPIPPGIPPGI");
 
+  // All NALUs but the last 'I' are validated and since one SEI has been removed the authenticity
+  // is NOT OK.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_OK, false, 17, 16, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // We will get 8 pending nalus:
   //
   // GI        valid & 1 pending
@@ -702,7 +794,10 @@ START_TEST(remove_the_g_nalu)
   // IPPIPPG invalid & 4 pending (last 4) since they will be validated next time
   // IPPGI   invalid & 1 pending
   // IPPGI     valid & 1 pending
-  struct validation_stats expected = {.valid_gops = 3, .invalid_gops = 2, .pending_nalus = 8};
+  struct validation_stats expected = {.valid_gops = 3,
+      .invalid_gops = 2,
+      .pending_nalus = 8,
+      .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 0;
@@ -710,6 +805,9 @@ START_TEST(remove_the_g_nalu)
       expected.pending_nalus = 0;
       expected.has_signature = 4;
       expected.has_no_timestamp = true;
+      expected.final_validation->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+      expected.final_validation->number_of_validated_nalus = 0;
+      expected.final_validation->number_of_pending_nalus = 17;
     }
   }
 
@@ -732,12 +830,19 @@ START_TEST(remove_the_i_nalu)
   remove_item_then_check_and_free(list, remove_nalu_number, "I");
   nalu_list_check_str(list, "GIPPGIPPGPPGIPPGI");
 
+  // All NALUs but the last 'I' are validated and since one I-NALU has been removed the authenticity
+  // is NOT OK.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_OK, false, 17, 16, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP. A missing I NALU will affect two GOPs, since it is part of two
   // gop_hashes. At GOP level the missing NALU will make the GOP invalid, but for Frame level we can
   // identify the missed NALU when the I NALU is not the reference, that is, the first GOP is valid
   // with missing info, whereas the second becomes invalid.
-  struct validation_stats expected = {
-      .valid_gops = 2, .invalid_gops = 3, .missed_nalus = 1, .pending_nalus = 5};
+  struct validation_stats expected = {.valid_gops = 2,
+      .invalid_gops = 3,
+      .missed_nalus = 1,
+      .pending_nalus = 5,
+      .final_validation = &final_validation};
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
     expected.valid_gops = 3;
     expected.invalid_gops = 2;
@@ -778,14 +883,21 @@ START_TEST(remove_the_gi_nalus)
   remove_item_then_check_and_free(list, remove_nalu_number, "I");
   nalu_list_check_str(list, "GIPPGIPPPPGIPPGI");
 
+  // All NALUs but the last 'I' are validated and since one couple of SEI and I-NALU have been
+  // removed the authenticity is NOT OK.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_OK, false, 16, 15, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per detected GOP. Note that we lose one 'true' GOP since the transition is
   // lost. We have now two incomplete GOPs; second (missing G) and third (missing I). In fact, we
   // miss the transition between GOP two and three, but will detect it later through the gop
   // counter. Unfortunately, the authentication result does not cover the case "invalid gop" and
   // "missing gops", so we cannot get that information. This will be solved when changing to a more
   // complete authentication report.
-  struct validation_stats expected = {
-      .valid_gops = 2, .invalid_gops = 2, .missed_nalus = -2, .pending_nalus = 4};
+  struct validation_stats expected = {.valid_gops = 2,
+      .invalid_gops = 2,
+      .missed_nalus = -2,
+      .pending_nalus = 4,
+      .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 0;
@@ -794,6 +906,9 @@ START_TEST(remove_the_gi_nalus)
       expected.pending_nalus = 0;
       expected.has_signature = 4;
       expected.has_no_timestamp = true;
+      expected.final_validation->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+      expected.final_validation->number_of_validated_nalus = 0;
+      expected.final_validation->number_of_pending_nalus = 16;
     }
   }
   validate_nalu_list(NULL, list, expected);
@@ -824,9 +939,13 @@ START_TEST(sei_arrives_late)
   nalu_list_append_item(list, sei, 7);
   nalu_list_check_str(list, "GIPPPIPGPPGIPPPGI");
 
+  // All NALUs but the last 'I' are validated as OK, which is pending.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 17, 16, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP + the extra P before (G). The late arrival SEI will introduce one
   // pending NALU (the P frame right before).
-  struct validation_stats expected = {.valid_gops = 4, .pending_nalus = 5};
+  struct validation_stats expected = {
+      .valid_gops = 4, .pending_nalus = 5, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 2;
@@ -882,10 +1001,14 @@ START_TEST(all_seis_arrive_late)
 
   nalu_list_t *list = generate_delayed_sei_list(settings[_i]);
 
+  // All NALUs but the last 'I', 'P' and SEI are validated as OK, hence three pending NALUs.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 24, 21, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // The late arrival SEIs will introduce one pending NALU per GOP (the P frame right before the
   // SEI) except the last GOP, where the SEI is NOT late.  5 GOPs * 2 pending NALUs/GOP = 10
   // pending NALUs
-  struct validation_stats expected = {.valid_gops = 5, .pending_nalus = 10};
+  struct validation_stats expected = {
+      .valid_gops = 5, .pending_nalus = 10, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     expected.valid_gops = 4;
     expected.pending_nalus = 8;  // 2 * valid_gops
@@ -924,6 +1047,9 @@ START_TEST(lost_g_before_late_sei_arrival)
   remove_item_then_check_and_free(list, 6, "G");
   nalu_list_check_str(list, "GIPPPIPPPIPGPPGIPPGI");
 
+  // All NALUs but the last 'I' are validated. Since a SEI is lost the authenticity is NOT OK.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_OK, false, 20, 19, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // We will get 10 pending nalus:
   //
   // GI           valid & 1 pending
@@ -933,7 +1059,10 @@ START_TEST(lost_g_before_late_sei_arrival)
   //                verify the first time
   // IP(G)PPGI    valid & 1 pending
   // IPPGI        valid & 1 pending
-  struct validation_stats expected = {.valid_gops = 3, .invalid_gops = 2, .pending_nalus = 10};
+  struct validation_stats expected = {.valid_gops = 3,
+      .invalid_gops = 2,
+      .pending_nalus = 10,
+      .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 2;
@@ -991,12 +1120,18 @@ START_TEST(lost_g_and_gop_with_late_sei_arrival)
   nalu_list_append_item(list, sei, 12);
   nalu_list_check_str(list, "IPGPPIPGPPIPG");
 
+  // All NALUs but the last three NALUs are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 13, 10, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // We will get 6 pending nalus:
   //
   // IPG         has_signature & 2 pending (IP)
   // IP(G)PPIPG  valid & 2 pending (last IP) since they will be validated next time
   // IP(G)PPIPG  valid & 2 pending (last IP)
-  struct validation_stats expected = {.valid_gops = 2, .pending_nalus = 6, .has_signature = 1};
+  struct validation_stats expected = {.valid_gops = 2,
+      .pending_nalus = 6,
+      .has_signature = 1,
+      .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     // The two pending NALUs of the first validation will not be noticed.
     expected.pending_nalus = 4;
@@ -1024,12 +1159,19 @@ START_TEST(lost_all_nalus_between_two_seis)
   remove_item_then_check_and_free(list, 7, "P");
   nalu_list_check_str(list, "GIPPPGGIPPPGIPPGI");
 
+  // All NALUs but the last 'I' are validated. Since all NALUs between two SEIs are lost the
+  // authenticity is NOT OK.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_OK, false, 17, 16, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // We have NALUs from 5 GOPs present and each GOP will produce one pending NALU. The lost NALUs
   // (IPPP) will be detected, but for SV_AUTHENTICITY_LEVEL_FRAME we will measure one extra missing
   // NALU. This is a descrepancy in the way we count NALUs by excluding SEIs.
   // TODO: Fix the measured difference in missed_nalus.
-  struct validation_stats expected = {
-      .valid_gops = 2, .invalid_gops = 3, .missed_nalus = 4, .pending_nalus = 5};
+  struct validation_stats expected = {.valid_gops = 2,
+      .invalid_gops = 3,
+      .missed_nalus = 4,
+      .pending_nalus = 5,
+      .final_validation = &final_validation};
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
     expected.valid_gops = 3;
     expected.invalid_gops = 2;
@@ -1075,8 +1217,12 @@ START_TEST(add_one_sei_nalu_after_signing)
   nalu_list_append_item(list, sei, append_nalu_number);
   nalu_list_check_str(list, "GIPPGIPPSPGIPPGI");
 
+  // All NALUs but the last 'I' are validated as OK. The last one is pending.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 16, 15, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP.
-  struct validation_stats expected = {.valid_gops = 4, .pending_nalus = 4};
+  struct validation_stats expected = {
+      .valid_gops = 4, .pending_nalus = 4, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 2;
@@ -1118,6 +1264,9 @@ START_TEST(camera_reset_on_signing_side)
   nalu_list_append_and_free(list, list_after_reset);
   nalu_list_check_str(list, "GIPPGIPPGIPPPGI");
 
+  // Final validation is NOT OK and all received NALUs, but the last, are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_OK, true, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP. Note that the mid GOP (IPPGI) includes the reset on the camera. It
   // will be marked as invalid and compute 3 more NALUs than expected. In G it is communicated
   // there is only 2 NALUs present (GI). So missed NALUs equals -3 (IPP).
@@ -1127,7 +1276,8 @@ START_TEST(camera_reset_on_signing_side)
       .invalid_gops = 2,
       .missed_nalus = -3,
       .pending_nalus = 4,
-      .public_key_has_changed = true};
+      .public_key_has_changed = true,
+      .final_validation = &final_validation};
 
   validate_nalu_list(NULL, list, expected);
   nalu_list_free(list);
@@ -1156,6 +1306,10 @@ START_TEST(detect_change_of_public_key)
   nalu_list_append_and_free(list, list_with_new_public_key);
   nalu_list_check_str(list, "GIPPGIPPGIPPPGI");
 
+  // Final validation is NOT OK and all received NALUs, but the last, are validated. The
+  // |public_key_has_changed| flag has been set.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_OK, true, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // The list will be validated successfully up to the third SEI (G) which has the new Public key.
   //
   //   GI      -> .P     (valid, 1 pending, public_key_has_changed = false)
@@ -1168,7 +1322,8 @@ START_TEST(detect_change_of_public_key)
       .invalid_gops = 2,
       .missed_nalus = -3,
       .pending_nalus = 4,
-      .public_key_has_changed = true};
+      .public_key_has_changed = true,
+      .final_validation = &final_validation};
 
   validate_nalu_list(NULL, list, expected);
 
@@ -1203,13 +1358,18 @@ mimic_au_fast_forward_and_get_list(signed_video_t *sv, struct sv_setting setting
   nalu_list_check_str(pre_fast_forward, "GIPPPPGIP");
   nalu_list_check_str(list, "PPGIPPPGIPPPGIPPPGI");
 
+  // Final validation of |pre_fast_forward| is OK and all received NALUs, but the last two, are
+  // validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 9, 7, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // Validate the video before fast forward using the user created session |sv|.
   //
   // GI      -> .P          (valid)
   // IPPPPGI ->  .....P     (valid)
   //
   // Total number of pending NALUs = 1 + 1 = 2
-  struct validation_stats expected = {.valid_gops = 2, .pending_nalus = 2};
+  struct validation_stats expected = {
+      .valid_gops = 2, .pending_nalus = 2, .final_validation = &final_validation};
   if (setting.recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     // GI      -> UU          (SV_AUTH_RESULT_SIGNATURE_PRESENT)
     // IPPPPGI -> ......P     (valid)
@@ -1245,6 +1405,10 @@ START_TEST(fast_forward_stream_with_reset)
   nalu_list_t *list = mimic_au_fast_forward_and_get_list(sv, settings[_i]);
   // Reset session before we start validating.
   ck_assert_int_eq(signed_video_reset(sv), SV_OK);
+
+  // Final validation is OK and all received NALUs, but the last one, are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 12, 11, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // Validate GIPPPGIPPPGI:
   //
   // GI      -> UP           (SV_AUTH_RESULT_SIGNATURE_PRESENT)
@@ -1252,8 +1416,10 @@ START_TEST(fast_forward_stream_with_reset)
   // IPPPGI  ->       .....P (valid)
   //
   // Total number of pending NALUs = 1 + 1 + 1 = 3
-  const struct validation_stats expected = {
-      .valid_gops = 2, .pending_nalus = 3, .has_signature = 1};
+  const struct validation_stats expected = {.valid_gops = 2,
+      .pending_nalus = 3,
+      .has_signature = 1,
+      .final_validation = &final_validation};
 
   validate_nalu_list(sv, list, expected);
   // Free list and session.
@@ -1272,6 +1438,10 @@ START_TEST(fast_forward_stream_without_reset)
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
   nalu_list_t *list = mimic_au_fast_forward_and_get_list(sv, settings[_i]);
+
+  // Final validation is NOT OK and all received NALUs, but the last one, are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_OK, false, 21, 20, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // Validate IP GIPPPGIPPPGI (without reset, i.e., started with IP before fast forward):
   //
   // GI      -> NMMUP           (invalid, 2 missing)
@@ -1279,8 +1449,11 @@ START_TEST(fast_forward_stream_without_reset)
   // IPPPGI  ->          .....P (valid)
   //
   // Total number of pending NALUs = 1 + 1 + 1 = 3
-  const struct validation_stats expected = {
-      .valid_gops = 1, .invalid_gops = 2, .missed_nalus = 2, .pending_nalus = 3};
+  const struct validation_stats expected = {.valid_gops = 1,
+      .invalid_gops = 2,
+      .missed_nalus = 2,
+      .pending_nalus = 3,
+      .final_validation = &final_validation};
 
   validate_nalu_list(sv, list, expected);
 
@@ -1303,13 +1476,18 @@ mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_se
   nalu_list_check_str(pre_fast_forward, "IPGPPPIPG");
   nalu_list_check_str(list, "PPIPGPPIPGPPIPG");
 
+  // Final validation of |pre_fast_forward| is OK and all received NALUs, but the last three, are
+  // validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 9, 6, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // Validate the video before fast forward using the user created session |sv|.
   //
   // IPG         -> PP.         (valid)
   // IPGPPPIPG   -> ......PP.   (valid)
   //
   // Total number of pending NALUs = 2 + 2 = 4
-  struct validation_stats expected = {.valid_gops = 2, .pending_nalus = 4};
+  struct validation_stats expected = {
+      .valid_gops = 2, .pending_nalus = 4, .final_validation = &final_validation};
   if (setting.recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     // IPG       -> UUU         (SV_AUTH_RESULT_SIGNATURE_PRESENT)
     // IPGPPPIPG -> ......PP.   (valid)
@@ -1345,13 +1523,20 @@ START_TEST(fast_forward_stream_with_delayed_seis)
   nalu_list_t *list = mimic_au_fast_forward_on_late_seis_and_get_list(sv, settings[_i]);
   // Reset session before we start validating.
   ck_assert_int_eq(signed_video_reset(sv), SV_OK);
+
+  // Final validation is OK and all received NALUs, but the last three, are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 8, 5, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // Validate IPGPPIPG:
   //
   // IPG      -> PPU           (SV_AUTH_RESULT_SIGNATURE_PRESENT)
   // IPGPPIPG -> ..U..PP.      (valid)
   //
   // Total number of pending NALUs = 2 + 2 = 4
-  struct validation_stats expected = {.valid_gops = 1, .pending_nalus = 4, .has_signature = 1};
+  struct validation_stats expected = {.valid_gops = 1,
+      .pending_nalus = 4,
+      .has_signature = 1,
+      .final_validation = &final_validation};
 
   validate_nalu_list(sv, list, expected);
   // Free list and session.
@@ -1413,8 +1598,15 @@ START_TEST(file_export_with_dangling_end)
   // Create a new session and validate the authenticity of the file.
   signed_video_t *sv = signed_video_create(settings[_i].codec);
   ck_assert(sv);
+
+  // Final validation is OK and all received NALUs, but the last three, are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 13, 10, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP.
-  struct validation_stats expected = {.valid_gops = 2, .pending_nalus = 3, .has_signature = 1};
+  struct validation_stats expected = {.valid_gops = 2,
+      .pending_nalus = 3,
+      .has_signature = 1,
+      .final_validation = &final_validation};
   if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
     if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
       expected.valid_gops = 1;
@@ -1446,8 +1638,15 @@ START_TEST(file_export_without_dangling_end)
   // Create a new session and validate the authenticity of the file.
   signed_video_t *sv = signed_video_create(settings[_i].codec);
   ck_assert(sv);
+
+  // Final validation is OK and all received NALUs, but the last one, are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP.
-  struct validation_stats expected = {.valid_gops = 3, .pending_nalus = 4, .has_signature = 1};
+  struct validation_stats expected = {.valid_gops = 3,
+      .pending_nalus = 4,
+      .has_signature = 1,
+      .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 2;
@@ -1480,6 +1679,9 @@ START_TEST(no_signature)
   nalu_list_t *list = nalu_list_create("IPPIPPIPPIPPI", settings[_i].codec);
   nalu_list_check_str(list, "IPPIPPIPPIPPI");
 
+  // Video is not signed, hence all NALUs are pending.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_SIGNED, false, 13, 0, 13, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // Note that we are one frame off. The start of a GOP (the I) is reported as end of the previous
   // GOP. This is not a big deal, since the message is still clear; We have no signed video. We will
   // always have one GOP pending validation, since we wait for a potential SEI, and will validate
@@ -1491,10 +1693,11 @@ START_TEST(no_signature)
   // IPPIPPI -> (UUUPPPP)
   //
   // pending_nalus = 4 * 4 = 16
+  const struct validation_stats expected = {
+    .unsigned_gops = 4, .pending_nalus = 16, .has_no_timestamp = true,
+    .final_validation = &final_validation};
 
-  const struct validation_stats expected = {.unsigned_gops = 4, .pending_nalus = 16,
-    .has_no_timestamp = true};
-  validate_nalu_list(NULL, list, expected);
+validate_nalu_list(NULL, list, expected);
 
   nalu_list_free(list);
 }
@@ -1508,6 +1711,9 @@ START_TEST(multislice_no_signature)
   nalu_list_t *list = nalu_list_create("IiPpPpIiPpPpIiPpPpIiPpPpIi", settings[_i].codec);
   nalu_list_check_str(list, "IiPpPpIiPpPpIiPpPpIiPpPpIi");
 
+  // Video is not signed, hence all NALUs are pending.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_SIGNED, false, 26, 0, 26, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // We will always have one GOP pending validation, since we wait for a potential SEI, and will
   // validate upon the 'next' GOP transition.
   //
@@ -1517,10 +1723,11 @@ START_TEST(multislice_no_signature)
   // IiPpPpIiPpPpI -> (UUUUUUPPPPPPP)
   //
   // pending_nalus = 4 * 7 = 28
+  const struct validation_stats expected = {
+      .unsigned_gops = 4, .pending_nalus = 28, .has_no_timestamp = true,
+      .final_validation = &final_validation};
 
-  const struct validation_stats expected = {.unsigned_gops = 4, .pending_nalus = 28,
-    .has_no_timestamp = true};
-  validate_nalu_list(NULL, list, expected);
+validate_nalu_list(NULL, list, expected);
 
   nalu_list_free(list);
 }
@@ -1548,8 +1755,14 @@ START_TEST(late_public_key_and_no_sei_before_key_arrives)
   nalu_list_check_str(list, "GIPPIPPGIPPGIPPGIPPGIPPGI");
   // First public key now exist in item 8 if SV_RECURRENCE_EIGHT and SV_RECURRENCE_OFFSET_THREE
 
+  // Final validation is NOT OK and all received NALUs, but the last one, are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_OK, false, 25, 24, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP.
-  struct validation_stats expected = {.valid_gops = 5, .invalid_gops = 2, .pending_nalus = 10};
+  struct validation_stats expected = {.valid_gops = 5,
+      .invalid_gops = 2,
+      .pending_nalus = 10,
+      .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       expected.valid_gops = 4;
@@ -1594,8 +1807,12 @@ START_TEST(fallback_to_gop_level)
   nalu_list_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPI");
   nalu_list_check_str(list, "GIPPGIPPPPPPPPPPPPPPPPPPPPPPPPGIPPGI");
 
+  // Final validation is OK and all received NALUs, but the last one, are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 36, 35, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   // One pending NALU per GOP.
-  struct validation_stats expected = {.valid_gops = 4, .pending_nalus = 4};
+  struct validation_stats expected = {
+      .valid_gops = 4, .pending_nalus = 4, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     expected.valid_gops = 2;
     expected.pending_nalus = 2;
@@ -1670,7 +1887,7 @@ START_TEST(vendor_axis_communications_operation)
   signed_video_free(sv);
   free(private_key);
 
-  // End of validation side. Start a new session on the validation side.
+  // End of signing side. Start a new session on the validation side.
   sv = signed_video_create(codec);
   ck_assert(sv);
 
@@ -1688,6 +1905,13 @@ START_TEST(vendor_axis_communications_operation)
     ck_assert(latest);
     ck_assert_int_eq(strcmp(latest->validation_str, ".P"), 0);
     ck_assert_int_eq(latest->public_key_validation, SV_PUBKEY_VALIDATION_NOT_OK);
+    ck_assert_int_eq(auth_report->accumulated_validation.authenticity, SV_AUTH_RESULT_OK);
+    ck_assert_int_eq(auth_report->accumulated_validation.public_key_has_changed, false);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_received_nalus, 2);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_validated_nalus, 1);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_nalus, 1);
+    ck_assert_int_eq(
+        auth_report->accumulated_validation.public_key_validation, SV_PUBKEY_VALIDATION_NOT_OK);
     // We are done with auth_report.
     latest = NULL;
     signed_video_authenticity_report_free(auth_report);

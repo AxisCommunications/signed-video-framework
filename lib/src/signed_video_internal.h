@@ -181,6 +181,7 @@ struct _signed_video_t {
   // Otherwise, these members point to the corresponding members in |authenticity| below.
   signed_video_product_info_t *product_info;
   signed_video_latest_validation_t *latest_validation;
+  signed_video_accumulated_validation_t *accumulated_validation;
 
   signed_video_authenticity_t *authenticity;  // Pointer to the authenticity report of which results
   // will be written.

@@ -47,6 +47,16 @@ void
 latest_validation_init(signed_video_latest_validation_t *self);
 
 /**
+ * @brief Initializes a signed_video_accumulated_validation_t struct
+ *
+ * Counters are initialized to -1, etc.
+ *
+ * @param self The struct to initialize.
+ */
+void
+accumulated_validation_init(signed_video_accumulated_validation_t *self);
+
+/**
  * @brief Maybe creates a local authenticity report
  *
  * If an authenticity report has not been set by the user, a local one is created to populate for
@@ -72,5 +82,8 @@ create_local_authenticity_report_if_needed(signed_video_t *self);
  */
 svi_rc
 allocate_memory_and_copy_string(char **dst_str, const char *src_str);
+
+svi_rc
+update_authenticity_report(signed_video_t *self);
 
 #endif  // __SIGNED_VIDEO_AUTHENTICITY_H__
