@@ -28,7 +28,6 @@
 #include "includes/signed_video_common.h"  // signed_video_compare_versions()
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_get_validation_str()
 
-// Adding accumulated authenticity results, valuable for screening a file, is work in progress.
 /* Transfer functions. */
 static svi_rc
 transfer_latest_validation(signed_video_latest_validation_t *dst,
