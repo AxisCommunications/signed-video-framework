@@ -140,6 +140,9 @@ transfer_accumulated_validation(signed_video_accumulated_validation_t *dst,
   dst->number_of_validated_nalus = src->number_of_validated_nalus;
   dst->number_of_pending_nalus = src->number_of_pending_nalus;
   dst->public_key_validation = src->public_key_validation;
+  dst->has_timestamp = src->has_timestamp;
+  dst->first_timestamp = src->first_timestamp;
+  dst->last_timestamp = src->last_timestamp;
 }
 
 static svi_rc
@@ -197,6 +200,9 @@ accumulated_validation_init(signed_video_accumulated_validation_t *self)
   self->number_of_validated_nalus = 0;
   self->number_of_pending_nalus = 0;
   self->public_key_validation = SV_PUBKEY_VALIDATION_NOT_FEASIBLE;
+  self->has_timestamp = false;
+  self->first_timestamp = 0;
+  self->last_timestamp = 0;
 }
 
 static void
@@ -230,6 +236,16 @@ update_accumulated_validation(const signed_video_latest_validation_t *latest,
 
   if (accumulated->public_key_validation != SV_PUBKEY_VALIDATION_NOT_OK) {
     accumulated->public_key_validation = latest->public_key_validation;
+  }
+
+  // Update timestamps if possible.
+  if (latest->has_timestamp) {
+    if (!accumulated->has_timestamp) {
+      // No previous timestamp has been set.
+      accumulated->first_timestamp = latest->timestamp;
+    }
+    accumulated->last_timestamp = latest->timestamp;
+    accumulated->has_timestamp = true;
   }
 }
 
