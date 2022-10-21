@@ -21,9 +21,9 @@
 
 /**
  * This signing plugin sets up a worker thread and calls openssl_sign_hash(), from the worker
- * thread, when there is a new hash to sign. The plugin can only handle one signature at a time,
- * that is, there is no queue of hashes to sign. If the latest signature is not completed by the
- * time of a new request, that new hash is not signed.
+ * thread, when there is a new hash to sign. The plugin can only handle one signature at a time.
+ * To handle delays, there are therefore two buffers. One for incomming hashes and another for
+ * outgoing signatures.
  */
 
 #include <assert.h>
@@ -35,6 +35,8 @@
 #include "includes/signed_video_interfaces.h"
 #include "includes/signed_video_openssl.h"
 
+// This means that the signing plugin can handle a blocked signing hardware up to, for example, 60
+// seconds if the GOP length is 1 second
 #define MAX_BUFFER_LENGTH 60
 
 typedef struct _output_data_t {
@@ -52,12 +54,12 @@ typedef struct _sv_threaded_plugin {
 
   // Variables that has to be r/w under mutex lock.
   bool is_running;
-  // Hashes to sign buffer
-  uint8_t *input_buffer[MAX_HASHES];
+  // Buffer of hashes to sign
+  uint8_t *input_buffer[MAX_BUFFER_LENGTH];
   int input_buffer_idx;
   size_t hash_size;
   // Buffer of written signatures
-  output_data_t output_buffer[MAX_HASHES];
+  output_data_t output_buffer[MAX_BUFFER_LENGTH];
   int output_buffer_idx;
   // Variables that can operate without mutex lock.
   // A local copy of the signature_info is used for signing. The hash to be signed is copied to it
@@ -121,11 +123,11 @@ sv_threaded_plugin_reset(sv_threaded_plugin_t *self)
   local_signature_info_free(self->signature_info);
   self->signature_info = NULL;
 
-  for (int i = 0; i < MAX_HASHES; i++) {
+  for (int i = 0; i < MAX_BUFFER_LENGTH; i++) {
     free(self->output_buffer[i].signature);
     self->output_buffer[i].signature = NULL;
     self->output_buffer[i].size = 0;
-    signing_error = false;
+    self->output_buffer[i].signing_error = false;
   }
 
   const int input_buffer_end = self->input_buffer_idx;
@@ -154,7 +156,7 @@ signing_worker_thread(void *user_data)
     if (self->input_buffer_idx > 0) {
       // Get the oldest hash from the input buffer
       const int input_buffer_end = self->input_buffer_idx;
-      assert(input_buffer_end <= MAX_HASHES);
+      assert(input_buffer_end <= MAX_BUFFER_LENGTH);
       // Copy the hash to |signature_info| and start signing. In principle, it is now possible to
       // prepare for a new hash.
       assert(self->hash_size == self->signature_info->hash_size);
@@ -185,7 +187,7 @@ signing_worker_thread(void *user_data)
       self->output_buffer[self->output_buffer_idx].signing_error = false;
       // If not successfully done with signing, set |signing_error| to true to
       // report the error when getting the signature.
-      self->output_buffer[self->output_buffer_idx].threaded_signing_error = (status != SV_OK);
+      self->output_buffer[self->output_buffer_idx].signing_error = (status != SV_OK);
 
       if (status == SV_OK) {
         // Allocate memory for the |signature| if necessary.
@@ -301,7 +303,7 @@ threaded_openssl_get_signature(sv_threaded_plugin_t *self,
     }
     // Change state and mark as copied.
     has_copied_signature = true;
-  } else if (self->signing_error) {
+  } else if (self->output_buffer[0].signing_error) {
     *written_signature_size = 0;
     // Change state and mark as copied.
     has_copied_signature = true;
