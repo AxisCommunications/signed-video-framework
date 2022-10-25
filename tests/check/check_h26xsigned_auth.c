@@ -1136,12 +1136,12 @@ START_TEST(all_seis_arrive_late)
   //           IPGPPIPGPPIPG  ->        (valid) -> .....PP.PPPP.  6 pending
   //                IPGPPIPGG ->        (valid) -> .....PP..      2 pending
   //                                                32 pending
-  // All NALUs but the last 'I', 'P' and SEI are validated as OK, hence three pending NALUs.
+  // All NALUs but the last 'I', 'P' and 2 SEIs are validated as OK, hence four pending NALUs.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 24, 21, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
+      SV_AUTH_RESULT_OK, false, 24, 20, 4, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   struct validation_stats expected = {.valid_gops = 5,
       .unsigned_gops = 1,
-      .pending_nalus = 10,
+      .pending_nalus = 32,
       .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     // IPPPPIGPPPIPG*PPIPGPPIPGG
@@ -1799,7 +1799,7 @@ START_TEST(file_export_with_dangling_end)
   // Create a new session and validate the authenticity of the file.
   signed_video_t *sv = signed_video_create(settings[_i].codec);
   ck_assert(sv);
-  // VGIPPGIPPGIPPGIPP
+  // VGIPPGIPPGIPPGIPP (17 NALUs)
   //
   // VGI             -> (signature) -> _UP
   //   IPPGI         ->     (valid) -> ....P
@@ -1809,7 +1809,7 @@ START_TEST(file_export_with_dangling_end)
   // One pending NALU per GOP.
   // Final validation is OK and all received NALUs, but the last three, are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 13, 10, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
+      SV_AUTH_RESULT_OK, false, 17, 14, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   struct validation_stats expected = {.valid_gops = 3,
       .pending_nalus = 4,
       .has_signature = 1,
@@ -1858,7 +1858,7 @@ START_TEST(file_export_without_dangling_end)
   // Create a new session and validate the authenticity of the file.
   signed_video_t *sv = signed_video_create(settings[_i].codec);
   ck_assert(sv);
-  // VGIPPGIPPGIPPGIPPGI
+  // VGIPPGIPPGIPPGIPPGI (19 NALUs)
   //
   // VGI                 -> (signature) -> _UP
   //   IPPGI             ->     (valid) -> ....P
@@ -1869,7 +1869,7 @@ START_TEST(file_export_without_dangling_end)
   // One pending NALU per GOP.
   // Final validation is OK and all received NALUs, but the last one, are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
+      SV_AUTH_RESULT_OK, false, 19, 18, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE};
   struct validation_stats expected = {.valid_gops = 4,
       .pending_nalus = 5,
       .has_signature = 1,
@@ -1935,9 +1935,10 @@ START_TEST(no_signature)
   // IPPIPPIPPIPPI -> (PPPPPPPPPPPPP)
   //
   // pending_nalus = 4 + 7 + 10 + 13 = 34
-  const struct validation_stats expected = {
-    .unsigned_gops = 4, .pending_nalus = 34, .has_no_timestamp = true,
-    .final_validation = &final_validation};
+  const struct validation_stats expected = {.unsigned_gops = 4,
+      .pending_nalus = 34,
+      .has_no_timestamp = true,
+      .final_validation = &final_validation};
 
   validate_nalu_list(NULL, list, expected);
 
@@ -1965,8 +1966,9 @@ START_TEST(multislice_no_signature)
   // IiPpPpIiPpPpIiPpPpIiPpPpI -> (PPPPPPPPPPPPPPPPPPPPPPPPP)
   //
   // pending_nalus = 7 + 13 + 19 + 25 = 64
-  const struct validation_stats expected = {
-      .unsigned_gops = 4, .pending_nalus = 64, .has_no_timestamp = true,
+  const struct validation_stats expected = {.unsigned_gops = 4,
+      .pending_nalus = 64,
+      .has_no_timestamp = true,
       .final_validation = &final_validation};
 
   validate_nalu_list(NULL, list, expected);
