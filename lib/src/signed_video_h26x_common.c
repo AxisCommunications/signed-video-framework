@@ -764,8 +764,7 @@ gop_state_update(gop_state_t *gop_state, h26x_nalu_t *nalu)
   gop_state->has_gop_sei |= nalu->is_gop_sei;
 }
 
-/* Resets the |gop_state| after validating a GOP. The function returns true if a reset of the
- * gop_hash is needed. */
+/* Resets the |gop_state| after validating a GOP. */
 void
 gop_state_reset(gop_state_t *gop_state)
 {
