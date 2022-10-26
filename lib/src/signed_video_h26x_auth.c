@@ -103,7 +103,7 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
     self->gop_state.has_lost_sei =
         (potentially_missed_gops > 0) && self->gop_info->global_gop_counter_is_synced;
     // Every SEI is associated with a GOP. If a lost SEI has been detected, and no GOP end has been
-    // found prior to this SEI, it means both a SEI and a I-frame was lost. This is defined as a
+    // found prior to this SEI, it means both a SEI and an I-frame was lost. This is defined as a
     // lost GOP transition.
     if (self->gop_state.no_gop_end_before_sei && self->gop_state.has_lost_sei) {
       self->gop_state.gop_transition_is_lost = true;
