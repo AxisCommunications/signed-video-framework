@@ -163,10 +163,11 @@ signing_worker_thread(void *user_data)
       assert(self->signature_info->hash);
       memcpy(self->signature_info->hash, self->input_buffer[0], self->hash_size);
 
-      free(self->input_buffer[0]);
       self->input_buffer[0]= NULL;
-      for (int j = 0; j < input_buffer_end - 1; j++) {
+      int j = 0;
+      while (self->input_buffer[j + 1] != NULL) {
         self->input_buffer[j]= self->input_buffer[j + 1];
+        j++;
       }
       self->input_buffer[input_buffer_end - 1] = NULL;
       self->input_buffer_idx -= 1;
@@ -192,7 +193,7 @@ signing_worker_thread(void *user_data)
       if (status == SV_OK) {
         // Allocate memory for the |signature| if necessary.
         if (!self->output_buffer[self->output_buffer_idx].signature) {
-          self->output_buffer[self->output_buffer_idx].signature = calloc(1, self->signature_info->signature_size);
+          self->output_buffer[self->output_buffer_idx].signature = calloc(1, self->signature_info->max_signature_size);
           self->output_buffer[self->output_buffer_idx].size = self->signature_info->signature_size;
         }
 
@@ -217,8 +218,7 @@ done:
  * all necessary information to do so.
  *
  * The |hash| is copied to |input_buffer|. If this is the first time of signing, memory for
- * |output_buffer| and |input_buffer| is allocated and the |private_key| is copied from
- * |signature_info|. */
+ * |input_buffer| is allocated and the |private_key| is copied from |signature_info|. */
 static SignedVideoReturnCode
 threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *signature_info)
 {
@@ -291,8 +291,6 @@ threaded_openssl_get_signature(sv_threaded_plugin_t *self,
       *written_signature_size = self->output_buffer[0].size;
       // Free |signature| and move buffer
       const int output_buffer_end = self->output_buffer_idx;
-      free(self->output_buffer[0].signature);
-      self->output_buffer[0].signature = NULL;
       for (int j = 0; j < output_buffer_end - 1; j++) {
         self->output_buffer[j].signature = self->output_buffer[j + 1].signature;
         self->output_buffer[j].size = self->output_buffer[j + 1].size;
