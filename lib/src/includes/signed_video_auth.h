@@ -121,7 +121,7 @@ typedef struct {
   bool has_timestamp;
   // True if the timestamp member is valid to look at, false otherwise.
   int64_t timestamp;
-  // Unix epoch UTC timestamp of the latest signed NALU.
+  // Unix epoch UTC timestamp in microseconds of the latest signed NALU.
 } signed_video_latest_validation_t;
 
 /**
@@ -145,6 +145,12 @@ typedef struct {
   // The result of the Public key validation. If the Public key is present in the SEI, it has to be
   // validated to associate the video with a source. If it is not feasible to validate the Public
   // key, it should be validated manually to secure proper video authenticity.
+  bool has_timestamp;
+  // True if the session included timestamps.
+  int64_t first_timestamp;
+  // Unix epoch UTC timestamp in microseconds of the first signed NALU.
+  int64_t last_timestamp;
+  // Unix epoch UTC timestamp in microseconds of the last signed NALU.
 } signed_video_accumulated_validation_t;
 
 /**
