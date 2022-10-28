@@ -406,7 +406,7 @@ START_TEST(correct_nalu_sequence_without_eos)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPP", settings[_i]);
-  nalu_list_check_str(list, "IPPIPGPIPPIGPPIPPGGGGIPP");
+  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPP");
   nalu_list_free(list);
 }
 END_TEST
