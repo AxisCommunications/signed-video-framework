@@ -155,7 +155,6 @@ signing_worker_thread(void *user_data)
   while (self->is_running) {
     if (self->input_buffer_idx > 0) {
       // Get the oldest hash from the input buffer
-      const int input_buffer_end = self->input_buffer_idx;
       assert(input_buffer_end <= MAX_BUFFER_LENGTH);
       // Copy the hash to |signature_info| and start signing. In principle, it is now possible to
       // prepare for a new hash.
@@ -163,13 +162,13 @@ signing_worker_thread(void *user_data)
       assert(self->signature_info->hash);
       memcpy(self->signature_info->hash, self->input_buffer[0], self->hash_size);
 
-      self->input_buffer[0]= NULL;
+      uint8_t * tmp = self->input_buffer[0];
       int j = 0;
       while (self->input_buffer[j + 1] != NULL) {
         self->input_buffer[j]= self->input_buffer[j + 1];
         j++;
       }
-      self->input_buffer[input_buffer_end - 1] = NULL;
+      self->input_buffer[j + 1] = tmp;
       self->input_buffer_idx -= 1;
 
       // Let the signing operate outside a lock. Otherwise sv_interface_get_signature() is blocked,
@@ -289,14 +288,14 @@ threaded_openssl_get_signature(sv_threaded_plugin_t *self,
       // Get the oldest signature
       memcpy(signature, self->output_buffer[0].signature, self->output_buffer[0].size);
       *written_signature_size = self->output_buffer[0].size;
-      // Free |signature| and move buffer
-      const int output_buffer_end = self->output_buffer_idx;
-      for (int j = 0; j < output_buffer_end - 1; j++) {
-        self->output_buffer[j].signature = self->output_buffer[j + 1].signature;
-        self->output_buffer[j].size = self->output_buffer[j + 1].size;
+      // Move buffer
+      output_data_t tmp = self->output_buffer[0];
+      int i = 0;
+      while (self->output_buffer[i + 1].signature != NULL && self->output_buffer[i + 1].size != 0) {
+        self->output_buffer[j] = self->output_buffer[i + 1];
+        i++;
       }
-      self->output_buffer[output_buffer_end - 1].signature = NULL;
-      self->output_buffer[output_buffer_end - 1].size = 0;
+      self->output_buffer[i + 1] = tmp;
       self->output_buffer_idx -= 1;
     }
     // Change state and mark as copied.
