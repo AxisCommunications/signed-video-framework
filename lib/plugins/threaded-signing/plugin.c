@@ -123,17 +123,22 @@ sv_threaded_plugin_reset(sv_threaded_plugin_t *self)
   local_signature_info_free(self->signature_info);
   self->signature_info = NULL;
 
-  for (int i = 0; i < MAX_BUFFER_LENGTH; i++) {
-    free(self->output_buffer[i].signature);
-    self->output_buffer[i].signature = NULL;
-    self->output_buffer[i].size = 0;
-    self->output_buffer[i].signing_error = false;
+  int j = 0;
+  while (self->output_buffer[j].signature != NULL) {
+    if (self->output_buffer[j].signature != NULL) {
+      free(self->output_buffer[j].signature);
+      self->output_buffer[j].signature = NULL;
+      self->output_buffer[j].size = 0;
+      self->output_buffer[j].signing_error = false;
+    }
+    j++;
   }
 
-  const int input_buffer_end = self->input_buffer_idx;
-  for (int i = 0; i < input_buffer_end; i++) {
+  int i = 0;
+  while (self->input_buffer[i] != NULL) {
     free(self->input_buffer[i]);
     self->input_buffer[i] = NULL;
+    i++;
   }
   self->hash_size = 0;
 }
@@ -144,6 +149,7 @@ static void *
 signing_worker_thread(void *user_data)
 {
   sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)user_data;
+  self->output_buffer_idx = 0;
 
   g_mutex_lock(&self->mutex);
   if (self->is_running) goto done;
@@ -155,17 +161,19 @@ signing_worker_thread(void *user_data)
   while (self->is_running) {
     if (self->input_buffer_idx > 0) {
       // Get the oldest hash from the input buffer
-      assert(input_buffer_end <= MAX_BUFFER_LENGTH);
+      assert(self->input_buffer_idx <= MAX_BUFFER_LENGTH);
       // Copy the hash to |signature_info| and start signing. In principle, it is now possible to
       // prepare for a new hash.
       assert(self->hash_size == self->signature_info->hash_size);
       assert(self->signature_info->hash);
       memcpy(self->signature_info->hash, self->input_buffer[0], self->hash_size);
 
-      uint8_t * tmp = self->input_buffer[0];
+      uint8_t *tmp = self->input_buffer[0];
       int j = 0;
-      while (self->input_buffer[j + 1] != NULL) {
-        self->input_buffer[j]= self->input_buffer[j + 1];
+      while (self->input_buffer[j] != NULL) {
+        self->input_buffer[j] = self->input_buffer[j + 1];
+        if (self->input_buffer[j + 1] != NULL) {
+        }
         j++;
       }
       self->input_buffer[j + 1] = tmp;
@@ -192,13 +200,14 @@ signing_worker_thread(void *user_data)
       if (status == SV_OK) {
         // Allocate memory for the |signature| if necessary.
         if (!self->output_buffer[self->output_buffer_idx].signature) {
-          self->output_buffer[self->output_buffer_idx].signature = calloc(1, self->signature_info->max_signature_size);
+          self->output_buffer[self->output_buffer_idx].signature =
+              calloc(1, self->signature_info->max_signature_size);
           self->output_buffer[self->output_buffer_idx].size = self->signature_info->signature_size;
         }
 
         // Copy the |signature| to the output buffer
-        memcpy(self->output_buffer[self->output_buffer_idx].signature, self->signature_info->signature,
-            self->output_buffer[self->output_buffer_idx].size);
+        memcpy(self->output_buffer[self->output_buffer_idx].signature,
+            self->signature_info->signature, self->output_buffer[self->output_buffer_idx].size);
         self->output_buffer_idx++;
       }
     } else {
@@ -234,7 +243,6 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
     if (!self->signature_info) goto catch_error;
   }
 
-  // Allocate memory for the |input_buffer| if necessary.
   if (!self->input_buffer[self->input_buffer_idx]) {
     self->input_buffer[self->input_buffer_idx] = calloc(1, signature_info->hash_size);
     if (!self->input_buffer[self->input_buffer_idx]) goto catch_error;
@@ -246,7 +254,8 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
   if (signature_info->hash_size != self->hash_size) goto catch_error;
 
   // Copy the |hash| ready for signing.
-  memcpy(self->input_buffer[self->input_buffer_idx], signature_info->hash, signature_info->hash_size);
+  memcpy(
+      self->input_buffer[self->input_buffer_idx], signature_info->hash, signature_info->hash_size);
   self->input_buffer_idx++;
 
   status = SV_OK;
@@ -291,8 +300,8 @@ threaded_openssl_get_signature(sv_threaded_plugin_t *self,
       // Move buffer
       output_data_t tmp = self->output_buffer[0];
       int i = 0;
-      while (self->output_buffer[i + 1].signature != NULL && self->output_buffer[i + 1].size != 0) {
-        self->output_buffer[j] = self->output_buffer[i + 1];
+      while (self->output_buffer[i].signature != NULL) {
+        self->output_buffer[i] = self->output_buffer[i + 1];
         i++;
       }
       self->output_buffer[i + 1] = tmp;
