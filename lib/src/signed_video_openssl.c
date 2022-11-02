@@ -47,6 +47,13 @@
 #include "signed_video_internal.h"  // svi_rc_to_signed_video_rc(), sv_rc_to_svi_rc()
 #include "signed_video_openssl_internal.h"
 
+/**
+ * OpenSSL cryptographic object.
+ */
+typedef struct {
+  SHA256_CTX ctx;  // Hashing context
+} openssl_crypto_t;
+
 static svi_rc
 create_rsa_private_key(const key_paths_t *key_paths);
 static svi_rc
@@ -346,6 +353,50 @@ openssl_hash_data(const uint8_t *data, size_t data_size, uint8_t *hash)
   // If there is a mismatch between where the hash has been stored (return value of SHA256()) and
   // where we want it stored (|hash|), we return failure.
   return SHA256(data, data_size, hash) == hash ? SV_OK : SV_EXTERNAL_ERROR;
+}
+
+/* Initializes SHA256_CTX in |handle|. */
+SignedVideoReturnCode
+openssl_init_hash(void *handle)
+{
+  if (!handle) return SV_INVALID_PARAMETER;
+  openssl_crypto_t *self = (openssl_crypto_t *)handle;
+  // Initialize the SHA256 hashing function.
+  return SHA256_Init(&self->ctx) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
+}
+
+/* Updates SHA256_CTX in |handle| with |data|. */
+SignedVideoReturnCode
+openssl_update_hash(void *handle, const uint8_t *data, size_t data_size)
+{
+  if (!data || data_size == 0 || !handle) return SV_INVALID_PARAMETER;
+  openssl_crypto_t *self = (openssl_crypto_t *)handle;
+  // Update the "ongoing" hash with new data.
+  return SHA256_Update(&self->ctx, data, data_size) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
+}
+
+/* Finalizes SHA256_CTX in |handle| and writes result to |hash|. */
+SignedVideoReturnCode
+openssl_finalize_hash(void *handle, uint8_t *hash)
+{
+  if (!hash || !handle) return SV_INVALID_PARAMETER;
+  openssl_crypto_t *self = (openssl_crypto_t *)handle;
+  // Finalize and write the |hash| to output.
+  return SHA256_Final(hash, &self->ctx) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
+}
+
+/* Creates a |handle| with a SHA256_CTX. */
+void *
+openssl_create_handle(void)
+{
+  return (void *)calloc(1, sizeof(openssl_crypto_t));
+}
+
+/* Frees the |handle|. */
+void
+openssl_free_handle(void *handle)
+{
+  free((openssl_crypto_t *)handle);
 }
 
 /* Reads the content of a key file, allocates memory and writes it to the key. */

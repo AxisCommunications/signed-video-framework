@@ -63,6 +63,8 @@ typedef svi_rc (*hash_wrapper_t)(signed_video_t *, const h26x_nalu_t *, uint8_t 
 static hash_wrapper_t
 get_hash_wrapper(signed_video_t *self, const h26x_nalu_t *nalu);
 static svi_rc
+update_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *nalu_hash);
+static svi_rc
 simply_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *nalu_hash);
 static svi_rc
 hash_and_copy_to_ref(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *nalu_hash);
@@ -605,6 +607,8 @@ parse_nalu_info(const uint8_t *nalu_data,
   nalu.nalu_type = NALU_TYPE_UNDEFINED;
   nalu.uuid_type = UUID_TYPE_UNDEFINED;
   nalu.is_gop_sei = false;
+  nalu.is_first_nalu_part = true;
+  nalu.is_last_nalu_part = true;
 
   if (!nalu_data || (nalu_data_size == 0) || codec < 0 || codec >= SV_CODEC_NUM) return nalu;
 
@@ -695,6 +699,26 @@ parse_nalu_info(const uint8_t *nalu_data,
   }
 
   return nalu;
+}
+
+/**
+ * @brief Copy a H26X NALU struct
+ *
+ * Copies all members, but the pointers from |src_nalu| to |dst_nalu|. All pointers and set to NULL.
+ */
+void
+copy_nalu_except_pointers(h26x_nalu_t *dst_nalu, const h26x_nalu_t *src_nalu)
+{
+  if (!dst_nalu || !src_nalu) return;
+
+  memcpy(dst_nalu, src_nalu, sizeof(h26x_nalu_t));
+  // Set pointers to NULL, since memory is not transfered to next NALU.
+  dst_nalu->nalu_data = NULL;
+  dst_nalu->hashable_data = NULL;
+  dst_nalu->payload = NULL;
+  dst_nalu->tlv_start_in_nalu_data = NULL;
+  dst_nalu->tlv_data = NULL;
+  dst_nalu->tmp_tlv_memory = NULL;
 }
 
 /* Helper function to public APIs */
@@ -923,7 +947,10 @@ get_hash_wrapper(signed_video_t *self, const h26x_nalu_t *nalu)
 {
   assert(self && nalu);
 
-  if (nalu->is_gop_sei) {
+  if (!nalu->is_last_nalu_part) {
+    // If this is not the last part of a NALU, update the hash.
+    return update_hash;
+  } else if (nalu->is_gop_sei) {
     // A SEI, i.e., the document_hash, is hashed without reference, since that one may be verified
     // separately.
     return simply_hash;
@@ -939,17 +966,49 @@ get_hash_wrapper(signed_video_t *self, const h26x_nalu_t *nalu)
 
 /* Hash wrapper functions */
 
+/* update_hash()
+ *
+ * takes the |hashable_data| from the NALU, and updates the hash in |crypto_handle|. */
+static svi_rc
+update_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t ATTR_UNUSED *nalu_hash)
+{
+  assert(nalu);
+  const uint8_t *hashable_data = nalu->hashable_data;
+  size_t hashable_data_size = nalu->hashable_data_size;
+
+  return sv_rc_to_svi_rc(
+      openssl_update_hash(self->crypto_handle, hashable_data, hashable_data_size));
+}
+
 /* simply_hash()
  *
  * takes the |hashable_data| from the NALU, hash it and store the hash in |nalu_hash|. */
 static svi_rc
-simply_hash(signed_video_t ATTR_UNUSED *self, const h26x_nalu_t *nalu, uint8_t *nalu_hash)
+simply_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *nalu_hash)
 {
-  assert(nalu && nalu_hash);
+  // It should not be possible to end up here unless the NALU data includes the last part.
+  assert(nalu && nalu->is_last_nalu_part && nalu_hash);
   const uint8_t *hashable_data = nalu->hashable_data;
   size_t hashable_data_size = nalu->hashable_data_size;
 
-  return sv_rc_to_svi_rc(openssl_hash_data(hashable_data, hashable_data_size, nalu_hash));
+  if (nalu->is_first_nalu_part) {
+    // Entire NALU can be hashed in one part.
+    return sv_rc_to_svi_rc(openssl_hash_data(hashable_data, hashable_data_size, nalu_hash));
+  } else {
+    svi_rc status = update_hash(self, nalu, nalu_hash);
+    if (status == SVI_OK) {
+      // Finalize the ongoing hash of NALU parts.
+      status = sv_rc_to_svi_rc(openssl_finalize_hash(self->crypto_handle, nalu_hash));
+      // For the first NALU in a GOP, the hash is used twice. Once for linking and once as reference
+      // for the future. Store the |nalu_hash| in |tmp_hash| to be copied for its second use, since
+      // it is not possible to recompute the hash from partial NALU data.
+      if (status == SVI_OK && nalu->is_first_nalu_in_gop && !nalu->is_first_nalu_part) {
+        memcpy(self->gop_info->tmp_hash, nalu_hash, HASH_DIGEST_SIZE);
+        self->gop_info->tmp_hash_ptr = self->gop_info->tmp_hash;
+      }
+    }
+    return status;
+  }
 }
 
 /* hash_and_copy_to_ref()
@@ -970,8 +1029,14 @@ hash_and_copy_to_ref(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *nal
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    // Hash NALU data and store as |nalu_hash|.
-    SVI_THROW(simply_hash(self, nalu, nalu_hash));
+    if (nalu->is_first_nalu_in_gop && !nalu->is_first_nalu_part && gop_info->tmp_hash_ptr) {
+      // If the NALU is split in parts and a hash has already been computed and stored in
+      // |tmp_hash|, copy from |tmp_hash| since it is not possible to recompute the hash.
+      memcpy(nalu_hash, gop_info->tmp_hash_ptr, HASH_DIGEST_SIZE);
+    } else {
+      // Hash NALU data and store as |nalu_hash|.
+      SVI_THROW(simply_hash(self, nalu, nalu_hash));
+    }
     // Copy the |nalu_hash| to |reference_hash| to be used in hash_with_reference().
     memcpy(reference_hash, nalu_hash, HASH_DIGEST_SIZE);
     // Tell the user there is a new reference hash.
@@ -1030,12 +1095,20 @@ hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
+    if (nalu->is_first_nalu_part && !nalu->is_last_nalu_part) {
+      // If this is the first part of a non-complete NALU, initialize the |crypto_handle| to enable
+      // sequentially updating the hash with more parts.
+      SVI_THROW(sv_rc_to_svi_rc(openssl_init_hash(self->crypto_handle)));
+    }
     // Select hash function, hash the NALU and store as 'latest hash'
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
     SVI_THROW(hash_wrapper(self, nalu, nalu_hash));
-    check_and_copy_hash_to_hash_list(self, nalu_hash);
-    SVI_THROW(update_gop_hash(gop_info));
-    update_num_nalus_in_gop_hash(self, nalu);
+    if (nalu->is_last_nalu_part) {
+      // The end of the NALU has been reached. Update hash list and GOP hash.
+      check_and_copy_hash_to_hash_list(self, nalu_hash);
+      SVI_THROW(update_gop_hash(gop_info));
+      update_num_nalus_in_gop_hash(self, nalu);
+    }
   SVI_CATCH()
   {
     // If we fail, the |hash_list| is not trustworthy.
@@ -1113,6 +1186,10 @@ signed_video_create(SignedVideoCodec codec)
 
     version_str_to_bytes(self->code_version, SIGNED_VIDEO_VERSION);
     self->codec = codec;
+    self->last_nalu = (h26x_nalu_t *)calloc(1, sizeof(h26x_nalu_t));
+    SVI_THROW_IF(!self->last_nalu, SVI_MEMORY);
+    // Mark the last NALU as complete, hence, no ongoing hashing is present.
+    self->last_nalu->is_last_nalu_part = true;
 
     // Allocate memory for the signature_info struct.
     self->signature_info = signature_create();
@@ -1144,6 +1221,10 @@ signed_video_create(SignedVideoCodec codec)
     self->frame_count = RECURRENCE_OFFSET_DEFAULT;
     self->has_recurrent_data = false;
     self->authentication_started = false;
+
+    // Setup crypto handle.
+    self->crypto_handle = openssl_create_handle();
+    SVI_THROW_IF(!self->crypto_handle, SVI_EXTERNAL_FAILURE);
 
     // Setup the plugin.
     self->plugin_handle = sv_interface_setup();
@@ -1188,6 +1269,10 @@ signed_video_reset(signed_video_t *self)
     // Empty the |nalu_list|.
     h26x_nalu_list_free_items(self->nalu_list);
 
+    memset(self->last_nalu, 0, sizeof(h26x_nalu_t));
+    self->last_nalu->is_last_nalu_part = true;
+    SVI_THROW(sv_rc_to_svi_rc(openssl_init_hash(self->crypto_handle)));
+
     SVI_THROW(reset_gop_hash(self));
   SVI_CATCH()
   SVI_DONE(status)
@@ -1207,11 +1292,14 @@ signed_video_free(signed_video_t *self)
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   sv_vendor_axis_communications_teardown(self->vendor_handle);
 #endif
+  // Teardown the crypto handle.
+  openssl_free_handle(self->crypto_handle);
 
   // Free any NALUs left to prepend.
   free_and_reset_nalu_to_prepend_list(self);
   free_sei_data_buffer(self->sei_data_buffer);
 
+  free(self->last_nalu);
   h26x_nalu_list_free(self->nalu_list);
 
   signed_video_authenticity_report_free(self->authenticity);

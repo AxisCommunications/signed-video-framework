@@ -27,7 +27,6 @@
 #include "signed_video_internal.h"  // gop_info_t, gop_state_t, HASH_DIGEST_SIZE
 
 typedef struct _h26x_nalu_list_item_t h26x_nalu_list_item_t;
-typedef struct _h26x_nalu_t h26x_nalu_t;
 
 #define MAX_PENDING_GOPS 120
 
@@ -143,6 +142,8 @@ struct _h26x_nalu_t {
   bool is_primary_slice;  // The first slice in the NALU or not
   bool is_first_nalu_in_gop;  // True for the first slice of an I-frame
   bool is_gop_sei;  // True if this is a Signed Video generated SEI NALU
+  bool is_first_nalu_part;  // True if the |nalu_data| includes the first part
+  bool is_last_nalu_part;  // True if the |nalu_data| includes the last part
 };
 
 /* Internal APIs for gop_state_t functions */
@@ -193,6 +194,9 @@ parse_nalu_info(const uint8_t *nalu_data,
     size_t nalu_data_size,
     SignedVideoCodec codec,
     bool check_trailing_bytes);
+
+void
+copy_nalu_except_pointers(h26x_nalu_t *dst_nalu, const h26x_nalu_t *src_nalu);
 
 void
 update_hashable_data(h26x_nalu_t *nalu);

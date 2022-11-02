@@ -163,20 +163,25 @@ START_TEST(api_inputs)
 
   // Timestamp version of the API.
   // Zero sized nalus are invalid, as well as NULL pointers except for the timestamp
-  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(NULL, p_nalu->data, p_nalu->data_size, &g_testTimestamp);
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
+      NULL, p_nalu->data, p_nalu->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(sv, NULL, p_nalu->data_size, &g_testTimestamp);
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
+      sv, NULL, p_nalu->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(sv, p_nalu->data, 0, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   // An invalid NALU should return silently.
-  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(sv, invalid->data, invalid->data_size, &g_testTimestamp);
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
+      sv, invalid->data, invalid->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Timestamp can be null
-  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(sv, p_nalu->data, p_nalu->data_size, NULL);
+  sv_rc =
+      signed_video_add_nalu_for_signing_with_timestamp(sv, p_nalu->data, p_nalu->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Valid call
-  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(sv, p_nalu->data, p_nalu->data_size, &g_testTimestamp);
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
+      sv, p_nalu->data, p_nalu->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // TODO: Add check on |sv| to make sure nothing has changed.
@@ -525,7 +530,7 @@ START_TEST(fallback_to_gop_level)
     ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * HASH_DIGEST_SIZE), SVI_OK);
 
     // Create a list of NALUs given the input string.
-    nalu_list_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPI");
+    nalu_list_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPI", false);
     nalu_list_check_str(list, "GIPPGIPPPPPPPPPPPPPPPPPPPPPPPPGI");
     nalu_list_item_t *sei_3 = nalu_list_remove_item(list, 31);
     nalu_list_item_check_str(sei_3, "G");
@@ -657,12 +662,13 @@ START_TEST(correct_timestamp)
   ck_assert(nalu_to_prepend.prepend_instruction != SIGNED_VIDEO_PREPEND_NOTHING);
 
   // Test new API with timestamp as NULL. It should give the same result as the old API
-  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(sv_ts, i_nalu->data, i_nalu->data_size, NULL);
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
+      sv_ts, i_nalu->data, i_nalu->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_get_nalu_to_prepend(sv_ts, &nalu_to_prepend_ts);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(nalu_to_prepend_ts.prepend_instruction != SIGNED_VIDEO_PREPEND_NOTHING);
-  
+
   // Verify the sizes of the nalus
   ck_assert(nalu_to_prepend.nalu_data_size > 0);
   ck_assert(nalu_to_prepend_ts.nalu_data_size > 0);
@@ -670,9 +676,9 @@ START_TEST(correct_timestamp)
 
   // Get the hashable data (includes the signature)
   h26x_nalu_t nalu =
-    parse_nalu_info(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec, false);
-  h26x_nalu_t nalu_ts =
-    parse_nalu_info(nalu_to_prepend_ts.nalu_data, nalu_to_prepend_ts.nalu_data_size, codec, false);
+      parse_nalu_info(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec, false);
+  h26x_nalu_t nalu_ts = parse_nalu_info(
+      nalu_to_prepend_ts.nalu_data, nalu_to_prepend_ts.nalu_data_size, codec, false);
 
   // Remove the signature
   update_hashable_data(&nalu);
@@ -691,6 +697,20 @@ START_TEST(correct_timestamp)
   signed_video_free(sv);
   signed_video_free(sv_ts);
   free(private_key);
+}
+END_TEST
+
+/* Test description
+ * Same as correct_nalu_sequence_without_eos, but with splitted NALU data.
+ */
+START_TEST(correct_signing_nalus_in_parts)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  nalu_list_t *list = create_signed_splitted_nalus("IPPIPP", settings[_i]);
+  nalu_list_check_str(list, "GIPPGIPP");
+  nalu_list_free(list);
 }
 END_TEST
 
@@ -723,6 +743,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, undefined_nalu_in_sequence, s, e);
   tcase_add_loop_test(tc, recurrence, s, e);
   tcase_add_loop_test(tc, correct_timestamp, s, e);
+  tcase_add_loop_test(tc, correct_signing_nalus_in_parts, s, e);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);

@@ -37,6 +37,7 @@ typedef struct _sei_data_t sei_data_t;
 
 // Forward declare h26x_nalu_list_t here for signed_video_t.
 typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
+typedef struct _h26x_nalu_t h26x_nalu_t;
 
 #if defined(_WIN32) || defined(_WIN64)
 #define ATTR_UNUSED
@@ -137,6 +138,7 @@ struct _signed_video_t {
   int code_version[SV_VERSION_BYTES];
   uint16_t last_two_bytes;
   SignedVideoCodec codec;  // Codec used in this session.
+  h26x_nalu_t *last_nalu;  // Track last parsed h26x_nalu_t to pass on to next part
 
   // Private structures
   gop_info_t *gop_info;
@@ -186,6 +188,9 @@ struct _signed_video_t {
   signed_video_authenticity_t *authenticity;  // Pointer to the authenticity report of which results
   // will be written.
 
+  // For cryptographic functions, like OpenSSL
+  void *crypto_handle;
+
   // For signing plugin
   void *plugin_handle;
   signature_info_t *signature_info;  // Pointer to all necessary information to sign in a plugin.
@@ -229,6 +234,9 @@ struct _gop_info_t {
   uint8_t *nalu_hash;  // Pointing to the memory slot of the NALU hash in |hashes|.
   uint8_t document_hash[HASH_DIGEST_SIZE];  // Memory for storing the document hash to be signed
   // when SV_AUTHENTICITY_LEVEL_FRAME.
+  uint8_t tmp_hash[HASH_DIGEST_SIZE];  // Memory for storing a temporary hash needed when a NALU is
+  // split in parts.
+  uint8_t *tmp_hash_ptr;
   uint8_t encoding_status;  // Stores potential errors when encoding, to transmit to the client
   // (authentication part).
   uint16_t num_sent_nalus;  // The number of NALUs used to generate the gop_hash on the signing

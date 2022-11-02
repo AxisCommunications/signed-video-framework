@@ -502,12 +502,41 @@ signed_video_add_nalu_for_signing_with_timestamp(signed_video_t *self,
     size_t nalu_data_size,
     const int64_t *timestamp)
 {
+  return signed_video_add_nalu_part_for_signing_with_timestamp(
+      self, nalu_data, nalu_data_size, timestamp, true);
+}
+
+SignedVideoReturnCode
+signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
+    const uint8_t *nalu_data,
+    size_t nalu_data_size,
+    const int64_t *timestamp,
+    bool is_last_part)
+{
   if (!self || !nalu_data || !nalu_data_size) {
     DEBUG_LOG("Invalid input parameters: (%p, %p, %zu)", self, nalu_data, nalu_data_size);
     return SV_INVALID_PARAMETER;
   }
 
-  h26x_nalu_t nalu = parse_nalu_info(nalu_data, nalu_data_size, self->codec, true);
+  h26x_nalu_t nalu = {0};
+  // TODO: Consider moving this into parse_nalu_info().
+  if (self->last_nalu->is_last_nalu_part) {
+    // Only check for trailing zeros if this is the last part.
+    nalu = parse_nalu_info(nalu_data, nalu_data_size, self->codec, is_last_part);
+    nalu.is_last_nalu_part = is_last_part;
+    copy_nalu_except_pointers(self->last_nalu, &nalu);
+  } else {
+    self->last_nalu->is_first_nalu_part = false;
+    self->last_nalu->is_last_nalu_part = is_last_part;
+    copy_nalu_except_pointers(&nalu, self->last_nalu);
+    nalu.nalu_data = nalu_data;
+    nalu.hashable_data = nalu_data;
+    // Remove any trailing 0x00 bytes at the end of a NALU.
+    while (is_last_part && (nalu_data[nalu_data_size - 1] == 0x00)) {
+      nalu_data_size--;
+    }
+    nalu.hashable_data_size = nalu_data_size;
+  }
 
   signature_info_t *signature_info = self->signature_info;
   int signing_present = self->signing_present;
@@ -520,7 +549,7 @@ signed_video_add_nalu_for_signing_with_timestamp(signed_video_t *self,
 
     // Note that |recurrence| is counted in frames and not in NALUs, hence we only increment the
     // counter for primary slices.
-    if (nalu.is_primary_slice) {
+    if (nalu.is_primary_slice && nalu.is_last_nalu_part) {
       if (((self->frame_count + self->recurrence_offset) % self->recurrence) == 0) {
         self->has_recurrent_data = true;
       }
@@ -531,7 +560,7 @@ signed_video_add_nalu_for_signing_with_timestamp(signed_video_t *self,
     // Depending on the input NALU, we need to take different actions. If the input is an I-NALU we
     // have a transition to a new GOP. Then we need to generate the necessary SEI-NALU(s) and put in
     // prepend_list. For all other valid NALUs, simply hash and proceed.
-    if (nalu.is_first_nalu_in_gop) {
+    if (nalu.is_first_nalu_in_gop && nalu.is_last_nalu_part) {
       // An I-NALU indicates the start of a new GOP, hence prepend with SEI-NALUs. This also means
       // that the signing feature is present.
 

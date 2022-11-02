@@ -39,6 +39,28 @@ typedef struct {
 } key_paths_t;
 
 /**
+ * @brief Create cryptographic handle
+ *
+ * Allocates the memory for a crypthographic |handle| holding specific OpenSSL information. This
+ * handle should be created when starting the session and freed at teardown with
+ * openssl_free_handle().
+ *
+ * @returns Pointer to the OpenSSL cryptographic handle.
+ */
+void *
+openssl_create_handle(void);
+
+/**
+ * @brief Free cryptographic handle
+ *
+ * Frees a crypthographic |handle| created with openssl_create_handle().
+ *
+ * @param handle Pointer to the OpenSSL cryptographic handle.
+ */
+void
+openssl_free_handle(void *handle);
+
+/**
  * @brief Malloc data
  *
  * Allocates the memory for data.
@@ -66,6 +88,9 @@ openssl_free(uint8_t *data);
  * Uses the OpenSSL SHA256() API to hash data. The hashed data has 256 bits, which needs to be
  * allocated in advance by the user.
  *
+ * This is a simplification for calling openssl_init_hash(), openssl_update_hash() and
+ * openssl_finalize_hash() done in one go.
+ *
  * @param data Pointer to the data to hash.
  * @param data_size Size of the |data| to hash.
  * @param hash A pointer to the hashed output. This memory has to be pre-allocated.
@@ -76,6 +101,52 @@ openssl_free(uint8_t *data);
  */
 SignedVideoReturnCode
 openssl_hash_data(const uint8_t *data, size_t data_size, uint8_t *hash);
+
+/**
+ * @brief Initiates the cryptographic handle for hashing data
+ *
+ * Uses the OpenSSL SHA256_Init() API to initiate an SHA256_CTX object in |handle|.
+ *
+ * @param handle Pointer to the OpenSSL cryptographic handle.
+ *
+ * @returns SV_OK Successfully initialized SHA256_CTX object in |handle|,
+ *          SV_INVALID_PARAMETER Null pointer input,
+ *          SV_EXTERNAL_ERROR Failed to initialize.
+ */
+SignedVideoReturnCode
+openssl_init_hash(void *handle);
+
+/**
+ * @brief Updates the cryptographic handle with |data| for hashing
+ *
+ * Uses the OpenSSL SHA256_Update() API to update the SHA256_CTX object in |handle| with |data|.
+ *
+ * @param handle Pointer to the OpenSSL cryptographic handle.
+ * @param data Pointer to the data to update an ongoing hash.
+ * @param data_size Size of the |data|.
+ *
+ * @returns SV_OK Successfully updated SHA256_CTX object in |handle|,
+ *          SV_INVALID_PARAMETER Null pointer inputs, or invalid |data_size|,
+ *          SV_EXTERNAL_ERROR Failed to update.
+ */
+SignedVideoReturnCode
+openssl_update_hash(void *handle, const uint8_t *data, size_t data_size);
+
+/**
+ * @brief Finalizes the cryptographic handle and outputs the hash
+ *
+ * Uses the OpenSSL SHA256_Final() API to finalize the SHA256_CTX object in |handle| and get the
+ * |hash|. The SHA256_CTX object in |handle| is reset afterwards.
+ *
+ * @param handle Pointer to the OpenSSL cryptographic handle.
+ * @param hash A pointer to the hashed output. This memory has to be pre-allocated.
+ *
+ * @returns SV_OK Successfully wrote the final result of SHA256_CTX object in |handle| to |hash|,
+ *          SV_INVALID_PARAMETER Null pointer inputs,
+ *          SV_EXTERNAL_ERROR Failed to finalize.
+ */
+SignedVideoReturnCode
+openssl_finalize_hash(void *handle, uint8_t *hash);
 
 /**
  * @brief Verifies a signature against a hash
