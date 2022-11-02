@@ -360,6 +360,34 @@ START_TEST(intact_multislice_stream)
 }
 END_TEST
 
+START_TEST(intact_stream_with_splitted_nalus)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  // Create a list of NALUs given the input string.
+  nalu_list_t *list = create_signed_splitted_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
+  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
+
+  // All NALUs but the last 'I' are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 26, 25, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // One pending NALU per GOP.
+  struct validation_stats expected = {
+      .valid_gops = 7, .pending_nalus = 7, .final_validation = &final_validation};
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
+      expected.valid_gops = 5;
+      expected.pending_nalus = 5;
+      expected.has_signature = 2;
+    }
+  }
+  validate_nalu_list(NULL, list, expected);
+
+  nalu_list_free(list);
+}
+END_TEST
+
 /* The action here is only correct in the NAL unit stream format. If we use the bytestream format,
  * the PPS is prepended the I-nalu in the same AU, hence, the prepending function will add the
  * SEI-nalu(s) before the PPS. */
@@ -1810,7 +1838,7 @@ START_TEST(fallback_to_gop_level)
 #endif
 
   // Create a list of NALUs given the input string.
-  nalu_list_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPI");
+  nalu_list_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPI", false);
   nalu_list_check_str(list, "GIPPGIPPPPPPPPPPPPPPPPPPPPPPPPGIPPGI");
 
   // Final validation is OK and all received NALUs, but the last one, are validated.
@@ -2192,6 +2220,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, invalid_api_inputs, s, e);
   tcase_add_loop_test(tc, intact_stream, s, e);
   tcase_add_loop_test(tc, intact_multislice_stream, s, e);
+  tcase_add_loop_test(tc, intact_stream_with_splitted_nalus, s, e);
   tcase_add_loop_test(tc, intact_stream_with_pps_nalu_stream, s, e);
   tcase_add_loop_test(tc, intact_stream_with_pps_bytestream, s, e);
   tcase_add_loop_test(tc, intact_ms_stream_with_pps_nalu_stream, s, e);

@@ -160,7 +160,7 @@ pull_nalus(signed_video_t *sv, nalu_list_item_t *item)
  * data for these. Then adds these NALUs to the input session. The generated sei-nalus are added to
  * the stream. */
 nalu_list_t *
-create_signed_nalus_with_sv(signed_video_t *sv, const char *str)
+create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalus)
 {
   SignedVideoReturnCode rc = SV_OK;
   ck_assert(sv);
@@ -172,7 +172,17 @@ create_signed_nalus_with_sv(signed_video_t *sv, const char *str)
 
   // Loop through the NALUs and add for signing.
   while (item) {
-    rc = signed_video_add_nalu_for_signing_with_timestamp(sv, item->data, item->data_size, &g_testTimestamp);
+    if (split_nalus) {
+      // Split the NALU into 2 parts, where the last part inlcudes the ID and the stop bit.
+      rc = signed_video_add_nalu_part_for_signing_with_timestamp(
+          sv, item->data, item->data_size - 2, &g_testTimestamp, false);
+      ck_assert_int_eq(rc, SV_OK);
+      rc = signed_video_add_nalu_part_for_signing_with_timestamp(
+          sv, &item->data[item->data_size - 2], 2, &g_testTimestamp, true);
+    } else {
+      rc = signed_video_add_nalu_part_for_signing_with_timestamp(
+          sv, item->data, item->data_size, &g_testTimestamp, true);
+    }
     ck_assert_int_eq(rc, SV_OK);
     // Pull NALUs to prepend or append and inject into the NALU list.
     pull_nalus(sv, item);
@@ -203,8 +213,11 @@ create_signed_nalus(const char *str, struct sv_setting settings)
  * generated NALUs are then passed through the signing process and corresponding generated
  * sei-nalus are added to the stream. If |new_private_key| is 'true' then a new private key is
  * generated else an already generated private key is used. */
-nalu_list_t *
-create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_private_key)
+static nalu_list_t *
+create_signed_splitted_nalus_int(const char *str,
+    struct sv_setting settings,
+    bool new_private_key,
+    bool split_nalus)
 {
   if (!str) return NULL;
   signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo, new_private_key);
@@ -216,10 +229,22 @@ create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_pr
 #endif
 
   // Create a list of NALUs given the input string.
-  nalu_list_t *list = create_signed_nalus_with_sv(sv, str);
+  nalu_list_t *list = create_signed_nalus_with_sv(sv, str, split_nalus);
   signed_video_free(sv);
 
   return list;
+}
+
+nalu_list_t *
+create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_private_key)
+{
+  return create_signed_splitted_nalus_int(str, settings, new_private_key, false);
+}
+
+nalu_list_t *
+create_signed_splitted_nalus(const char *str, struct sv_setting settings)
+{
+  return create_signed_splitted_nalus_int(str, settings, false, true);
 }
 
 /* Creates and initializes a signed video session. */

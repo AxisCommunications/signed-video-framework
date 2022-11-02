@@ -330,11 +330,7 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list)
       SVI_THROW_IF(!tmp_tlv_memory, SVI_MEMORY);
       memcpy(tmp_tlv_memory, item->nalu->tlv_data, item->nalu->tlv_size);
     }
-    memcpy(copied_nalu, item->nalu, sizeof(h26x_nalu_t));
-    copied_nalu->nalu_data = NULL;
-    copied_nalu->hashable_data = NULL;
-    copied_nalu->payload = NULL;
-    copied_nalu->tlv_start_in_nalu_data = NULL;
+    copy_nalu_except_pointers(copied_nalu, item->nalu);
     copied_nalu->tmp_tlv_memory = tmp_tlv_memory;
     copied_nalu->tlv_data = copied_nalu->tmp_tlv_memory;
   SVI_CATCH()

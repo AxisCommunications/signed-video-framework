@@ -74,6 +74,10 @@ get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_
 nalu_list_t *
 create_signed_nalus(const char *str, struct sv_setting settings);
 
+/* See function create_signed_nalus_int, with the diffrence that each NALU is split in two parts. */
+nalu_list_t *
+create_signed_splitted_nalus(const char *str, struct sv_setting settings);
+
 /* Creates a nalu_list_t with all the NALUs produced after signing. This mimic what leaves the
  * camera.
  *
@@ -103,7 +107,7 @@ create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_pr
  * data for these. Then adds these NALUs to the input session. The generated sei-nalus are added to
  * the stream. */
 nalu_list_t *
-create_signed_nalus_with_sv(signed_video_t *sv, const char *str);
+create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalus);
 
 /* Removes the NALU list items with position |item_number| from the |list|. The item is, after a
  * check against the expected |str|, then freed. */
