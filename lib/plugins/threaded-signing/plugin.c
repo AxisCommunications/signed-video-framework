@@ -123,22 +123,16 @@ sv_threaded_plugin_reset(sv_threaded_plugin_t *self)
   local_signature_info_free(self->signature_info);
   self->signature_info = NULL;
 
-  int j = 0;
-  while (self->output_buffer[j].signature != NULL) {
-    if (self->output_buffer[j].signature != NULL) {
-      free(self->output_buffer[j].signature);
-      self->output_buffer[j].signature = NULL;
-      self->output_buffer[j].size = 0;
-      self->output_buffer[j].signing_error = false;
-    }
-    j++;
+  for (int i = 0; i < MAX_BUFFER_LENGTH; i++) {
+    free(self->output_buffer[i].signature);
+    self->output_buffer[i].signature = NULL;
+    self->output_buffer[i].size = 0;
+    self->output_buffer[i].signing_error = false;
   }
 
-  int i = 0;
-  while (self->input_buffer[i] != NULL) {
-    free(self->input_buffer[i]);
-    self->input_buffer[i] = NULL;
-    i++;
+  for (int j = 0; j < MAX_BUFFER_LENGTH; j++) {
+    free(self->input_buffer[j]);
+    self->input_buffer[j] = NULL;
   }
   self->hash_size = 0;
 }
@@ -172,11 +166,9 @@ signing_worker_thread(void *user_data)
       int j = 0;
       while (self->input_buffer[j] != NULL) {
         self->input_buffer[j] = self->input_buffer[j + 1];
-        if (self->input_buffer[j + 1] != NULL) {
-        }
         j++;
       }
-      self->input_buffer[j + 1] = tmp;
+      self->input_buffer[j - 1] = tmp;
       self->input_buffer_idx -= 1;
 
       // Let the signing operate outside a lock. Otherwise sv_interface_get_signature() is blocked,
@@ -289,7 +281,7 @@ threaded_openssl_get_signature(sv_threaded_plugin_t *self,
   SignedVideoReturnCode status = SV_OK;
 
   g_mutex_lock(&self->mutex);
-  if (self->output_buffer[0].signature) {
+  if (self->output_buffer_idx > 0) {
     if (self->output_buffer[0].size > max_signature_size) {
       // If there is no room to copy the signature, report zero size.
       *written_signature_size = 0;
@@ -304,8 +296,10 @@ threaded_openssl_get_signature(sv_threaded_plugin_t *self,
         self->output_buffer[i] = self->output_buffer[i + 1];
         i++;
       }
-      self->output_buffer[i + 1] = tmp;
-      self->output_buffer_idx -= 1;
+      self->output_buffer[i - 1] = tmp;
+      if (self->output_buffer_idx > 0) {
+        self->output_buffer_idx -= 1;
+      }
     }
     // Change state and mark as copied.
     has_copied_signature = true;
