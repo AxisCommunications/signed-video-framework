@@ -143,7 +143,6 @@ static void *
 signing_worker_thread(void *user_data)
 {
   sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)user_data;
-  self->output_buffer_idx = 0;
 
   g_mutex_lock(&self->mutex);
   if (self->is_running) goto done;
@@ -155,7 +154,6 @@ signing_worker_thread(void *user_data)
   while (self->is_running) {
     if (self->input_buffer_idx > 0) {
       // Get the oldest hash from the input buffer
-      assert(self->input_buffer_idx <= MAX_BUFFER_LENGTH);
       // Copy the hash to |signature_info| and start signing. In principle, it is now possible to
       // prepare for a new hash.
       assert(self->hash_size == self->signature_info->hash_size);
@@ -164,7 +162,7 @@ signing_worker_thread(void *user_data)
 
       uint8_t *tmp = self->input_buffer[0];
       int j = 0;
-      while (self->input_buffer[j] != NULL) {
+      while (self->input_buffer[j] != NULL && j < MAX_BUFFER_LENGTH) {
         self->input_buffer[j] = self->input_buffer[j + 1];
         j++;
       }
@@ -184,7 +182,6 @@ signing_worker_thread(void *user_data)
       }
       g_mutex_lock(&self->mutex);
 
-      self->output_buffer[self->output_buffer_idx].signing_error = false;
       // If not successfully done with signing, set |signing_error| to true to
       // report the error when getting the signature.
       self->output_buffer[self->output_buffer_idx].signing_error = (status != SV_OK);
@@ -194,12 +191,17 @@ signing_worker_thread(void *user_data)
         if (!self->output_buffer[self->output_buffer_idx].signature) {
           self->output_buffer[self->output_buffer_idx].signature =
               calloc(1, self->signature_info->max_signature_size);
-          self->output_buffer[self->output_buffer_idx].size = self->signature_info->signature_size;
+        }
+        if (!self->output_buffer[self->output_buffer_idx].signature) {
+          // Failed in memory allocation. Free all memory and set status to SV_MEMORY.
+          sv_threaded_plugin_reset(self);
+          status = SV_MEMORY;
         }
 
         // Copy the |signature| to the output buffer
         memcpy(self->output_buffer[self->output_buffer_idx].signature,
             self->signature_info->signature, self->output_buffer[self->output_buffer_idx].size);
+        self->output_buffer[self->output_buffer_idx].size = self->signature_info->signature_size;
         self->output_buffer_idx++;
       }
     } else {
@@ -281,7 +283,11 @@ threaded_openssl_get_signature(sv_threaded_plugin_t *self,
   SignedVideoReturnCode status = SV_OK;
 
   g_mutex_lock(&self->mutex);
-  if (self->output_buffer_idx > 0) {
+  if (self->output_buffer[0].signing_error) {
+    *written_signature_size = 0;
+    // Propagate SV_EXTERNAL_ERROR when signing failed.
+    status = SV_EXTERNAL_ERROR;
+  } else if (self->output_buffer_idx > 0) {
     if (self->output_buffer[0].size > max_signature_size) {
       // If there is no room to copy the signature, report zero size.
       *written_signature_size = 0;
@@ -289,26 +295,20 @@ threaded_openssl_get_signature(sv_threaded_plugin_t *self,
       // Get the oldest signature
       memcpy(signature, self->output_buffer[0].signature, self->output_buffer[0].size);
       *written_signature_size = self->output_buffer[0].size;
-      // Move buffer
-      output_data_t tmp = self->output_buffer[0];
-      int i = 0;
-      while (self->output_buffer[i].signature != NULL) {
-        self->output_buffer[i] = self->output_buffer[i + 1];
-        i++;
-      }
-      self->output_buffer[i - 1] = tmp;
-      if (self->output_buffer_idx > 0) {
-        self->output_buffer_idx -= 1;
-      }
+      // Change state and mark as copied.
+      has_copied_signature = true;
     }
-    // Change state and mark as copied.
-    has_copied_signature = true;
-  } else if (self->output_buffer[0].signing_error) {
-    *written_signature_size = 0;
-    // Change state and mark as copied.
-    has_copied_signature = true;
-    // Propagate SV_EXTERNAL_ERROR when signing failed.
-    status = SV_EXTERNAL_ERROR;
+  }
+  if (self->output_buffer_idx > 0) {
+    // Move buffer
+    output_data_t tmp = self->output_buffer[0];
+    int i = 0;
+    while (self->output_buffer[i].signature != NULL) {
+      self->output_buffer[i] = self->output_buffer[i + 1];
+      i++;
+    }
+    self->output_buffer[i - 1] = tmp;
+    self->output_buffer_idx -= 1;
   }
   g_mutex_unlock(&self->mutex);
 
