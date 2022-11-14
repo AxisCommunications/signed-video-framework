@@ -21,9 +21,8 @@
 
 /**
  * This signing plugin sets up a worker thread and calls openssl_sign_hash(), from the worker
- * thread, when there is a new hash to sign. The plugin can only handle one signature at a time.
- * To handle delays, there are therefore two buffers. One for incomming hashes and another for
- * outgoing signatures.
+ * thread, when there is a new hash to sign. To handle several signatures at the same time, the
+ * plugin has two buffers. One for incomming hashes and another for outgoing signatures.
  */
 
 #include <assert.h>
@@ -154,19 +153,22 @@ signing_worker_thread(void *user_data)
   while (self->is_running) {
     if (self->input_buffer_idx > 0) {
       // Get the oldest hash from the input buffer
-      // Copy the hash to |signature_info| and start signing. In principle, it is now possible to
-      // prepare for a new hash.
+      // Copy the hash to |signature_info| and start signing.
       assert(self->hash_size == self->signature_info->hash_size);
       assert(self->signature_info->hash);
       memcpy(self->signature_info->hash, self->input_buffer[0], self->hash_size);
 
       uint8_t *tmp = self->input_buffer[0];
       int j = 0;
-      while (self->input_buffer[j] != NULL && j < MAX_BUFFER_LENGTH) {
+      while (self->input_buffer[j] != NULL && j < MAX_BUFFER_LENGTH - 1) {
         self->input_buffer[j] = self->input_buffer[j + 1];
         j++;
       }
-      self->input_buffer[j - 1] = tmp;
+      if (j < MAX_BUFFER_LENGTH - 1) {
+        self->input_buffer[j - 1] = tmp;
+      } else {
+        self->input_buffer[j] = tmp;
+      }
       self->input_buffer_idx -= 1;
 
       // Let the signing operate outside a lock. Otherwise sv_interface_get_signature() is blocked,
@@ -191,18 +193,20 @@ signing_worker_thread(void *user_data)
         if (!self->output_buffer[self->output_buffer_idx].signature) {
           self->output_buffer[self->output_buffer_idx].signature =
               calloc(1, self->signature_info->max_signature_size);
-        }
-        if (!self->output_buffer[self->output_buffer_idx].signature) {
-          // Failed in memory allocation. Free all memory and set status to SV_MEMORY.
-          sv_threaded_plugin_reset(self);
-          status = SV_MEMORY;
+          if (!self->output_buffer[self->output_buffer_idx].signature) goto catch_error;
         }
 
         // Copy the |signature| to the output buffer
         memcpy(self->output_buffer[self->output_buffer_idx].signature,
-            self->signature_info->signature, self->output_buffer[self->output_buffer_idx].size);
+            self->signature_info->signature, self->signature_info->signature_size);
         self->output_buffer[self->output_buffer_idx].size = self->signature_info->signature_size;
         self->output_buffer_idx++;
+      }
+    catch_error:
+      if (status == SV_UNKNOWN_FAILURE) {
+        // Failed in memory allocation. Free all memory and set status to SV_MEMORY.
+        sv_threaded_plugin_reset(self);
+        status = SV_MEMORY;
       }
     } else {
       // Wait for a signal, triggered when it is time to sign a hash.
@@ -283,12 +287,12 @@ threaded_openssl_get_signature(sv_threaded_plugin_t *self,
   SignedVideoReturnCode status = SV_OK;
 
   g_mutex_lock(&self->mutex);
-  if (self->output_buffer[0].signing_error) {
-    *written_signature_size = 0;
-    // Propagate SV_EXTERNAL_ERROR when signing failed.
-    status = SV_EXTERNAL_ERROR;
-  } else if (self->output_buffer_idx > 0) {
-    if (self->output_buffer[0].size > max_signature_size) {
+  if (self->output_buffer_idx > 0) {
+    if (self->output_buffer[0].signing_error) {
+      *written_signature_size = 0;
+      // Propagate SV_EXTERNAL_ERROR when signing failed.
+      status = SV_EXTERNAL_ERROR;
+    } else if (self->output_buffer[0].size > max_signature_size) {
       // If there is no room to copy the signature, report zero size.
       *written_signature_size = 0;
     } else {
@@ -298,16 +302,18 @@ threaded_openssl_get_signature(sv_threaded_plugin_t *self,
       // Change state and mark as copied.
       has_copied_signature = true;
     }
-  }
-  if (self->output_buffer_idx > 0) {
     // Move buffer
     output_data_t tmp = self->output_buffer[0];
     int i = 0;
-    while (self->output_buffer[i].signature != NULL) {
+    while (self->output_buffer[i].signature != NULL && i < MAX_BUFFER_LENGTH - 1) {
       self->output_buffer[i] = self->output_buffer[i + 1];
       i++;
     }
-    self->output_buffer[i - 1] = tmp;
+    if (i < MAX_BUFFER_LENGTH - 1) {
+      self->output_buffer[i - 1] = tmp;
+    } else {
+      self->output_buffer[i] = tmp;
+    }
     self->output_buffer_idx -= 1;
   }
   g_mutex_unlock(&self->mutex);
