@@ -392,14 +392,14 @@ START_TEST(intact_stream_with_splitted_nalus)
   // All NALUs but the last 'I' are validated.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 26, 25, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // One pending NALU per GOP.
+  // For expected values see the "intact_stream" test above.
   struct validation_stats expected = {
       .valid_gops = 7, .pending_nalus = 7, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
-      expected.valid_gops = 5;
-      expected.pending_nalus = 5;
-      expected.has_signature = 2;
+      expected.valid_gops = 6;
+      expected.pending_nalus = 10;
+      expected.has_signature = 1;
     }
   }
   validate_nalu_list(NULL, list, expected);
