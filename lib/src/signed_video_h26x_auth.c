@@ -29,7 +29,7 @@
 #include "includes/signed_video_openssl.h"  // openssl_verify_hash()
 #include "signed_video_authenticity.h"  // create_local_authenticity_report_if_needed()
 #include "signed_video_defines.h"  // svi_rc
-#include "signed_video_h26x_internal.h"  // gop_state_reset(), update_gop_hash()
+#include "signed_video_h26x_internal.h"  // gop_state_*(), update_gop_hash(), update_validation_flags()
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_append()
 #include "signed_video_internal.h"  // gop_info_t, gop_state_t, reset_gop_hash()
 #include "signed_video_openssl_internal.h"  // openssl_get_algo_of_public_key()
@@ -55,6 +55,10 @@ static svi_rc
 prepare_for_validation(signed_video_t *self);
 static bool
 is_recurrent_data_decoded(signed_video_t *self);
+static bool
+has_pending_gop(signed_video_t *self);
+static bool
+validation_is_feasible(const h26x_nalu_list_item_t *item);
 
 static void
 remove_used_in_gop_hash(h26x_nalu_list_t *nalu_list);
@@ -96,15 +100,13 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
     if (potentially_missed_gops < 0) potentially_missed_gops += INT64_MAX;
     // It is only possible to know if a SEI has been lost if the |global_gop_counter| is in sync.
     // Otherwise, the counter cannot be trusted.
-    self->gop_info_detected.has_lost_sei =
+    self->gop_state.has_lost_sei =
         (potentially_missed_gops > 0) && self->gop_info->global_gop_counter_is_synced;
-    // If the previous NALU was a SEI we needed one more NALU to complete the GOP
-    // (AUTH_STATE_WAIT_FOR_NEXT_NALU). This is where we are now and ready for validation. If we
-    // have not received the I NALU and have lost at least one SEI, we have lost the transition
-    // between GOPs.
-    if ((self->gop_state.prev_auth_state == AUTH_STATE_WAIT_FOR_NEXT_NALU) &&
-        self->gop_info_detected.has_lost_sei) {
-      self->gop_info_detected.gop_transition_is_lost = true;
+    // Every SEI is associated with a GOP. If a lost SEI has been detected, and no GOP end has been
+    // found prior to this SEI, it means both a SEI and an I-frame was lost. This is defined as a
+    // lost GOP transition.
+    if (self->gop_state.no_gop_end_before_sei && self->gop_state.has_lost_sei) {
+      self->gop_state.gop_transition_is_lost = true;
     }
 
   SVI_CATCH()
@@ -295,6 +297,10 @@ verify_hashes_with_hash_list(signed_video_t *self, int *num_expected_nalus, int 
       // We cannot mark the last item as Missing since it will be handled a second time in the next
       // GOP.
       num_unused_expected_hashes--;
+      if (num_unused_expected_hashes >= 0) {
+        // Avoids reporting the lost linked hash twice.
+        num_verified_hashes++;
+      }
       // No need to check the return value. A failure only affects the statistics. In the worst case
       // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
       h26x_nalu_list_add_missing(nalu_list, num_unused_expected_hashes, true, last_used_item);
@@ -399,7 +405,7 @@ verify_hashes_with_gop_hash(signed_video_t *self, int *num_expected_nalus, int *
   num_received_hashes =
       set_validation_status_of_items_used_in_gop_hash(self->nalu_list, validation_status);
 
-  if (!self->gop_state.is_first_validation && first_gop_hash_item) {
+  if (!self->validation_flags.is_first_validation && first_gop_hash_item) {
     int num_missing_nalus = num_expected_hashes - num_received_hashes;
     const bool append = first_gop_hash_item->nalu->is_first_nalu_in_gop;
     // No need to check the return value. A failure only affects the statistics. In the worst case
@@ -460,7 +466,7 @@ verify_hashes_without_sei(signed_video_t *self)
   }
 
   // If we have verified a GOP without a SEI, we should increment the |global_gop_counter|.
-  if (self->gop_state.signing_present && (num_marked_items > 0)) {
+  if (self->validation_flags.signing_present && (num_marked_items > 0)) {
     self->gop_info->global_gop_counter++;
   }
 
@@ -495,7 +501,7 @@ validate_authenticity(signed_video_t *self)
   assert(self);
 
   gop_state_t *gop_state = &(self->gop_state);
-  gop_info_detected_t *gop_info_detected = &(self->gop_info_detected);
+  validation_flags_t *validation_flags = &(self->validation_flags);
   signed_video_latest_validation_t *latest = self->latest_validation;
 
   SignedVideoAuthenticityResult valid = SV_AUTH_RESULT_NOT_OK;
@@ -506,8 +512,7 @@ validate_authenticity(signed_video_t *self)
   int num_missed_nalus = -1;
   bool verify_success = false;
 
-  if (!gop_info_detected->has_gop_sei ||
-      (gop_info_detected->has_lost_sei && !gop_info_detected->gop_transition_is_lost)) {
+  if (gop_state->has_lost_sei && !gop_state->gop_transition_is_lost) {
     DEBUG_LOG("We never received the SEI associated with this GOP");
     // We never received the SEI nalu, but we know we have passed a GOP transition. Hence, we cannot
     // verify this GOP. Marking this GOP as not OK by verify_hashes_without_sei().
@@ -536,7 +541,7 @@ validate_authenticity(signed_video_t *self)
   // it afterwards.
   // TODO: Move this inside the verify_hashes_ functions. We should not need to perform any special
   // actions on the output.
-  if (!gop_state->is_first_validation) {
+  if (!validation_flags->is_first_validation) {
     if ((valid == SV_AUTH_RESULT_OK) && (num_expected_nalus > 1) &&
         (num_missed_nalus >= num_expected_nalus - 1)) {
       valid = SV_AUTH_RESULT_NOT_OK;
@@ -554,7 +559,7 @@ validate_authenticity(signed_video_t *self)
   // interpreted as being in sync with its signing counterpart. If this session validates the
   // authenticity of a segment of a stream, e.g., an exported file, we start out of sync. The first
   // SEI may be associated with a GOP prior to this segment.
-  if (gop_state->is_first_validation) {
+  if (validation_flags->is_first_validation) {
     // Change status from SV_AUTH_RESULT_OK to SV_AUTH_RESULT_SIGNATURE_PRESENT if no valid NALUs
     // were found when collecting stats.
     if ((valid == SV_AUTH_RESULT_OK) && !has_valid_nalus) {
@@ -647,9 +652,9 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
       found_item_after_sei = (item->prev == sei);
       // Check if this |is_first_nalu_in_gop|, but used in verification for the first time.
       found_next_gop = (item->nalu->is_first_nalu_in_gop && !item->need_second_verification);
-      // If this is the SEI associated with the GOP we skip it. The hash will be added to |gop_hash|
-      // as the last hash.
-      if (item == sei) {
+      // If this is the SEI associated with the GOP, or any SEI, we skip it. The SEI hash will be
+      // added to |gop_hash| as the last hash.
+      if (item->nalu->is_gop_sei) {
         item = item->next;
         continue;
       }
@@ -695,7 +700,7 @@ prepare_for_validation(signed_video_t *self)
 {
   assert(self);
 
-  gop_state_t *gop_state = &(self->gop_state);
+  validation_flags_t *validation_flags = &(self->validation_flags);
   h26x_nalu_list_t *nalu_list = self->nalu_list;
   signature_info_t *signature_info = self->signature_info;
 
@@ -721,8 +726,8 @@ prepare_for_validation(signed_video_t *self)
       memcpy(signature_info->hash, self->gop_info->gop_hash, HASH_DIGEST_SIZE);
     }
 
-    SVI_THROW_IF_WITH_MSG(gop_state->signing_present && !self->has_public_key, SVI_NOT_SUPPORTED,
-        "No public key present");
+    SVI_THROW_IF_WITH_MSG(validation_flags->signing_present && !self->has_public_key,
+        SVI_NOT_SUPPORTED, "No public key present");
 
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // If "Axis Communications AB" can be identified from the |product_info|, get
@@ -754,7 +759,7 @@ prepare_for_validation(signed_video_t *self)
 #endif
 
     // If we have received a SEI there is a signature to use for verification.
-    if (self->gop_info_detected.has_gop_sei) {
+    if (self->gop_state.has_gop_sei) {
       SVI_THROW(sv_rc_to_svi_rc(
           openssl_verify_hash(signature_info, &self->gop_info->verified_signature_hash)));
     }
@@ -769,12 +774,9 @@ prepare_for_validation(signed_video_t *self)
 static bool
 is_recurrent_data_decoded(signed_video_t *self)
 {
-  gop_state_t *gop_state = &(self->gop_state);
-  gop_info_detected_t *gop_info_detected = &(self->gop_info_detected);
-  signed_video_latest_validation_t *latest = self->latest_validation;
   h26x_nalu_list_t *nalu_list = self->nalu_list;
 
-  if (self->has_public_key || !gop_state->signing_present) return true;
+  if (self->has_public_key || !self->validation_flags.signing_present) return true;
 
   bool recurrent_data_decoded = false;
   h26x_nalu_list_item_t *item = nalu_list->first_item;
@@ -787,14 +789,88 @@ is_recurrent_data_decoded(signed_video_t *self)
     }
     item = item->next;
   }
-  if (!recurrent_data_decoded) {
-    DEBUG_LOG("Public key missing");
-    // TODO: Investigate if it's needed to take any special actions when moving to the next GOP
-    gop_state_reset(gop_state, gop_info_detected);
-    latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
-  }
 
   return recurrent_data_decoded;
+}
+
+/* Loops through the |nalu_list| to find out if there are GOPs that awaits validation. */
+static bool
+has_pending_gop(signed_video_t *self)
+{
+  assert(self && self->nalu_list);
+  gop_state_t *gop_state = &(self->gop_state);
+  h26x_nalu_list_item_t *item = self->nalu_list->first_item;
+  h26x_nalu_list_item_t *last_hashable_item = NULL;
+  // Statistics collected while looping through the NALUs.
+  int num_pending_gop_ends = 0;
+  bool found_pending_gop_sei = false;
+  bool found_pending_nalu_after_gop_sei = false;
+  bool found_pending_gop = false;
+
+  // Reset the |gop_state| members before running through the NALUs in |nalu_list|.
+  gop_state_reset(gop_state);
+
+  while (item && !found_pending_gop) {
+    gop_state_update(gop_state, item->nalu);
+    // Collect statistics from pending and hashable NALUs only. The others are either out of date or
+    // not part of the validation.
+    if (item->validation_status == 'P' && item->nalu && item->nalu->is_hashable) {
+      num_pending_gop_ends += (item->nalu->is_first_nalu_in_gop && !item->need_second_verification);
+      found_pending_gop_sei |= item->nalu->is_gop_sei;
+      found_pending_nalu_after_gop_sei |=
+          last_hashable_item && last_hashable_item->nalu->is_gop_sei;
+      last_hashable_item = item;
+    }
+    if (!self->validation_flags.signing_present) {
+      // If the video is not signed we need at least 2 I-frames to have a complete GOP.
+      found_pending_gop |= (num_pending_gop_ends >= 2);
+    } else {
+      // When the video is signed it is time to validate when there is at least one GOP and a SEI.
+      found_pending_gop |= (num_pending_gop_ends > 0) && found_pending_gop_sei;
+    }
+    // When a SEI is detected there can at most be one more NALU to perform validation.
+    found_pending_gop |= found_pending_nalu_after_gop_sei;
+    item = item->next;
+  }
+
+  if (!found_pending_gop && last_hashable_item && last_hashable_item->nalu->is_gop_sei) {
+    gop_state->validate_after_next_nalu = true;
+  }
+  gop_state->no_gop_end_before_sei = found_pending_nalu_after_gop_sei && (num_pending_gop_ends < 2);
+
+  return found_pending_gop;
+}
+
+/* Determines if the |item| is up for a validation.
+ * The NALU should be hashable and pending validation.
+ * If so, validation is triggered on any of the below
+ *   - a SEI (since if the SEI arrives late, the SEI is the final piece for validation)
+ *   - a new I-frame (since this marks the end of a GOP)
+ *   - the first hashable NALU right after a pending SEI (if a SEI has not been validated, we need
+ *     at most one more hashable NALU) */
+static bool
+validation_is_feasible(const h26x_nalu_list_item_t *item)
+{
+  if (!item->nalu) return false;
+  if (!item->nalu->is_hashable) return false;
+  if (item->validation_status != 'P') return false;
+
+  // Validation may be done upon a SEI.
+  if (item->nalu->is_gop_sei) return true;
+  // Validation may be done upon the end of a GOP.
+  if (item->nalu->is_first_nalu_in_gop && !item->need_second_verification) return true;
+  // Validation may be done upon a hashable NALU right after a SEI. This happens when the SEI was
+  // generated and attached to the same NALU that triggered the action.
+  item = item->prev;
+  while (item) {
+    if (item->nalu && item->nalu->is_hashable) {
+      break;
+    }
+    item = item->prev;
+  }
+  if (item && item->nalu->is_gop_sei && item->validation_status == 'P') return true;
+
+  return false;
 }
 
 /* Validates the authenticity of the video since last time if the state says so. After the
@@ -804,88 +880,72 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
 {
   assert(self && nalu);
 
-  gop_state_t *gop_state = &(self->gop_state);
-  gop_info_detected_t *gop_info_detected = &(self->gop_info_detected);
+  validation_flags_t *validation_flags = &(self->validation_flags);
   signed_video_latest_validation_t *latest = self->latest_validation;
   h26x_nalu_list_t *nalu_list = self->nalu_list;
+  bool validation_feasible = true;
 
-  if (gop_state->auth_state != AUTH_STATE_VALIDATE) return SVI_OK;
-  // We cannot end up in AUTH_STATE_VALIDATE if the NALU is not hashable.
-  assert(nalu->is_hashable);
+  // Make sure the current NALU can trigger a validation.
+  validation_feasible &= validation_is_feasible(nalu_list->last_item);
+  // Make sure there is enough information to perform validation.
+  validation_feasible &= is_recurrent_data_decoded(self);
 
-  // Copy |gop_info_detected| and |gop_state| to struct |nalu_list|. This is needed if the public
-  // key arrives late. When public key eventually arrives, correct |gop_info_detected| and
-  // |gop_state| can be used for that specific gop.
-  if (nalu_list->gop_idx < MAX_PENDING_GOPS) {
-    memcpy(&nalu_list->gop_state_pending[nalu_list->gop_idx], gop_state, sizeof(gop_state_t));
-    memcpy(&nalu_list->gop_info_detected_pending[nalu_list->gop_idx], gop_info_detected,
-        sizeof(gop_info_detected_t));
-    nalu_list->gop_idx++;
-  } else {
-    DEBUG_LOG("Warning: Number of pending gops exeeds limit > %d", MAX_PENDING_GOPS);
-    return SVI_MEMORY;
-  }
-
-  if (!is_recurrent_data_decoded(self)) {
-    DEBUG_LOG("No recurrent data yet received");
+  // Abort if validation is not feasible.
+  if (!validation_feasible) {
+    // If this is the first arrived SEI, but could still not validate the authenticity, signal to
+    // the user that the Signed Video feature has been detected.
+    if (validation_flags->is_first_sei) {
+      latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+      latest->number_of_expected_picture_nalus = -1;
+      latest->number_of_received_picture_nalus = -1;
+      latest->number_of_pending_picture_nalus = h26x_nalu_list_num_pending_items(nalu_list);
+      latest->public_key_has_changed = false;
+      self->validation_flags.has_auth_result = true;
+    }
     return SVI_OK;
   }
 
-  // Initialize latest validation.
-  latest->authenticity = SV_AUTH_RESULT_NOT_OK;
-  latest->number_of_expected_picture_nalus = -1;
-  latest->number_of_received_picture_nalus = -1;
-  latest->number_of_pending_picture_nalus = -1;
-  latest->public_key_has_changed = false;
-
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    // Loop through possible pending gops and validate them
-    for (int i = 0; i < nalu_list->gop_idx; i++) {
-      memcpy(gop_state, &nalu_list->gop_state_pending[i], sizeof(gop_state_t));
-      memcpy(
-          gop_info_detected, &nalu_list->gop_info_detected_pending[i], sizeof(gop_info_detected_t));
-
-      // Need to force setting |is_first validation| since it is overwritten in the memcpy above
-      if (i > 0) gop_state->is_first_validation = false;
+    // Keep validating as long as there are pending GOPs.
+    bool stop_validating = false;
+    while (has_pending_gop(self) && !stop_validating) {
+      // Initialize latest validation.
+      latest->authenticity = SV_AUTH_RESULT_NOT_OK;
+      latest->number_of_expected_picture_nalus = -1;
+      latest->number_of_received_picture_nalus = -1;
+      latest->number_of_pending_picture_nalus = -1;
+      latest->public_key_has_changed = false;
 
       SVI_THROW(prepare_for_validation(self));
 
-      if (!gop_state->signing_present) {
-        verify_hashes_without_sei(self);
+      if (!validation_flags->signing_present) {
         latest->authenticity = SV_AUTH_RESULT_NOT_SIGNED;
+        // Since no validation is performed (all items are kept pending) a forced stop is introduced
+        // to avoid a dead lock.
+        stop_validating = true;
       } else {
         validate_authenticity(self);
       }
 
       // The flag |is_first_validation| is used to ignore the first validation if we start the
       // validation in the middle of a stream. Now it is time to reset it.
-      gop_state->is_first_validation = false;
+      validation_flags->is_first_validation = !validation_flags->signing_present;
 
-      // Reset the gop_state_t and gop_info_detected_t.
-      gop_state_reset(gop_state, gop_info_detected);
-      // If we find a pending SEI and it is the latest NALU the state should be
-      // AUTH_STATE_WAIT_FOR_NEXT_NALU.
-      h26x_nalu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(nalu_list);
-      if (sei && (sei == self->nalu_list->last_item)) {
-        gop_info_detected->has_gop_sei = true;
-        gop_state->auth_state = AUTH_STATE_WAIT_FOR_NEXT_NALU;
-      }
-      // The current signature is no longer valid.
       self->gop_info->verified_signature_hash = -1;
+      self->validation_flags.has_auth_result = true;
+
+      // All statistics but pending NALUs have already been collected.
+      latest->number_of_pending_picture_nalus = h26x_nalu_list_num_pending_items(nalu_list);
+
+      DEBUG_LOG("Validated GOP as %s", kAuthResultValidStr[latest->authenticity]);
+      DEBUG_LOG("Expected number of NALUs = %d", latest->number_of_expected_picture_nalus);
+      DEBUG_LOG("Received number of NALUs = %d", latest->number_of_received_picture_nalus);
+      DEBUG_LOG("Number of pending NALUs = %d", latest->number_of_pending_picture_nalus);
     }
-    nalu_list->gop_idx = 0;
 
   SVI_CATCH()
   SVI_DONE(status)
-
-  // All statistics but pending NALUs have already been collected.
-  latest->number_of_pending_picture_nalus = h26x_nalu_list_num_pending_items(nalu_list);
-
-  DEBUG_LOG("Validated GOP as %s", kAuthResultValidStr[latest->authenticity]);
-  DEBUG_LOG("Expected number of NALUs = %d", latest->number_of_expected_picture_nalus);
-  DEBUG_LOG("Received number of NALUs = %d", latest->number_of_received_picture_nalus);
-  DEBUG_LOG("Number of pending NALUs = %d", latest->number_of_pending_picture_nalus);
 
   return status;
 }
@@ -927,27 +987,18 @@ register_nalu(signed_video_t *self, h26x_nalu_t *nalu)
 
 /* The basic order of actions are:
  * 1. Every NALU should be parsed and added to the h26x_nalu_list (|nalu_list|).
- * 2. Apply pre-actions depending on state and NALU, for example, moving from AUTH_STATE_INIT when
- *    we received the first "useful" NALU.
- * 3. Register NALU, in general that means hash the NALU if it is hashable and store it. Then update
- *    the gop_hash.
- * 4. Take action depending on state and NALU, then move to a new state. In principle this is done
- *    until we reach a no-action state. For example, the first state may be AUTH_STATE_GOP_END and
- *    the action is to verify the signature, followed by moving it to AUTH_STATE_VALIDATE. Then we
- *    validate the authenticity and move the state to AUTH_STATE_WAIT_FOR_GOP_END or
- *    AUTH_STATE_INIT.
- */
+ * 2. Update validation flags given the added NALU.
+ * 3. Register NALU, in general that means hash the NALU if it is hashable and store it.
+ * 4. Validate a pending GOP if possible. */
 static svi_rc
 signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_t nalu_data_size)
 {
   if (!self || !nalu_data || (nalu_data_size == 0)) return SVI_INVALID_PARAMETER;
 
   h26x_nalu_list_t *nalu_list = self->nalu_list;
-  gop_state_t *gop_state = &(self->gop_state);
-  gop_info_detected_t *gop_info_detected = &(self->gop_info_detected);
-  gop_state->has_auth_result = false;
   h26x_nalu_t nalu = parse_nalu_info(nalu_data, nalu_data_size, self->codec, true);
   DEBUG_LOG("Received a %s of size %zu B", nalu_type_to_str(&nalu), nalu.nalu_data_size);
+  self->validation_flags.has_auth_result = false;
 
   self->accumulated_validation->number_of_received_nalus++;
 
@@ -960,15 +1011,10 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
     // is set accordingly.
     SVI_THROW(h26x_nalu_list_append(nalu_list, &nalu));
     SVI_THROW_IF(nalu.is_valid < 0, SVI_UNKNOWN);
-    gop_state_pre_actions(&self->gop_state, &nalu);
+    update_validation_flags(&self->validation_flags, &nalu);
     SVI_THROW(register_nalu(self, &nalu));
-    gop_state_update(gop_state, gop_info_detected, &nalu);
     SVI_THROW(maybe_validate_gop(self, &nalu));
   SVI_CATCH()
-  {
-    // We aborted while processing the NALU; reset |auth_state|.
-    gop_state->auth_state = AUTH_STATE_INIT;
-  }
   SVI_DONE(status)
 
   // We need to make a copy of the |nalu| independently of failure.
@@ -1000,7 +1046,7 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
     SVI_THROW(create_local_authenticity_report_if_needed(self));
 
     SVI_THROW(signed_video_add_h26x_nalu(self, nalu_data, nalu_data_size));
-    if (self->gop_state.has_auth_result) {
+    if (self->validation_flags.has_auth_result) {
       SVI_THROW(update_authenticity_report(self));
       if (authenticity) *authenticity = signed_video_get_authenticity_report(self);
       // Reset the timestamp for the next report.

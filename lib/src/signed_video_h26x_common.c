@@ -723,6 +723,40 @@ copy_nalu_except_pointers(h26x_nalu_t *dst_nalu, const h26x_nalu_t *src_nalu)
 
 /* Helper function to public APIs */
 
+/* Internal APIs for validation_flags_t functions */
+
+/* Prints the |validation_flags| */
+void
+validation_flags_print(const validation_flags_t *validation_flags)
+{
+  if (!validation_flags) return;
+
+  DEBUG_LOG("         has_auth_result: %u", validation_flags->has_auth_result);
+  DEBUG_LOG("     is_first_validation: %u", validation_flags->is_first_validation);
+  DEBUG_LOG("         signing_present: %u", validation_flags->signing_present);
+  DEBUG_LOG("            is_first_sei: %u", validation_flags->is_first_sei);
+  DEBUG_LOG("");
+}
+
+void
+validation_flags_init(validation_flags_t *validation_flags)
+{
+  if (!validation_flags) return;
+
+  memset(validation_flags, 0, sizeof(validation_flags_t));
+  validation_flags->is_first_validation = true;
+}
+
+void
+update_validation_flags(validation_flags_t *validation_flags, h26x_nalu_t *nalu)
+{
+  if (!validation_flags || !nalu) return;
+
+  validation_flags->is_first_sei = !validation_flags->signing_present && nalu->is_gop_sei;
+  // As soon as we receive a SEI, Signed Video is present.
+  validation_flags->signing_present |= nalu->is_gop_sei;
+}
+
 /* Internal APIs for gop_state_t functions */
 
 /* Prints the |gop_state| */
@@ -731,84 +765,12 @@ gop_state_print(const gop_state_t *gop_state)
 {
   if (!gop_state) return;
 
-  DEBUG_LOG("        has_auth_result: %u", gop_state->has_auth_result);
-  DEBUG_LOG("    is_first_validation: %u", gop_state->is_first_validation);
-  DEBUG_LOG("        signing_present: %u", gop_state->signing_present);
-  DEBUG_LOG("num_pending_validations: %d", gop_state->num_pending_validations);
-  DEBUG_LOG("             auth_state: %d", gop_state->auth_state);
-  DEBUG_LOG("         cur_auth_state: %d", gop_state->cur_auth_state);
-  DEBUG_LOG("        prev_auth_state: %d", gop_state->prev_auth_state);
+  DEBUG_LOG("             has_gop_sei: %u", gop_state->has_gop_sei);
+  DEBUG_LOG("validate_after_next_nalu: %u", gop_state->validate_after_next_nalu);
+  DEBUG_LOG("   no_gop_end_before_sei: %u", gop_state->no_gop_end_before_sei);
+  DEBUG_LOG("            has_lost_sei: %u", gop_state->has_lost_sei);
+  DEBUG_LOG("  gop_transition_is_lost: %u", gop_state->gop_transition_is_lost);
   DEBUG_LOG("");
-}
-
-/* Initializes all counters and members of a |gop_state|. */
-void
-gop_state_init(gop_state_t *gop_state)
-{
-  if (!gop_state) return;
-
-  memset(gop_state, 0, sizeof(gop_state_t));
-  gop_state->is_first_validation = true;
-  gop_state->auth_state = AUTH_STATE_INIT;
-  gop_state->prev_auth_state = AUTH_STATE_INIT;
-}
-
-/* Initializes all counters and members of a |gop_info_detected|. */
-void
-gop_info_detected_init(gop_info_detected_t *gop_info_detected)
-{
-  if (!gop_info_detected) return;
-
-  memset(gop_info_detected, 0, sizeof(gop_info_detected_t));
-  gop_info_detected->has_gop_sei = false;
-}
-
-void
-gop_state_pre_actions(gop_state_t *gop_state, h26x_nalu_t *nalu)
-{
-  if (!gop_state || !nalu) return;
-
-  // The auth_state_t can only be updated if the NALU is hashable, that is, part of Signed Video.
-  if (!nalu->is_hashable) return;
-
-  // As soon as we receive a SEI, Signed Video is present.
-  gop_state->signing_present |= nalu->is_gop_sei;
-
-  // Store the previous auth_state.
-  gop_state->prev_auth_state = gop_state->cur_auth_state;
-  // If we receive an I NALU we have a GOP transition and should move to AUTH_STATE_GOP_END. The SEI
-  // can at earliest arrive just before the closing I NALU. If that is the case, we move to
-  // AUTH_STATE_WAIT_FOR_NEXT_NALU. Otherwise, being in the middle of a GOP, we should be in
-  // AUTH_STATE_WAIT_FOR_GOP_END.
-  auth_state_t is_sei_state =
-      nalu->is_gop_sei ? AUTH_STATE_WAIT_FOR_NEXT_NALU : AUTH_STATE_WAIT_FOR_GOP_END;
-  auth_state_t is_first_nalu_state = nalu->is_first_nalu_in_gop ? AUTH_STATE_GOP_END : is_sei_state;
-  // Default new state.
-  auth_state_t new_auth_state = is_first_nalu_state;
-  switch (gop_state->auth_state) {
-    case AUTH_STATE_INIT:
-    case AUTH_STATE_WAIT_FOR_GOP_END:
-      // Use default state.
-      break;
-    case AUTH_STATE_WAIT_FOR_NEXT_NALU:
-      // We got an 'on time' SEI and now received the last NALU, which means we have reached the end
-      // of a GOP.
-      new_auth_state = AUTH_STATE_GOP_END;
-      break;
-    case AUTH_STATE_GOP_END:
-      // We have passed a GOP transition and wait for the SEI to arrive. If we instead reach a new
-      // GOP transition (|is_first_nalu_in_gop|) it is time to validate the GOP without the SEI.
-      new_auth_state = nalu->is_first_nalu_in_gop ? AUTH_STATE_VALIDATE : AUTH_STATE_GOP_END;
-      break;
-    case AUTH_STATE_VALIDATE:
-    default:
-      // We should not end up here, but if we do move to AUTH_STATE_INIT.
-      new_auth_state = AUTH_STATE_INIT;
-      break;
-  }
-  gop_state->auth_state = new_auth_state;
-  // Store the current auth_state.
-  gop_state->cur_auth_state = gop_state->auth_state;
 }
 
 /* Updates the |gop_state| w.r.t. a |nalu|.
@@ -816,66 +778,27 @@ gop_state_pre_actions(gop_state_t *gop_state, h26x_nalu_t *nalu)
  * Since auth_state is updated along the way, the only thing we need to update is |has_gop_sei| to
  * know if we have received a signature for this GOP. */
 void
-gop_state_update(gop_state_t *gop_state, gop_info_detected_t *gop_info_detected, h26x_nalu_t *nalu)
+gop_state_update(gop_state_t *gop_state, h26x_nalu_t *nalu)
 {
-  if (!gop_state || !gop_info_detected || !nalu) return;
+  if (!gop_state || !nalu) return;
 
-  // If the NALU is not valid we should not take any actions.
+  // If the NALU is not valid nor hashable no action should be taken.
   if (nalu->is_valid <= 0 || !nalu->is_hashable) return;
 
-  gop_info_detected->has_gop_sei |= nalu->is_gop_sei;
-  // If we are in AUTH_STATE_GOP_END we have passed the transition to a new GOP. As soon as we have
-  // the SEI we can proceed to AUTH_STATE_VALIDATE.
-  if ((gop_state->auth_state == AUTH_STATE_GOP_END) && gop_info_detected->has_gop_sei) {
-    gop_state->auth_state = AUTH_STATE_VALIDATE;
-  }
+  gop_state->has_gop_sei |= nalu->is_gop_sei;
 }
 
-/* Resets the |gop_state| after validating a GOP. The function returns true if a reset of the
- * gop_hash is needed. */
+/* Resets the |gop_state| after validating a GOP. */
 void
-gop_state_reset(gop_state_t *gop_state, gop_info_detected_t *gop_info_detected)
+gop_state_reset(gop_state_t *gop_state)
 {
-  if (!gop_state || !gop_info_detected) return;
+  if (!gop_state) return;
 
-  if (gop_state->auth_state != AUTH_STATE_VALIDATE) {
-    DEBUG_LOG("Unexpected try to reset GOP state");
-    return;
-  }
-
-  // In general, the reset is as follows:
-  //  - remove the flags { |has_gop_sei|, |has_lost_sei|, |gop_transition_is_lost| }, since they
-  //    were used in the latest validation
-  //  - decrease the |num_pending_validations| by one, since we have just consumed one
-  //  - set |auth_state| to AUTH_STATE_WAIT_FOR_GOP_END, since we have already moved passed the GOP
-  //    transition
-  //  - set the flag |has_auth_result| to communicate that we should provide an authenticity report
-  //    to the user
-  //
-  // There are two exceptions though
-  // 1) If there are still pending validations we move straight to AUTH_STATE_GOP_END, because we
-  //    have already moved passed another GOP transition.
-  // 2) If we have lost a SEI, but managed to detect a GOP transition, we used the SEI information
-  //    to validate the wrong GOP, hence we should not reset |has_gop_sei|, and we should move
-  //    straight to AUTH_STATE_GOP_END.
-
-  if (gop_info_detected->has_lost_sei && !gop_info_detected->gop_transition_is_lost) {
-    // The previous SEI never arrived. The latest one was used to validate the wrong GOP. Move to
-    // state AUTH_STATE_GOP_END.
-    gop_state->auth_state = AUTH_STATE_GOP_END;
-  } else {
-    gop_state->auth_state = AUTH_STATE_WAIT_FOR_GOP_END;
-    gop_info_detected->has_gop_sei = false;
-  }
-  // Decrease counter for pending validations.
-  gop_state->num_pending_validations--;
-  // If we still have pending validations, we should move straight to AUTH_STATE_GOP_END.
-  if (gop_state->num_pending_validations > 0) gop_state->auth_state = AUTH_STATE_GOP_END;
-  // Reset the rest of the flags.
-  gop_info_detected->has_lost_sei = false;
-  gop_info_detected->gop_transition_is_lost = false;
-  // Tell the user there is an authenticity result available.
-  gop_state->has_auth_result = true;
+  gop_state->has_lost_sei = false;
+  gop_state->gop_transition_is_lost = false;
+  gop_state->has_gop_sei = false;
+  gop_state->no_gop_end_before_sei = false;
+  gop_state->validate_after_next_nalu = false;
 }
 
 /* Others */
@@ -1131,7 +1054,6 @@ hash_and_add_for_auth(signed_video_t *self, const h26x_nalu_t *nalu)
 
   gop_info_t *gop_info = self->gop_info;
   gop_state_t *gop_state = &self->gop_state;
-  gop_info_detected_t gop_info_detected = self->gop_info_detected;
 
   // Store the hash in the |last_item| of |nalu_list|.
   h26x_nalu_list_item_t *this_item = self->nalu_list->last_item;
@@ -1146,11 +1068,8 @@ hash_and_add_for_auth(signed_video_t *self, const h26x_nalu_t *nalu)
     // Check if we have a potential transition to a new GOP. This happens if the current NALU
     // |is_first_nalu_in_gop|. If we have lost the first NALU of a GOP we can still make a guess by
     // checking if |has_gop_sei| flag is set. It is set if the previous hashable NALU was SEI.
-    if (nalu->is_first_nalu_in_gop || gop_info_detected.has_gop_sei) {
-      assert(gop_state->num_pending_validations >= 0);
-
+    if (nalu->is_first_nalu_in_gop || (gop_state->validate_after_next_nalu && !nalu->is_gop_sei)) {
       // Updates counters and reset flags.
-      gop_state->num_pending_validations++;
       gop_info->has_reference_hash = false;
 
       // Hash the NALU again, but this time store the hash as a |second_hash|. This is needed since
@@ -1208,8 +1127,8 @@ signed_video_create(SignedVideoCodec codec)
     // authentication side. The check is done there instead.
 
     self->signing_present = -1;
-    gop_state_init(&(self->gop_state));
-    gop_info_detected_init(&(self->gop_info_detected));
+    gop_state_reset(&(self->gop_state));
+    validation_flags_init(&(self->validation_flags));
 
     self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
 
@@ -1262,8 +1181,8 @@ signed_video_reset(signed_video_t *self)
     self->gop_info->has_reference_hash = false;
     self->gop_info->global_gop_counter_is_synced = false;
 
-    gop_state_init(&(self->gop_state));
-    gop_info_detected_init(&(self->gop_info_detected));
+    gop_state_reset(&(self->gop_state));
+    validation_flags_init(&(self->validation_flags));
     latest_validation_init(self->latest_validation);
     accumulated_validation_init(self->accumulated_validation);
     // Empty the |nalu_list|.

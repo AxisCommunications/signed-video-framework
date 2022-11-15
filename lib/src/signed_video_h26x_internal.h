@@ -28,8 +28,6 @@
 
 typedef struct _h26x_nalu_list_item_t h26x_nalu_list_item_t;
 
-#define MAX_PENDING_GOPS 120
-
 typedef enum {
   NALU_TYPE_UNDEFINED = 0,
   NALU_TYPE_SEI = 1,
@@ -64,11 +62,6 @@ struct _h26x_nalu_list_t {
   h26x_nalu_list_item_t *last_item;  // Points to the last item in the linked list, that is, the
   // latest NALU added for validation.
   int num_items;  // The number of items linked together in the list.
-
-  // Keep pending gop data needed for validation if public_key is late
-  gop_state_t gop_state_pending[MAX_PENDING_GOPS];
-  gop_info_detected_t gop_info_detected_pending[MAX_PENDING_GOPS];
-  int gop_idx;
 };
 
 /**
@@ -149,29 +142,25 @@ struct _h26x_nalu_t {
 /* Internal APIs for gop_state_t functions */
 
 void
+validation_flags_print(const validation_flags_t *validation_flags);
+
+void
+validation_flags_init(validation_flags_t *validation_flags);
+
+/* Updates the |gop_state| w.r.t. a |nalu|. */
+void
+update_validation_flags(validation_flags_t *validation_flags, h26x_nalu_t *nalu);
+
+void
 gop_state_print(const gop_state_t *gop_state);
 
-/* Initializes all counters and members of a |gop_state|. */
+/* Updates the |gop_state| w.r.t. a |nalu|. */
 void
-gop_state_init(gop_state_t *gop_state);
+gop_state_update(gop_state_t *gop_state, h26x_nalu_t *nalu);
 
-/* Initializes all counters and members of |gop_info_detected|. */
+/* Resets/Initializes the |gop_state| after validating a GOP. */
 void
-gop_info_detected_init(gop_info_detected_t *gop_info_detected);
-
-/* Updates the |gop_state| and |gop_info_detected| w.r.t. a |nalu|. */
-void
-gop_state_update(gop_state_t *gop_state, gop_info_detected_t *gop_info_detected, h26x_nalu_t *nalu);
-
-/* Changes the current |gop_state|, given the new received |nalu|. This is called prior to any
- * actions, since it may involve a necessary reset of the gop_hash. */
-void
-gop_state_pre_actions(gop_state_t *gop_state, h26x_nalu_t *nalu);
-
-/* Resets the |gop_state| after validating a GOP. The function returns true if a reset of the
- * gop_hash is needed. */
-void
-gop_state_reset(gop_state_t *gop_state, gop_info_detected_t *gop_info_detected);
+gop_state_reset(gop_state_t *gop_state);
 
 /* Others */
 void

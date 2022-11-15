@@ -31,8 +31,8 @@
 #include "signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
 
 typedef struct _gop_info_t gop_info_t;
+typedef struct _validation_flags_t validation_flags_t;
 typedef struct _gop_state_t gop_state_t;
-typedef struct _gop_info_detected_t gop_info_detected_t;
 typedef struct _sei_data_t sei_data_t;
 
 // Forward declare h26x_nalu_list_t here for signed_video_t.
@@ -74,52 +74,25 @@ typedef struct _h26x_nalu_t h26x_nalu_t;
 
 #define HASH_LIST_SIZE (HASH_DIGEST_SIZE * MAX_GOP_LENGTH)
 
-/**
- * The authentication state machine
- * The process of validating the authenticity of a video is described by a set of operating states.
- * The main goal is to produce an authentication result. This is done when the end of a GOP is
- * reached.
- *
- * The basic processing flow of a NALU can be found in the description of
- * signed_video_add_h26x_nalu().
- */
-typedef enum {
-  AUTH_STATE_INIT = 0,  // The initial state; waiting for a first hashable NALU.
-  AUTH_STATE_WAIT_FOR_GOP_END = 1,  // The normal state where NALUs are hashed and added. This state
-  // is left as soon as a SEI is received, or if a new GOP with an I NALU is detected.
-  AUTH_STATE_WAIT_FOR_NEXT_NALU = 2,  // The SEI prepends a picture NALU, and in some situations the
-  // hash of that NALU is included in the document hash generating the signature. Hence, the
-  // framework needs to wait for another NALU before authenticity validation can be performed.
-  AUTH_STATE_GOP_END = 3,  // Received an I NALU. The framework is ready for validation when the
-  // SEI has been received.
-  AUTH_STATE_VALIDATE = 4,  // Validate authenticity and produce an authentication result.
-} auth_state_t;
-
-struct _gop_state_t {
-  bool has_auth_result;  // State to indicate that an authenticity result is available for the user.
-  bool is_first_validation;  // State to indicate if this is the first validation. If so, a failing
-  // validation result is not necessarily true, since the framework may be out of sync, e.g. after
+struct _validation_flags_t {
+  bool has_auth_result;  // Indicates that an authenticity result is available for the user.
+  bool is_first_validation;  // Indicates if this is the first validation. If so, a failing
+  // validation result is not necessarily true, since the framework may be out of sync, e.g., after
   // exporting to a file.
-  bool signing_present;  // State to indicate if Signed Video is present or not. It is only possible
-  // to move from false to true unless a reset is performed.
-  // TODO: Get rid of the dependency of |num_pending_validations|.
-  int num_pending_validations;  // Counter for number of pending validations.
-  auth_state_t auth_state;  // Operating state of the authentication process.
-
-  // Some detection is done while decoding the SEI and based on the |auth_state|, and some are done
-  // when decoding the SEI, which is done upon validation. Therefore, both current and previous
-  // states of |auth_state|, after calling gop_state_pre_actions(), are stored.
-  auth_state_t cur_auth_state;  // Current |auth_state| after gop_state_pre_actions().
-  auth_state_t prev_auth_state;  // Previous |cur_auth_state|.
+  bool signing_present;  // Indicates if Signed Video is present or not. It is only possible to move
+  // from false to true unless a reset is performed.
+  bool is_first_sei;  // Indicates that this is the first received SEI.
 };
 
-struct _gop_info_detected_t {
-  bool has_gop_sei;  // State to indicate that the current GOP has received a SEI NALU.
-  // The authenticity is not always validated directly when a SEI NALU is received.
-  bool has_lost_sei;  // State to indicate if the SEI NALU of the GOP was lost.
-  bool gop_transition_is_lost;  // State to indicate if the transition between GOPs has been lost.
+struct _gop_state_t {
+  bool has_gop_sei;  // The GOP includes a SEI.
+  bool has_lost_sei;  // Has detected a lost SEI since last validation.
+  bool no_gop_end_before_sei;  // No GOP end (I-frame) has been found before the SEI.
+  bool gop_transition_is_lost;  // The transition between GOPs has been lost.
   // This can be detected if a lost SEI is detected, and at the same time waiting for an I NALU. An
   // example when this happens is if an entire AU is lost including both the SEI and the I NALU.
+  bool validate_after_next_nalu;  // State to inform the algorithm to perform validation up the next
+  // hashable NALU.
 };
 
 // Buffer of last two bytes and payload pointer pairs. Writing of the SEI is split in time and it
@@ -162,8 +135,8 @@ struct _signed_video_t {
   h26x_nalu_list_t *nalu_list;
   bool authentication_started;
 
+  validation_flags_t validation_flags;
   gop_state_t gop_state;
-  gop_info_detected_t gop_info_detected;
   unsigned recurrence;
   unsigned recurrence_offset;
 
