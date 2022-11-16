@@ -29,7 +29,7 @@
 #include <glib.h>
 #include <stdlib.h>  // calloc, malloc, free
 #include <string.h>  // memcpy
-#include <unistd.h>
+#include <unistd.h>  // sleep
 
 #include "includes/signed_video_interfaces.h"
 #include "includes/signed_video_openssl.h"
@@ -158,6 +158,8 @@ signing_worker_thread(void *user_data)
       assert(self->signature_info->hash);
       memcpy(self->signature_info->hash, self->input_buffer[0], self->hash_size);
 
+      // Store the oldest hash temporarily by moving it from the first element of the buffer to the
+      // end and move all other elements in the buffer forward.
       uint8_t *tmp = self->input_buffer[0];
       int j = 0;
       while (self->input_buffer[j + 1] != NULL && j < MAX_BUFFER_LENGTH - 1) {
@@ -189,7 +191,11 @@ signing_worker_thread(void *user_data)
         if (!self->output_buffer[self->output_buffer_idx].signature) {
           self->output_buffer[self->output_buffer_idx].signature =
               calloc(1, self->signature_info->max_signature_size);
-          if (!self->output_buffer[self->output_buffer_idx].signature) goto catch_error;
+          // Failed in memory allocation. Stop the thread.
+          if (!self->output_buffer[self->output_buffer_idx].signature) {
+            self->is_running = false;
+            goto done;
+          }
         }
 
         // Copy the |signature| to the output buffer
@@ -198,9 +204,6 @@ signing_worker_thread(void *user_data)
         self->output_buffer[self->output_buffer_idx].size = self->signature_info->signature_size;
         self->output_buffer_idx++;
       }
-    catch_error:
-      // Failed in memory allocation. Set status to SV_MEMORY.
-      status = SV_MEMORY;
     } else {
       // Wait for a signal, triggered when it is time to sign a hash.
       g_cond_wait(&self->cond, &self->mutex);
@@ -216,8 +219,11 @@ done:
 /* This function is called from the library upon signing and the input |signature_info| includes
  * all necessary information to do so.
  *
- * The |hash| is copied to |input_buffer|. If this is the first time of signing, memory for
- * |input_buffer| is allocated and the |private_key| is copied from |signature_info|. */
+ * If this is the first time of signing, memory for |signature_info| is allocated and |private_key|
+ * and |algo| is copied.
+ *
+ * The hash from |signature_info| is copied to |input_buffer|. If memory for the hash has not been
+ * allocated it will be allocated. */
 static SignedVideoReturnCode
 threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *signature_info)
 {
@@ -233,6 +239,9 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
     self->signature_info = local_signature_info_create(signature_info);
     if (!self->signature_info) goto catch_error;
   }
+
+  // |input_buffer| is full.
+  if (self->input_buffer_idx >= MAX_BUFFER_LENGTH) goto catch_error;
 
   if (!self->input_buffer[self->input_buffer_idx]) {
     self->input_buffer[self->input_buffer_idx] = calloc(1, signature_info->hash_size);
@@ -264,9 +273,8 @@ catch_error:
   return status;
 }
 
-/* Returns true if a new |signature| has been copied to output, otherwise false.
- * If the hash could not be signed due to a blocked openssl_sign_hash(), |signature_size| is set to
- * zero, but still returning true. */
+/* Returns true if the oldest signature in |output_buffer| has been copied to |signature|, otherwise
+ * false. Moves the signatures in |output_buffer| forward when the copy is done. */
 static bool
 threaded_openssl_get_signature(sv_threaded_plugin_t *self,
     uint8_t *signature,
@@ -281,14 +289,13 @@ threaded_openssl_get_signature(sv_threaded_plugin_t *self,
 
   g_mutex_lock(&self->mutex);
   if (self->output_buffer_idx == 0) goto done;
+
   *written_signature_size = 0;
   if (self->output_buffer[0].signing_error) {
     // Propagate SV_EXTERNAL_ERROR when signing failed.
     status = SV_EXTERNAL_ERROR;
   } else if (self->output_buffer[0].size > max_signature_size) {
-    // If there is no room to copy the signature, report zero size and set status to invalid
-    // parameter.
-    *written_signature_size = 0;
+    // If there is no room to copy the signature, set status to invalid parameter.
     status = SV_INVALID_PARAMETER;
   } else {
     // Get the oldest signature
