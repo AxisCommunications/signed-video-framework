@@ -191,10 +191,14 @@ signing_worker_thread(void *user_data)
         if (!self->output_buffer[self->output_buffer_idx].signature) {
           self->output_buffer[self->output_buffer_idx].signature =
               calloc(1, self->signature_info->max_signature_size);
-          // Failed in memory allocation. Stop the thread.
+          // Failed in memory allocation. Stop the thread, free all memory and set status to
+          // SV_MEMORY.
           if (!self->output_buffer[self->output_buffer_idx].signature) {
             self->is_running = false;
-            goto done;
+            status = SV_MEMORY;
+            sv_threaded_plugin_reset(self);
+            g_mutex_unlock(&self->mutex);
+            goto catch_error;
           }
         }
 
@@ -211,7 +215,10 @@ signing_worker_thread(void *user_data)
   };
 
 done:
+
   g_mutex_unlock(&self->mutex);
+
+catch_error:
 
   return NULL;
 }
@@ -219,8 +226,8 @@ done:
 /* This function is called from the library upon signing and the input |signature_info| includes
  * all necessary information to do so.
  *
- * If this is the first time of signing, memory for |signature_info| is allocated and |private_key|
- * and |algo| is copied.
+ * If this is the first time of signing, memory for |self->signature_info| is allocated and
+ * |private_key| and |algo| is copied.
  *
  * The hash from |signature_info| is copied to |input_buffer|. If memory for the hash has not been
  * allocated it will be allocated. */
@@ -240,8 +247,11 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
     if (!self->signature_info) goto catch_error;
   }
 
-  // |input_buffer| is full.
-  if (self->input_buffer_idx >= MAX_BUFFER_LENGTH) goto catch_error;
+  // |input_buffer| is full. Buffers this long are not supported.
+  if (self->input_buffer_idx >= MAX_BUFFER_LENGTH) {
+    status = SV_NOT_SUPPORTED;
+    goto catch_error;
+  }
 
   if (!self->input_buffer[self->input_buffer_idx]) {
     self->input_buffer[self->input_buffer_idx] = calloc(1, signature_info->hash_size);
@@ -261,10 +271,10 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
   status = SV_OK;
 
 catch_error:
-  if (status == SV_UNKNOWN_FAILURE) {
+  if (status != SV_OK) {
     // Failed in memory allocation. Free all memory and set status to SV_MEMORY.
+    if (status == SV_UNKNOWN_FAILURE) status = SV_MEMORY;
     sv_threaded_plugin_reset(self);
-    status = SV_MEMORY;
   }
 
   g_cond_signal(&self->cond);
