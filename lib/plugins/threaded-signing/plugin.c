@@ -38,14 +38,14 @@
 // seconds if the GOP length is 1 second
 #define MAX_BUFFER_LENGTH 60
 
-typedef struct _output_data_t {
+typedef struct _signature_output_data_t {
   uint8_t *signature;
   size_t size;
   bool signing_error;
-} output_data_t;
+} signature_output_data_t;
 
-/* Threaded plugin handle maintaining the thread and locks. Further, stores the hashes to sign and
- * the written signatures in two buffers */
+/* Threaded plugin handle maintaining the thread and locks. Furthermore, it stores the hashes to
+ * sign and the written signatures in two different buffers */
 typedef struct _sv_threaded_plugin {
   GThread *thread;
   GMutex mutex;
@@ -58,7 +58,7 @@ typedef struct _sv_threaded_plugin {
   int input_buffer_idx;
   size_t hash_size;
   // Buffer of written signatures
-  output_data_t output_buffer[MAX_BUFFER_LENGTH];
+  signature_output_data_t output_buffer[MAX_BUFFER_LENGTH];
   int output_buffer_idx;
   // Variables that can operate without mutex lock.
   // A local copy of the signature_info is used for signing. The hash to be signed is copied to it
@@ -127,11 +127,9 @@ sv_threaded_plugin_reset(sv_threaded_plugin_t *self)
     self->output_buffer[i].signature = NULL;
     self->output_buffer[i].size = 0;
     self->output_buffer[i].signing_error = false;
-  }
 
-  for (int j = 0; j < MAX_BUFFER_LENGTH; j++) {
-    free(self->input_buffer[j]);
-    self->input_buffer[j] = NULL;
+    free(self->input_buffer[i]);
+    self->input_buffer[i] = NULL;
   }
   self->hash_size = 0;
 }
@@ -308,21 +306,21 @@ threaded_openssl_get_signature(sv_threaded_plugin_t *self,
     // If there is no room to copy the signature, set status to invalid parameter.
     status = SV_INVALID_PARAMETER;
   } else {
-    // Get the oldest signature
+    // Copy the oldest signature
     memcpy(signature, self->output_buffer[0].signature, self->output_buffer[0].size);
     *written_signature_size = self->output_buffer[0].size;
     // Change state and mark as copied.
     has_copied_signature = true;
   }
   // Move buffer
-  output_data_t tmp = self->output_buffer[0];
+  signature_output_data_t tmp = self->output_buffer[0];
   int i = 0;
   while (self->output_buffer[i + 1].signature != NULL && i < MAX_BUFFER_LENGTH - 1) {
     self->output_buffer[i] = self->output_buffer[i + 1];
     i++;
   }
   self->output_buffer[i] = tmp;
-  self->output_buffer_idx -= 1;
+  self->output_buffer_idx--;
 done:
   g_mutex_unlock(&self->mutex);
 
