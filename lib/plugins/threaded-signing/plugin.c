@@ -165,7 +165,7 @@ signing_worker_thread(void *user_data)
         j++;
       }
       self->input_buffer[j] = tmp;
-      self->input_buffer_idx -= 1;
+      self->input_buffer_idx--;
 
       // Let the signing operate outside a lock. Otherwise sv_interface_get_signature() is blocked,
       // since variables need to be read under a lock.
@@ -184,6 +184,13 @@ signing_worker_thread(void *user_data)
       // report the error when getting the signature.
       self->output_buffer[self->output_buffer_idx].signing_error = (status != SV_OK);
 
+      // |output_buffer| is full. Buffers this long are not supported.
+      if (self->output_buffer_idx >= MAX_BUFFER_LENGTH) {
+        self->is_running = false;
+        sv_threaded_plugin_reset(self);
+        goto done;
+      }
+
       if (status == SV_OK) {
         // Allocate memory for the |signature| if necessary.
         if (!self->output_buffer[self->output_buffer_idx].signature) {
@@ -193,10 +200,8 @@ signing_worker_thread(void *user_data)
           // SV_MEMORY.
           if (!self->output_buffer[self->output_buffer_idx].signature) {
             self->is_running = false;
-            status = SV_MEMORY;
             sv_threaded_plugin_reset(self);
-            g_mutex_unlock(&self->mutex);
-            goto catch_error;
+            goto done;
           }
         }
 
@@ -215,8 +220,6 @@ signing_worker_thread(void *user_data)
 done:
 
   g_mutex_unlock(&self->mutex);
-
-catch_error:
 
   return NULL;
 }
@@ -242,7 +245,10 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
   // |private_key| and |algo|.
   if (!self->signature_info) {
     self->signature_info = local_signature_info_create(signature_info);
-    if (!self->signature_info) goto catch_error;
+    if (!self->signature_info) {
+      status = SV_MEMORY;
+      goto catch_error;
+    }
   }
 
   // |input_buffer| is full. Buffers this long are not supported.
@@ -253,7 +259,10 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
 
   if (!self->input_buffer[self->input_buffer_idx]) {
     self->input_buffer[self->input_buffer_idx] = calloc(1, signature_info->hash_size);
-    if (!self->input_buffer[self->input_buffer_idx]) goto catch_error;
+    if (!self->input_buffer[self->input_buffer_idx]) {
+      status = SV_MEMORY;
+      goto catch_error;
+    }
     self->hash_size = signature_info->hash_size;
   }
 
@@ -270,8 +279,7 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
 
 catch_error:
   if (status != SV_OK) {
-    // Failed in memory allocation. Free all memory and set status to SV_MEMORY.
-    if (status == SV_UNKNOWN_FAILURE) status = SV_MEMORY;
+    // Failed in memory allocation. Free all memory.
     sv_threaded_plugin_reset(self);
   }
 
