@@ -23,6 +23,8 @@
  * This signing plugin sets up a worker thread and calls openssl_sign_hash(), from the worker
  * thread, when there is a new hash to sign. To handle several signatures at the same time, the
  * plugin has two buffers. One for incomming hashes and another for outgoing signatures.
+ * The thread is stopped if |output_buffer| is full, if there was a failure in the memory allocation
+ * for a new signature or if sv_interface_teardown is called.
  */
 
 #include <assert.h>
@@ -132,6 +134,9 @@ sv_threaded_plugin_reset(sv_threaded_plugin_t *self)
     self->input_buffer[i] = NULL;
   }
   self->hash_size = 0;
+
+  self->input_buffer_idx = 0;
+  self->output_buffer_idx = 0;
 }
 
 static int a = 0;
@@ -180,8 +185,8 @@ signing_worker_thread(void *user_data)
       }
       g_mutex_lock(&self->mutex);
 
-      // |output_buffer| is full. Buffers this long are not supported.
       if (self->output_buffer_idx >= MAX_BUFFER_LENGTH) {
+        // |output_buffer| is full. Buffers this long are not supported.
         self->is_running = false;
         sv_threaded_plugin_reset(self);
         goto done;
@@ -196,8 +201,8 @@ signing_worker_thread(void *user_data)
         if (!self->output_buffer[self->output_buffer_idx].signature) {
           self->output_buffer[self->output_buffer_idx].signature =
               calloc(1, self->signature_info->max_signature_size);
-          // Failed in memory allocation. Stop the thread and free all memory.
           if (!self->output_buffer[self->output_buffer_idx].signature) {
+            // Failed in memory allocation. Stop the thread and free all memory.
             self->is_running = false;
             sv_threaded_plugin_reset(self);
             goto done;
@@ -244,23 +249,23 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
   // |private_key| and |algo|.
   if (!self->signature_info) {
     self->signature_info = local_signature_info_create(signature_info);
-    // Failed in memory allocation.
     if (!self->signature_info) {
+      // Failed in memory allocation.
       status = SV_MEMORY;
       goto catch_error;
     }
   }
 
-  // |input_buffer| is full. Buffers this long are not supported.
   if (self->input_buffer_idx >= MAX_BUFFER_LENGTH) {
+    // |input_buffer| is full. Buffers this long are not supported.
     status = SV_NOT_SUPPORTED;
     goto catch_error;
   }
 
   if (!self->input_buffer[self->input_buffer_idx]) {
     self->input_buffer[self->input_buffer_idx] = calloc(1, signature_info->hash_size);
-    // Failed in memory allocation.
     if (!self->input_buffer[self->input_buffer_idx]) {
+      // Failed in memory allocation.
       status = SV_MEMORY;
       goto catch_error;
     }
@@ -283,7 +288,7 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
 
 catch_error:
   if (status != SV_OK) {
-    // Failed in memory allocation, failure due to full buffer or unknown failure. Free all memory.
+    // Failed in memory allocation or failure due to full buffer. Free all memory.
     sv_threaded_plugin_reset(self);
   }
 
@@ -308,6 +313,13 @@ threaded_openssl_get_signature(sv_threaded_plugin_t *self,
   SignedVideoReturnCode status = SV_OK;
 
   g_mutex_lock(&self->mutex);
+
+  if (!self->is_running) {
+    // Thread is not running. Go to done and return error.
+    status = SV_EXTERNAL_ERROR;
+    goto done;
+  }
+
   if (self->output_buffer_idx == 0) goto done;
 
   *written_signature_size = 0;
@@ -315,7 +327,7 @@ threaded_openssl_get_signature(sv_threaded_plugin_t *self,
     // Propagate SV_EXTERNAL_ERROR when signing failed.
     status = SV_EXTERNAL_ERROR;
   } else if (self->output_buffer[0].size > max_signature_size) {
-    // If there is no room to copy the signature, set status to invalid parameter.
+    // There is no room to copy the signature, set status to invalid parameter.
     status = SV_INVALID_PARAMETER;
   } else {
     // Copy the oldest signature
@@ -349,6 +361,8 @@ SignedVideoReturnCode
 sv_interface_sign_hash(void *plugin_handle, signature_info_t *signature_info)
 {
   sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)plugin_handle;
+
+  if (!self->is_running) return SV_EXTERNAL_ERROR;
 
   if (!self || !signature_info) return SV_INVALID_PARAMETER;
 
