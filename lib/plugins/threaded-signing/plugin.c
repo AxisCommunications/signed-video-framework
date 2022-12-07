@@ -245,6 +245,12 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
   SignedVideoReturnCode status = SV_UNKNOWN_FAILURE;
   g_mutex_lock(&self->mutex);
 
+  if (!self->is_running) {
+    // Thread is not running. Go to catch_error and return status.
+    status = SV_EXTERNAL_ERROR;
+    goto catch_error;
+  }
+
   // If no |self->signature_info| exists. Allocate necessary memory for it and copy the
   // |private_key| and |algo|.
   if (!self->signature_info) {
@@ -361,8 +367,6 @@ SignedVideoReturnCode
 sv_interface_sign_hash(void *plugin_handle, signature_info_t *signature_info)
 {
   sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)plugin_handle;
-
-  if (!self->is_running) return SV_EXTERNAL_ERROR;
 
   if (!self || !signature_info) return SV_INVALID_PARAMETER;
 
