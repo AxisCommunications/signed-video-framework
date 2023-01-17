@@ -26,7 +26,7 @@ signedvideoframework_sources = files(
 signedvideoframework_sources += plugin_sources
 signedvideoframework_sources += vendor_sources
 
-openssl_dep = dependency('openssl', required : true, version : '<3.0.0')
+openssl_dep = dependency('openssl', required : true)
 
 # Add vendor specific public headers
 if build_with_axis
