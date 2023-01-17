@@ -30,6 +30,10 @@
 
 #include "signed_video_common.h"  // SignedVideoReturnCode, signed_video_t
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // APIs for signing a video.
 
 /**
@@ -63,5 +67,9 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
     const char *certificate_chain);
 
 // APIs for validating a signed video.
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // __SV_VENDOR_AXIS_COMMUNICATIONS_H__

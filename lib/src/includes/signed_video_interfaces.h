@@ -28,6 +28,10 @@
 
 #include "signed_video_common.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _signature_info_t signature_info_t;
 
 /**
@@ -145,5 +149,9 @@ sv_interface_malloc(size_t data_size);
  */
 void
 sv_interface_free(uint8_t *data);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // __SIGNED_VIDEO_INTERFACES_H__

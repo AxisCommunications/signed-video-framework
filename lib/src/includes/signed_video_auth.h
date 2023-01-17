@@ -28,6 +28,10 @@
 
 #include "signed_video_common.h"  // signed_video_t, SignedVideoReturnCode
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Status of authenticity validation since last result
  */
@@ -331,5 +335,9 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
  */
 SignedVideoReturnCode
 signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t public_key_size);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // __SIGNED_VIDEO_AUTH_H__

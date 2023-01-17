@@ -28,6 +28,10 @@
 #include "signed_video_common.h"  // signed_video_t, SignedVideoReturnCode
 #include "signed_video_interfaces.h"  // sign_algo_t
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Instruction on where to prepend a generated NALU.
  *
@@ -373,5 +377,9 @@ signed_video_set_authenticity_level(signed_video_t *self,
  */
 SignedVideoReturnCode
 signed_video_set_recurrence_interval_frames(signed_video_t *self, unsigned recurrence);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // __SIGNED_VIDEO_SIGN_H__

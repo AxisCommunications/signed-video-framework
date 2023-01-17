@@ -28,6 +28,10 @@
 #include "signed_video_common.h"  // SignedVideoReturnCode
 #include "signed_video_interfaces.h"  // signature_info_t, sign_algo_t
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Object to keep the path structure used to create and read pem-files.
  */
@@ -242,5 +246,9 @@ signed_video_generate_private_key(sign_algo_t algo,
     const char *path_to_key,
     char **private_key,
     size_t *private_key_size);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // __SIGNED_VIDEO_OPENSSL__
