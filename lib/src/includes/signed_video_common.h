@@ -22,6 +22,10 @@
 #ifndef __SIGNED_VIDEO_COMMON_H__
 #define __SIGNED_VIDEO_COMMON_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _signed_video_t signed_video_t;
 
 /**
@@ -118,5 +122,9 @@ signed_video_get_version();
  */
 int
 signed_video_compare_versions(const char* version1, const char* version2);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // __SIGNED_VIDEO_COMMON_H__
