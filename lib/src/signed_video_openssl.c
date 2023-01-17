@@ -20,6 +20,7 @@
  */
 #include <assert.h>  // assert
 // Include all openssl header files explicitly.
+#define OPENSSL_USE_DEPRECATED 1
 #include <openssl/bio.h>  // BIO_*
 #include <openssl/bn.h>  // BN_*
 #include <openssl/crypto.h>  // OPENSSL_malloc, OPENSSL_free
