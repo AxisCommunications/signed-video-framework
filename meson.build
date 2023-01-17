@@ -8,7 +8,7 @@ project('signed-video-framework', 'c',
 cc = meson.get_compiler('c')
 
 # Compile with deprecated OpenSSL APIs
-add_global_arguments('-DOPENSSL_USE_DEPRECATED', language : 'c')
+#add_global_arguments('-DOPENSSL_USE_DEPRECATED', language : 'c')
 
 check_dep = dependency('check', required : false)
 
