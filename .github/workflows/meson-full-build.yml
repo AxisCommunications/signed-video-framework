@@ -12,6 +12,10 @@ jobs:
     steps:
     - name: Update system
       run: sudo apt-get update
+    - name: Fetch openssl-1.1.1n manually
+      run: git clone --depth 1 --branch OpenSSL_1_1_1n https://github.com/openssl/openssl.git
+    - name: Build and install
+      run: cd openssl && ./config zlib '-Wl,-rpath,$(LIBRPATH)' && make && sudo make install && sudo ldconfig -v
     - name: Install check manually
       run: sudo apt-get install check
     - uses: actions/checkout@v2
