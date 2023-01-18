@@ -25,6 +25,7 @@
 #include <openssl/crypto.h>  // OPENSSL_malloc, OPENSSL_free
 #include <openssl/ec.h>  // EC_*
 #include <openssl/evp.h>  // EVP_*
+#include <openssl/opensslv.h>  // OPENSSL_VERSION_*
 #include <openssl/pem.h>  // PEM_*
 #include <openssl/rsa.h>  // RSA_*
 #include <openssl/sha.h>  // SHA256
@@ -47,11 +48,21 @@
 #include "signed_video_internal.h"  // svi_rc_to_signed_video_rc(), sv_rc_to_svi_rc()
 #include "signed_video_openssl_internal.h"
 
+#ifndef OPENSSL_VERSION_MAJOR
+// OPENSSL_VERSION_MAJOR exists from OpenSSL 3.0
+// Parse major (most significant 4 bits) from version number
+#define OPENSSL_VERSION_MAJOR (OPENSSL_VERSION_NUMBER >> 28)
+#endif
+
 /**
  * OpenSSL cryptographic object.
  */
 typedef struct {
+#if OPENSSL_VERSION_MAJOR < 3
   SHA256_CTX ctx;  // Hashing context
+#else
+  EVP_MD_CTX *ctx;  // Hashing context
+#endif
 } openssl_crypto_t;
 
 static svi_rc
@@ -205,6 +216,7 @@ create_rsa_private_key(const key_paths_t *key_paths)
 {
   if (!key_paths) return SVI_INVALID_PARAMETER;
 
+#if OPENSSL_VERSION_MAJOR < 3
   EVP_PKEY *pkey = NULL;
   BIGNUM *bn = NULL;
   RSA *rsa = NULL;
@@ -244,6 +256,30 @@ create_rsa_private_key(const key_paths_t *key_paths)
 
   BN_free(bn);
   EVP_PKEY_free(pkey);  // Free |pkey|, |rsa| struct will be freed automatically as well
+#else
+  EVP_PKEY *pkey = NULL;
+  FILE *f_private = NULL;
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    pkey = EVP_RSA_gen(2048);
+    SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
+
+    f_private = fopen(key_paths->full_path_to_private_key, "wb");
+    SVI_THROW_IF(!f_private, SVI_FILE);
+
+    SVI_THROW_IF(
+        !PEM_write_PrivateKey(f_private, pkey, NULL, 0, 0, NULL, NULL), SVI_EXTERNAL_FAILURE);
+  SVI_CATCH()
+  {
+    if (f_private) unlink(key_paths->full_path_to_private_key);
+  }
+  SVI_DONE(status)
+
+  if (f_private) fclose(f_private);
+
+  EVP_PKEY_free(pkey);  // Free |pkey|
+#endif
 
   return status;
 }
@@ -255,6 +291,7 @@ create_ecdsa_private_key(const key_paths_t *key_paths)
 {
   if (!key_paths) return SVI_INVALID_PARAMETER;
 
+#if OPENSSL_VERSION_MAJOR < 3
   EC_KEY *ec_key = NULL;
   EVP_PKEY *pkey = NULL;
   FILE *f_private = NULL;
@@ -283,6 +320,29 @@ create_ecdsa_private_key(const key_paths_t *key_paths)
 
   if (f_private) fclose(f_private);
   if (pkey) EVP_PKEY_free(pkey);
+#else
+  EVP_PKEY *pkey = NULL;
+  FILE *f_private = NULL;
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    pkey = EVP_EC_gen("secp256r1");
+    SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
+
+    f_private = fopen(key_paths->full_path_to_private_key, "wb");
+    SVI_THROW_IF(!f_private, SVI_FILE);
+    SVI_THROW_IF(
+        !PEM_write_PrivateKey(f_private, pkey, NULL, 0, 0, NULL, NULL), SVI_EXTERNAL_FAILURE);
+
+  SVI_CATCH()
+  {
+    if (f_private) unlink(key_paths->full_path_to_private_key);
+  }
+  SVI_DONE(status)
+
+  if (f_private) fclose(f_private);
+  if (pkey) EVP_PKEY_free(pkey);
+#endif
 
   return status;
 }
@@ -362,7 +422,14 @@ openssl_init_hash(void *handle)
   if (!handle) return SV_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   // Initialize the SHA256 hashing function.
+#if OPENSSL_VERSION_MAJOR < 3
   return SHA256_Init(&self->ctx) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
+#else
+  if (self->ctx) EVP_MD_CTX_free(self->ctx);
+  self->ctx = EVP_MD_CTX_new();
+  if (!self->ctx) return SV_EXTERNAL_ERROR;
+  return EVP_DigestInit_ex(self->ctx, EVP_sha256(), NULL) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
+#endif
 }
 
 /* Updates SHA256_CTX in |handle| with |data|. */
@@ -372,7 +439,12 @@ openssl_update_hash(void *handle, const uint8_t *data, size_t data_size)
   if (!data || data_size == 0 || !handle) return SV_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   // Update the "ongoing" hash with new data.
+#if OPENSSL_VERSION_MAJOR < 3
   return SHA256_Update(&self->ctx, data, data_size) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
+#else
+  if (!self->ctx) return SV_EXTERNAL_ERROR;
+  return EVP_DigestUpdate(self->ctx, data, data_size) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
+#endif
 }
 
 /* Finalizes SHA256_CTX in |handle| and writes result to |hash|. */
@@ -382,7 +454,17 @@ openssl_finalize_hash(void *handle, uint8_t *hash)
   if (!hash || !handle) return SV_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   // Finalize and write the |hash| to output.
+#if OPENSSL_VERSION_MAJOR < 3
   return SHA256_Final(hash, &self->ctx) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
+#else
+  if (!self->ctx) return SV_EXTERNAL_ERROR;
+  unsigned int hash_size = 0;
+  if (EVP_DigestFinal_ex(self->ctx, *hash, &hash_size) == 1) {
+    return hash_size == HASH_DIGEST_SIZE ? SV_OK : SV_EXTERNAL_ERROR;
+  } else {
+    return SV_EXTERNAL_ERROR;
+  }
+#endif
 }
 
 /* Creates a |handle| with a SHA256_CTX. */
@@ -396,7 +478,11 @@ openssl_create_handle(void)
 void
 openssl_free_handle(void *handle)
 {
-  free((openssl_crypto_t *)handle);
+  openssl_crypto_t *self = (openssl_crypto_t *)handle;
+#if OPENSSL_VERSION_MAJOR >= 3
+  if (self->ctx) EVP_MD_CTX_free(self->ctx);
+#endif
+  free(self);
 }
 
 /* Reads the content of a key file, allocates memory and writes it to the key. */

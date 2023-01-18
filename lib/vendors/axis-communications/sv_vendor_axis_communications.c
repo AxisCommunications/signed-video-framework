@@ -23,6 +23,7 @@
 #include <assert.h>
 #include <openssl/bio.h>  // BIO_*
 #include <openssl/evp.h>  // EVP_*
+#include <openssl/opensslv.h>  // OPENSSL_VERSION_*
 #include <openssl/pem.h>  // PEM_*
 #include <openssl/sha.h>  // SHA256
 #include <openssl/x509.h>  // X509_*
@@ -47,6 +48,12 @@ static const sv_tlv_tag_t axis_communications_encoders[AXIS_COMMUNICATIONS_NUM_E
 #define PUBLIC_KEY_UNCOMPRESSED_SIZE 65
 #define PUBLIC_KEY_UNCOMPRESSED_PREFIX 0x04
 #define BINARY_RAW_DATA_SIZE 40
+
+#ifndef OPENSSL_VERSION_MAJOR
+// OPENSSL_VERSION_MAJOR exists from OpenSSL 3.0
+// Parse major (most significant 4 bits) from version number
+#define OPENSSL_VERSION_MAJOR (OPENSSL_VERSION_NUMBER >> 28)
+#endif
 
 static const char *kTrustedAxisRootCA =
     "-----BEGIN CERTIFICATE-----\n"
