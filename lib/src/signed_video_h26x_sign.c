@@ -342,8 +342,9 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     // the size of it. Then we can use the hash_and_add() function.
     {
       size_t fake_payload_size = (payload_ptr - *payload);
+      // Force SEI to be hashable.
       h26x_nalu_t nalu_without_signature_data =
-          parse_nalu_info(*payload, fake_payload_size, self->codec, false);
+          parse_nalu_info(*payload, fake_payload_size, self->codec, false, true);
       // Create a document hash.
       SVI_THROW(hash_and_add(self, &nalu_without_signature_data));
       // Note that the "add" part of the hash_and_add() operation above is actually only necessary
@@ -522,7 +523,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
   // TODO: Consider moving this into parse_nalu_info().
   if (self->last_nalu->is_last_nalu_part) {
     // Only check for trailing zeros if this is the last part.
-    nalu = parse_nalu_info(nalu_data, nalu_data_size, self->codec, is_last_part);
+    nalu = parse_nalu_info(nalu_data, nalu_data_size, self->codec, is_last_part, false);
     nalu.is_last_nalu_part = is_last_part;
     copy_nalu_except_pointers(self->last_nalu, &nalu);
   } else {

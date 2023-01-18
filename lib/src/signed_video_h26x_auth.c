@@ -996,7 +996,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
   if (!self || !nalu_data || (nalu_data_size == 0)) return SVI_INVALID_PARAMETER;
 
   h26x_nalu_list_t *nalu_list = self->nalu_list;
-  h26x_nalu_t nalu = parse_nalu_info(nalu_data, nalu_data_size, self->codec, true);
+  h26x_nalu_t nalu = parse_nalu_info(nalu_data, nalu_data_size, self->codec, true, true);
   DEBUG_LOG("Received a %s of size %zu B", nalu_type_to_str(&nalu), nalu.nalu_data_size);
   self->validation_flags.has_auth_result = false;
 
