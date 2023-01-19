@@ -48,17 +48,11 @@
 #include "signed_video_internal.h"  // svi_rc_to_signed_video_rc(), sv_rc_to_svi_rc()
 #include "signed_video_openssl_internal.h"
 
-#ifndef OPENSSL_VERSION_MAJOR
-// OPENSSL_VERSION_MAJOR exists from OpenSSL 3.0
-// Parse major (most significant 4 bits) from version number
-#define OPENSSL_VERSION_MAJOR (OPENSSL_VERSION_NUMBER >> 28)
-#endif
-
 /**
  * OpenSSL cryptographic object.
  */
 typedef struct {
-#if OPENSSL_VERSION_MAJOR < 3
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
   SHA256_CTX ctx;  // Hashing context
 #else
   EVP_MD_CTX *ctx;  // Hashing context
@@ -216,7 +210,7 @@ create_rsa_private_key(const key_paths_t *key_paths)
 {
   if (!key_paths) return SVI_INVALID_PARAMETER;
 
-#if OPENSSL_VERSION_MAJOR < 3
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
   EVP_PKEY *pkey = NULL;
   BIGNUM *bn = NULL;
   RSA *rsa = NULL;
@@ -291,7 +285,7 @@ create_ecdsa_private_key(const key_paths_t *key_paths)
 {
   if (!key_paths) return SVI_INVALID_PARAMETER;
 
-#if OPENSSL_VERSION_MAJOR < 3
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
   EC_KEY *ec_key = NULL;
   EVP_PKEY *pkey = NULL;
   FILE *f_private = NULL;
@@ -326,7 +320,7 @@ create_ecdsa_private_key(const key_paths_t *key_paths)
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    pkey = EVP_EC_gen("secp256r1");
+    pkey = EVP_EC_gen(OSSL_EC_curve_nid2name(NID_X9_62_prime256v1));
     SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
 
     f_private = fopen(key_paths->full_path_to_private_key, "wb");
@@ -422,7 +416,7 @@ openssl_init_hash(void *handle)
   if (!handle) return SV_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   // Initialize the SHA256 hashing function.
-#if OPENSSL_VERSION_MAJOR < 3
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
   return SHA256_Init(&self->ctx) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
 #else
   if (self->ctx) EVP_MD_CTX_free(self->ctx);
@@ -439,7 +433,7 @@ openssl_update_hash(void *handle, const uint8_t *data, size_t data_size)
   if (!data || data_size == 0 || !handle) return SV_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   // Update the "ongoing" hash with new data.
-#if OPENSSL_VERSION_MAJOR < 3
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
   return SHA256_Update(&self->ctx, data, data_size) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
 #else
   if (!self->ctx) return SV_EXTERNAL_ERROR;
@@ -454,12 +448,12 @@ openssl_finalize_hash(void *handle, uint8_t *hash)
   if (!hash || !handle) return SV_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   // Finalize and write the |hash| to output.
-#if OPENSSL_VERSION_MAJOR < 3
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
   return SHA256_Final(hash, &self->ctx) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
 #else
   if (!self->ctx) return SV_EXTERNAL_ERROR;
   unsigned int hash_size = 0;
-  if (EVP_DigestFinal_ex(self->ctx, *hash, &hash_size) == 1) {
+  if (EVP_DigestFinal_ex(self->ctx, hash, &hash_size) == 1) {
     return hash_size == HASH_DIGEST_SIZE ? SV_OK : SV_EXTERNAL_ERROR;
   } else {
     return SV_EXTERNAL_ERROR;
@@ -479,7 +473,7 @@ void
 openssl_free_handle(void *handle)
 {
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
-#if OPENSSL_VERSION_MAJOR >= 3
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
   if (self->ctx) EVP_MD_CTX_free(self->ctx);
 #endif
   free(self);

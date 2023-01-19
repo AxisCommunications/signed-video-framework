@@ -49,12 +49,6 @@ static const sv_tlv_tag_t axis_communications_encoders[AXIS_COMMUNICATIONS_NUM_E
 #define PUBLIC_KEY_UNCOMPRESSED_PREFIX 0x04
 #define BINARY_RAW_DATA_SIZE 40
 
-#ifndef OPENSSL_VERSION_MAJOR
-// OPENSSL_VERSION_MAJOR exists from OpenSSL 3.0
-// Parse major (most significant 4 bits) from version number
-#define OPENSSL_VERSION_MAJOR (OPENSSL_VERSION_NUMBER >> 28)
-#endif
-
 static const char *kTrustedAxisRootCA =
     "-----BEGIN CERTIFICATE-----\n"
     "MIIClDCCAfagAwIBAgIBATAKBggqhkjOPQQDBDBcMR8wHQYDVQQKExZBeGlzIENv\n"
@@ -398,9 +392,13 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     SVI_THROW_IF(!bio, SVI_EXTERNAL_FAILURE);
     pkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
     SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
     const EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
     public_key_uncompressed_size =
         EC_KEY_key2buf(ec_key, POINT_CONVERSION_UNCOMPRESSED, &public_key_uncompressed, NULL);
+#else
+    SVI_THROW_WITH_MSG(SVI_VENDOR, "OpenSSL 3.0 and newer not yet supported");
+#endif
     // Check size and prefix of |public_key| after conversion.
     SVI_THROW_IF(public_key_uncompressed_size != PUBLIC_KEY_UNCOMPRESSED_SIZE, SVI_VENDOR);
     SVI_THROW_IF(public_key_uncompressed[0] != PUBLIC_KEY_UNCOMPRESSED_PREFIX, SVI_VENDOR);
@@ -706,6 +704,7 @@ set_axis_communications_public_key(void *handle,
     if (EVP_PKEY_base_id(pkey) != EVP_PKEY_EC) {
       public_key_validation = 0;
     } else {
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
       const EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
       SVI_THROW_IF(!ec_key, SVI_EXTERNAL_FAILURE);
       const EC_GROUP *ec_group = EC_KEY_get0_group(ec_key);
@@ -713,6 +712,10 @@ set_axis_communications_public_key(void *handle,
       if (EC_GROUP_get_curve_name(ec_group) != NID_X9_62_prime256v1) {
         public_key_validation = 0;
       }
+#else
+      public_key_validation = 0;
+      SVI_THROW_WITH_MSG(SVI_VENDOR, "OpenSSL 3.0 and newer not yet supported");
+#endif
     }
 
     // The Public key is of correct type and size.
