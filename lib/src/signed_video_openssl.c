@@ -473,7 +473,7 @@ void
 openssl_free_handle(void *handle)
 {
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
   if (self->ctx) EVP_MD_CTX_free(self->ctx);
 #endif
   free(self);

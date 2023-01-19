@@ -713,8 +713,8 @@ set_axis_communications_public_key(void *handle,
         public_key_validation = 0;
       }
 #else
+      // OpenSSL 3.0 and newer not yet supported. Mark Public key as not valid.
       public_key_validation = 0;
-      SVI_THROW_WITH_MSG(SVI_VENDOR, "OpenSSL 3.0 and newer not yet supported");
 #endif
     }
 
