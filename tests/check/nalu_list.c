@@ -18,6 +18,8 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+#include "nalu_list.h"
+
 #include <check.h>  // ck_assert
 #include <stdio.h>  // printf
 #include <stdlib.h>  // calloc, free
@@ -26,12 +28,10 @@
 #include "lib/src/includes/signed_video_sign.h"  // signed_video_nalu_data_free()
 #include "lib/src/signed_video_h26x_internal.h"  // parse_nalu_info()
 
-#include "nalu_list.h"
-
 #define START_CODE_SIZE 4
-const uint8_t start_code[START_CODE_SIZE] = { 0x00, 0x00, 0x00, 0x01 };
-const uint8_t no_start_code[START_CODE_SIZE] = { 0xff, 0xff, 0xff, 0xff };
-const uint8_t invalid_nalu[DUMMY_NALU_SIZE] = { 0xff, 0xff, 0xff, 0x00, 0xff };
+const uint8_t start_code[START_CODE_SIZE] = {0x00, 0x00, 0x00, 0x01};
+const uint8_t no_start_code[START_CODE_SIZE] = {0xff, 0xff, 0xff, 0xff};
+const uint8_t invalid_nalu[DUMMY_NALU_SIZE] = {0xff, 0xff, 0xff, 0x00, 0xff};
 /* Dummy NALU data
  *
  * The valid H264 and H265 NALUs share, for convenience, the same size even though the NALU headers
@@ -50,16 +50,13 @@ const uint8_t invalid_nalu[DUMMY_NALU_SIZE] = { 0xff, 0xff, 0xff, 0x00, 0xff };
  * All NALU types have one byte to represent the id, which is modified from NALU to NALU to
  * generate unique data/hashes. Otherwise, e.g., switching two P-nalus will have no impact, since
  * the NALU hashes will be identical. */
-const uint8_t I_nalu_h264[DUMMY_NALU_SIZE] = { 0x65, 0x80, 0xff, 0x00, 0x80 };
-const uint8_t i_nalu_h264[DUMMY_NALU_SIZE] = { 0x65, 0x00, 0xff, 0x00, 0x80 };
-const uint8_t P_nalu_h264[DUMMY_NALU_SIZE] = { 0x01, 0x80, 0xff, 0x00, 0x80 };
-const uint8_t p_nalu_h264[DUMMY_NALU_SIZE] = { 0x01, 0x00, 0xff, 0x00, 0x80 };
-const uint8_t pps_nalu_h264[DUMMY_NALU_SIZE] = { 0x28, 0x00, 0xff, 0x00, 0x80 };
-const uint8_t sei_nalu_h264[DUMMY_SEI_NALU_SIZE] = {
-  0x06, 0x05, 0x12, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa,
-  0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa,
-  0xaa, 0xaa, 0xaa, 0x00, 0x00, 0x80
-};
+const uint8_t I_nalu_h264[DUMMY_NALU_SIZE] = {0x65, 0x80, 0xff, 0x00, 0x80};
+const uint8_t i_nalu_h264[DUMMY_NALU_SIZE] = {0x65, 0x00, 0xff, 0x00, 0x80};
+const uint8_t P_nalu_h264[DUMMY_NALU_SIZE] = {0x01, 0x80, 0xff, 0x00, 0x80};
+const uint8_t p_nalu_h264[DUMMY_NALU_SIZE] = {0x01, 0x00, 0xff, 0x00, 0x80};
+const uint8_t pps_nalu_h264[DUMMY_NALU_SIZE] = {0x28, 0x00, 0xff, 0x00, 0x80};
+const uint8_t sei_nalu_h264[DUMMY_SEI_NALU_SIZE] = {0x06, 0x05, 0x12, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa,
+    0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, 0x80};
 /* The H265 pattern is as follows:
  *
  *  non-SEI
@@ -71,16 +68,13 @@ const uint8_t sei_nalu_h264[DUMMY_SEI_NALU_SIZE] = {
  *   NALU header     sei data         id        stop bit
  *
  */
-const uint8_t I_nalu_h265[DUMMY_NALU_SIZE] = { 0x26, 0x01, 0x80, 0x00, 0x80 };
-const uint8_t i_nalu_h265[DUMMY_NALU_SIZE] = { 0x26, 0x01, 0x00, 0x00, 0x80 };
-const uint8_t P_nalu_h265[DUMMY_NALU_SIZE] = { 0x02, 0x01, 0x80, 0x00, 0x80 };
-const uint8_t p_nalu_h265[DUMMY_NALU_SIZE] = { 0x02, 0x01, 0x00, 0x00, 0x80 };
-const uint8_t pps_nalu_h265[DUMMY_NALU_SIZE] = { 0x44, 0x01, 0x00, 0x00, 0x80 };
-const uint8_t sei_nalu_h265[DUMMY_SEI_NALU_SIZE] = {
-  0x4e, 0x01, 0x05, 0x11, 0xaa, 0xaa, 0xaa, 0xaa,
-  0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa,
-  0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x80
-};
+const uint8_t I_nalu_h265[DUMMY_NALU_SIZE] = {0x26, 0x01, 0x80, 0x00, 0x80};
+const uint8_t i_nalu_h265[DUMMY_NALU_SIZE] = {0x26, 0x01, 0x00, 0x00, 0x80};
+const uint8_t P_nalu_h265[DUMMY_NALU_SIZE] = {0x02, 0x01, 0x80, 0x00, 0x80};
+const uint8_t p_nalu_h265[DUMMY_NALU_SIZE] = {0x02, 0x01, 0x00, 0x00, 0x80};
+const uint8_t pps_nalu_h265[DUMMY_NALU_SIZE] = {0x44, 0x01, 0x00, 0x00, 0x80};
+const uint8_t sei_nalu_h265[DUMMY_SEI_NALU_SIZE] = {0x4e, 0x01, 0x05, 0x11, 0xaa, 0xaa, 0xaa, 0xaa,
+    0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x80};
 
 /* Helper that parses information from the NALU and returns a one character string (+ null
  * termination) representing the NALU type.
@@ -88,34 +82,33 @@ const uint8_t sei_nalu_h265[DUMMY_SEI_NALU_SIZE] = {
 static char *
 get_str_code(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
 {
-  h26x_nalu_t nalu = parse_nalu_info(data, data_size, codec, false);
+  h26x_nalu_t nalu = parse_nalu_info(data, data_size, codec, false, true);
 
   char *str;
   switch (nalu.nalu_type) {
-  case NALU_TYPE_UNDEFINED:
-    str = nalu.is_valid == 0 ? "X" : "\0";
-    break;
-  case NALU_TYPE_I:
-    str = nalu.is_primary_slice == true ? "I": "i";
-    break;
-  case NALU_TYPE_P:
-    str = nalu.is_primary_slice == true ? "P": "p";
-    break;
-  case NALU_TYPE_PS:
-    str = "V";
-    break;
+    case NALU_TYPE_UNDEFINED:
+      str = nalu.is_valid == 0 ? "X" : "\0";
+      break;
+    case NALU_TYPE_I:
+      str = nalu.is_primary_slice == true ? "I" : "i";
+      break;
+    case NALU_TYPE_P:
+      str = nalu.is_primary_slice == true ? "P" : "p";
+      break;
+    case NALU_TYPE_PS:
+      str = "V";
+      break;
 
-  case NALU_TYPE_SEI:
-    {
+    case NALU_TYPE_SEI: {
       if (nalu.is_gop_sei)
         str = "G";
       else
         str = "S";
       break;
     }
-  default:
-    str = "\0";
-    break;
+    default:
+      str = "\0";
+      break;
   }
 
   free(nalu.tmp_tlv_memory);
@@ -127,8 +120,11 @@ get_str_code(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
  * |nalu_data|. The |nalu_data| should end with a stop byte preceeded with a byte to fill in the
  * |id|. */
 static uint8_t *
-generate_nalu(bool valid_start_code, const uint8_t *nalu_data,
-    size_t nalu_data_size, uint8_t id, size_t *final_nalu_size)
+generate_nalu(bool valid_start_code,
+    const uint8_t *nalu_data,
+    size_t nalu_data_size,
+    uint8_t id,
+    size_t *final_nalu_size)
 {
   // Sanity checks.
   ck_assert(nalu_data);
@@ -164,30 +160,30 @@ nalu_list_item_create_and_set_id(const char *str, uint8_t id, SignedVideoCodec c
 
   // Find out which type of NALU the string character is and point |nalu_data| to it.
   switch (str_idx - valid_str) {
-  case 0:
-    nalu_data = codec == SV_CODEC_H264 ? I_nalu_h264 : I_nalu_h265;
-    break;
-  case 1:
-    nalu_data = codec == SV_CODEC_H264 ? i_nalu_h264 : i_nalu_h265;
-    break;
-  case 2:
-    nalu_data = codec == SV_CODEC_H264 ? P_nalu_h264 : P_nalu_h265;
-    break;
-  case 3:
-    nalu_data = codec == SV_CODEC_H264 ? p_nalu_h264 : p_nalu_h265;
-    break;
-  case 4:
-    nalu_data = codec == SV_CODEC_H264 ? sei_nalu_h264 : sei_nalu_h265;
-    nalu_data_size = DUMMY_SEI_NALU_SIZE;
-    break;
-  case 5:
-    nalu_data = codec == SV_CODEC_H264 ? pps_nalu_h264 : pps_nalu_h265;
-    break;
-  case 6:
-  default:
-    nalu_data = invalid_nalu;
-    start_code = false;
-    break;
+    case 0:
+      nalu_data = codec == SV_CODEC_H264 ? I_nalu_h264 : I_nalu_h265;
+      break;
+    case 1:
+      nalu_data = codec == SV_CODEC_H264 ? i_nalu_h264 : i_nalu_h265;
+      break;
+    case 2:
+      nalu_data = codec == SV_CODEC_H264 ? P_nalu_h264 : P_nalu_h265;
+      break;
+    case 3:
+      nalu_data = codec == SV_CODEC_H264 ? p_nalu_h264 : p_nalu_h265;
+      break;
+    case 4:
+      nalu_data = codec == SV_CODEC_H264 ? sei_nalu_h264 : sei_nalu_h265;
+      nalu_data_size = DUMMY_SEI_NALU_SIZE;
+      break;
+    case 5:
+      nalu_data = codec == SV_CODEC_H264 ? pps_nalu_h264 : pps_nalu_h265;
+      break;
+    case 6:
+    default:
+      nalu_data = invalid_nalu;
+      start_code = false;
+      break;
   }
 
   size_t nalu_size = 0;
@@ -301,8 +297,7 @@ nalu_list_pop_last_item(nalu_list_t *list)
 
 /* Appends a list item with a new item. Assumes list_item exists. */
 void
-nalu_list_item_append_item(nalu_list_item_t *list_item,
-    nalu_list_item_t *new_item)
+nalu_list_item_append_item(nalu_list_item_t *list_item, nalu_list_item_t *new_item)
 {
   if (!list_item || !new_item) return;
   nalu_list_item_t *next_item = list_item->next;
@@ -317,8 +312,7 @@ nalu_list_item_append_item(nalu_list_item_t *list_item,
 
 /* Prepends a list item with a new item. Assumes list_item exists. */
 void
-nalu_list_item_prepend_item(nalu_list_item_t *list_item,
-    nalu_list_item_t *new_item)
+nalu_list_item_prepend_item(nalu_list_item_t *list_item, nalu_list_item_t *new_item)
 {
   if (!list_item || !new_item) return;
   nalu_list_item_t *prev_item = list_item->prev;
@@ -370,8 +364,7 @@ nalu_list_create(const char *str, SignedVideoCodec codec)
   uint8_t i = 0;
 
   while (str[i]) {
-    nalu_list_item_t *new_item =
-        nalu_list_item_create_and_set_id(&str[i], i, codec);
+    nalu_list_item_t *new_item = nalu_list_item_create_and_set_id(&str[i], i, codec);
     if (!new_item) {
       // No character could be identified. Continue without adding.
       i++;
@@ -469,8 +462,7 @@ nalu_list_append_and_free(nalu_list_t *list, nalu_list_t *list_to_append)
 /* Appends the list item with position item_number with a new item.
  */
 void
-nalu_list_append_item(nalu_list_t *list, nalu_list_item_t *new_item,
-    int item_number)
+nalu_list_append_item(nalu_list_t *list, nalu_list_item_t *new_item, int item_number)
 {
   if (!list || !new_item) return;
   nalu_list_item_t *item_to_append = nalu_list_get_item(list, item_number);
@@ -498,8 +490,10 @@ void
 nalu_list_prepend_first_item(nalu_list_t *list, nalu_list_item_t *new_item)
 {
   if (!list || !new_item) return;
-  if (list->first_item) nalu_list_item_prepend_item(list->first_item, new_item);
-  else list->first_item = new_item;
+  if (list->first_item)
+    nalu_list_item_prepend_item(list->first_item, new_item);
+  else
+    list->first_item = new_item;
 
   nalu_list_refresh(list);
 }

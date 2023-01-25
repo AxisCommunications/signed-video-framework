@@ -595,7 +595,8 @@ h26x_nalu_t
 parse_nalu_info(const uint8_t *nalu_data,
     size_t nalu_data_size,
     SignedVideoCodec codec,
-    bool check_trailing_bytes)
+    bool check_trailing_bytes,
+    bool is_auth_side)
 {
   uint32_t nalu_header_len = 0;
   h26x_nalu_t nalu = {0};
@@ -693,7 +694,7 @@ parse_nalu_info(const uint8_t *nalu_data,
     nalu.is_gop_sei = (nalu.uuid_type == UUID_TYPE_SIGNED_VIDEO);
 
     // Only Signed Video generated SEI-NALUs are valid and hashable.
-    nalu.is_hashable = nalu.is_gop_sei;
+    nalu.is_hashable = nalu.is_gop_sei && is_auth_side;
 
     remove_emp_bytes_from_sei_payload(&nalu);
   }

@@ -675,10 +675,10 @@ START_TEST(correct_timestamp)
   ck_assert(nalu_to_prepend.nalu_data_size == nalu_to_prepend_ts.nalu_data_size);
 
   // Get the hashable data (includes the signature)
-  h26x_nalu_t nalu =
-      parse_nalu_info(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec, false);
+  h26x_nalu_t nalu = parse_nalu_info(
+      nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec, false, true);
   h26x_nalu_t nalu_ts = parse_nalu_info(
-      nalu_to_prepend_ts.nalu_data, nalu_to_prepend_ts.nalu_data_size, codec, false);
+      nalu_to_prepend_ts.nalu_data, nalu_to_prepend_ts.nalu_data_size, codec, false, true);
 
   // Remove the signature
   update_hashable_data(&nalu);

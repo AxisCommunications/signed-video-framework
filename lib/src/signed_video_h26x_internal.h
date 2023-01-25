@@ -182,7 +182,8 @@ h26x_nalu_t
 parse_nalu_info(const uint8_t *nalu_data,
     size_t nalu_data_size,
     SignedVideoCodec codec,
-    bool check_trailing_bytes);
+    bool check_trailing_bytes,
+    bool is_auth_side);
 
 void
 copy_nalu_except_pointers(h26x_nalu_t *dst_nalu, const h26x_nalu_t *src_nalu);
