@@ -196,25 +196,25 @@ signing_worker_thread(void *user_data)
       // report the error when getting the signature.
       self->output_buffer[self->output_buffer_idx].signing_error = (status != SV_OK);
 
-      if (status == SV_OK) {
-        // Allocate memory for the |signature| if necessary.
+      // Allocate memory for the |signature| if necessary.
+      if (!self->output_buffer[self->output_buffer_idx].signature) {
+        self->output_buffer[self->output_buffer_idx].signature =
+            calloc(1, self->signature_info->max_signature_size);
         if (!self->output_buffer[self->output_buffer_idx].signature) {
-          self->output_buffer[self->output_buffer_idx].signature =
-              calloc(1, self->signature_info->max_signature_size);
-          if (!self->output_buffer[self->output_buffer_idx].signature) {
-            // Failed in memory allocation. Stop the thread and free all memory.
-            self->is_running = false;
-            sv_threaded_plugin_reset(self);
-            goto done;
-          }
+          // Failed in memory allocation. Stop the thread and free all memory.
+          self->is_running = false;
+          sv_threaded_plugin_reset(self);
+          goto done;
         }
+      }
 
+      if (status == SV_OK) {
         // Copy the |signature| to the output buffer
         memcpy(self->output_buffer[self->output_buffer_idx].signature,
             self->signature_info->signature, self->signature_info->signature_size);
         self->output_buffer[self->output_buffer_idx].size = self->signature_info->signature_size;
-        self->output_buffer_idx++;
       }
+      self->output_buffer_idx++;
     } else {
       // Wait for a signal, triggered when it is time to sign a hash.
       g_cond_wait(&self->cond, &self->mutex);
@@ -248,7 +248,7 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
   if (!self->is_running) {
     // Thread is not running. Go to catch_error and return status.
     status = SV_EXTERNAL_ERROR;
-    goto catch_error;
+    goto done;
   }
 
   // If no |self->signature_info| exists. Allocate necessary memory for it and copy the
@@ -258,14 +258,14 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
     if (!self->signature_info) {
       // Failed in memory allocation.
       status = SV_MEMORY;
-      goto catch_error;
+      goto done;
     }
   }
 
   if (self->input_buffer_idx >= MAX_BUFFER_LENGTH) {
     // |input_buffer| is full. Buffers this long are not supported.
     status = SV_NOT_SUPPORTED;
-    goto catch_error;
+    goto done;
   }
 
   if (!self->input_buffer[self->input_buffer_idx]) {
@@ -273,7 +273,7 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
     if (!self->input_buffer[self->input_buffer_idx]) {
       // Failed in memory allocation.
       status = SV_MEMORY;
-      goto catch_error;
+      goto done;
     }
     self->hash_size = signature_info->hash_size;
   }
@@ -282,7 +282,7 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
   // TODO: Should we allow to change the hash_size in runtime?
   if (signature_info->hash_size != self->hash_size) {
     status = SV_NOT_SUPPORTED;
-    goto catch_error;
+    goto done;
   }
 
   // Copy the |hash| ready for signing.
@@ -292,11 +292,7 @@ threaded_openssl_sign_hash(sv_threaded_plugin_t *self, const signature_info_t *s
 
   status = SV_OK;
 
-catch_error:
-  if (status != SV_OK) {
-    // Failed in memory allocation or failure due to full buffer. Free all memory.
-    sv_threaded_plugin_reset(self);
-  }
+done:
 
   g_cond_signal(&self->cond);
   g_mutex_unlock(&self->mutex);
