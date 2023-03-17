@@ -378,6 +378,26 @@ signed_video_set_authenticity_level(signed_video_t *self,
 SignedVideoReturnCode
 signed_video_set_recurrence_interval_frames(signed_video_t *self, unsigned recurrence);
 
+/**
+ * @brief Configures Signed Video to generate the SEI NAL Units with/without emulation prevention
+ *
+ * Emulation prevention bytes (EPB) are used to prevent the decoder from detecting the start code
+ * sequence in the middle of a NAL Unit. By default, the framework generates SEI frames with EPB
+ * written to the payload. With this API, the user can select to have Signed Video generate SEI
+ * frames with or without EPBs.
+
+ * If this API is not used, SEI payload is written with EPBs, hence equivalent with setting
+ * |sei_epb| to True.
+ *
+ * @param self Session struct pointer
+ * @param sei_epb SEI payload written with EPB (default True)
+ *
+ * @returns SV_OK SEI w/o EPB was successfully set,
+ *          SV_INVALID_PARAMETER Invalid parameter.
+ */
+SignedVideoReturnCode
+signed_video_set_sei_epb(signed_video_t *self, bool sei_epb);
+
 #ifdef __cplusplus
 }
 #endif

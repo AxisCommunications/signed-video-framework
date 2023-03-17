@@ -56,7 +56,7 @@ h264_get_payload_size(const uint8_t *data, size_t *payload_size);
 static SignedVideoUUIDType
 h264_get_uuid_sei_type(const uint8_t *uuid);
 static void
-remove_emp_bytes_from_sei_payload(h26x_nalu_t *nalu);
+remove_epb_from_sei_payload(h26x_nalu_t *nalu);
 
 /* Hash wrapper functions */
 typedef svi_rc (*hash_wrapper_t)(signed_video_t *, const h26x_nalu_t *, uint8_t *);
@@ -544,7 +544,7 @@ parse_h265_nalu_header(h26x_nalu_t *nalu)
  * If emulation prevention bytes are present, temporary memory is allocated to hold the new tlv
  * data. Once emulation prevention bytes have been removed the new tlv data can be decoded. */
 static void
-remove_emp_bytes_from_sei_payload(h26x_nalu_t *nalu)
+remove_epb_from_sei_payload(h26x_nalu_t *nalu)
 {
   assert(nalu);
   if (!nalu->is_hashable || !nalu->is_gop_sei || (nalu->is_valid <= 0)) return;
@@ -553,31 +553,39 @@ remove_emp_bytes_from_sei_payload(h26x_nalu_t *nalu)
   // |reserved_byte| and point to the start of the TLV part.
   nalu->tlv_start_in_nalu_data = nalu->payload + UUID_LEN;
   nalu->tlv_size = nalu->payload_size - UUID_LEN;
-  uint8_t reserved_byte = *nalu->tlv_start_in_nalu_data;
-  // The |reserved_byte| should have a starting bit. Otherwise, assume it is a tag.
-  if (reserved_byte & 0x80) {
-    nalu->reserved_byte = reserved_byte;
-    nalu->tlv_start_in_nalu_data++;  // Move past the |reserved_byte|.
-    nalu->tlv_size -= 1;  // Exclude the |reserved_byte|.
-  }
+  nalu->reserved_byte = *nalu->tlv_start_in_nalu_data;
+  nalu->tlv_start_in_nalu_data++;  // Move past the |reserved_byte|.
+  nalu->tlv_size -= 1;  // Exclude the |reserved_byte| from TLV size.
+  nalu->with_epb = (nalu->reserved_byte & 0x80);  // Hash with emulation prevention bytes
   nalu->tlv_data = nalu->tlv_start_in_nalu_data;
 
   if (nalu->emulation_prevention_bytes <= 0) return;
 
   // We need to read byte by byte to a new memory and remove any emulation prevention bytes.
-  const uint8_t *tlv_ptr = nalu->tlv_start_in_nalu_data;
   uint16_t last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
-  assert(!nalu->tmp_tlv_memory);
-  nalu->tmp_tlv_memory = malloc(nalu->tlv_size);
-  if (!nalu->tmp_tlv_memory) {
-    DEBUG_LOG("Failed allocating |tmp_tlv_memory|, marking NALU with error");
+  // Complete data size including stop bit (byte). Note that |payload_size| excludes the final byte
+  // with the stop bit.
+  const size_t data_size = (nalu->payload - nalu->hashable_data) + nalu->payload_size + 1;
+  assert(!nalu->nalu_data_wo_epb);
+  nalu->nalu_data_wo_epb = malloc(data_size);
+  if (!nalu->nalu_data_wo_epb) {
+    DEBUG_LOG("Failed allocating |nalu_data_wo_epb|, marking NALU with error");
     nalu->is_valid = -1;
   } else {
-    for (size_t i = 0; i < nalu->tlv_size; i++) {
-      nalu->tmp_tlv_memory[i] = read_byte(&last_two_bytes, &tlv_ptr, true);
+    // Copy everything from the NALU header to stop bit (byte) inclusive, but with the emulation
+    // prevention bytes removed.
+    const uint8_t *hashable_data_ptr = nalu->hashable_data;
+    for (size_t i = 0; i < data_size; i++) {
+      nalu->nalu_data_wo_epb[i] = read_byte(&last_two_bytes, &hashable_data_ptr, true);
     }
-    // Point |tlv_data| to the temporary memory.
-    nalu->tlv_data = nalu->tmp_tlv_memory;
+    // Point |tlv_data| to the first byte of the TLV part in |nalu_data_wo_epb|.
+    nalu->tlv_data = &nalu->nalu_data_wo_epb[data_size - nalu->payload_size + UUID_LEN];
+    if (!nalu->with_epb) {
+      // If the SEI was hashed before applying emulation prevention, update |hashable_data|.
+      nalu->hashable_data = nalu->nalu_data_wo_epb;
+      nalu->hashable_data_size = data_size;
+      nalu->tlv_start_in_nalu_data = nalu->tlv_data;
+    }
   }
 }
 
@@ -589,7 +597,7 @@ remove_emp_bytes_from_sei_payload(h26x_nalu_t *nalu)
  * payload size, UUID in case of SEI nalu.
  *
  * Emulation prevention bytes may have been removed and if so, memory has been allocated. The user
- * is responsible for freeing |tmp_tlv_memory|.
+ * is responsible for freeing |nalu_data_wo_epb|.
  */
 h26x_nalu_t
 parse_nalu_info(const uint8_t *nalu_data,
@@ -675,14 +683,14 @@ parse_nalu_info(const uint8_t *nalu_data,
       nalu.payload_size = payload_size;
       // We now know the payload size, including UUID (16 bytes) and excluding stop bit. This means
       // that we can determine if we have added any emulation prevention bytes.
-      int emp = (int)nalu.hashable_data_size;
-      emp -= (int)(payload - nalu.hashable_data);  // Read bytes so far
-      emp -= (int)payload_size;  // The true encoded payload size, excluding stop byte.
+      int epb = (int)nalu.hashable_data_size;
+      epb -= (int)(payload - nalu.hashable_data);  // Read bytes so far
+      epb -= (int)payload_size;  // The true encoded payload size, excluding stop byte.
       // If we have the stop bit in a byte of its own it's not included in the payload size. This is
       // actually always the case for the signed video generated SEI data.
 
-      emp -= nalu_data[nalu_data_size - 1] == STOP_BYTE_VALUE ? 1 : 0;
-      nalu.emulation_prevention_bytes = emp;
+      epb -= nalu_data[nalu_data_size - 1] == STOP_BYTE_VALUE ? 1 : 0;
+      nalu.emulation_prevention_bytes = epb;
       DEBUG_LOG("Computed %d emulation prevention byte(s)", nalu.emulation_prevention_bytes);
 
       // Decode UUID type
@@ -696,7 +704,7 @@ parse_nalu_info(const uint8_t *nalu_data,
     // Only Signed Video generated SEI-NALUs are valid and hashable.
     nalu.is_hashable = nalu.is_gop_sei && is_auth_side;
 
-    remove_emp_bytes_from_sei_payload(&nalu);
+    remove_epb_from_sei_payload(&nalu);
   }
 
   return nalu;
@@ -719,7 +727,7 @@ copy_nalu_except_pointers(h26x_nalu_t *dst_nalu, const h26x_nalu_t *src_nalu)
   dst_nalu->payload = NULL;
   dst_nalu->tlv_start_in_nalu_data = NULL;
   dst_nalu->tlv_data = NULL;
-  dst_nalu->tmp_tlv_memory = NULL;
+  dst_nalu->nalu_data_wo_epb = NULL;
 }
 
 /* Helper function to public APIs */
@@ -1138,6 +1146,7 @@ signed_video_create(SignedVideoCodec codec)
     self->has_public_key = false;
 
     self->add_public_key_to_sei = true;
+    self->sei_epb = true;
     self->frame_count = RECURRENCE_OFFSET_DEFAULT;
     self->has_recurrent_data = false;
     self->authentication_started = false;

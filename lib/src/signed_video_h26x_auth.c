@@ -968,7 +968,7 @@ update_hashable_data(h26x_nalu_t *nalu)
   // emulation prevention bytes) coresponding to that tag. This is done by scanning the TLV for that
   // tag.
   const uint8_t *signature_tag_ptr =
-      tlv_find_tag(nalu->tlv_start_in_nalu_data, nalu->tlv_size, SIGNATURE_TAG, true);
+      tlv_find_tag(nalu->tlv_start_in_nalu_data, nalu->tlv_size, SIGNATURE_TAG, nalu->with_epb);
 
   if (signature_tag_ptr) nalu->hashable_data_size = signature_tag_ptr - nalu->hashable_data;
 }
@@ -1023,7 +1023,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
   status = (status == SVI_OK) ? copy_nalu_status : status;
   if (status != SVI_OK) nalu_list->last_item->validation_status = 'E';
 
-  free(nalu.tmp_tlv_memory);
+  free(nalu.nalu_data_wo_epb);
 
   return status;
 }

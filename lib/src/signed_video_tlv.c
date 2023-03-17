@@ -215,35 +215,36 @@ encode_general(signed_video_t *self, uint8_t *data)
 
   uint8_t *data_ptr = data;
   uint16_t *last_two_bytes = &self->last_two_bytes;
+  bool epb = self->sei_epb;
   // Fill Camera Info data
   // Version
-  write_byte(last_two_bytes, &data_ptr, version, true);
+  write_byte(last_two_bytes, &data_ptr, version, epb);
   // GOP counter; 4 bytes
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter >> 24) & 0x000000ff), true);
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter >> 16) & 0x000000ff), true);
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter >> 8) & 0x000000ff), true);
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter)&0x000000ff), true);
+  write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter >> 24) & 0x000000ff), epb);
+  write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter >> 16) & 0x000000ff), epb);
+  write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter >> 8) & 0x000000ff), epb);
+  write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter)&0x000000ff), epb);
   // Write num_nalus_in_gop_hash; 2 bytes
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)((num_nalus_in_gop_hash >> 8) & 0x00ff), true);
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)((num_nalus_in_gop_hash)&0x00ff), true);
+  write_byte(last_two_bytes, &data_ptr, (uint8_t)((num_nalus_in_gop_hash >> 8) & 0x00ff), epb);
+  write_byte(last_two_bytes, &data_ptr, (uint8_t)((num_nalus_in_gop_hash)&0x00ff), epb);
 
   for (int i = 0; i < SV_VERSION_BYTES; i++) {
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)self->code_version[i], true);
+    write_byte(last_two_bytes, &data_ptr, (uint8_t)self->code_version[i], epb);
   }
 
   // Write bool flags; 1 byte
   flags |= (gop_info->has_timestamp << 0) & 0x01;
-  write_byte(last_two_bytes, &data_ptr, flags, true);
+  write_byte(last_two_bytes, &data_ptr, flags, epb);
   if (gop_info->has_timestamp) {
     // Write timestamp; 8 bytes
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 56) & 0x000000ff), true);
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 48) & 0x000000ff), true);
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 40) & 0x000000ff), true);
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 32) & 0x000000ff), true);
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 24) & 0x000000ff), true);
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 16) & 0x000000ff), true);
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 8) & 0x000000ff), true);
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp)&0x000000ff), true);
+    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 56) & 0x000000ff), epb);
+    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 48) & 0x000000ff), epb);
+    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 40) & 0x000000ff), epb);
+    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 32) & 0x000000ff), epb);
+    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 24) & 0x000000ff), epb);
+    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 16) & 0x000000ff), epb);
+    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 8) & 0x000000ff), epb);
+    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp)&0x000000ff), epb);
   }
 
   gop_info->global_gop_counter = gop_counter;
@@ -367,63 +368,64 @@ encode_product_info(signed_video_t *self, uint8_t *data)
 
   uint8_t *data_ptr = data;
   uint16_t *last_two_bytes = &self->last_two_bytes;
+  bool epb = self->sei_epb;
   uint8_t str_end_byte = '\0';
   // Version
-  write_byte(last_two_bytes, &data_ptr, version, true);
+  write_byte(last_two_bytes, &data_ptr, version, epb);
 
   // Write |hardware_id|.
-  write_byte(last_two_bytes, &data_ptr, hardware_id_size_onebyte, true);
+  write_byte(last_two_bytes, &data_ptr, hardware_id_size_onebyte, epb);
   // Write all but the last character.
   write_byte_many(
-      &data_ptr, product_info->hardware_id, hardware_id_size_onebyte - 1, last_two_bytes, true);
+      &data_ptr, product_info->hardware_id, hardware_id_size_onebyte - 1, last_two_bytes, epb);
   // Determine and write the last character.
   str_end_byte = (hardware_id_too_long || !product_info->hardware_id)
       ? '\0'
       : product_info->hardware_id[hardware_id_size_onebyte - 1];
-  write_byte(last_two_bytes, &data_ptr, str_end_byte, true);
+  write_byte(last_two_bytes, &data_ptr, str_end_byte, epb);
 
   // Write |firmware_version|.
-  write_byte(last_two_bytes, &data_ptr, firmware_version_size_onebyte, true);
+  write_byte(last_two_bytes, &data_ptr, firmware_version_size_onebyte, epb);
   // Write all but the last character.
   write_byte_many(&data_ptr, product_info->firmware_version, firmware_version_size_onebyte - 1,
-      last_two_bytes, true);
+      last_two_bytes, epb);
   // Determine and write the last character.
   str_end_byte = (firmware_version_too_long || !product_info->firmware_version)
       ? '\0'
       : product_info->firmware_version[firmware_version_size_onebyte - 1];
-  write_byte(last_two_bytes, &data_ptr, str_end_byte, true);
+  write_byte(last_two_bytes, &data_ptr, str_end_byte, epb);
 
   // Write |serial_number|.
-  write_byte(last_two_bytes, &data_ptr, serial_number_size_onebyte, true);
+  write_byte(last_two_bytes, &data_ptr, serial_number_size_onebyte, epb);
   // Write all but the last character.
   write_byte_many(
-      &data_ptr, product_info->serial_number, serial_number_size_onebyte - 1, last_two_bytes, true);
+      &data_ptr, product_info->serial_number, serial_number_size_onebyte - 1, last_two_bytes, epb);
   // Determine and write the last character.
   str_end_byte = (serial_number_too_long || !product_info->serial_number)
       ? '\0'
       : product_info->serial_number[serial_number_size_onebyte - 1];
-  write_byte(last_two_bytes, &data_ptr, str_end_byte, true);
+  write_byte(last_two_bytes, &data_ptr, str_end_byte, epb);
 
   // Write |manufacturer|.
-  write_byte(last_two_bytes, &data_ptr, manufacturer_size_onebyte, true);
+  write_byte(last_two_bytes, &data_ptr, manufacturer_size_onebyte, epb);
   // Write all but the last character.
   write_byte_many(
-      &data_ptr, product_info->manufacturer, manufacturer_size_onebyte - 1, last_two_bytes, true);
+      &data_ptr, product_info->manufacturer, manufacturer_size_onebyte - 1, last_two_bytes, epb);
   // Determine and write the last character.
   str_end_byte = (manufacturer_too_long || !product_info->manufacturer)
       ? '\0'
       : product_info->manufacturer[manufacturer_size_onebyte - 1];
-  write_byte(last_two_bytes, &data_ptr, str_end_byte, true);
+  write_byte(last_two_bytes, &data_ptr, str_end_byte, epb);
 
   // Write |address|.
-  write_byte(last_two_bytes, &data_ptr, address_size_onebyte, true);
+  write_byte(last_two_bytes, &data_ptr, address_size_onebyte, epb);
   // Write all but the last character.
-  write_byte_many(&data_ptr, product_info->address, address_size_onebyte - 1, last_two_bytes, true);
+  write_byte_many(&data_ptr, product_info->address, address_size_onebyte - 1, last_two_bytes, epb);
   // Determine and write the last character.
   str_end_byte = (address_too_long || !product_info->address)
       ? '\0'
       : product_info->address[address_size_onebyte - 1];
-  write_byte(last_two_bytes, &data_ptr, str_end_byte, true);
+  write_byte(last_two_bytes, &data_ptr, str_end_byte, epb);
 
   return (data_ptr - data);
 }
@@ -503,11 +505,12 @@ encode_arbitrary_data(signed_video_t *self, uint8_t *data)
 
   uint8_t *data_ptr = data;
   uint16_t *last_two_bytes = &self->last_two_bytes;
+  bool epb = self->sei_epb;
   // Version
-  write_byte(last_two_bytes, &data_ptr, version, true);
+  write_byte(last_two_bytes, &data_ptr, version, epb);
 
   for (size_t ii = 0; ii < self->arbitrary_data_size; ++ii) {
-    write_byte(last_two_bytes, &data_ptr, self->arbitrary_data[ii], true);
+    write_byte(last_two_bytes, &data_ptr, self->arbitrary_data[ii], epb);
   }
 
   return (data_ptr - data);
@@ -578,16 +581,17 @@ encode_public_key(signed_video_t *self, uint8_t *data)
 
   uint8_t *data_ptr = data;
   uint16_t *last_two_bytes = &self->last_two_bytes;
+  bool epb = self->sei_epb;
   uint8_t *public_key = signature_info->public_key;
 
   // Fill Camera Info data
   // Version
-  write_byte(last_two_bytes, &data_ptr, version, true);
-  write_byte(last_two_bytes, &data_ptr, signature_info->algo, true);
+  write_byte(last_two_bytes, &data_ptr, version, epb);
+  write_byte(last_two_bytes, &data_ptr, signature_info->algo, epb);
 
   // public_key; public_key_size (451) bytes
   for (size_t ii = 0; ii < signature_info->public_key_size; ++ii) {
-    write_byte(last_two_bytes, &data_ptr, public_key[ii], true);
+    write_byte(last_two_bytes, &data_ptr, public_key[ii], epb);
   }
 
   return (data_ptr - data);
@@ -667,11 +671,12 @@ encode_hash_list(signed_video_t *self, uint8_t *data)
 
   uint8_t *data_ptr = data;
   uint16_t *last_two_bytes = &self->last_two_bytes;
+  bool epb = self->sei_epb;
   // Write version
-  write_byte(last_two_bytes, &data_ptr, version, true);
+  write_byte(last_two_bytes, &data_ptr, version, epb);
   // Write hash_list data
   for (int i = 0; i < gop_info->list_idx; i++) {
-    write_byte(last_two_bytes, &data_ptr, gop_info->hash_list[i], true);
+    write_byte(last_two_bytes, &data_ptr, gop_info->hash_list[i], epb);
   }
 
   // Having successfully encoded the hash_list means we should sign the document_hash and not the
@@ -748,24 +753,25 @@ encode_signature(signed_video_t *self, uint8_t *data)
 
   uint8_t *data_ptr = data;
   uint16_t *last_two_bytes = &self->last_two_bytes;
+  bool epb = self->sei_epb;
   uint16_t signature_size = (uint16_t)signature_info->signature_size;
   // Write version
-  write_byte(last_two_bytes, &data_ptr, version, true);
+  write_byte(last_two_bytes, &data_ptr, version, epb);
   // Write info field
-  write_byte(last_two_bytes, &data_ptr, gop_info->encoding_status, true);
+  write_byte(last_two_bytes, &data_ptr, gop_info->encoding_status, epb);
   // Write hash type
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)gop_info->signature_hash_type, true);
+  write_byte(last_two_bytes, &data_ptr, (uint8_t)gop_info->signature_hash_type, epb);
   // Write actual signature size (2 bytes)
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)((signature_size >> 8) & 0x00ff), true);
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)((signature_size)&0x00ff), true);
+  write_byte(last_two_bytes, &data_ptr, (uint8_t)((signature_size >> 8) & 0x00ff), epb);
+  write_byte(last_two_bytes, &data_ptr, (uint8_t)((signature_size)&0x00ff), epb);
   // Write signature
   size_t i = 0;
   for (; i < signature_info->signature_size; i++) {
-    write_byte(last_two_bytes, &data_ptr, signature_info->signature[i], true);
+    write_byte(last_two_bytes, &data_ptr, signature_info->signature[i], epb);
   }
   for (; i < signature_info->max_signature_size; i++) {
     // Write 1's in the unused bytes to avoid emulation prevention bytes.
-    write_byte(last_two_bytes, &data_ptr, 1, true);
+    write_byte(last_two_bytes, &data_ptr, 1, epb);
   }
 
   return (data_ptr - data);
@@ -889,13 +895,14 @@ tlv_encode_or_get_size_generic(signed_video_t *self, const sv_tlv_tuple_t tlv, u
 
   uint8_t *data_ptr = data;
   uint16_t *last_two_bytes = &self->last_two_bytes;
+  bool epb = self->sei_epb;
   // Write Tag
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)tlv.tag, true);
+  write_byte(last_two_bytes, &data_ptr, (uint8_t)tlv.tag, epb);
   // Write length
   if (tlv.bytes_for_length == 2) {
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)((v_size >> 8) & 0x000000ff), true);
+    write_byte(last_two_bytes, &data_ptr, (uint8_t)((v_size >> 8) & 0x000000ff), epb);
   }
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)(v_size & 0x000000ff), true);
+  write_byte(last_two_bytes, &data_ptr, (uint8_t)(v_size & 0x000000ff), epb);
 
   // Write value, i.e. the actual data of the TLV
   size_t v_size_written = tlv.encoder(self, data_ptr);
