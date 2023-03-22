@@ -839,7 +839,8 @@ static size_t
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 encode_axis_communications(signed_video_t *self, uint8_t *data)
 {
-  return encode_axis_communications_handle(self->vendor_handle, &self->last_two_bytes, data);
+  bool epb = self->sei_epb;
+  return encode_axis_communications_handle(self->vendor_handle, &self->last_two_bytes, epb, data);
 #else
 encode_axis_communications(signed_video_t ATTR_UNUSED *self, uint8_t ATTR_UNUSED *data)
 {
@@ -1030,7 +1031,7 @@ tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bo
       read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
     }
   }
-  DEBUG_LOG("Never found the tag");
+  DEBUG_LOG("Never found the tag %d", tag);
 
   return NULL;
 }

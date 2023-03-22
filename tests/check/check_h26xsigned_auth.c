@@ -2495,6 +2495,15 @@ START_TEST(no_emulation_prevention_bytes)
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_set_sei_epb(sv, false);
   ck_assert_int_eq(sv_rc, SV_OK);
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
+  const size_t attestation_size = 2;
+  void *attestation = calloc(1, attestation_size);
+  // Setting |attestation| and |certificate_chain|.
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(
+      sv, attestation, attestation_size, axisDummyCertificateChain);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  free(attestation);
+#endif
 
   // Add I-frame for signing and get SEI frame.
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
@@ -2549,6 +2558,7 @@ START_TEST(no_emulation_prevention_bytes)
     latest = &(auth_report->latest_validation);
     ck_assert(latest);
     ck_assert_int_eq(strcmp(latest->validation_str, ".P"), 0);
+    // Public key validation is not feasible since there is no Product information.
     ck_assert_int_eq(latest->public_key_validation, SV_PUBKEY_VALIDATION_NOT_FEASIBLE);
     ck_assert_int_eq(auth_report->accumulated_validation.authenticity, SV_AUTH_RESULT_OK);
     ck_assert_int_eq(auth_report->accumulated_validation.public_key_has_changed, false);

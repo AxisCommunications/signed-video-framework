@@ -761,6 +761,15 @@ START_TEST(w_wo_emulation_prevention_bytes)
     ck_assert_int_eq(sv_rc, SV_OK);
     sv_rc = signed_video_set_sei_epb(sv, with_emulation_prevention[ii]);
     ck_assert_int_eq(sv_rc, SV_OK);
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
+    const size_t attestation_size = 2;
+    void *attestation = calloc(1, attestation_size);
+    // Setting |attestation| and |certificate_chain|.
+    sv_rc = sv_vendor_axis_communications_set_attestation_report(
+        sv, attestation, attestation_size, axisDummyCertificateChain);
+    ck_assert_int_eq(sv_rc, SV_OK);
+    free(attestation);
+#endif
 
     // Add I-frame for signing and get SEI frame
     sv_rc = signed_video_add_nalu_for_signing_with_timestamp(

@@ -322,7 +322,6 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     h26x_set_nal_uuid_type(self, &payload_ptr, UUID_TYPE_SIGNED_VIDEO);
 
     // Add reserved byte(s).
-    // *payload_ptr++ = SV_RESERVED_BYTE;
     uint8_t reserved_byte = self->sei_epb << 7;
     *payload_ptr++ = reserved_byte;
 

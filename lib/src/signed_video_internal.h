@@ -63,7 +63,6 @@ typedef struct _h26x_nalu_t h26x_nalu_t;
 #endif
 
 #define UUID_LEN 16
-#define SV_RESERVED_BYTE 0x80  // First bit should be marked as 1
 #define MAX_NALUS_TO_PREPEND 5  // This means that there is room to prepend 4 additional nalus.
 #define LAST_TWO_BYTES_INIT_VALUE 0x0101  // Anything but 0x00 are proper inits
 #define STOP_BYTE_VALUE 0x80

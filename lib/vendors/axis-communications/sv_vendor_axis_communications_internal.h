@@ -70,13 +70,14 @@ sv_vendor_axis_communications_teardown(void *handle);
  * @param handle The handle to encode.
  * @param last_two_bytes Pointer to the last two bytes in process of writing. Needed for proper
  *   emulation prevention handling.
+ * @param epb Flag to write data with emulation prevention bytes (EPB).
  * @param data Pointer to which data is written. A NULL pointer will return the size the data in
  *   |handle| requires.
  *
  * @returns The size written.
  */
 size_t
-encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, uint8_t *data);
+encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, bool epb, uint8_t *data);
 
 /**
  * @brief Decodes data to |handle|.
