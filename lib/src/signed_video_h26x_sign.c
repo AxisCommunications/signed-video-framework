@@ -322,7 +322,8 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     h26x_set_nal_uuid_type(self, &payload_ptr, UUID_TYPE_SIGNED_VIDEO);
 
     // Add reserved byte(s).
-    *payload_ptr++ = SV_RESERVED_BYTE;
+    uint8_t reserved_byte = self->sei_epb << 7;
+    *payload_ptr++ = reserved_byte;
 
     size_t written_size =
         tlv_list_encode_or_get_size(self, document_encoders, num_doc_encoders, payload_ptr);
@@ -358,7 +359,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
       // need to do this for SV_AUTHENTICITY_LEVEL_FRAME, but for simplicity we always copy it.
       memcpy(self->gop_info->document_hash, self->gop_info->nalu_hash, HASH_DIGEST_SIZE);
       // Free the memory allocated when parsing the NALU.
-      free(nalu_without_signature_data.tmp_tlv_memory);
+      free(nalu_without_signature_data.nalu_data_wo_epb);
     }
 
     gop_info_t *gop_info = self->gop_info;
@@ -609,7 +610,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
   SVI_CATCH()
   SVI_DONE(status)
 
-  free(nalu.tmp_tlv_memory);
+  free(nalu.nalu_data_wo_epb);
 
   if (signing_present > self->signing_present) self->signing_present = signing_present;
 
@@ -794,3 +795,12 @@ signed_video_set_recurrence_offset(signed_video_t *self, unsigned offset)
   return SV_OK;
 }
 #endif
+
+SignedVideoReturnCode
+signed_video_set_sei_epb(signed_video_t *self, bool sei_epb)
+{
+  if (!self) return SV_INVALID_PARAMETER;
+
+  self->sei_epb = sei_epb;
+  return SV_OK;
+}

@@ -31,7 +31,6 @@
 #include "lib/src/signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
 #include "lib/src/signed_video_h26x_internal.h"  // h26x_nalu_t
 #include "lib/src/signed_video_internal.h"  // set_hash_list_size()
-#include "lib/src/signed_video_tlv.h"  // tlv_find_tag()
 #include "nalu_list.h"
 #include "signed_video_helpers.h"
 
@@ -144,6 +143,14 @@ START_TEST(api_inputs)
   sv_rc = signed_video_set_authenticity_level(sv, SV_AUTHENTICITY_LEVEL_FRAME);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_set_authenticity_level(sv, SV_AUTHENTICITY_LEVEL_GOP);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Setting emulation prevention.
+  sv_rc = signed_video_set_sei_epb(NULL, false);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  sv_rc = signed_video_set_sei_epb(sv, false);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_sei_epb(sv, true);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Prepare for next iteration of tests.
@@ -689,8 +696,8 @@ START_TEST(correct_timestamp)
   ck_assert(nalu.hashable_data_size > 0);
   ck_assert(!memcmp(nalu.hashable_data, nalu_ts.hashable_data, nalu.hashable_data_size));
 
-  free(nalu.tmp_tlv_memory);
-  free(nalu_ts.tmp_tlv_memory);
+  free(nalu.nalu_data_wo_epb);
+  free(nalu_ts.nalu_data_wo_epb);
   signed_video_nalu_data_free(nalu_to_prepend.nalu_data);
   signed_video_nalu_data_free(nalu_to_prepend_ts.nalu_data);
   nalu_list_free_item(i_nalu);
@@ -711,6 +718,92 @@ START_TEST(correct_signing_nalus_in_parts)
   nalu_list_t *list = create_signed_splitted_nalus("IPPIPP", settings[_i]);
   nalu_list_check_str(list, "GIPPGIPP");
   nalu_list_free(list);
+}
+END_TEST
+
+/* Test description
+ * Verify the setter for generating SEI frames with or without emulation prevention bytes.
+ */
+#define NUM_EPB_CASES 2
+START_TEST(w_wo_emulation_prevention_bytes)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
+
+  SignedVideoCodec codec = settings[_i].codec;
+  SignedVideoReturnCode sv_rc;
+
+  h26x_nalu_t nalus[NUM_EPB_CASES] = {0};
+  uint8_t *sei[NUM_EPB_CASES] = {NULL, NULL};
+  size_t sei_size[NUM_EPB_CASES] = {0, 0};
+  bool with_emulation_prevention[NUM_EPB_CASES] = {true, false};
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+
+  // Generate a Private key.
+  sv_rc =
+      signed_video_generate_private_key(settings[_i].algo, "./", &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  for (size_t ii = 0; ii < NUM_EPB_CASES; ii++) {
+    signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
+    signed_video_t *sv = signed_video_create(codec);
+    ck_assert(sv);
+
+    // Apply settings to session.
+    sv_rc = signed_video_set_private_key(sv, settings[_i].algo, private_key, private_key_size);
+    ck_assert_int_eq(sv_rc, SV_OK);
+    sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
+    ck_assert_int_eq(sv_rc, SV_OK);
+    sv_rc = signed_video_set_sei_epb(sv, with_emulation_prevention[ii]);
+    ck_assert_int_eq(sv_rc, SV_OK);
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
+    const size_t attestation_size = 2;
+    void *attestation = calloc(1, attestation_size);
+    // Setting |attestation| and |certificate_chain|.
+    sv_rc = sv_vendor_axis_communications_set_attestation_report(
+        sv, attestation, attestation_size, axisDummyCertificateChain);
+    ck_assert_int_eq(sv_rc, SV_OK);
+    free(attestation);
+#endif
+
+    // Add I-frame for signing and get SEI frame
+    sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
+        sv, i_nalu->data, i_nalu->data_size, &g_testTimestamp);
+    ck_assert_int_eq(sv_rc, SV_OK);
+    sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
+    ck_assert_int_eq(sv_rc, SV_OK);
+    ck_assert(nalu_to_prepend.prepend_instruction != SIGNED_VIDEO_PREPEND_NOTHING);
+
+    ck_assert(nalu_to_prepend.nalu_data_size > 0);
+    sei[ii] = malloc(nalu_to_prepend.nalu_data_size);
+    ck_assert(sei[ii]);
+    sei_size[ii] = nalu_to_prepend.nalu_data_size;
+    memcpy(sei[ii], nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size);
+    signed_video_nalu_data_free(nalu_to_prepend.nalu_data);
+
+    nalus[ii] = parse_nalu_info(sei[ii], sei_size[ii], codec, false, true);
+    update_hashable_data(&nalus[ii]);
+
+    signed_video_free(sv);
+    sv = NULL;
+  }
+
+  // Verify that hashable data sizes and data contents are not identical
+  ck_assert(nalus[0].hashable_data_size > nalus[1].hashable_data_size);
+  ck_assert(nalus[1].hashable_data_size > 0);
+  ck_assert(memcmp(nalus[0].hashable_data, nalus[1].hashable_data, nalus[1].hashable_data_size));
+
+  for (size_t ii = 0; ii < NUM_EPB_CASES; ii++) {
+    free(nalus[ii].nalu_data_wo_epb);
+    free(sei[ii]);
+  }
+  nalu_list_free_item(i_nalu);
+  free(private_key);
 }
 END_TEST
 
@@ -744,6 +837,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, recurrence, s, e);
   tcase_add_loop_test(tc, correct_timestamp, s, e);
   tcase_add_loop_test(tc, correct_signing_nalus_in_parts, s, e);
+  tcase_add_loop_test(tc, w_wo_emulation_prevention_bytes, s, e);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);

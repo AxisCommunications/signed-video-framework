@@ -563,7 +563,7 @@ get_untrusted_certificates_size(const sv_vendor_axis_communications_t *self)
 
 /* Encodes the handle data into the TLV tag VENDOR_AXIS_COMMUNICATIONS_TAG. */
 size_t
-encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, uint8_t *data)
+encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, bool epb, uint8_t *data)
 {
   if (!handle) return 0;
 
@@ -596,16 +596,16 @@ encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, uint8_
   uint8_t *attestation = self->attestation;
 
   // Write version.
-  write_byte(last_two_bytes, &data_ptr, version, true);
+  write_byte(last_two_bytes, &data_ptr, version, epb);
   // Write |attestation_size|.
-  write_byte(last_two_bytes, &data_ptr, self->attestation_size, true);
+  write_byte(last_two_bytes, &data_ptr, self->attestation_size, epb);
   // Write |attestation|.
   for (size_t jj = 0; jj < self->attestation_size; ++jj) {
-    write_byte(last_two_bytes, &data_ptr, attestation[jj], true);
+    write_byte(last_two_bytes, &data_ptr, attestation[jj], epb);
   }
   // Write |certificate_chain|.
   write_byte_many(
-      &data_ptr, self->certificate_chain, certificate_chain_encode_size, last_two_bytes, true);
+      &data_ptr, self->certificate_chain, certificate_chain_encode_size, last_two_bytes, epb);
 
   return (data_ptr - data);
 }

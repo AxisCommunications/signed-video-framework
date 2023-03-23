@@ -129,7 +129,7 @@ struct _h26x_nalu_t {
   const uint8_t *tlv_start_in_nalu_data;  // Points to beginning of the TLV data in the |nalu_data|
   const uint8_t *tlv_data;  // Points to the TLV data after removing emulation prevention bytes
   size_t tlv_size;  // Total size of the |tlv_data|
-  uint8_t *tmp_tlv_memory;  // Temporary memory used if there are emulation prevention bytes
+  uint8_t *nalu_data_wo_epb;  // Temporary memory used if there are emulation prevention bytes
   uint32_t start_code;  // Start code or replaced by NALU data size
   int emulation_prevention_bytes;  // Computed emulation prevention bytes
   bool is_primary_slice;  // The first slice in the NALU or not
@@ -137,6 +137,7 @@ struct _h26x_nalu_t {
   bool is_gop_sei;  // True if this is a Signed Video generated SEI NALU
   bool is_first_nalu_part;  // True if the |nalu_data| includes the first part
   bool is_last_nalu_part;  // True if the |nalu_data| includes the last part
+  bool with_epb;  // Hashable data may include emulation prevention bytes
 };
 
 /* Internal APIs for gop_state_t functions */

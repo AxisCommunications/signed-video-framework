@@ -111,7 +111,7 @@ get_str_code(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
       break;
   }
 
-  free(nalu.tmp_tlv_memory);
+  free(nalu.nalu_data_wo_epb);
 
   return str;
 }

@@ -104,7 +104,7 @@ h26x_nalu_list_item_free(h26x_nalu_list_item_t *item)
 
   // If we have |nalu| data we free the temporarily used TLV memory slot.
   if (item->taken_ownership_of_nalu) {
-    if (item->nalu) free(item->nalu->tmp_tlv_memory);
+    if (item->nalu) free(item->nalu->nalu_data_wo_epb);
     free(item->nalu);
   }
   free(item->second_hash);
@@ -317,7 +317,7 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list)
   if (!list) return SVI_INVALID_PARAMETER;
 
   h26x_nalu_t *copied_nalu = NULL;
-  uint8_t *tmp_tlv_memory = NULL;
+  uint8_t *nalu_data_wo_epb = NULL;
   h26x_nalu_list_item_t *item = list->last_item;
 
   svi_rc status = SVI_UNKNOWN;
@@ -326,16 +326,16 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list)
     copied_nalu = (h26x_nalu_t *)malloc(sizeof(h26x_nalu_t));
     SVI_THROW_IF(!copied_nalu, SVI_MEMORY);
     if (item->nalu->tlv_data) {
-      tmp_tlv_memory = malloc(item->nalu->tlv_size);
-      SVI_THROW_IF(!tmp_tlv_memory, SVI_MEMORY);
-      memcpy(tmp_tlv_memory, item->nalu->tlv_data, item->nalu->tlv_size);
+      nalu_data_wo_epb = malloc(item->nalu->tlv_size);
+      SVI_THROW_IF(!nalu_data_wo_epb, SVI_MEMORY);
+      memcpy(nalu_data_wo_epb, item->nalu->tlv_data, item->nalu->tlv_size);
     }
     copy_nalu_except_pointers(copied_nalu, item->nalu);
-    copied_nalu->tmp_tlv_memory = tmp_tlv_memory;
-    copied_nalu->tlv_data = copied_nalu->tmp_tlv_memory;
+    copied_nalu->nalu_data_wo_epb = nalu_data_wo_epb;
+    copied_nalu->tlv_data = copied_nalu->nalu_data_wo_epb;
   SVI_CATCH()
   {
-    free(tmp_tlv_memory);  // At this point, tmp_tlv_memory is actually NULL.
+    free(nalu_data_wo_epb);  // At this point, nalu_data_wo_epb is actually NULL.
     free(copied_nalu);
     copied_nalu = NULL;
   }
@@ -344,7 +344,7 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list)
   if (item->taken_ownership_of_nalu) {
     // We have taken ownership of the existing |nalu|, hence we need to free it when releasing it.
     // NOTE: This should not happen if the list is used properly.
-    if (item->nalu) free(item->nalu->tmp_tlv_memory);
+    if (item->nalu) free(item->nalu->nalu_data_wo_epb);
     free(item->nalu);
   }
   item->nalu = copied_nalu;

@@ -34,6 +34,7 @@
 #include "lib/src/signed_video_h26x_internal.h"  // signed_video_set_recurrence_offset()
 #endif
 #include "lib/src/signed_video_internal.h"  // set_hash_list_size()
+#include "lib/src/signed_video_tlv.h"  // write_byte_many()
 #include "nalu_list.h"  // nalu_list_create()
 #include "signed_video_helpers.h"  // sv_setting, create_signed_nalus()
 
@@ -2459,6 +2460,129 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
 }
 END_TEST
 
+/* Test validation if emulation prevention bytes are added later, by for example an encoder.
+ * We only run the case where emulation prevention bytes are not added when writing the SEI, since
+ * the other case is the default and executed for all other tests. */
+START_TEST(no_emulation_prevention_bytes)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
+
+  SignedVideoCodec codec = settings[_i].codec;
+  SignedVideoReturnCode sv_rc;
+
+  // Create a video with a single I-frame, and a SEI (to be created later).
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *sei = NULL;
+
+  // Signing side
+  // Generate a Private key.
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+  sv_rc =
+      signed_video_generate_private_key(settings[_i].algo, "./", &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Create a session.
+  signed_video_t *sv = signed_video_create(codec);
+  ck_assert(sv);
+
+  // Apply settings to session.
+  sv_rc = signed_video_set_private_key(sv, settings[_i].algo, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_sei_epb(sv, false);
+  ck_assert_int_eq(sv_rc, SV_OK);
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
+  const size_t attestation_size = 2;
+  void *attestation = calloc(1, attestation_size);
+  // Setting |attestation| and |certificate_chain|.
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(
+      sv, attestation, attestation_size, axisDummyCertificateChain);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  free(attestation);
+#endif
+
+  // Add I-frame for signing and get SEI frame.
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
+      sv, i_nalu->data, i_nalu->data_size, &g_testTimestamp);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
+  sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(nalu_to_prepend.prepend_instruction != SIGNED_VIDEO_PREPEND_NOTHING);
+
+  // Allocate memory for a new buffer to write to, and add emulation prevention bytes.
+  uint8_t *sei_data = malloc(nalu_to_prepend.nalu_data_size * 4 / 3);
+  uint8_t *sei_p = sei_data;
+  uint16_t last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
+  memcpy(sei_p, nalu_to_prepend.nalu_data, 4);
+  sei_p += 4;  // Move past the start code to avoid an incorrect emulation prevention byte.
+  char *src = (char *)(nalu_to_prepend.nalu_data + 4);
+  size_t src_size = nalu_to_prepend.nalu_data_size - 4;
+  write_byte_many(&sei_p, src, src_size, &last_two_bytes, true);
+  size_t sei_data_size = sei_p - sei_data;
+  signed_video_nalu_data_free(nalu_to_prepend.nalu_data);
+
+  // Create a SEI NAL Unit.
+  sei = nalu_list_create_item(sei_data, sei_data_size, codec);
+  sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NOTHING);
+
+  // Close signing side.
+  signed_video_free(sv);
+  sv = NULL;
+
+  // End of signing side. Start a new session on the validation side.
+  sv = signed_video_create(codec);
+  ck_assert(sv);
+
+  // Validate this first GOP.
+  signed_video_authenticity_t *auth_report = NULL;
+  signed_video_latest_validation_t *latest = NULL;
+
+  // Assume we receive a single AU with a SEI and an I-frame.
+  // Pass in the SEI.
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, sei->data, sei->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(!auth_report);
+  // Pass in the I-frame.
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, i_nalu->data, i_nalu->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  // Read the authenticity report.
+  if (auth_report) {
+    latest = &(auth_report->latest_validation);
+    ck_assert(latest);
+    ck_assert_int_eq(strcmp(latest->validation_str, ".P"), 0);
+    // Public key validation is not feasible since there is no Product information.
+    ck_assert_int_eq(latest->public_key_validation, SV_PUBKEY_VALIDATION_NOT_FEASIBLE);
+    ck_assert_int_eq(auth_report->accumulated_validation.authenticity, SV_AUTH_RESULT_OK);
+    ck_assert_int_eq(auth_report->accumulated_validation.public_key_has_changed, false);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_received_nalus, 2);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_validated_nalus, 1);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_nalus, 1);
+    ck_assert_int_eq(auth_report->accumulated_validation.public_key_validation,
+        SV_PUBKEY_VALIDATION_NOT_FEASIBLE);
+    // We are done with auth_report.
+    latest = NULL;
+    signed_video_authenticity_report_free(auth_report);
+    auth_report = NULL;
+  } else {
+    ck_assert(false);
+  }
+
+  // End of validation, free memory.
+  nalu_list_free_item(sei);
+  nalu_list_free_item(i_nalu);
+  signed_video_free(sv);
+  free(private_key);
+}
+END_TEST
+
 static Suite *
 signed_video_suite(void)
 {
@@ -2513,6 +2637,7 @@ signed_video_suite(void)
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
 #endif
+  tcase_add_loop_test(tc, no_emulation_prevention_bytes, s, e);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);
