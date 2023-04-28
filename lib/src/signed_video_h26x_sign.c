@@ -22,7 +22,6 @@
 #include <stdint.h>  // uint8_t
 #include <stdlib.h>  // free, malloc
 #include <string.h>  // size_t
-#include <unistd.h>
 
 #include "includes/signed_video_openssl.h"  // openssl_read_pubkey_from_private_key()
 #include "includes/signed_video_sign.h"

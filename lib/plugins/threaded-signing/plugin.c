@@ -31,7 +31,6 @@
 #include <glib.h>
 #include <stdlib.h>  // calloc, malloc, free
 #include <string.h>  // memcpy
-#include <unistd.h>  // sleep
 
 #include "includes/signed_video_interfaces.h"
 #include "includes/signed_video_openssl.h"
@@ -139,7 +138,6 @@ sv_threaded_plugin_reset(sv_threaded_plugin_t *self)
   self->output_buffer_idx = 0;
 }
 
-static int a = 0;
 /* The worker thread waits for a condition signal, triggered when there is a hash to sign. */
 static void *
 signing_worker_thread(void *user_data)
@@ -176,13 +174,6 @@ signing_worker_thread(void *user_data)
       // since variables need to be read under a lock.
       g_mutex_unlock(&self->mutex);
       SignedVideoReturnCode status = openssl_sign_hash(self->signature_info);
-      // TODO: Remove sleeps
-      a++;
-      if (a > 3) {
-        sleep(0);
-      } else {
-        sleep(5);
-      }
       g_mutex_lock(&self->mutex);
 
       if (self->output_buffer_idx >= MAX_BUFFER_LENGTH) {
