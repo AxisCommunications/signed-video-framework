@@ -4,7 +4,7 @@ option('debugprints',
   description : 'Run with SIGNED_VIDEO_DEBUG flag')
 option('signingplugin',
   type : 'string',
-  value : 'threaded',
+  value : 'unthreaded',
   description : 'Select signing plugin; \'unthreaded\' (default), \'threaded\' or \'threaded_unless_check_dep\'')
 option('vendors',
   type : 'array',

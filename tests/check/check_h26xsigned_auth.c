@@ -2583,6 +2583,57 @@ START_TEST(no_emulation_prevention_bytes)
 }
 END_TEST
 
+#if 0
+/* Test description
+ * Add
+ *   IPPIPPIPPIPPIPPIP
+ * Then after ideal signing it becomes
+ *   GIPPGIPPGIPPGIPPGIPPGIP
+ * Assume it take one frame to sign
+ *   IGPPIGPPIGPPIGPPIGPPIGP
+ * Assume the second signing event takes 7 frames
+ *   IGPPIPPIPPIGPGPGIGPPIGP  1, 11, 13, 15, 17, 21
+ *
+ * This test generates a stream with six SEI NALUs and move them in time to simulate a signing
+ * delay.
+ */
+START_TEST(with_blocked_signing)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
+
+  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIP", settings[_i]);
+  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIP");  // 1, 5, 9, 13, 17, 21
+  nalu_list_item_t *sei = nalu_list_remove_item(list, 21);
+  nalu_list_item_check_str(sei, "G");
+  nalu_list_append_item(list, sei, 21);
+  sei = nalu_list_remove_item(list, 17);
+  nalu_list_item_check_str(sei, "G");
+  nalu_list_append_item(list, sei, 17);
+  sei = nalu_list_remove_item(list, 13);
+  nalu_list_item_check_str(sei, "G");
+  nalu_list_append_item(list, sei, 15);
+  sei = nalu_list_remove_item(list, 9);
+  nalu_list_item_check_str(sei, "G");
+  nalu_list_append_item(list, sei, 13);
+  sei = nalu_list_remove_item(list, 5);
+  nalu_list_item_check_str(sei, "G");
+  nalu_list_append_item(list, sei, 11);
+  sei = nalu_list_remove_item(list, 1);
+  nalu_list_item_check_str(sei, "G");
+  nalu_list_append_item(list, sei, 1);
+
+  // One pending NALU per GOP + the last P.
+  struct validation_stats expected = {.valid_gops = 6, .pending_nalus = 7};
+  validate_nalu_list(NULL, list, expected);
+
+  nalu_list_free(list);
+}
+END_TEST
+#endif
+
 static Suite *
 signed_video_suite(void)
 {
@@ -2595,7 +2646,7 @@ signed_video_suite(void)
   //   for (int _i = s; _i < e; _i++) {}
 
   int s = 0;
-  int e = 0;
+  int e = NUM_SETTINGS;
 
   // Add tests
   tcase_add_loop_test(tc, invalid_api_inputs, s, e);
@@ -2638,6 +2689,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
 #endif
   tcase_add_loop_test(tc, no_emulation_prevention_bytes, s, e);
+  // tcase_add_loop_test(tc, with_blocked_signing, s, NUM_SETTINGS);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);
