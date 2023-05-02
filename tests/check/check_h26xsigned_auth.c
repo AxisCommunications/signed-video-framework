@@ -2583,6 +2583,75 @@ START_TEST(no_emulation_prevention_bytes)
 }
 END_TEST
 
+/* Test description
+ * Add
+ *   IPPIPPIPPIPPIPPIP
+ * Then after ideal signing it becomes
+ *   GIPPGIPPGIPPGIPPGIPPGIP
+ * Assume it take one frame to sign
+ *   IGPPIGPPIGPPIGPPIGPPIGP
+ * Assume the second signing event takes 7 frames
+ *   IGPPIPPIPPIGPGPGIGPPIGP
+ *
+ * This test generates a stream with six SEI NALUs and move them in time to simulate a signing
+ * delay.
+ */
+START_TEST(with_blocked_signing)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIP", settings[_i]);
+  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIP");
+  nalu_list_item_t *sei = nalu_list_remove_item(list, 21);
+  nalu_list_item_check_str(sei, "G");
+  nalu_list_append_item(list, sei, 21);
+  sei = nalu_list_remove_item(list, 17);
+  nalu_list_item_check_str(sei, "G");
+  nalu_list_append_item(list, sei, 17);
+  sei = nalu_list_remove_item(list, 13);
+  nalu_list_item_check_str(sei, "G");
+  nalu_list_append_item(list, sei, 15);
+  sei = nalu_list_remove_item(list, 9);
+  nalu_list_item_check_str(sei, "G");
+  nalu_list_append_item(list, sei, 13);
+  sei = nalu_list_remove_item(list, 5);
+  nalu_list_item_check_str(sei, "G");
+  nalu_list_append_item(list, sei, 11);
+  sei = nalu_list_remove_item(list, 1);
+  nalu_list_item_check_str(sei, "G");
+  nalu_list_append_item(list, sei, 1);
+  nalu_list_check_str(list, "IGPPIPPIPPIGPGPGIGPPIGP");
+
+  // Expected validation result
+  //   IG                      -> P.                     (1 pending)
+  //   IGPPIPPIPPIG            -> ....PPPPPPP.           (7 pending)
+  //       IPPIPPIGPG          ->     ...PPPP.P.         (5 pending)
+  //          IPPIGPGPG        ->        ...P.P.P.       (3 pending)
+  //             IGPGPGIG      ->           ......P.     (1 pending)
+  //                   IGPPIGP ->                 ....P. (1 pending)
+  //                                                   = 18 pending
+  // The last P is never validated since it was never signed.
+  // It only appears in the final report.
+  struct validation_stats expected = {.valid_gops = 6, .pending_nalus = 18};
+  if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
+    // Expected validation result
+    //   IG                       -> PP                     ( 2 pending, has signature)
+    //   IGPPIPPIPPIGPG*          -> .......PPPP.P.         ( 5 pending, valid)
+    //          IPPIGPG*PG        ->        ...P.P.P.       ( 3 pending, valid)
+    //             IGPG*PGIG      ->           ......P.     ( 1 pending, valid)
+    //                    IGPPIGP ->                 ....P. ( 1 pending, valid)
+    //                                                    = (12 pending, 4 valid)
+    expected.valid_gops = 4;
+    expected.pending_nalus = 12;
+    expected.has_signature = 1;
+  }
+  validate_nalu_list(NULL, list, expected);
+
+  nalu_list_free(list);
+}
+END_TEST
+
 static Suite *
 signed_video_suite(void)
 {
@@ -2638,6 +2707,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
 #endif
   tcase_add_loop_test(tc, no_emulation_prevention_bytes, s, e);
+  tcase_add_loop_test(tc, with_blocked_signing, s, e);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);
