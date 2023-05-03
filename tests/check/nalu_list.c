@@ -100,8 +100,8 @@ get_str_code(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
       break;
 
     case NALU_TYPE_SEI: {
-      if (nalu.is_gop_sei)
-        str = "G";
+      if (!nalu.is_gop_sei)
+        str = "Z";
       else
         str = "S";
       break;
@@ -150,7 +150,7 @@ generate_nalu(bool valid_start_code,
 nalu_list_item_t *
 nalu_list_item_create_and_set_id(const char *str, uint8_t id, SignedVideoCodec codec)
 {
-  const char *valid_str = "IiPpSVX";
+  const char *valid_str = "IiPpZVX";
   uint8_t *nalu = NULL;  // Final NALU with start code and id.
   const uint8_t *nalu_data = NULL;
   size_t nalu_data_size = DUMMY_NALU_SIZE;  // Change if we have a SEI NALU.

@@ -313,7 +313,7 @@ START_TEST(intact_stream)
 
   // Create a list of NALUs given the input string.
   nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
 
   // All NALUs but the last 'I' are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -323,18 +323,18 @@ START_TEST(intact_stream)
       .valid_gops = 7, .pending_nalus = 7, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
-      // The Public Key is present in G* and as soon as this SEI shows up it is possible to start
+      // The Public Key is present in S* and as soon as this SEI shows up it is possible to start
       // validation
       //
-      // GIPPGIPPG*IPPGIPPGIPPGIPPGI
+      // SIPPSIPPS*IPPSIPPSIPPSIPPSI
       //
-      // G                           -> (signature) -> P         (1 pending)
-      // GIPPGIPPG*                  ->     (valid) -> .....PPPP (4 pending)
-      //      IPPG*I                 ->     (valid) -> ....P     (1 pending)
-      //           IPPGI             ->     (valid) -> ....P
-      //               IPPGI         ->     (valid) -> ....P
-      //                   IPPGI     ->     (valid) -> ....P
-      //                       IPPGI ->     (valid) -> ....P
+      // S                           -> (signature) -> P         (1 pending)
+      // SIPPSIPPS*                  ->     (valid) -> .....PPPP (4 pending)
+      //      IPPS*I                 ->     (valid) -> ....P     (1 pending)
+      //           IPPSI             ->     (valid) -> ....P
+      //               IPPSI         ->     (valid) -> ....P
+      //                   IPPSI     ->     (valid) -> ....P
+      //                       IPPSI ->     (valid) -> ....P
       expected.valid_gops = 6;
       expected.pending_nalus = 10;
       expected.has_signature = 1;
@@ -352,7 +352,7 @@ START_TEST(intact_multislice_stream)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IiPpPpIiPpPpIi", settings[_i]);
-  nalu_list_check_str(list, "GIiPpPpGIiPpPpGIi");
+  nalu_list_check_str(list, "SIiPpPpSIiPpPpSIi");
 
   // All NALUs but the last 'I' and 'i' are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -362,14 +362,14 @@ START_TEST(intact_multislice_stream)
       .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
-      // The Public Key is present in G* and as soon as this SEI shows up it is possible to start
+      // The Public Key is present in S* and as soon as this SEI shows up it is possible to start
       // validation
       //
-      // GIiPpPpGIiPpPpG*Ii
+      // SIiPpPpSIiPpPpS*Ii
       //
-      // G                 -> (signature) -> P               (1 pending)
-      // GIiPpPpGIiPpPpG*  ->     (valid) -> ........PPPPPPP (7 pending)
-      //         IiPpPpG*I ->     (valid) -> .......P        (1 pending)
+      // S                 -> (signature) -> P               (1 pending)
+      // SIiPpPpSIiPpPpS*  ->     (valid) -> ........PPPPPPP (7 pending)
+      //         IiPpPpS*I ->     (valid) -> .......P        (1 pending)
       expected.valid_gops = 2;
       expected.pending_nalus = 9;
       expected.has_signature = 1;
@@ -388,7 +388,7 @@ START_TEST(intact_stream_with_splitted_nalus)
 
   // Create a list of NALUs given the input string.
   nalu_list_t *list = create_signed_splitted_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
 
   // All NALUs but the last 'I' are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -418,7 +418,7 @@ START_TEST(intact_stream_with_pps_nalu_stream)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("VIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "VGIPPGIPPGI");
+  nalu_list_check_str(list, "VSIPPSIPPSI");
 
   // All NALUs but the last 'I' are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -445,20 +445,20 @@ START_TEST(intact_stream_with_pps_bytestream)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("VIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "VGIPPGIPPGI");
+  nalu_list_check_str(list, "VSIPPSIPPSI");
 
   // Pop the PPS NALU and inject it before the I-NALU.
   nalu_list_item_t *item = nalu_list_pop_first_item(list);
   nalu_list_item_check_str(item, "V");
-  nalu_list_check_str(list, "GIPPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPSI");
   nalu_list_append_item(list, item, 1);
-  nalu_list_check_str(list, "GVIPPGIPPGI");
+  nalu_list_check_str(list, "SVIPPSIPPSI");
 
-  // GVIPPGIPPGI
+  // SVIPPSIPPSI
   //
-  // GVI         -> (valid) ._P   (1 pending)
-  //   IPPGI     -> (valid) ....P (1 pending)
-  //       IPPGI -> (valid) ....P (1 pending)
+  // SVI         -> (valid) ._P   (1 pending)
+  //   IPPSI     -> (valid) ....P (1 pending)
+  //       IPPSI -> (valid) ....P (1 pending)
   // One pending NALU per GOP.
   // All NALUs but the last 'I' are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -467,14 +467,14 @@ START_TEST(intact_stream_with_pps_bytestream)
       .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
-      // The Public Key is present in G* and as soon as this SEI shows up it is possible to start
+      // The Public Key is present in S* and as soon as this SEI shows up it is possible to start
       // validation
       //
-      // GVIPPGIPPG*I
+      // SVIPPSIPPS*I
       //
-      // G            -> (signature) -> P          (1 pending)
-      // GVIPPGIPPG*  ->     (valid) -> ._....PPPP (4 pending)
-      //       IPPG*I ->     (valid) -> ....P      (1 pending)
+      // S            -> (signature) -> P          (1 pending)
+      // SVIPPSIPPS*  ->     (valid) -> ._....PPPP (4 pending)
+      //       IPPS*I ->     (valid) -> ....P      (1 pending)
       expected.valid_gops = 2;
       expected.pending_nalus = 6;
       expected.has_signature = 1;
@@ -492,7 +492,7 @@ START_TEST(intact_ms_stream_with_pps_nalu_stream)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("VIiPpPpIiPpPpIi", settings[_i]);
-  nalu_list_check_str(list, "VGIiPpPpGIiPpPpGIi");
+  nalu_list_check_str(list, "VSIiPpPpSIiPpPpSIi");
 
   // All NALUs but the last 'I' and 'i' are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -519,14 +519,14 @@ START_TEST(intact_ms_stream_with_pps_bytestream)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("VIiPpPpIiPpPpIi", settings[_i]);
-  nalu_list_check_str(list, "VGIiPpPpGIiPpPpGIi");
+  nalu_list_check_str(list, "VSIiPpPpSIiPpPpSIi");
 
   // Pop the PPS NALU and inject it before the I-NALU.
   nalu_list_item_t *item = nalu_list_pop_first_item(list);
   nalu_list_item_check_str(item, "V");
-  nalu_list_check_str(list, "GIiPpPpGIiPpPpGIi");
+  nalu_list_check_str(list, "SIiPpPpSIiPpPpSIi");
   nalu_list_append_item(list, item, 1);
-  nalu_list_check_str(list, "GVIiPpPpGIiPpPpGIi");
+  nalu_list_check_str(list, "SVIiPpPpSIiPpPpSIi");
 
   // All NALUs but the last 'I' and 'i' are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -561,7 +561,7 @@ START_TEST(intact_with_undefined_nalu_in_stream)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
-  nalu_list_check_str(list, "GIPXPGIPPGI");
+  nalu_list_check_str(list, "SIPXPSIPPSI");
 
   // All NALUs but the last 'I' are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -588,7 +588,7 @@ START_TEST(intact_with_undefined_multislice_nalu_in_stream)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IiPpXPpIiPpPpIi", settings[_i]);
-  nalu_list_check_str(list, "GIiPpXPpGIiPpPpGIi");
+  nalu_list_check_str(list, "SIiPpXPpSIiPpPpSIi");
 
   // All NALUs but the last 'I' and 'i' are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -621,12 +621,12 @@ START_TEST(remove_one_p_nalu)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "GIPPGIPPPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
 
-  // Item counting starts at 1.  Middle P-NALU in second non-empty GOP: GIPPGIP P PGIPPGI
+  // Item counting starts at 1.  Middle P-NALU in second non-empty GOP: SIPPSIP P PSIPPSI
   const int remove_nalu_number = 8;
   remove_item_then_check_and_free(list, remove_nalu_number, "P");
-  nalu_list_check_str(list, "GIPPGIPPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPSIPPSI");
 
   // All NALUs but the last 'I' are validated and since one NALU has been removed the authenticity
   // is NOT OK.
@@ -648,24 +648,24 @@ START_TEST(remove_one_p_nalu)
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
-        // GIPPGIPPG*IPPGI
+        // SIPPSIPPS*IPPSI
         //
-        // G               -> (signature) -> P
-        // GIPPGIPPG*      ->     (valid) -> .....PPPP (4 pending)
-        //      IPPG*I     ->   (invalid) -> NNNNP     (1 pending)
-        //           IPPGI ->   (invalid) -> N...P
+        // S               -> (signature) -> P
+        // SIPPSIPPS*      ->     (valid) -> .....PPPP (4 pending)
+        //      IPPS*I     ->   (invalid) -> NNNNP     (1 pending)
+        //           IPPSI ->   (invalid) -> N...P
         expected.valid_gops = 1;
         expected.invalid_gops = 2;
         expected.pending_nalus = 7;
         expected.has_signature = 1;
       }
       if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-        // GIPPGIPPG*IPPGI
+        // SIPPSIPPS*IPPSI
         //
-        // G               -> (signature) -> P
-        // GIPPGIPPG*      ->     (valid) -> .....PPPP (4 pending)
-        //      IPPG*I     ->   (missing) -> ..M..P    (1 pending)
-        //           IPPGI ->     (valid) -> ....P
+        // S               -> (signature) -> P
+        // SIPPSIPPS*      ->     (valid) -> .....PPPP (4 pending)
+        //      IPPS*I     ->   (missing) -> ..M..P    (1 pending)
+        //           IPPSI ->     (valid) -> ....P
         expected.valid_gops = 2;
         expected.invalid_gops = 0;
         expected.pending_nalus = 7;
@@ -688,9 +688,9 @@ START_TEST(interchange_two_p_nalus)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "GIPPGIPPPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
 
-  // Item counting starts at 1.  Middle P-NALU in second non-empty GOP: GIPPGIP P PGIPPGI
+  // Item counting starts at 1.  Middle P-NALU in second non-empty GOP: SIPPSIP P PSIPPSI
   const int nalu_number = 8;
   nalu_list_item_t *item = nalu_list_remove_item(list, nalu_number);
   nalu_list_item_check_str(item, "P");
@@ -698,7 +698,7 @@ START_TEST(interchange_two_p_nalus)
   // Inject the item again, but at position nalu_number + 1, that is, append the list item at
   // position nalu_number.
   nalu_list_append_item(list, item, nalu_number);
-  nalu_list_check_str(list, "GIPPGIPPPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
 
   // All NALUs but the last 'I' are validated and since two NALUs have been moved the authenticity
   // is NOT OK.
@@ -718,24 +718,24 @@ START_TEST(interchange_two_p_nalus)
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
-        // GIPPGIPPPG*IPPGI
+        // SIPPSIPPPS*IPPSI
         //
-        // G                -> (signature) -> P
-        // GIPPGIPPPG*      ->     (valid) -> .....PPPPP (5 pending)
-        //      IPPPG*I     ->   (invalid) -> NNNNNP     (1 pending)
-        //            IPPGI ->   (invalid) -> N...P
+        // S                -> (signature) -> P
+        // SIPPSIPPPS*      ->     (valid) -> .....PPPPP (5 pending)
+        //      IPPPS*I     ->   (invalid) -> NNNNNP     (1 pending)
+        //            IPPSI ->   (invalid) -> N...P
         expected.valid_gops = 1;
         expected.invalid_gops = 2;
         expected.pending_nalus = 8;
         expected.has_signature = 1;
       }
       if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-        // GIPPGIPPPG*IPPGI
+        // SIPPSIPPPS*IPPSI
         //
-        // G                -> (signature) -> P
-        // GIPPGIPPPG*      ->     (valid) -> .....PPPPP (5 pending)
-        //      IPPPG*I     ->   (invalid) -> ..NN.P     (1 pending)
-        //            IPPGI ->     (valid) -> ....P
+        // S                -> (signature) -> P
+        // SIPPSIPPPS*      ->     (valid) -> .....PPPPP (5 pending)
+        //      IPPPS*I     ->   (invalid) -> ..NN.P     (1 pending)
+        //            IPPSI ->     (valid) -> ....P
         expected.valid_gops = 2;
         expected.invalid_gops = 1;
         expected.pending_nalus = 8;
@@ -759,9 +759,9 @@ START_TEST(modify_one_p_nalu)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "GIPPGIPPPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
 
-  // Second P-NALU in first non-empty GOP: GIP P GIPPPGIPPGI
+  // Second P-NALU in first non-empty GOP: SIP P SIPPPSIPPSI
   const int modify_nalu_number = 4;
   modify_list_item(list, modify_nalu_number, "P");
 
@@ -782,24 +782,24 @@ START_TEST(modify_one_p_nalu)
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
-        // GIPPGIPPPG*IPPGI
+        // SIPPSIPPPS*IPPSI
         //
-        // G                -> (signature) -> P
-        // GIPPGIPPPG*      ->   (invalid) -> .NNNNPPPPP (5 pending)
-        //      IPPPG*I     ->   (invalid) -> NNNNNP     (1 pending)
-        //            IPPGI ->     (valid) -> ....P
+        // S                -> (signature) -> P
+        // SIPPSIPPPS*      ->   (invalid) -> .NNNNPPPPP (5 pending)
+        //      IPPPS*I     ->   (invalid) -> NNNNNP     (1 pending)
+        //            IPPSI ->     (valid) -> ....P
         expected.valid_gops = 1;
         expected.invalid_gops = 2;
         expected.pending_nalus = 8;
         expected.has_signature = 1;
       }
       if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-        // GIPPGIPPPG*IPPGI
+        // SIPPSIPPPS*IPPSI
         //
-        // G                -> (signature) -> P
-        // GIPPGIPPPG*      ->   (invalid) -> ...N.PPPPP (5 pending)
-        //      IPPPG*I     ->     (valid) -> .....P     (1 pending)
-        //            IPPGI ->     (valid) -> ....P
+        // S                -> (signature) -> P
+        // SIPPSIPPPS*      ->   (invalid) -> ...N.PPPPP (5 pending)
+        //      IPPPS*I     ->     (valid) -> .....P     (1 pending)
+        //            IPPSI ->     (valid) -> ....P
         expected.valid_gops = 2;
         expected.invalid_gops = 1;
         expected.pending_nalus = 8;
@@ -819,9 +819,9 @@ START_TEST(modify_one_i_nalu)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "GIPPGIPPPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
 
-  // Modify the I-NALU in second non-empty GOP: GIPPG I PPPGIPPGI
+  // Modify the I-NALU in second non-empty GOP: SIPPS I PPPSIPPSI
   const int modify_nalu_number = 6;
   modify_list_item(list, modify_nalu_number, "I");
 
@@ -844,24 +844,24 @@ START_TEST(modify_one_i_nalu)
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
-        // GIPPGIPPPG*IPPGI
+        // SIPPSIPPPS*IPPSI
         //
-        // G                -> (signature) -> P
-        // GIPPGIPPPG*      ->   (invalid) -> .NNNNPPPPP (5 pending)
-        //      IPPPG*I     ->   (invalid) -> NNNNNP     (1 pending)
-        //            IPPGI ->   (invalid) -> N...P
+        // S                -> (signature) -> P
+        // SIPPSIPPPS*      ->   (invalid) -> .NNNNPPPPP (5 pending)
+        //      IPPPS*I     ->   (invalid) -> NNNNNP     (1 pending)
+        //            IPPSI ->   (invalid) -> N...P
         expected.valid_gops = 0;
         expected.invalid_gops = 3;
         expected.pending_nalus = 8;
         expected.has_signature = 1;
       }
       if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-        // GIPPGIPPPG*IPPGI
+        // SIPPSIPPPS*IPPSI
         //
-        // G                -> (signature) -> P
-        // GIPPGIPPPG*      ->     (valid) -> .....PPPPP (5 pending)
-        //      IPPPG*I     ->   (invalid) -> NNNN.P     (1 pending)
-        //            IPPGI ->   (invalid) -> N...P
+        // S                -> (signature) -> P
+        // SIPPSIPPPS*      ->     (valid) -> .....PPPPP (5 pending)
+        //      IPPPS*I     ->   (invalid) -> NNNN.P     (1 pending)
+        //            IPPSI ->   (invalid) -> N...P
         expected.valid_gops = 1;
         expected.pending_nalus = 8;
         expected.has_signature = 1;
@@ -888,20 +888,20 @@ START_TEST(remove_the_g_nalu)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSI");
 
-  // G-NALU of second non-empty GOP: GIPPGIPP G IPPGIPPGI.
+  // SEI of second non-empty GOP: SIPPSIPP S IPPSIPPSI.
   const int remove_nalu_number = 9;
-  remove_item_then_check_and_free(list, remove_nalu_number, "G");
-  nalu_list_check_str(list, "GIPPGIPPIPPGIPPGI");
+  remove_item_then_check_and_free(list, remove_nalu_number, "S");
+  nalu_list_check_str(list, "SIPPSIPPIPPSIPPSI");
 
-  // GIPPGIPPIPPGIPPGI
+  // SIPPSIPPIPPSIPPSI
   //
-  // GI                ->   (valid) -> .P
-  //  IPPGI            ->   (valid) -> ....P
-  //      IPPIPPG      -> (invalid) -> NNNPPPP
-  //         IPPGI     -> (invalid) -> N...P
-  //             IPPGI ->   (valid) -> ....P
+  // SI                ->   (valid) -> .P
+  //  IPPSI            ->   (valid) -> ....P
+  //      IPPIPPS      -> (invalid) -> NNNPPPP
+  //         IPPSI     -> (invalid) -> N...P
+  //             IPPSI ->   (valid) -> ....P
   // All NALUs but the last 'I' are validated and since one SEI has been removed the authenticity
   // is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
@@ -914,9 +914,9 @@ START_TEST(remove_the_g_nalu)
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       // Note that the SEI including the Public Key was removed and a second validation result is
       // never produced.
-      // GIPPGIPPIPPGIPPGI
+      // SIPPSIPPIPPSIPPSI
       //
-      // GI                -> (signature) -> P
+      // SI                -> (signature) -> P
       expected.valid_gops = 0;
       expected.invalid_gops = 0;
       expected.pending_nalus = 1;
@@ -941,12 +941,12 @@ START_TEST(remove_the_i_nalu)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSI");
 
-  // I-NALU of third non-empty GOP: GIPPGIPPG I PPGIPPGI.
+  // I-NALU of third non-empty GOP: SIPPSIPPS I PPSIPPSI.
   const int remove_nalu_number = 10;
   remove_item_then_check_and_free(list, remove_nalu_number, "I");
-  nalu_list_check_str(list, "GIPPGIPPGPPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPSPPSIPPSI");
 
   // All NALUs but the last 'I' are validated and since one I-NALU has been removed the authenticity
   // is NOT OK.
@@ -956,49 +956,49 @@ START_TEST(remove_the_i_nalu)
   // gop_hashes. At GOP level the missing NALU will make the GOP invalid, but for Frame level we can
   // identify the missed NALU when the I NALU is not the reference, that is, the first GOP is valid
   // with missing info, whereas the second becomes invalid.
-  // GIPPGIPPGPPGIPPGI
+  // SIPPSIPPSPPSIPPSI
   //
-  // GI                ->   (valid) -> .P
-  //  IPPGI            ->   (valid) -> ....P
-  //      IPPGP        -> (invalid) -> NNNNP
-  //          PPGI     -> (invalid) -> MNNNP (1 missing)
-  //             IPPGI -> (invalid) -> N...P
+  // SI                ->   (valid) -> .P
+  //  IPPSI            ->   (valid) -> ....P
+  //      IPPSP        -> (invalid) -> NNNNP
+  //          PPSI     -> (invalid) -> MNNNP (1 missing)
+  //             IPPSI -> (invalid) -> N...P
   struct validation_stats expected = {.valid_gops = 2,
       .invalid_gops = 3,
       .missed_nalus = 1,
       .pending_nalus = 5,
       .final_validation = &final_validation};
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    // GI                ->   (valid) -> .P
-    //  IPPGI            ->   (valid) -> ....P
-    //      IPPGP        ->   (valid) -> ....P
-    //          PPGI     -> (invalid) -> MNNNP (1 missing)
-    //             IPPGI -> (invalid) -> N...P
+    // SI                ->   (valid) -> .P
+    //  IPPSI            ->   (valid) -> ....P
+    //      IPPSP        ->   (valid) -> ....P
+    //          PPSI     -> (invalid) -> MNNNP (1 missing)
+    //             IPPSI -> (invalid) -> N...P
     expected.valid_gops = 3;
     expected.invalid_gops = 2;
   }
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
-        // GIPPGIPPG*PPGIPPGI
+        // SIPPSIPPS*PPSIPPSI
         //
-        // G                 -> (signature) -> P
-        // GIPPGIPPG*        ->     (valid) -> .....PPPP
-        //      IPPG*P       ->   (invalid) -> NNNNP
-        //          PPGI     ->   (invalid) -> MNNNP (1 missing)
-        //             IPPGI ->   (invalid) -> N...P
+        // S                 -> (signature) -> P
+        // SIPPSIPPS*        ->     (valid) -> .....PPPP
+        //      IPPS*P       ->   (invalid) -> NNNNP
+        //          PPSI     ->   (invalid) -> MNNNP (1 missing)
+        //             IPPSI ->   (invalid) -> N...P
         expected.valid_gops = 1;
         expected.pending_nalus = 8;
         expected.has_signature = 1;
       }
       if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-        // GIPPGIPPG*PPGIPPGI
+        // SIPPSIPPS*PPSIPPSI
         //
-        // G                 -> (signature) -> P
-        // GIPPGIPPG*        ->     (valid) -> .....PPPP
-        //      IPPG*P       ->     (valid) -> ....P
-        //          PPGI     ->   (invalid) -> MNNNP (1 missing)
-        //             IPPGI ->   (invalid) -> N...P
+        // S                 -> (signature) -> P
+        // SIPPSIPPS*        ->     (valid) -> .....PPPP
+        //      IPPS*P       ->     (valid) -> ....P
+        //          PPSI     ->   (invalid) -> MNNNP (1 missing)
+        //             IPPSI ->   (invalid) -> N...P
         expected.valid_gops = 2;
         expected.pending_nalus = 8;
         expected.has_signature = 1;
@@ -1017,22 +1017,22 @@ START_TEST(remove_the_gi_nalus)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSI");
 
-  // G-NALU of second non-empty GOP: GIPPGIPP G IPPGIPPGI.
+  // SEI of second non-empty GOP: SIPPSIPP S IPPSIPPSI.
   int remove_nalu_number = 9;
-  remove_item_then_check_and_free(list, remove_nalu_number, "G");
+  remove_item_then_check_and_free(list, remove_nalu_number, "S");
   // Note that we have removed an item before this one, hence the I-NALU is now at place 9:
-  // GIPPGIPP I PPGIPPG.
+  // SIPPSIPP I PPSIPPS.
   remove_item_then_check_and_free(list, remove_nalu_number, "I");
-  nalu_list_check_str(list, "GIPPGIPPPPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPPPSIPPSI");
 
   // All NALUs but the last 'I' are validated and since one couple of SEI and I-NALU have been
   // removed the authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, false, 16, 15, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NALU per detected GOP. Note that we lose one 'true' GOP since the transition is
-  // lost. We have now two incomplete GOPs; second (missing G) and third (missing I). In fact, we
+  // lost. We have now two incomplete GOPs; second (missing S) and third (missing I). In fact, we
   // miss the transition between GOP two and three, but will detect it later through the gop
   // counter. Unfortunately, the authentication result does not cover the case "invalid gop" and
   // "missing gops", so we cannot get that information. This will be solved when changing to a more
@@ -1074,33 +1074,33 @@ START_TEST(sei_arrives_late)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPI", settings[_i]);
-  nalu_list_check_str(list, "GIPPPGIPPPGIPPPGI");
+  nalu_list_check_str(list, "SIPPPSIPPPSIPPPSI");
 
-  // Remove the second SEI, that is, number 6 in the list: GIPPP (G) IPPPGIPPPGI.
+  // Remove the second SEI, that is, number 6 in the list: SIPPP (S) IPPPSIPPPSI.
   nalu_list_item_t *sei = nalu_list_remove_item(list, 6);
-  nalu_list_item_check_str(sei, "G");
-  nalu_list_check_str(list, "GIPPPIPPPGIPPPGI");
+  nalu_list_item_check_str(sei, "S");
+  nalu_list_check_str(list, "SIPPPIPPPSIPPPSI");
 
-  // Prepend the middle P of the next GOP: GIPPPIP (G)P PGIPPPGI. This is equivalent with appending
+  // Prepend the middle P of the next GOP: SIPPPIP (S)P PSIPPPSI. This is equivalent with appending
   // the first P of the same GOP, that is, number 7.
   nalu_list_append_item(list, sei, 7);
-  nalu_list_check_str(list, "GIPPPIPGPPGIPPPGI");
+  nalu_list_check_str(list, "SIPPPIPSPPSIPPPSI");
 
   // All NALUs but the last 'I' are validated as OK, which is pending.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 17, 16, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // One pending NALU per GOP + the extra P before (G). The late arrival SEI will introduce one
+  // One pending NALU per GOP + the extra P before (S). The late arrival SEI will introduce one
   // pending NALU (the P frame right before).
   struct validation_stats expected = {
       .valid_gops = 4, .pending_nalus = 5, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
-      // GIPPPIPGPPG*IPPPGI
+      // SIPPPIPSPPS*IPPPSI
       //
-      // G                  -> (signature) -> P
-      // GIPPPIPGPPG*       ->     (valid) -> .....PP.PPP
-      //      IPGPPG*I      ->     (valid) -> ......P
-      //             IPPPGI ->     (valid) -> .....P
+      // S                  -> (signature) -> P
+      // SIPPPIPSPPS*       ->     (valid) -> .....PP.PPP
+      //      IPSPPS*I      ->     (valid) -> ......P
+      //             IPPPSI ->     (valid) -> .....P
       expected.valid_gops = 3;
       expected.pending_nalus = 8;
       expected.has_signature = 1;
@@ -1119,32 +1119,32 @@ generate_delayed_sei_list(struct sv_setting setting, bool extra_delay)
 {
   // Make first GOP one P-frame longer to trigger recurrence on second I-frame.
   nalu_list_t *list = create_signed_nalus("IPPPPIPPPIPPPIPPPIP", setting);
-  nalu_list_check_str(list, "GIPPPPGIPPPGIPPPGIPPPGIP");
+  nalu_list_check_str(list, "SIPPPPSIPPPSIPPPSIPPPSIP");
 
   // Remove each SEI in the list and append it 2 items later (which in practice becomes 1 item later
   // since we just removed the SEI).
   int extra_offset = extra_delay ? 5 : 0;
   int extra_correction = extra_delay ? 1 : 0;
   nalu_list_item_t *sei = nalu_list_remove_item(list, 1);
-  nalu_list_item_check_str(sei, "G");
+  nalu_list_item_check_str(sei, "S");
   nalu_list_append_item(list, sei, 2 + extra_offset);
   sei = nalu_list_remove_item(list, 7 - extra_correction);
-  nalu_list_item_check_str(sei, "G");
+  nalu_list_item_check_str(sei, "S");
   nalu_list_append_item(list, sei, 8 + extra_offset);
   sei = nalu_list_remove_item(list, 12 - extra_correction);
-  nalu_list_item_check_str(sei, "G");
+  nalu_list_item_check_str(sei, "S");
   nalu_list_append_item(list, sei, 13 + extra_offset);
   sei = nalu_list_remove_item(list, 17 - extra_correction);
-  nalu_list_item_check_str(sei, "G");
+  nalu_list_item_check_str(sei, "S");
   nalu_list_append_item(list, sei, 18 + extra_offset);
   sei = nalu_list_remove_item(list, 22 - extra_correction);
-  nalu_list_item_check_str(sei, "G");
+  nalu_list_item_check_str(sei, "S");
   nalu_list_append_item(list, sei, 23);
 
   if (extra_delay) {
-    nalu_list_check_str(list, "IPPPPIGPPPIPGPPIPGPPIPGG");
+    nalu_list_check_str(list, "IPPPPISPPPIPSPPIPSPPIPSS");
   } else {
-    nalu_list_check_str(list, "IPGPPPIPGPPIPGPPIPGPPIPG");
+    nalu_list_check_str(list, "IPSPPPIPSPPIPSPPIPSPPIPS");
   };
   return list;
 }
@@ -1160,14 +1160,14 @@ START_TEST(all_seis_arrive_late)
 
   nalu_list_t *list = generate_delayed_sei_list(settings[_i], true);
 
-  // IPPPPIGPPPIPGPPIPGPPIPGG
+  // IPPPPISPPPIPSPPIPSPPIPSS
   //
   // IPPPPI                   -> (no signature) -> PPPPPP         6 pending
-  // IPPPPIG                  ->        (valid) -> PPPPPP.        6 pending
-  // IPPPPIGPPPIPG            ->        (valid) -> .....P.PPPPP.  6 pending
-  //      IGPPPIPGPPIPG       ->        (valid) -> .....PP.PPPP.  6 pending
-  //           IPGPPIPGPPIPG  ->        (valid) -> .....PP.PPPP.  6 pending
-  //                IPGPPIPGG ->        (valid) -> .....PP..      2 pending
+  // IPPPPIS                  ->        (valid) -> PPPPPP.        6 pending
+  // IPPPPISPPPIPS            ->        (valid) -> .....P.PPPPP.  6 pending
+  //      ISPPPIPSPPIPS       ->        (valid) -> .....PP.PPPP.  6 pending
+  //           IPSPPIPSPPIPS  ->        (valid) -> .....PP.PPPP.  6 pending
+  //                IPSPPIPSS ->        (valid) -> .....PP..      2 pending
   //                                                32 pending
   // All NALUs but the last 'I', 'P' and 2 SEIs are validated as OK, hence four pending NALUs.
   signed_video_accumulated_validation_t final_validation = {
@@ -1177,14 +1177,14 @@ START_TEST(all_seis_arrive_late)
       .pending_nalus = 32,
       .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
-    // IPPPPIGPPPIPG*PPIPGPPIPGG
+    // IPPPPISPPPIPS*PPIPSPPIPSS
     //
-    // IPPPPI                    -> (no signature) -> PPPPPP         6 pending [first complete GOP]
-    // IPPPPIG                   ->    (signature) -> PPPPPPP        7 pending
-    // IPPPPIGPPPIPG*            ->        (valid) -> .....P.PPPPP.  6 pending
-    //      IGPPPIPG*PPIPG       ->        (valid) -> .....PP.PPPP.  6 pending
-    //           IPG*PPIPGPPIPG  ->        (valid) -> .....PP.PPPP.  6 pending
-    //                 IPGPPIPGG ->        (valid) -> .....PP..      2 pending
+    // IPPPPI                    -> (no signature) -> PPPPPP         6 pending [first complete SOP]
+    // IPPPPIS                   ->    (signature) -> PPPPPPP        7 pending
+    // IPPPPISPPPIPS*            ->        (valid) -> .....P.PPPPP.  6 pending
+    //      ISPPPIPS*PPIPS       ->        (valid) -> .....PP.PPPP.  6 pending
+    //           IPS*PPIPSPPIPS  ->        (valid) -> .....PP.PPPP.  6 pending
+    //                 IPSPPIPSS ->        (valid) -> .....PP..      2 pending
     //                                                      33 pending
     expected.valid_gops = 4;  // First two bundled together
     expected.has_signature = 1;  // First validation result
@@ -1206,27 +1206,27 @@ START_TEST(lost_g_before_late_sei_arrival)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "GIPPPGIPPPGIPPPGIPPGI");
+  nalu_list_check_str(list, "SIPPPSIPPPSIPPPSIPPSI");
 
-  // Remove the third SEI, that is, number 11 in the list: GIPPPGIPPP (G) IPPPGIPPGI.
+  // Remove the third SEI, that is, number 11 in the list: SIPPPSIPPP (S) IPPPSIPPSI.
   nalu_list_item_t *sei = nalu_list_remove_item(list, 11);
-  nalu_list_item_check_str(sei, "G");
-  nalu_list_check_str(list, "GIPPPGIPPPIPPPGIPPGI");
+  nalu_list_item_check_str(sei, "S");
+  nalu_list_check_str(list, "SIPPPSIPPPIPPPSIPPSI");
 
-  // Prepend the middle P of the next GOP: GIPPPGIPPPIP (G)P PGIPPGI. This is equivalent with
+  // Prepend the middle P of the next GOP: SIPPPSIPPPIP (S)P PSIPPSI. This is equivalent with
   // appending the first P of the same GOP, that is, number 12.
 
   nalu_list_append_item(list, sei, 12);
-  nalu_list_check_str(list, "GIPPPGIPPPIPGPPGIPPGI");
+  nalu_list_check_str(list, "SIPPPSIPPPIPSPPSIPPSI");
 
-  // Remove the second SEI, i.e., number 6 in the list: GIPPP (G) IPPPIPGPPGIPPGI.
-  remove_item_then_check_and_free(list, 6, "G");
-  nalu_list_check_str(list, "GIPPPIPPPIPGPPGIPPGI");
+  // Remove the second SEI, i.e., number 6 in the list: SIPPP (S) IPPPIPSPPSIPPSI.
+  remove_item_then_check_and_free(list, 6, "S");
+  nalu_list_check_str(list, "SIPPPIPPPIPSPPSIPPSI");
 
-  // GI                   ->   (valid) -> .P           1 pending
-  //  IPPPIPPPIPG         -> (invalid) -> NNNNN...PP.  2 pending (two GOPs in one validation)
-  //          IPGPPGI     ->   (valid) -> ......P      1 pending
-  //                IPPGI ->   (valid) -> ....P        1 pending
+  // SI                   ->   (valid) -> .P           1 pending
+  //  IPPPIPPPIPS         -> (invalid) -> NNNNN...PP.  2 pending (two GOPs in one validation)
+  //          IPSPPSI     ->   (valid) -> ......P      1 pending
+  //                IPPSI ->   (valid) -> ....P        1 pending
   //                                             5 pending
   // All NALUs but the last 'I' are validated. Since a SEI is lost the authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
@@ -1237,12 +1237,12 @@ START_TEST(lost_g_before_late_sei_arrival)
       .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
-      // GIPPPIPPPIPG*PPGIPPGI
+      // SIPPPIPPPIPS*PPSIPPSI
       //
-      // G                     -> (signature)-> .P            1 pending
-      // GIPPPIPPPIPG*         ->   (invalid)-> .NNNNN...PP.  2 pending (two GOPs in one validation)
-      //          IPG*PPGI     ->     (valid)-> ......P       1 pending
-      //                 IPPGI ->     (valid)-> ....P         1 pending
+      // S                     -> (signature)-> .P            1 pending
+      // SIPPPIPPPIPS*         ->   (invalid)-> .NNNNN...PP.  2 pending (two GOPs in one validation)
+      //          IPS*PPSI     ->     (valid)-> ......P       1 pending
+      //                 IPPSI ->     (valid)-> ....P         1 pending
       //                                               5 pending
       expected.valid_gops = 2;  // First two GOPs are bundled, only last GOP shows up in "latest".
       expected.pending_nalus = 5;  // First two GOPs are bundled.
@@ -1266,41 +1266,41 @@ START_TEST(lost_g_and_gop_with_late_sei_arrival)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IPIPPPIPPPIP", settings[_i]);
-  nalu_list_check_str(list, "GIPGIPPPGIPPPGIP");
+  nalu_list_check_str(list, "SIPSIPPPSIPPPSIP");
 
   // Get the first SEI, to be added back later.
   nalu_list_item_t *sei = nalu_list_pop_first_item(list);
-  nalu_list_item_check_str(sei, "G");
-  nalu_list_check_str(list, "IPGIPPPGIPPPGIP");
+  nalu_list_item_check_str(sei, "S");
+  nalu_list_check_str(list, "IPSIPPPSIPPPSIP");
 
   // Remove the first GOP to mimic the start of the validation side.
   remove_item_then_check_and_free(list, 1, "I");
-  nalu_list_check_str(list, "PGIPPPGIPPPGIP");
+  nalu_list_check_str(list, "PSIPPPSIPPPSIP");
   remove_item_then_check_and_free(list, 1, "P");
-  nalu_list_check_str(list, "GIPPPGIPPPGIP");
-  remove_item_then_check_and_free(list, 1, "G");
-  nalu_list_check_str(list, "IPPPGIPPPGIP");
+  nalu_list_check_str(list, "SIPPPSIPPPSIP");
+  remove_item_then_check_and_free(list, 1, "S");
+  nalu_list_check_str(list, "IPPPSIPPPSIP");
 
   // Inject the SEI into the second GOP.
   nalu_list_append_item(list, sei, 2);
-  nalu_list_check_str(list, "IPGPPGIPPPGIP");
+  nalu_list_check_str(list, "IPSPPSIPPPSIP");
 
   // Move the remaining SEIs.
   sei = nalu_list_remove_item(list, 6);
-  nalu_list_item_check_str(sei, "G");
-  nalu_list_check_str(list, "IPGPPIPPPGIP");
+  nalu_list_item_check_str(sei, "S");
+  nalu_list_check_str(list, "IPSPPIPPPSIP");
   nalu_list_append_item(list, sei, 7);
-  nalu_list_check_str(list, "IPGPPIPGPPGIP");
+  nalu_list_check_str(list, "IPSPPIPSPPSIP");
 
   sei = nalu_list_remove_item(list, 11);
-  nalu_list_item_check_str(sei, "G");
-  nalu_list_check_str(list, "IPGPPIPGPPIP");
+  nalu_list_item_check_str(sei, "S");
+  nalu_list_check_str(list, "IPSPPIPSPPIP");
   nalu_list_append_item(list, sei, 12);
-  nalu_list_check_str(list, "IPGPPIPGPPIPG");
+  nalu_list_check_str(list, "IPSPPIPSPPIPS");
 
-  // IPG            -> (signature) -> PPU
-  // IPGPPIPG*      ->     (valid) -> ..U..PP.
-  //      IPG*PPIPG ->     (valid) -> .....PP.
+  // IPS            -> (signature) -> PPU
+  // IPSPPIPS*      ->     (valid) -> ..U..PP.
+  //      IPS*PPIPS ->     (valid) -> .....PP.
   // All NALUs but the last three NALUs are validated.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 13, 10, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
@@ -1310,11 +1310,11 @@ START_TEST(lost_g_and_gop_with_late_sei_arrival)
       .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     // The two pending NALUs of the first validation will not be noticed.
-    // IPGPPIPG*PPIPG
+    // IPSPPIPS*PPIPS
     //
-    // IPG            -> (signature) -> PPP
-    // IPGPPIPG*      ->     (valid) -> ..U..PP. TODO: Here we detect a missing SEI; signal invalid?
-    //      IPG*PPIPG ->     (valid) -> .....PP.
+    // IPS            -> (signature) -> PPP
+    // IPSPPIPS*      ->     (valid) -> ..U..PP. TODO: Here we detect a missing SEI; signal invalid?
+    //      IPS*PPIPS ->     (valid) -> .....PP.
     expected.pending_nalus = 7;
   }
   validate_nalu_list(NULL, list, expected);
@@ -1331,14 +1331,14 @@ START_TEST(lost_all_nalus_between_two_seis)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "GIPPPGIPPPGIPPPGIPPGI");
+  nalu_list_check_str(list, "SIPPPSIPPPSIPPPSIPPSI");
 
-  // Remove IPPP between the second and third G.
+  // Remove IPPP between the second and third S.
   remove_item_then_check_and_free(list, 7, "I");
   remove_item_then_check_and_free(list, 7, "P");
   remove_item_then_check_and_free(list, 7, "P");
   remove_item_then_check_and_free(list, 7, "P");
-  nalu_list_check_str(list, "GIPPPGGIPPPGIPPGI");
+  nalu_list_check_str(list, "SIPPPSSIPPPSIPPSI");
 
   // All NALUs but the last 'I' are validated. Since all NALUs between two SEIs are lost the
   // authenticity is NOT OK.
@@ -1348,50 +1348,50 @@ START_TEST(lost_all_nalus_between_two_seis)
   // (IPPP) will be detected, but for SV_AUTHENTICITY_LEVEL_FRAME we will measure one extra missing
   // NALU. This is a descrepancy in the way we count NALUs by excluding SEIs.
   //
-  // GIPPPGGIPPPGIPPGI
+  // SIPPPSSIPPPSIPPSI
   //
-  // GI                ->   (valid) -> .P
-  //  IPPPGG           -> (invalid) -> NNNNNP
-  //       GI          -> (invalid) -> MMMMNP (4 missed)
-  //        IPPPGI     -> (invalid) -> N....P
-  //             IPPGI ->   (valid) -> ....P
+  // SI                ->   (valid) -> .P
+  //  IPPPSS           -> (invalid) -> NNNNNP
+  //       SI          -> (invalid) -> MMMMNP (4 missed)
+  //        IPPPSI     -> (invalid) -> N....P
+  //             IPPSI ->   (valid) -> ....P
   struct validation_stats expected = {.valid_gops = 2,
       .invalid_gops = 3,
       .missed_nalus = 4,
       .pending_nalus = 5,
       .final_validation = &final_validation};
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    // GIPPPGGIPPPGIPPGI
+    // SIPPPSSIPPPSIPPSI
     //
-    // GI                ->   (valid) -> .P
-    //  IPPPGG           ->   (valid) -> .....P
-    //       GI          -> (invalid) -> MMMM.P (4 missed)
-    //        IPPPGI     -> (invalid) -> N....P
-    //             IPPGI ->   (valid) -> ....P
+    // SI                ->   (valid) -> .P
+    //  IPPPSS           ->   (valid) -> .....P
+    //       SI          -> (invalid) -> MMMM.P (4 missed)
+    //        IPPPSI     -> (invalid) -> N....P
+    //             IPPSI ->   (valid) -> ....P
     expected.valid_gops = 3;
     expected.invalid_gops = 2;
   }
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
       if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
-        // GIPPPGG*IPPPGIPPGI
+        // SIPPPSS*IPPPSIPPSI
         //
-        // G                  -> (signature) -> P
-        // GIPPPGG*           ->   (invalid) -> .NNNNNP
-        //       G*I          ->   (invalid) -> MMMMNP (4 missed)
-        //         IPPPGI     ->   (invalid) -> N....P
-        //              IPPGI ->     (valid) -> ....P
+        // S                  -> (signature) -> P
+        // SIPPPSS*           ->   (invalid) -> .NNNNNP
+        //       S*I          ->   (invalid) -> MMMMNP (4 missed)
+        //         IPPPSI     ->   (invalid) -> N....P
+        //              IPPSI ->     (valid) -> ....P
         expected.valid_gops = 1;
         expected.has_signature = 1;
       }
       if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-        // GIPPPGG*IPPPGIPPGI
+        // SIPPPSS*IPPPSIPPSI
         //
-        // G                  -> (signature) -> P
-        // GIPPPGG*           ->     (valid) -> ......P
-        //       G*I          ->   (invalid) -> MMMM.P (4 missed)
-        //         IPPPGI     ->   (invalid) -> N....P
-        //              IPPGI ->     (valid) -> ....P
+        // S                  -> (signature) -> P
+        // SIPPPSS*           ->     (valid) -> ......P
+        //       S*I          ->   (invalid) -> MMMM.P (4 missed)
+        //         IPPPSI     ->   (invalid) -> N....P
+        //              IPPSI ->     (valid) -> ....P
         expected.valid_gops = 2;
         expected.has_signature = 1;
       }
@@ -1413,15 +1413,15 @@ START_TEST(add_one_sei_nalu_after_signing)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "GIPPGIPPPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
 
   const uint8_t id = 0;
-  nalu_list_item_t *sei = nalu_list_item_create_and_set_id("S", id, settings[_i].codec);
+  nalu_list_item_t *sei = nalu_list_item_create_and_set_id("Z", id, settings[_i].codec);
 
-  // Middle P-NALU in second non-empty GOP: GIPPGIP P(S) PGIPPGI
+  // Middle P-NALU in second non-empty GOP: SIPPSIP P(Z) PSIPPSI
   const int append_nalu_number = 8;
   nalu_list_append_item(list, sei, append_nalu_number);
-  nalu_list_check_str(list, "GIPPGIPPSPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPZPSIPPSI");
 
   // All NALUs but the last 'I' are validated as OK. The last one is pending.
   signed_video_accumulated_validation_t final_validation = {
@@ -1431,12 +1431,12 @@ START_TEST(add_one_sei_nalu_after_signing)
       .valid_gops = 4, .pending_nalus = 4, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
-      // GIPPGIPPSPG*IPPGI
+      // SIPPSIPPZPS*IPPSI
       //
-      // G                 -> (signature) -> P
-      // GIPPGIPPSPG*      ->     (valid) -> .....PPP_PP
-      //      IPPSPG*I     ->     (valid) -> ..._..P
-      //             IPPGI ->     (valid) -> ....P
+      // S                 -> (signature) -> P
+      // SIPPSIPPZPS*      ->     (valid) -> .....PPP_PP
+      //      IPPZPS*I     ->     (valid) -> ..._..P
+      //             IPPSI ->     (valid) -> ....P
       expected.valid_gops = 3;
       expected.pending_nalus = 8;
       expected.has_signature = 1;
@@ -1467,21 +1467,21 @@ START_TEST(camera_reset_on_signing_side)
 
   // Generate 2 GOPs
   nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i]);
-  nalu_list_check_str(list, "GIPPGIPP");
+  nalu_list_check_str(list, "SIPPSIPP");
 
   // Generate another GOP from scratch
   nalu_list_t *list_after_reset = create_signed_nalus_int("IPPPI", settings[_i], true);
-  nalu_list_check_str(list_after_reset, "GIPPPGI");
+  nalu_list_check_str(list_after_reset, "SIPPPSI");
 
   nalu_list_append_and_free(list, list_after_reset);
-  nalu_list_check_str(list, "GIPPGIPPGIPPPGI");
+  nalu_list_check_str(list, "SIPPSIPPSIPPPSI");
 
   // Final validation is NOT OK and all received NALUs, but the last, are validated.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, true, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // One pending NALU per GOP. Note that the mid GOP (IPPGI) includes the reset on the camera. It
-  // will be marked as invalid and compute 3 more NALUs than expected. In G it is communicated
-  // there is only 2 NALUs present (GI). So missed NALUs equals -3 (IPP).
+  // One pending NALU per GOP. Note that the mid GOP (IPPSI) includes the reset on the camera. It
+  // will be marked as invalid and compute 3 more NALUs than expected. In S it is communicated
+  // there is only 2 NALUs present (SI). So missed NALUs equals -3 (IPP).
   // TODO: public_key_has_changed is expected to be true now when we have changed the behavior in
   // generate private key.
   const struct validation_stats expected = {.valid_gops = 2,
@@ -1508,28 +1508,28 @@ START_TEST(detect_change_of_public_key)
 
   // Generate 2 GOPs
   nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i]);
-  nalu_list_check_str(list, "GIPPGIPP");
+  nalu_list_check_str(list, "SIPPSIPP");
 
   // Generate another GOP from scratch
   // This will generate a new private key, hence transmit a different public key.
   nalu_list_t *list_with_new_public_key = create_signed_nalus_int("IPPPI", settings[_i], true);
-  nalu_list_check_str(list_with_new_public_key, "GIPPPGI");
+  nalu_list_check_str(list_with_new_public_key, "SIPPPSI");
 
   nalu_list_append_and_free(list, list_with_new_public_key);
-  nalu_list_check_str(list, "GIPPGIPPGIPPPGI");
+  nalu_list_check_str(list, "SIPPSIPPSIPPPSI");
 
   // Final validation is NOT OK and all received NALUs, but the last, are validated. The
   // |public_key_has_changed| flag has been set.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, true, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // The list will be validated successfully up to the third SEI (G) which has the new Public key.
+  // The list will be validated successfully up to the third SEI (S) which has the new Public key.
   //
-  //   GI      -> .P     (valid, 1 pending, public_key_has_changed = false)
-  //   IPPGI   -> ....P  (valid, 1 pending, public_key_has_changed = false)
-  //   IPPG*I  -> NNN.P  (invalid, 1 pending, public_key_has_changed = true, -3 missing)
-  //   IPPPG*I -> N....P (invalid, 1 pending, public_key_has_changed = false)
-  // where G* has the new Public key. Note that we get -3 missing since we receive 3 more than what
-  // is expected according to G*.
+  //   SI      -> .P     (valid, 1 pending, public_key_has_changed = false)
+  //   IPPSI   -> ....P  (valid, 1 pending, public_key_has_changed = false)
+  //   IPPS*I  -> NNN.P  (invalid, 1 pending, public_key_has_changed = true, -3 missing)
+  //   IPPPS*I -> N....P (invalid, 1 pending, public_key_has_changed = false)
+  // where S* has the new Public key. Note that we get -3 missing since we receive 3 more than what
+  // is expected according to S*.
   const struct validation_stats expected = {.valid_gops = 2,
       .invalid_gops = 2,
       .missed_nalus = -3,
@@ -1561,14 +1561,14 @@ static nalu_list_t *
 mimic_au_fast_forward_and_get_list(signed_video_t *sv, struct sv_setting setting)
 {
   nalu_list_t *list = create_signed_nalus("IPPPPIPPPIPPPIPPPIPPPI", setting);
-  nalu_list_check_str(list, "GIPPPPGIPPPGIPPPGIPPPGIPPPGI");
+  nalu_list_check_str(list, "SIPPPPSIPPPSIPPPSIPPPSIPPPSI");
 
   // Extract the first 9 NALUs from the list. This should be the empty GOP, a full GOP and in the
-  // middle of the next GOP: GIPPPPGIP PPGIPPPGIPPPGI. These are the NALUs to be processed before
+  // middle of the next GOP: SIPPPPSIP PPSIPPPSIPPPSI. These are the NALUs to be processed before
   // the fast forward.
   nalu_list_t *pre_fast_forward = nalu_list_pop(list, 9);
-  nalu_list_check_str(pre_fast_forward, "GIPPPPGIP");
-  nalu_list_check_str(list, "PPGIPPPGIPPPGIPPPGI");
+  nalu_list_check_str(pre_fast_forward, "SIPPPPSIP");
+  nalu_list_check_str(list, "PPSIPPPSIPPPSIPPPSI");
 
   // Final validation of |pre_fast_forward| is OK and all received NALUs, but the last two, are
   // validated.
@@ -1576,25 +1576,25 @@ mimic_au_fast_forward_and_get_list(signed_video_t *sv, struct sv_setting setting
       SV_AUTH_RESULT_OK, false, 9, 7, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // Validate the video before fast forward using the user created session |sv|.
   //
-  // GI      -> .P          (valid)
-  // IPPPPGI ->  .....P     (valid)
+  // SI      -> .P          (valid)
+  // IPPPPSI ->  .....P     (valid)
   //
   // Total number of pending NALUs = 1 + 1 = 2
   struct validation_stats expected = {
       .valid_gops = 2, .pending_nalus = 2, .final_validation = &final_validation};
   if (setting.recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
-    // GIPPPPG*IP
+    // SIPPPPS*IP
     //
-    // G         -> (signature) -> P
-    // GIPPPPG*  ->     (valid) -> .PPPPPP
-    //  IPPPPG*I ->     (valid) -> ......P
+    // S         -> (signature) -> P
+    // SIPPPPS*  ->     (valid) -> .PPPPPP
+    //  IPPPPS*I ->     (valid) -> ......P
     expected.pending_nalus = 8;
     expected.has_signature = 1;
   }
   validate_nalu_list(sv, pre_fast_forward, expected);
   nalu_list_free(pre_fast_forward);
 
-  // Mimic fast forward by removing 7 NALUs ending up at the second next SEI: PGIPP GIPPGIPPGI.
+  // Mimic fast forward by removing 7 NALUs ending up at the second next SEI: PSIPP SIPPSIPPSI.
   // A fast forward is always done to an I-NALU, and if we use the access unit (AU) format, also the
   // preceding SEI-NALU will be present.
   int remove_items = 7;
@@ -1602,7 +1602,7 @@ mimic_au_fast_forward_and_get_list(signed_video_t *sv, struct sv_setting setting
     nalu_list_item_t *item = nalu_list_pop_first_item(list);
     nalu_list_free_item(item);
   }
-  nalu_list_check_str(list, "GIPPPGIPPPGI");
+  nalu_list_check_str(list, "SIPPPSIPPPSI");
 
   return list;
 }
@@ -1623,11 +1623,11 @@ START_TEST(fast_forward_stream_with_reset)
   // Final validation is OK and all received NALUs, but the last one, are validated.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 12, 11, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // Validate GIPPPGIPPPGI:
+  // Validate SIPPPSIPPPSI:
   //
-  // GI      -> UP           (SV_AUTH_RESULT_SIGNATURE_PRESENT)
-  // GIPPPGI -> U.....P      (valid)
-  // IPPPGI  ->       .....P (valid)
+  // SI      -> UP           (SV_AUTH_RESULT_SIGNATURE_PRESENT)
+  // SIPPPSI -> U.....P      (valid)
+  // IPPPSI  ->       .....P (valid)
   //
   // Total number of pending NALUs = 1 + 1 + 1 = 3
   const struct validation_stats expected = {.valid_gops = 2,
@@ -1656,11 +1656,11 @@ START_TEST(fast_forward_stream_without_reset)
   // Final validation is NOT OK and all received NALUs, but the last one, are validated.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, false, 21, 20, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // Validate IP GIPPPGIPPPGI (without reset, i.e., started with IP before fast forward):
+  // Validate IP SIPPPSIPPPSI (without reset, i.e., started with IP before fast forward):
   //
-  // GI      -> NMMUP           (invalid, 2 missing)
-  // GIPPPGI ->    UN....P      (invalid)
-  // IPPPGI  ->          .....P (valid)
+  // SI      -> NMMUP           (invalid, 2 missing)
+  // SIPPPSI ->    UN....P      (invalid)
+  // IPPPSI  ->          .....P (valid)
   //
   // Total number of pending NALUs = 1 + 1 + 1 = 3
   const struct validation_stats expected = {.valid_gops = 1,
@@ -1681,14 +1681,14 @@ static nalu_list_t *
 mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_setting setting)
 {
   nalu_list_t *list = generate_delayed_sei_list(setting, false);
-  nalu_list_check_str(list, "IPGPPPIPGPPIPGPPIPGPPIPG");
+  nalu_list_check_str(list, "IPSPPPIPSPPIPSPPIPSPPIPS");
 
   // Extract the first 9 NALUs from the list. This should be the empty GOP, a full GOP and in the
-  // middle of the next GOP: IPGPPPIPG PPIPGPPIPGPPIPG. These are the NALUs to be processed before
+  // middle of the next GOP: IPSPPPIPS PPIPSPPIPSPPIPS. These are the NALUs to be processed before
   // the fast forward.
   nalu_list_t *pre_fast_forward = nalu_list_pop(list, 9);
-  nalu_list_check_str(pre_fast_forward, "IPGPPPIPG");
-  nalu_list_check_str(list, "PPIPGPPIPGPPIPG");
+  nalu_list_check_str(pre_fast_forward, "IPSPPPIPS");
+  nalu_list_check_str(list, "PPIPSPPIPSPPIPS");
 
   // Final validation of |pre_fast_forward| is OK and all received NALUs, but the last three, are
   // validated.
@@ -1696,17 +1696,17 @@ mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_se
       SV_AUTH_RESULT_OK, false, 9, 6, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // Validate the video before fast forward using the user created session |sv|.
   //
-  // IPG         -> PP.         (valid)
-  // IPGPPPIPG   -> ......PP.   (valid)
+  // IPS         -> PP.         (valid)
+  // IPSPPPIPS   -> ......PP.   (valid)
   //
   // Total number of pending NALUs = 2 + 2 = 4
   struct validation_stats expected = {
       .valid_gops = 2, .pending_nalus = 4, .final_validation = &final_validation};
   if (setting.recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
-    // IPGPPPIPG*
+    // IPSPPPIPS*
     //
-    // IPG        -> (signature) -> PPP
-    // IPGPPPIPG* ->     (valid) -> ......PP.
+    // IPS        -> (signature) -> PPP
+    // IPSPPPIPS* ->     (valid) -> ......PP.
     expected.valid_gops = 1;
     expected.pending_nalus = 5;
     expected.has_signature = 1;
@@ -1714,7 +1714,7 @@ mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_se
   validate_nalu_list(sv, pre_fast_forward, expected);
   nalu_list_free(pre_fast_forward);
 
-  // Mimic fast forward by removing 7 NALUs ending up at the start of a later GOP: PPIPGPP IPGPPIPG.
+  // Mimic fast forward by removing 7 NALUs ending up at the start of a later GOP: PPIPSPP IPSPPIPS.
   // A fast forward is always done to an I-NALU. The first SEI showing up is associated with the now
   // removed NALUs.
   int remove_items = 7;
@@ -1722,7 +1722,7 @@ mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_se
     nalu_list_item_t *item = nalu_list_pop_first_item(list);
     nalu_list_free_item(item);
   }
-  nalu_list_check_str(list, "IPGPPIPG");
+  nalu_list_check_str(list, "IPSPPIPS");
 
   return list;
 }
@@ -1743,10 +1743,10 @@ START_TEST(fast_forward_stream_with_delayed_seis)
   // Final validation is OK and all received NALUs, but the last three, are validated.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 8, 5, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // Validate IPGPPIPG:
+  // Validate IPSPPIPS:
   //
-  // IPG      -> PPU           (SV_AUTH_RESULT_SIGNATURE_PRESENT)
-  // IPGPPIPG -> ..U..PP.      (valid)
+  // IPS      -> PPU           (SV_AUTH_RESULT_SIGNATURE_PRESENT)
+  // IPSPPIPS -> ..U..PP.      (valid)
   //
   // Total number of pending NALUs = 2 + 2 = 4
   struct validation_stats expected = {.valid_gops = 1,
@@ -1775,7 +1775,7 @@ mimic_file_export(struct sv_setting setting, bool include_i_nalu_at_end, bool de
 {
   nalu_list_t *pre_export = NULL;
   nalu_list_t *list = create_signed_nalus("VIPPIPPIPPIPPIPPIPP", setting);
-  nalu_list_check_str(list, "VGIPPGIPPGIPPGIPPGIPPGIPP");
+  nalu_list_check_str(list, "VSIPPSIPPSIPPSIPPSIPPSIPP");
 
   // Remove the initial PPS/SPS/VPS NALU to add back later
   nalu_list_item_t *ps = nalu_list_pop_first_item(list);
@@ -1785,25 +1785,25 @@ mimic_file_export(struct sv_setting setting, bool include_i_nalu_at_end, bool de
     int out[4] = {1, 4, 7, 10};
     for (int i = 0; i < 4; i++) {
       nalu_list_item_t *sei = nalu_list_remove_item(list, out[i]);
-      nalu_list_item_check_str(sei, "G");
+      nalu_list_item_check_str(sei, "S");
       nalu_list_append_item(list, sei, 13);
     }
-    nalu_list_check_str(list, "IPPIPPIPPIGGGGPPGIPPGIPP");
+    nalu_list_check_str(list, "IPPIPPIPPISSSSPPSIPPSIPP");
     pre_export = nalu_list_pop(list, 6);
     nalu_list_check_str(pre_export, "IPPIPP");
-    nalu_list_check_str(list, "IPPIGGGGPPGIPPGIPP");
+    nalu_list_check_str(list, "IPPISSSSPPSIPPSIPP");
   } else {
-    // Remove the first 4 NALUs from the list. This should be the first complete GOP: GIPP
-    // GIPPGIPPGIPPGIPP. These are the NALUs to be processed before the fast forward.
+    // Remove the first 4 NALUs from the list. This should be the first complete GOP: SIPP
+    // SIPPSIPPSIPPSIPP. These are the NALUs to be processed before the fast forward.
     pre_export = nalu_list_pop(list, 4);
-    nalu_list_check_str(pre_export, "GIPP");
-    nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPP");
+    nalu_list_check_str(pre_export, "SIPP");
+    nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPP");
   }
 
   // Mimic end of file export by removing items at the end of the list. Here we can take two
   // approaches, that is, include the I-NALU at the end and not. The latter being the standard
   // operation, which creates a dangling end. The list of NALUs will after this have 3 GOPs:
-  // GIPPGIPPGIPP(GI).
+  // SIPPSIPPSIPP(SI).
   int remove_items = include_i_nalu_at_end ? 2 : 4;
   while (remove_items--) {
     nalu_list_item_t *item = nalu_list_pop_last_item(list);
@@ -1813,9 +1813,9 @@ mimic_file_export(struct sv_setting setting, bool include_i_nalu_at_end, bool de
   nalu_list_prepend_first_item(list, ps);
 
   if (delayed_seis) {
-    nalu_list_check_str(list, include_i_nalu_at_end ? "VIPPIGGGGPPGIPPGI" : "VIPPIGGGGPPGIPP");
+    nalu_list_check_str(list, include_i_nalu_at_end ? "VIPPISSSSPPSIPPSI" : "VIPPISSSSPPSIPP");
   } else {
-    nalu_list_check_str(list, include_i_nalu_at_end ? "VGIPPGIPPGIPPGIPPGI" : "VGIPPGIPPGIPPGIPP");
+    nalu_list_check_str(list, include_i_nalu_at_end ? "VSIPPSIPPSIPPSIPPSI" : "VSIPPSIPPSIPPSIPP");
   }
   nalu_list_free(pre_export);
 
@@ -1832,12 +1832,12 @@ START_TEST(file_export_with_dangling_end)
   // Create a new session and validate the authenticity of the file.
   signed_video_t *sv = signed_video_create(settings[_i].codec);
   ck_assert(sv);
-  // VGIPPGIPPGIPPGIPP (17 NALUs)
+  // VSIPPSIPPSIPPSIPP (17 NALUs)
   //
-  // VGI             -> (signature) -> _UP
-  //   IPPGI         ->     (valid) -> ....P
-  //       IPPGI     ->     (valid) -> ....P
-  //           IPPGI ->     (valid) -> ....P
+  // VSI             -> (signature) -> _UP
+  //   IPPSI         ->     (valid) -> ....P
+  //       IPPSI     ->     (valid) -> ....P
+  //           IPPSI ->     (valid) -> ....P
   //
   // One pending NALU per GOP.
   // Final validation is OK and all received NALUs, but the last three, are validated.
@@ -1849,24 +1849,24 @@ START_TEST(file_export_with_dangling_end)
       .final_validation = &final_validation};
   if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
     if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
-      // VGIPPGIPPG*IPPGIPP
+      // VSIPPSIPPS*IPPSIPP
       //
-      // VG               -> (signature) -> _P
-      //  GIPPGIPPG*      ->     (valid) -> U....PPPP
-      //       IPPG*I     ->     (valid) -> ....P
-      //            IPPGI ->     (valid) -> ....P
+      // VS               -> (signature) -> _P
+      //  SIPPSIPPS*      ->     (valid) -> U....PPPP
+      //       IPPS*I     ->     (valid) -> ....P
+      //            IPPSI ->     (valid) -> ....P
       expected.valid_gops = 3;
       expected.pending_nalus = 7;
       expected.has_signature = 1;
     }
     if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
-      // VGIPPG*IPPGIPPGIPP
+      // VSIPPS*IPPSIPPSIPP
       //
-      // VG               -> (signature) -> _P
-      //  GIPPG*          -> (signature) -> UPPPP
-      //   IPPG*I         ->     (valid) -> ....P
-      //        IPPGI     ->     (valid) -> ....P
-      //            IPPGI ->     (valid) -> ....P
+      // VS               -> (signature) -> _P
+      //  SIPPS*          -> (signature) -> UPPPP
+      //   IPPS*I         ->     (valid) -> ....P
+      //        IPPSI     ->     (valid) -> ....P
+      //            IPPSI ->     (valid) -> ....P
       expected.valid_gops = 3;
       expected.pending_nalus = 8;
       expected.has_signature = 2;
@@ -1891,13 +1891,13 @@ START_TEST(file_export_without_dangling_end)
   // Create a new session and validate the authenticity of the file.
   signed_video_t *sv = signed_video_create(settings[_i].codec);
   ck_assert(sv);
-  // VGIPPGIPPGIPPGIPPGI (19 NALUs)
+  // VSIPPSIPPSIPPSIPPSI (19 NALUs)
   //
-  // VGI                 -> (signature) -> _UP
-  //   IPPGI             ->     (valid) -> ....P
-  //       IPPGI         ->     (valid) -> ....P
-  //           IPPGI     ->     (valid) -> ....P
-  //               IPPGI ->     (valid) -> ....P
+  // VSI                 -> (signature) -> _UP
+  //   IPPSI             ->     (valid) -> ....P
+  //       IPPSI         ->     (valid) -> ....P
+  //           IPPSI     ->     (valid) -> ....P
+  //               IPPSI ->     (valid) -> ....P
   //
   // One pending NALU per GOP.
   // Final validation is OK and all received NALUs, but the last one, are validated.
@@ -1909,13 +1909,13 @@ START_TEST(file_export_without_dangling_end)
       .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
-      // VGIPPGIPPG*IPPGIPPGI
+      // VSIPPSIPPS*IPPSIPPSI
       //
-      // VG                   -> (signature) -> _P
-      //  GIPPGIPPG*          ->     (valid) -> U....PPPP
-      //       IPPG*I         ->     (valid) -> ....P
-      //            IPPGI     ->     (valid) -> ....P
-      //                IPPGI ->     (valid) -> ....P
+      // VS                   -> (signature) -> _P
+      //  SIPPSIPPS*          ->     (valid) -> U....PPPP
+      //       IPPS*I         ->     (valid) -> ....P
+      //            IPPSI     ->     (valid) -> ....P
+      //                IPPSI ->     (valid) -> ....P
       expected.valid_gops = 4;
       expected.pending_nalus = 8;
       expected.has_signature = 1;
@@ -1923,14 +1923,14 @@ START_TEST(file_export_without_dangling_end)
   }
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
-      // VGIPPG*IPPGIPPGIPPGI
+      // VSIPPS*IPPSIPPSIPPSI
       //
-      // VG                   -> (signature) -> _P
-      //  GIPPG*              -> (signature) -> UPPPP
-      //   IPPG*I             ->     (valid) -> ....P
-      //        IPPGI         ->     (valid) -> ....P
-      //            IPPGI     ->     (valid) -> ....P
-      //                IPPGI ->     (valid) -> ....P
+      // VS                   -> (signature) -> _P
+      //  SIPPS*              -> (signature) -> UPPPP
+      //   IPPS*I             ->     (valid) -> ....P
+      //        IPPSI         ->     (valid) -> ....P
+      //            IPPSI     ->     (valid) -> ....P
+      //                IPPSI ->     (valid) -> ....P
       expected.valid_gops = 4;
       expected.pending_nalus = 9;
       expected.has_signature = 2;
@@ -2025,11 +2025,11 @@ START_TEST(late_public_key_and_no_sei_before_key_arrives)
   nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
 
   ck_assert(list);
-  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
 
   nalu_list_item_t *g_1 = nalu_list_remove_item(list, 5);
-  nalu_list_item_check_str(g_1, "G");
-  nalu_list_check_str(list, "GIPPIPPGIPPGIPPGIPPGIPPGI");
+  nalu_list_item_check_str(g_1, "S");
+  nalu_list_check_str(list, "SIPPIPPSIPPSIPPSIPPSIPPSI");
   // First public key now exist in item 8 if SV_RECURRENCE_EIGHT and SV_RECURRENCE_OFFSET_THREE
 
   // Final validation is NOT OK and all received NALUs, but the last one, are validated.
@@ -2042,15 +2042,15 @@ START_TEST(late_public_key_and_no_sei_before_key_arrives)
       .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     if (settings[_i].recurrence == SV_RECURRENCE_EIGHT) {
-      // GIPPIPPG*IPPGIPPGIPPG*IPPGI
+      // SIPPIPPS*IPPSIPPSIPPS*IPPSI
       //
-      // G                           -> (signature) -> P
-      // GIPPIPPG*                   ->   (invalid) -> .NNNPPPP
-      //     IPPG*I                  ->   (invalid) -> N...P
-      //          IPPGI              ->     (valid) -> ....P
-      //              IPPGI          ->     (valid) -> ....P
-      //                  IPPG*I     ->     (valid) -> ....P
-      //                       IPPGI ->     (valid) -> ....P
+      // S                           -> (signature) -> P
+      // SIPPIPPS*                   ->   (invalid) -> .NNNPPPP
+      //     IPPS*I                  ->   (invalid) -> N...P
+      //          IPPSI              ->     (valid) -> ....P
+      //              IPPSI          ->     (valid) -> ....P
+      //                  IPPS*I     ->     (valid) -> ....P
+      //                       IPPSI ->     (valid) -> ....P
       expected.valid_gops = 4;
       expected.invalid_gops = 2;
       expected.pending_nalus = 10;
@@ -2091,7 +2091,7 @@ START_TEST(fallback_to_gop_level)
 
   // Create a list of NALUs given the input string.
   nalu_list_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPI", false);
-  nalu_list_check_str(list, "GIPPGIPPPPPPPPPPPPPPPPPPPPPPPPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPPPPPPPPPPPPPPPPPPPPPPPSIPPSI");
 
   // Final validation is OK and all received NALUs, but the last one, are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -2100,12 +2100,12 @@ START_TEST(fallback_to_gop_level)
   struct validation_stats expected = {
       .valid_gops = 4, .pending_nalus = 4, .final_validation = &final_validation};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
-    // GIPPGIPPPPPPPPPPPPPPPPPPPPPPPPG*IPPGI
+    // SIPPSIPPPPPPPPPPPPPPPPPPPPPPPPS*IPPSI
     //
-    // G                                     -> (signature) -> P
-    // GIPPGIPPPPPPPPPPPPPPPPPPPPPPPPG*      ->     (valid) -> .....PPPPPPPPPPPPPPPPPPPPPPPPPP
-    //      IPPPPPPPPPPPPPPPPPPPPPPPPG*I     ->     (valid) -> ..........................P
-    //                                 IPPGI ->     (valid) -> ....P
+    // S                                     -> (signature) -> P
+    // SIPPSIPPPPPPPPPPPPPPPPPPPPPPPPS*      ->     (valid) -> .....PPPPPPPPPPPPPPPPPPPPPPPPPP
+    //      IPPPPPPPPPPPPPPPPPPPPPPPPS*I     ->     (valid) -> ..........................P
+    //                                 IPPSI ->     (valid) -> ....P
     expected.valid_gops = 3;
     expected.pending_nalus = 29;
     expected.has_signature = 1;
@@ -2587,11 +2587,11 @@ END_TEST
  * Add
  *   IPPIPPIPPIPPIPPIP
  * Then after ideal signing it becomes
- *   GIPPGIPPGIPPGIPPGIPPGIP
+ *   SIPPSIPPSIPPSIPPSIPPSIP
  * Assume it take one frame to sign
- *   IGPPIGPPIGPPIGPPIGPPIGP
+ *   ISPPISPPISPPISPPISPPISP
  * Assume the second signing event takes 7 frames
- *   IGPPIPPIPPIGPGPGIGPPIGP
+ *   ISPPIPPIPPISPSPSISPPISP
  *
  * This test generates a stream with six SEI NALUs and move them in time to simulate a signing
  * delay.
@@ -2602,45 +2602,45 @@ START_TEST(with_blocked_signing)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIP", settings[_i]);
-  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIP");
+  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIP");
   nalu_list_item_t *sei = nalu_list_remove_item(list, 21);
-  nalu_list_item_check_str(sei, "G");
+  nalu_list_item_check_str(sei, "S");
   nalu_list_append_item(list, sei, 21);
   sei = nalu_list_remove_item(list, 17);
-  nalu_list_item_check_str(sei, "G");
+  nalu_list_item_check_str(sei, "S");
   nalu_list_append_item(list, sei, 17);
   sei = nalu_list_remove_item(list, 13);
-  nalu_list_item_check_str(sei, "G");
+  nalu_list_item_check_str(sei, "S");
   nalu_list_append_item(list, sei, 15);
   sei = nalu_list_remove_item(list, 9);
-  nalu_list_item_check_str(sei, "G");
+  nalu_list_item_check_str(sei, "S");
   nalu_list_append_item(list, sei, 13);
   sei = nalu_list_remove_item(list, 5);
-  nalu_list_item_check_str(sei, "G");
+  nalu_list_item_check_str(sei, "S");
   nalu_list_append_item(list, sei, 11);
   sei = nalu_list_remove_item(list, 1);
-  nalu_list_item_check_str(sei, "G");
+  nalu_list_item_check_str(sei, "S");
   nalu_list_append_item(list, sei, 1);
-  nalu_list_check_str(list, "IGPPIPPIPPIGPGPGIGPPIGP");
+  nalu_list_check_str(list, "ISPPIPPIPPISPSPSISPPISP");
 
   // Expected validation result
-  //   IG                      -> P.                     (1 pending)
-  //   IGPPIPPIPPIG            -> ....PPPPPPP.           (7 pending)
-  //       IPPIPPIGPG          ->     ...PPPP.P.         (5 pending)
-  //          IPPIGPGPG        ->        ...P.P.P.       (3 pending)
-  //             IGPGPGIG      ->           ......P.     (1 pending)
-  //                   IGPPIGP ->                 ....P. (1 pending)
+  //   IS                      -> P.                     (1 pending)
+  //   ISPPIPPIPPIS            -> ....PPPPPPP.           (7 pending)
+  //       IPPIPPISPS          ->     ...PPPP.P.         (5 pending)
+  //          IPPISPSPS        ->        ...P.P.P.       (3 pending)
+  //             ISPSPSIS      ->           ......P.     (1 pending)
+  //                   ISPPISP ->                 ....P. (1 pending)
   //                                                   = 18 pending
   // The last P is never validated since it was never signed.
   // It only appears in the final report.
   struct validation_stats expected = {.valid_gops = 6, .pending_nalus = 18};
   if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_THREE) {
     // Expected validation result
-    //   IG                       -> PP                     ( 2 pending, has signature)
-    //   IGPPIPPIPPIGPG*          -> .......PPPP.P.         ( 5 pending, valid)
-    //          IPPIGPG*PG        ->        ...P.P.P.       ( 3 pending, valid)
-    //             IGPG*PGIG      ->           ......P.     ( 1 pending, valid)
-    //                    IGPPIGP ->                 ....P. ( 1 pending, valid)
+    //   IS                       -> PP                     ( 2 pending, has signature)
+    //   ISPPIPPIPPISPS*          -> .......PPPP.P.         ( 5 pending, valid)
+    //          IPPISPS*PS        ->        ...P.P.P.       ( 3 pending, valid)
+    //             ISPS*PSIS      ->           ......P.     ( 1 pending, valid)
+    //                    ISPPISP ->                 ....P. ( 1 pending, valid)
     //                                                    = (12 pending, 4 valid)
     expected.valid_gops = 4;
     expected.pending_nalus = 12;

@@ -395,8 +395,8 @@ END_TEST
  *   IPPIPP
  * followed by signed_video_set_end_of_stream(...)
  * Then we should get
- *   GIPPGIPP(G)
- * where G = GOP-info SEI-NALU, I = I-NALU and P = P-NALU.
+ *   SIPPSIPP(S)
+ * where S = SEI-NALU, I = I-NALU and P = P-NALU.
  */
 // TODO: Enabled when we have better support and knowledge about EOS.
 #if 0
@@ -406,7 +406,7 @@ START_TEST(correct_nalu_sequence_with_eos)
    * in |settings|; See signed_video_helpers.h. */
 
   nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i]);
-  nalu_list_check_str(list, "GIPPGIPPG");
+  nalu_list_check_str(list, "SIPPSIPPS");
   nalu_list_free(list);
 }
 END_TEST
@@ -418,7 +418,7 @@ START_TEST(correct_nalu_sequence_without_eos)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPP", settings[_i]);
-  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPP");
+  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIPP");
   nalu_list_free(list);
 }
 END_TEST
@@ -429,9 +429,9 @@ END_TEST
  *   IiPpPpIiPpPp
  * followed by signed_video_set_end_of_stream(...)
  * Then we should get
- *   GIiPpPpGIiPpPp(G)
+ *   SIiPpPpSIiPpPp(S)
  * where
- * G = GOP-info SEI-NALU,
+ * S = SEI-NALU,
  * I = I-NALU (Primary I slice or first slice in the current NALU),
  * i = i-NALU (Non-primary I slices)
  * P = P-NALU (Primary P slice)
@@ -445,7 +445,7 @@ START_TEST(correct_multislice_sequence_with_eos)
   // in |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i]);
-  nalu_list_check_str(list, "GIiPpPpGIiPpPpG");
+  nalu_list_check_str(list, "SIiPpPpSIiPpPpS");
   nalu_list_free(list);
 }
 END_TEST
@@ -457,7 +457,7 @@ START_TEST(correct_multislice_nalu_sequence_without_eos)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i]);
-  nalu_list_check_str(list, "GIiPpPpGIiPpPp");
+  nalu_list_check_str(list, "SIiPpPpSIiPpPp");
   nalu_list_free(list);
 }
 END_TEST
@@ -466,13 +466,13 @@ END_TEST
  * Add
  *   IPPIPPPPPI
  * Then we should get
- *   GIPPGIPPPPPGI
+ *   SIPPSIPPPPPSI
  * When the gop length increase, the size of the generated SEI NALU also increases for
  * SV_AUTHENTICITY_LEVEL_FRAME, but for SV_AUTHENTICITY_LEVEL_GOP it is independent of
  * the gop length.
  *
  * In this test we generate a stream with three SEI NALUs, each corresponding to an
- * increased gop length. We then fetch the SEIs (G's) and compare their sizes.
+ * increased gop length. We then fetch the SEIs (S's) and compare their sizes.
  */
 START_TEST(sei_increase_with_gop_length)
 {
@@ -482,13 +482,13 @@ START_TEST(sei_increase_with_gop_length)
   SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
 
   nalu_list_t *list = create_signed_nalus("IPPIPPPPPI", settings[_i]);
-  nalu_list_check_str(list, "GIPPGIPPPPPGI");
+  nalu_list_check_str(list, "SIPPSIPPPPPSI");
   nalu_list_item_t *sei_3 = nalu_list_remove_item(list, 12);
-  nalu_list_item_check_str(sei_3, "G");
+  nalu_list_item_check_str(sei_3, "S");
   nalu_list_item_t *sei_2 = nalu_list_remove_item(list, 5);
-  nalu_list_item_check_str(sei_2, "G");
+  nalu_list_item_check_str(sei_2, "S");
   nalu_list_item_t *sei_1 = nalu_list_remove_item(list, 1);
-  nalu_list_item_check_str(sei_1, "G");
+  nalu_list_item_check_str(sei_1, "S");
   if (settings[_i].recurrence == SV_RECURRENCE_ONE) {
     if (auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
       // Verify constant size. Note that the size differs if more emulation prevention bytes have
@@ -538,13 +538,13 @@ START_TEST(fallback_to_gop_level)
 
     // Create a list of NALUs given the input string.
     nalu_list_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPI", false);
-    nalu_list_check_str(list, "GIPPGIPPPPPPPPPPPPPPPPPPPPPPPPGI");
+    nalu_list_check_str(list, "SIPPSIPPPPPPPPPPPPPPPPPPPPPPPPSI");
     nalu_list_item_t *sei_3 = nalu_list_remove_item(list, 31);
-    nalu_list_item_check_str(sei_3, "G");
+    nalu_list_item_check_str(sei_3, "S");
     nalu_list_item_t *sei_2 = nalu_list_remove_item(list, 5);
-    nalu_list_item_check_str(sei_2, "G");
+    nalu_list_item_check_str(sei_2, "S");
     nalu_list_item_t *sei_1 = nalu_list_remove_item(list, 1);
-    nalu_list_item_check_str(sei_1, "G");
+    nalu_list_item_check_str(sei_1, "S");
 
     if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
       // Verify that the HASH_LIST_TAG is present (or not) in the SEI.
@@ -566,9 +566,8 @@ END_TEST
  * In this test we check if an undefined NALU is passed through silently.
  * Add
  *   IPXPIPP
- * followed by signed_video_set_end_of_stream(...)
  * Then we should get
- *   GIPXPGIPPG
+ *   SIPXPSIPPS
  */
 START_TEST(undefined_nalu_in_sequence)
 {
@@ -576,7 +575,7 @@ START_TEST(undefined_nalu_in_sequence)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
-  nalu_list_check_str(list, "GIPXPGIPPGI");
+  nalu_list_check_str(list, "SIPXPSIPPSI");
   nalu_list_free(list);
 }
 END_TEST
@@ -588,14 +587,14 @@ END_TEST
  * 2. Check the sequence of NALUs.
  * 3. Check if SEI has PUBLIC_KEY_TAG, which is recurrent data
  *
- * G = GOP-info SEI-NALU, I = I-NALU and P = P-NALU.
- * PUBLIC_KEY_TAG is checked in 'G' because that is where the metadata is located.
+ * S = SEI-NALU, I = I-NALU and P = P-NALU.
+ * PUBLIC_KEY_TAG is checked in 'S' because that is where the metadata is located.
  */
 START_TEST(recurrence)
 {
   nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
   ck_assert(list);
-  nalu_list_check_str(list, "GIPPGIPPGIPPGIPPGIPPGIPPGI");
+  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
 
   nalu_list_item_t *item;
   int gop_counter = 0;
@@ -605,7 +604,7 @@ START_TEST(recurrence)
 
   for (int i = 1; i <= (list->num_items); i++) {
     item = nalu_list_get_item(list, i);
-    if (strncmp(item->str_code, "G", 1) == 0) {
+    if (strncmp(item->str_code, "S", 1) == 0) {
       gop = (gop_counter * gop_length + settings[_i].recurrence_offset) / gop_length;
       recurrence = ((settings[_i].recurrence - 1) / gop_length + 1);  // Frames to gop
       if (gop % recurrence == 0) {
@@ -716,7 +715,7 @@ START_TEST(correct_signing_nalus_in_parts)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_splitted_nalus("IPPIPP", settings[_i]);
-  nalu_list_check_str(list, "GIPPGIPP");
+  nalu_list_check_str(list, "SIPPSIPP");
   nalu_list_free(list);
 }
 END_TEST
