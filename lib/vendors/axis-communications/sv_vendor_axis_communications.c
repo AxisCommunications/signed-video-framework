@@ -423,7 +423,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
 #endif
     // Check size and prefix of |public_key| after conversion.
     SVI_THROW_IF_WITH_MSG(public_key_uncompressed_size != PUBLIC_KEY_UNCOMPRESSED_SIZE, SVI_VENDOR,
-        "public_key_uncompressed_size");
+        "public_key_uncompressed_size = %zu", public_key_uncompressed_size);
     SVI_THROW_IF(public_key_uncompressed[0] != PUBLIC_KEY_UNCOMPRESSED_PREFIX, SVI_VENDOR);
 
     // Construct the binary raw data which will be part of |signed_data|.
