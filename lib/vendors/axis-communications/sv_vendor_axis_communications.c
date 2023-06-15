@@ -403,8 +403,8 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     EC_POINT *point = NULL;
     // BIGNUM *prime = NULL;
     // int prime_len = -1;
-    SVI_THROW_IF(
-        EVP_PKEY_get_group_name(pkey, gname, sizeof(gname), NULL) != 1, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF_WITH_MSG(EVP_PKEY_get_group_name(pkey, gname, sizeof(gname), NULL) != 1,
+        SVI_EXTERNAL_FAILURE, "EVP_PKEY_get_group_name");
     // if (EVP_PKEY_get_group_name(pkey, gname, sizeof(gname), NULL) != 1)
     //   return -1;
     // nid = OBJ_txt2nid(gname);
@@ -412,9 +412,9 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     // group = EC_GROUP_new_by_curve_name(nid);
     // prime = BN_new();
     // SVI_THROW_IF(!group || !prime, SVI_EXTERNAL_FAILURE);
-    SVI_THROW_IF(!group, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF_WITH_MSG(!group, SVI_EXTERNAL_FAILURE, "!group");
     point = EC_POINT_new(group);
-    SVI_THROW_IF(!point, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF_WITH_MSG(!point, SVI_EXTERNAL_FAILURE, "!point");
     // SVI_THROW_WITH_MSG(SVI_VENDOR, "OpenSSL 3.0 and newer not yet supported");
     public_key_uncompressed_size = EC_POINT_point2buf(
         group, point, POINT_CONVERSION_UNCOMPRESSED, &public_key_uncompressed, NULL);
@@ -422,7 +422,8 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     EC_POINT_free(point);
 #endif
     // Check size and prefix of |public_key| after conversion.
-    SVI_THROW_IF(public_key_uncompressed_size != PUBLIC_KEY_UNCOMPRESSED_SIZE, SVI_VENDOR);
+    SVI_THROW_IF_WITH_MSG(public_key_uncompressed_size != PUBLIC_KEY_UNCOMPRESSED_SIZE, SVI_VENDOR,
+        "public_key_uncompressed_size");
     SVI_THROW_IF(public_key_uncompressed[0] != PUBLIC_KEY_UNCOMPRESSED_PREFIX, SVI_VENDOR);
 
     // Construct the binary raw data which will be part of |signed_data|.
@@ -746,15 +747,15 @@ set_axis_communications_public_key(void *handle,
       EC_GROUP *group;
       BIGNUM *prime = NULL;
       // int prime_len = -1;
-      SVI_THROW_IF(
-          EVP_PKEY_get_group_name(pkey, gname, sizeof(gname), NULL) != 1, SVI_EXTERNAL_FAILURE);
+      SVI_THROW_IF_WITH_MSG(EVP_PKEY_get_group_name(pkey, gname, sizeof(gname), NULL) != 1,
+          SVI_EXTERNAL_FAILURE, "EVP_PKEY_get_group_name");
       // if (EVP_PKEY_get_group_name(pkey, gname, sizeof(gname), NULL) != 1)
       //   return -1;
       // nid = OBJ_txt2nid(gname);
       group = EC_GROUP_new_by_curve_name(OBJ_txt2nid(gname));
       // group = EC_GROUP_new_by_curve_name(nid);
       prime = BN_new();
-      SVI_THROW_IF(!group || !prime, SVI_EXTERNAL_FAILURE);
+      SVI_THROW_IF_WITH_MSG(!group || !prime, SVI_EXTERNAL_FAILURE, "!group || !prime");
       // if (!group || !prime)
       //   return -1;
       if (EC_GROUP_get_curve(group, prime, NULL, NULL, NULL) != 1) {
