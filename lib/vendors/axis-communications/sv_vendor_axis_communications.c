@@ -397,7 +397,29 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     public_key_uncompressed_size =
         EC_KEY_key2buf(ec_key, POINT_CONVERSION_UNCOMPRESSED, &public_key_uncompressed, NULL);
 #else
-    SVI_THROW_WITH_MSG(SVI_VENDOR, "OpenSSL 3.0 and newer not yet supported");
+    char gname[50];
+    // int nid;
+    EC_GROUP *group;
+    EC_POINT *point = NULL;
+    // BIGNUM *prime = NULL;
+    // int prime_len = -1;
+    SVI_THROW_IF(
+        EVP_PKEY_get_group_name(pkey, gname, sizeof(gname), NULL) != 1, SVI_EXTERNAL_FAILURE);
+    // if (EVP_PKEY_get_group_name(pkey, gname, sizeof(gname), NULL) != 1)
+    //   return -1;
+    // nid = OBJ_txt2nid(gname);
+    group = EC_GROUP_new_by_curve_name(OBJ_txt2nid(gname));
+    // group = EC_GROUP_new_by_curve_name(nid);
+    // prime = BN_new();
+    // SVI_THROW_IF(!group || !prime, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!group, SVI_EXTERNAL_FAILURE);
+    point = EC_POINT_new(group);
+    SVI_THROW_IF(!point, SVI_EXTERNAL_FAILURE);
+    // SVI_THROW_WITH_MSG(SVI_VENDOR, "OpenSSL 3.0 and newer not yet supported");
+    public_key_uncompressed_size = EC_POINT_point2buf(
+        group, point, POINT_CONVERSION_UNCOMPRESSED, &public_key_uncompressed, NULL);
+    EC_GROUP_free(group);
+    EC_POINT_free(point);
 #endif
     // Check size and prefix of |public_key| after conversion.
     SVI_THROW_IF(public_key_uncompressed_size != PUBLIC_KEY_UNCOMPRESSED_SIZE, SVI_VENDOR);
@@ -724,7 +746,8 @@ set_axis_communications_public_key(void *handle,
       EC_GROUP *group;
       BIGNUM *prime = NULL;
       // int prime_len = -1;
-      SVI_THROW_IF(EVP_PKEY_get_group_name(pkey, gname, sizeof(gname), NULL) != 1, SVI_EXTERNAL_FAILURE);
+      SVI_THROW_IF(
+          EVP_PKEY_get_group_name(pkey, gname, sizeof(gname), NULL) != 1, SVI_EXTERNAL_FAILURE);
       // if (EVP_PKEY_get_group_name(pkey, gname, sizeof(gname), NULL) != 1)
       //   return -1;
       // nid = OBJ_txt2nid(gname);
@@ -737,7 +760,7 @@ set_axis_communications_public_key(void *handle,
       if (EC_GROUP_get_curve(group, prime, NULL, NULL, NULL) != 1) {
         public_key_validation = 0;
       }
-        // prime_len = BN_num_bytes(prime);
+      // prime_len = BN_num_bytes(prime);
       EC_GROUP_free(group);
       BN_free(prime);
       // return prime_len;
