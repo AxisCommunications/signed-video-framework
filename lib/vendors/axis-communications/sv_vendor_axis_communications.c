@@ -681,8 +681,8 @@ set_axis_communications_public_key(void *handle,
   BIO *bp = NULL;
   // char gname[50];
   // int nid;
-  EC_GROUP *group;
-  BIGNUM *prime = NULL;
+  // EC_GROUP *group;
+  // BIGNUM *prime = NULL;
 
   // If the Public key previously has been validated unsuccessful, skip checking type and size.
   if (self->supplemental_authenticity.public_key_validation == 0) {
@@ -721,8 +721,8 @@ set_axis_communications_public_key(void *handle,
       // public_key_validation = 0;
       char gname[50];
       // int nid;
-      // EC_GROUP *group;
-      // BIGNUM *prime = NULL;
+      EC_GROUP *group;
+      BIGNUM *prime = NULL;
       // int prime_len = -1;
       SVI_THROW_IF(EVP_PKEY_get_group_name(pkey, gname, sizeof(gname), NULL) != 1, SVI_EXTERNAL_FAILURE);
       // if (EVP_PKEY_get_group_name(pkey, gname, sizeof(gname), NULL) != 1)
@@ -738,8 +738,8 @@ set_axis_communications_public_key(void *handle,
         public_key_validation = 0;
       }
         // prime_len = BN_num_bytes(prime);
-      // EC_GROUP_free(group);
-      // BN_free(prime);
+      EC_GROUP_free(group);
+      BN_free(prime);
       // return prime_len;
 #endif
     }
@@ -754,8 +754,8 @@ set_axis_communications_public_key(void *handle,
   }
   SVI_DONE(status)
 
-  EC_GROUP_free(group);
-  BN_free(prime);
+  // EC_GROUP_free(group);
+  // BN_free(prime);
   BIO_free(bp);
   EVP_PKEY_free(pkey);
 
