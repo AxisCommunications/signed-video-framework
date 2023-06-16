@@ -506,7 +506,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     self->supplemental_authenticity.public_key_validation &= verified_signature;
 
 #ifdef SIGNED_VIDEO_DEBUG
-    print("Successfully went through verify_axis_communications_public_key(...)");
+    printf("Successfully went through verify_axis_communications_public_key(...)");
 #endif
 
   SVI_CATCH()
