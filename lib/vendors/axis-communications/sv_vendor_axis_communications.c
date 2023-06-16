@@ -505,6 +505,10 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     // If verification fails (is 0) the result should never be overwritten with success (1) later.
     self->supplemental_authenticity.public_key_validation &= verified_signature;
 
+#ifdef SIGNED_VIDEO_DEBUG
+    print("Successfully went through verify_axis_communications_public_key(...)");
+#endif
+
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -771,6 +775,11 @@ set_axis_communications_public_key(void *handle,
       //   return -1;
       if (EC_GROUP_get_curve(group, prime, NULL, NULL, NULL) != 1) {
         public_key_validation = 0;
+#ifdef SIGNED_VIDEO_DEBUG
+        printf(
+            "Could not extract curve EC_GROUP_get_curve in "
+            "verify_axis_communications_public_key(...)");
+#endif
       }
       // prime_len = BN_num_bytes(prime);
       EC_GROUP_free(group);
