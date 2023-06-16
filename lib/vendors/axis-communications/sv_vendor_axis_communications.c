@@ -417,13 +417,14 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     SVI_THROW_IF_WITH_MSG(!group || !prime, SVI_EXTERNAL_FAILURE, "!group || !prime");
     // if (!group || !prime)
     //   return -1;
-    EC_GROUP_get_curve(group, prime, NULL, NULL, NULL);  // != 1) {
+    SVI_THROW_IF_WITH_MSG(EC_GROUP_get_curve(group, prime, NULL, NULL, NULL) != 1,
+        SVI_EXTERNAL_FAILURE, EC_GROUP_get_curve);  // != 1) {
     point = EC_POINT_new(group);
+    SVI_THROW_IF_WITH_MSG(!point, SVI_EXTERNAL_FAILURE, "!point");
     SVI_THROW_IF_WITH_MSG(EC_POINT_mul(group, point, prime, NULL, NULL, NULL) == 0,
         SVI_EXTERNAL_FAILURE, "EC_POINT_mul");
     // point = EC_POINT_bn2point(group, prime, NULL, NULL);
     // SVI_THROW_WITH_MSG(SVI_VENDOR, "OpenSSL 3.0 and newer not yet supported");
-    SVI_THROW_IF_WITH_MSG(!point, SVI_EXTERNAL_FAILURE, "!point");
     public_key_uncompressed_size = EC_POINT_point2buf(
         group, point, POINT_CONVERSION_UNCOMPRESSED, &public_key_uncompressed, NULL);
     EC_GROUP_free(group);
@@ -433,7 +434,8 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     // Check size and prefix of |public_key| after conversion.
     SVI_THROW_IF_WITH_MSG(public_key_uncompressed_size != PUBLIC_KEY_UNCOMPRESSED_SIZE, SVI_VENDOR,
         "public_key_uncompressed_size = %zu", public_key_uncompressed_size);
-    SVI_THROW_IF(public_key_uncompressed[0] != PUBLIC_KEY_UNCOMPRESSED_PREFIX, SVI_VENDOR);
+    SVI_THROW_IF_WITH_MSG(public_key_uncompressed[0] != PUBLIC_KEY_UNCOMPRESSED_PREFIX, SVI_VENDOR,
+        "UNCOMPRESSED PREFIX");
 
     // Construct the binary raw data which will be part of |signed_data|.
     uint8_t binary_raw_data[BINARY_RAW_DATA_SIZE] = {0x80, 0x22, 0x00, 0x00, 0x00, 0x00, 0x21, 0x41,
