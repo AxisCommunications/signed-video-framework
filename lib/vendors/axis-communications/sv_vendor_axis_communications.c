@@ -401,7 +401,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     // int nid;
     EC_GROUP *group;
     EC_POINT *point = NULL;
-    // BIGNUM *prime = NULL;
+    BIGNUM *prime = NULL;
     // int prime_len = -1;
     SVI_THROW_IF_WITH_MSG(EVP_PKEY_get_group_name(pkey, gname, sizeof(gname), NULL) != 1,
         SVI_EXTERNAL_FAILURE, "EVP_PKEY_get_group_name");
@@ -413,13 +413,20 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     // prime = BN_new();
     // SVI_THROW_IF(!group || !prime, SVI_EXTERNAL_FAILURE);
     SVI_THROW_IF_WITH_MSG(!group, SVI_EXTERNAL_FAILURE, "!group");
-    point = EC_POINT_new(group);
-    SVI_THROW_IF_WITH_MSG(!point, SVI_EXTERNAL_FAILURE, "!point");
+    prime = BN_new();
+    SVI_THROW_IF_WITH_MSG(!group || !prime, SVI_EXTERNAL_FAILURE, "!group || !prime");
+    // if (!group || !prime)
+    //   return -1;
+    EC_GROUP_get_curve(group, prime, NULL, NULL, NULL);  // != 1) {
+    // point = EC_POINT_new(group);
+    point = EC_POINT_bn2point(group, prime, NULL, NULL);
     // SVI_THROW_WITH_MSG(SVI_VENDOR, "OpenSSL 3.0 and newer not yet supported");
+    SVI_THROW_IF_WITH_MSG(!point, SVI_EXTERNAL_FAILURE, "!point");
     public_key_uncompressed_size = EC_POINT_point2buf(
         group, point, POINT_CONVERSION_UNCOMPRESSED, &public_key_uncompressed, NULL);
     EC_GROUP_free(group);
     EC_POINT_free(point);
+    BN_free(prime);
 #endif
     // Check size and prefix of |public_key| after conversion.
     SVI_THROW_IF_WITH_MSG(public_key_uncompressed_size != PUBLIC_KEY_UNCOMPRESSED_SIZE, SVI_VENDOR,
