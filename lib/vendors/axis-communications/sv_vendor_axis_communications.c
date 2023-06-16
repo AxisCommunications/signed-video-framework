@@ -418,7 +418,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     // if (!group || !prime)
     //   return -1;
     SVI_THROW_IF_WITH_MSG(EC_GROUP_get_curve(group, prime, NULL, NULL, NULL) != 1,
-        SVI_EXTERNAL_FAILURE, EC_GROUP_get_curve);  // != 1) {
+        SVI_EXTERNAL_FAILURE, "EC_GROUP_get_curve");  // != 1) {
     point = EC_POINT_new(group);
     SVI_THROW_IF_WITH_MSG(!point, SVI_EXTERNAL_FAILURE, "!point");
     SVI_THROW_IF_WITH_MSG(EC_POINT_mul(group, point, prime, NULL, NULL, NULL) == 0,
