@@ -709,41 +709,13 @@ set_axis_communications_public_key(void *handle,
       SVI_THROW_IF(!ec_key, SVI_EXTERNAL_FAILURE);
       const EC_GROUP *ec_group = EC_KEY_get0_group(ec_key);
       SVI_THROW_IF(!ec_group, SVI_EXTERNAL_FAILURE);
-      if (EC_GROUP_get_curve_name(ec_group) != NID_X9_62_prime256v1) {
-        public_key_validation = 0;
-      }
+      SVI_THROW_IF(EC_GROUP_get_curve_name(ec_group) != NID_X9_62_prime256v1, SVI_VENDOR);
 #else
       SVI_THROW_IF(EVP_PKEY_get_base_id(pkey) != EVP_PKEY_EC, SVI_VENDOR);
-      // OpenSSL 3.0 and newer not yet supported. Mark Public key as not valid.
-      // public_key_validation = 0;
       char group_name[100];
-      // int nid;
-      // EC_GROUP *group;
-      // BIGNUM *prime = NULL;
-      // int prime_len = -1;
-      SVI_THROW_IF(EVP_PKEY_get_group_name(pkey, group_name, sizeof(group_name), NULL) != 1, SVI_EXTERNAL_FAILURE);
+      SVI_THROW_IF(EVP_PKEY_get_group_name(pkey, group_name, sizeof(group_name), NULL) != 1,
+          SVI_EXTERNAL_FAILURE);
       SVI_THROW_IF(strcmp(group_name, SN_X9_62_prime256v1) != 0, SVI_VENDOR);
-      // if (EVP_PKEY_get_group_name(pkey, gname, sizeof(gname), NULL) != 1)
-      //   return -1;
-      // nid = OBJ_txt2nid(gname);
-      // group = EC_GROUP_new_by_curve_name(OBJ_txt2nid(gname));
-      // // group = EC_GROUP_new_by_curve_name(nid);
-      // prime = BN_new();
-      // SVI_THROW_IF_WITH_MSG(!group || !prime, SVI_EXTERNAL_FAILURE, "!group || !prime");
-      // // if (!group || !prime)
-      // //   return -1;
-      // if (EC_GROUP_get_curve(group, prime, NULL, NULL, NULL) != 1) {
-      //   public_key_validation = 0;
-// #ifdef SIGNED_VIDEO_DEBUG
-//         printf(
-//             "Could not extract curve EC_GROUP_get_curve in "
-//             "verify_axis_communications_public_key(...)");
-// #endif
-//       }
-//       // prime_len = BN_num_bytes(prime);
-//       EC_GROUP_free(group);
-//       BN_free(prime);
-//       // return prime_len;
 #endif
     }
 
@@ -758,8 +730,6 @@ set_axis_communications_public_key(void *handle,
   }
   SVI_DONE(status)
 
-  // EC_GROUP_free(group);
-  // BN_free(prime);
   BIO_free(bp);
   EVP_PKEY_free(pkey);
 
