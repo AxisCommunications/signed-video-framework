@@ -432,7 +432,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     public_key_uncompressed_size = EC_POINT_point2buf(
         group, point, POINT_CONVERSION_UNCOMPRESSED, &public_key_uncompressed, NULL);
     EC_GROUP_free(group);
-    EC_POINT_free(point);
+    // EC_POINT_free(point);
     BN_free(prime);
 #endif
     // Check size and prefix of |public_key| after conversion.
