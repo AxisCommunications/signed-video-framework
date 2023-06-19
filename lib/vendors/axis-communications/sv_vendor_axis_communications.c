@@ -421,8 +421,11 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
         SVI_EXTERNAL_FAILURE, "EC_GROUP_get_curve");  // != 1) {
     point = EC_POINT_new(group);
     SVI_THROW_IF_WITH_MSG(!point, SVI_EXTERNAL_FAILURE, "!point");
-    SVI_THROW_IF_WITH_MSG(EC_POINT_mul(group, point, prime, NULL, NULL, NULL) == 0,
-        SVI_EXTERNAL_FAILURE, "EC_POINT_mul");
+    // SVI_THROW_IF_WITH_MSG(EC_POINT_mul(group, point, prime, NULL, NULL, NULL) == 0,
+    //     SVI_EXTERNAL_FAILURE, "EC_POINT_mul");
+    SVI_THROW_IF_WITH_MSG(
+        EC_POINT_oct2point(group, point, self->public_key, self->public_key_size, NULL) == 0,
+        SVI_EXTERNAL_FAILURE, "EC_POINT_oct2point");
     // point = EC_POINT_bn2point(group, prime, NULL, NULL);
     // SVI_THROW_WITH_MSG(SVI_VENDOR, "OpenSSL 3.0 and newer not yet supported");
     public_key_uncompressed_size = EC_POINT_point2buf(
