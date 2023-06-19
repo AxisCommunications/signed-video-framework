@@ -400,7 +400,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     char gname[50];
     // int nid;
     EC_GROUP *group;
-    EC_POINT *point = NULL;
+    // EC_POINT *point = NULL;
     BIGNUM *prime = NULL;
     // int prime_len = -1;
     SVI_THROW_IF_WITH_MSG(EVP_PKEY_get_group_name(pkey, gname, sizeof(gname), NULL) != 1,
@@ -419,7 +419,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     //   return -1;
     SVI_THROW_IF_WITH_MSG(EC_GROUP_get_curve(group, prime, NULL, NULL, NULL) != 1,
         SVI_EXTERNAL_FAILURE, "EC_GROUP_get_curve");  // != 1) {
-    point = EC_GROUP_get0_generator(group);
+    const EC_POINT *point = EC_GROUP_get0_generator(group);
     // point = EC_POINT_new(group);
     SVI_THROW_IF_WITH_MSG(!point, SVI_EXTERNAL_FAILURE, "!point");
     // SVI_THROW_IF_WITH_MSG(EC_POINT_mul(group, point, prime, NULL, NULL, NULL) == 0,
