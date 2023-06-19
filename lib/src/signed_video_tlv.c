@@ -704,16 +704,6 @@ decode_hash_list(signed_video_t *self, const uint8_t *data, size_t data_size)
         hash_list_size > HASH_LIST_SIZE, SVI_MEMORY, "Found more hashes than fit in hash_list");
     memcpy(self->gop_info->hash_list, data_ptr, hash_list_size);
     self->gop_info->list_idx = (int)hash_list_size;
-#ifdef SIGNED_VIDEO_DEBUG
-    printf("Hash list in SEI (hash_list_size = %zu B = %zu elements\n", hash_list_size,
-        hash_list_size / HASH_DIGEST_SIZE);
-    for (size_t jj = 0; jj < hash_list_size;) {
-      for (int i = 0; i < HASH_DIGEST_SIZE; i++, jj++) {
-        printf("%02x", self->gop_info->hash_list[jj]);
-      }
-      printf("\n");
-    }
-#endif
     data_ptr += hash_list_size;
 
     SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
@@ -826,13 +816,6 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
     SVI_THROW_IF(signature_info->max_signature_size != max_signature_size, SVI_MEMORY);
     memcpy(*signature_ptr, data_ptr, max_signature_size);
     data_ptr += max_signature_size;
-#ifdef SIGNED_VIDEO_DEBUG
-    printf("Signature (signature_size = %u B\n", signature_size);
-    for (uint16_t i = 0; i < signature_size; i++) {
-      printf("%02x", (*signature_ptr)[i]);
-    }
-    printf("\n");
-#endif
 
     // Set true signature size.
     signature_info->signature_size = signature_size;

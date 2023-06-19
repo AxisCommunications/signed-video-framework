@@ -675,13 +675,6 @@ parse_nalu_info(const uint8_t *nalu_data,
     uint8_t user_data_unregistered = *payload;
     payload++;
     if (user_data_unregistered == USER_DATA_UNREGISTERED) {
-#ifdef SIGNED_VIDEO_DEBUG
-      printf("\n SEI in stream (%zu bytes):  ", nalu_data_size);
-      for (size_t ii = 0; ii < nalu_data_size; ++ii) {
-        printf(" %02x", nalu_data[ii]);
-      }
-      printf("\n");
-#endif
       // Decode payload size and compute emulation prevention bytes
       size_t payload_size = 0;
       size_t read_bytes = h264_get_payload_size(payload, &payload_size);
@@ -1081,15 +1074,6 @@ hash_and_add_for_auth(signed_video_t *self, const h26x_nalu_t *nalu)
     // Select hash wrapper, hash the NALU and store as |nalu_hash|.
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
     SVI_THROW(hash_wrapper(self, nalu, nalu_hash));
-#ifdef SIGNED_VIDEO_DEBUG
-    if (nalu->is_gop_sei) {
-      printf("SEI hash ");
-      for (int i = 0; i < HASH_DIGEST_SIZE; i++) {
-        printf("%02x", nalu_hash[i]);
-      }
-      printf("\n");
-    }
-#endif
     // Check if we have a potential transition to a new GOP. This happens if the current NALU
     // |is_first_nalu_in_gop|. If we have lost the first NALU of a GOP we can still make a guess by
     // checking if |has_gop_sei| flag is set. It is set if the previous hashable NALU was SEI.
