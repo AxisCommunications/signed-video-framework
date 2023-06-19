@@ -704,6 +704,7 @@ decode_hash_list(signed_video_t *self, const uint8_t *data, size_t data_size)
         hash_list_size > HASH_LIST_SIZE, SVI_MEMORY, "Found more hashes than fit in hash_list");
     memcpy(self->gop_info->hash_list, data_ptr, hash_list_size);
     self->gop_info->list_idx = (int)hash_list_size;
+
     data_ptr += hash_list_size;
 
     SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);

@@ -471,10 +471,6 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     // If verification fails (is 0) the result should never be overwritten with success (1) later.
     self->supplemental_authenticity.public_key_validation &= verified_signature;
 
-#ifdef SIGNED_VIDEO_DEBUG
-    printf("Successfully went through verify_axis_communications_public_key(...)");
-#endif
-
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -683,10 +679,6 @@ set_axis_communications_public_key(void *handle,
   sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
   EVP_PKEY *pkey = NULL;
   BIO *bp = NULL;
-  // char gname[50];
-  // int nid;
-  // EC_GROUP *group;
-  // BIGNUM *prime = NULL;
 
   // If the Public key previously has been validated unsuccessful, skip checking type and size.
   if (self->supplemental_authenticity.public_key_validation == 0) {
@@ -721,36 +713,37 @@ set_axis_communications_public_key(void *handle,
         public_key_validation = 0;
       }
 #else
+      SVI_THROW_IF(EVP_PKEY_get_base_id(pkey) != EVP_PKEY_EC, SVI_VENDOR);
       // OpenSSL 3.0 and newer not yet supported. Mark Public key as not valid.
       // public_key_validation = 0;
-      char gname[50];
+      char group_name[100];
       // int nid;
-      EC_GROUP *group;
-      BIGNUM *prime = NULL;
+      // EC_GROUP *group;
+      // BIGNUM *prime = NULL;
       // int prime_len = -1;
-      SVI_THROW_IF_WITH_MSG(EVP_PKEY_get_group_name(pkey, gname, sizeof(gname), NULL) != 1,
-          SVI_EXTERNAL_FAILURE, "EVP_PKEY_get_group_name");
+      SVI_THROW_IF(EVP_PKEY_get_group_name(pkey, group_name, sizeof(group_name), NULL) != 1, SVI_EXTERNAL_FAILURE);
+      SVI_THROW_IF(strcmp(group_name, SN_X9_62_prime256v1) != 0, SVI_VENDOR);
       // if (EVP_PKEY_get_group_name(pkey, gname, sizeof(gname), NULL) != 1)
       //   return -1;
       // nid = OBJ_txt2nid(gname);
-      group = EC_GROUP_new_by_curve_name(OBJ_txt2nid(gname));
-      // group = EC_GROUP_new_by_curve_name(nid);
-      prime = BN_new();
-      SVI_THROW_IF_WITH_MSG(!group || !prime, SVI_EXTERNAL_FAILURE, "!group || !prime");
-      // if (!group || !prime)
-      //   return -1;
-      if (EC_GROUP_get_curve(group, prime, NULL, NULL, NULL) != 1) {
-        public_key_validation = 0;
-#ifdef SIGNED_VIDEO_DEBUG
-        printf(
-            "Could not extract curve EC_GROUP_get_curve in "
-            "verify_axis_communications_public_key(...)");
-#endif
-      }
-      // prime_len = BN_num_bytes(prime);
-      EC_GROUP_free(group);
-      BN_free(prime);
-      // return prime_len;
+      // group = EC_GROUP_new_by_curve_name(OBJ_txt2nid(gname));
+      // // group = EC_GROUP_new_by_curve_name(nid);
+      // prime = BN_new();
+      // SVI_THROW_IF_WITH_MSG(!group || !prime, SVI_EXTERNAL_FAILURE, "!group || !prime");
+      // // if (!group || !prime)
+      // //   return -1;
+      // if (EC_GROUP_get_curve(group, prime, NULL, NULL, NULL) != 1) {
+      //   public_key_validation = 0;
+// #ifdef SIGNED_VIDEO_DEBUG
+//         printf(
+//             "Could not extract curve EC_GROUP_get_curve in "
+//             "verify_axis_communications_public_key(...)");
+// #endif
+//       }
+//       // prime_len = BN_num_bytes(prime);
+//       EC_GROUP_free(group);
+//       BN_free(prime);
+//       // return prime_len;
 #endif
     }
 
@@ -761,6 +754,7 @@ set_axis_communications_public_key(void *handle,
   {
     self->public_key = NULL;
     self->public_key_size = 0;
+    public_key_validation = 0;
   }
   SVI_DONE(status)
 
