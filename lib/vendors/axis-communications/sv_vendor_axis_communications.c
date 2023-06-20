@@ -397,7 +397,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     public_key_uncompressed_size =
         EC_KEY_key2buf(ec_key, POINT_CONVERSION_UNCOMPRESSED, &public_key_uncompressed, NULL);
 #else
-    SVI_THROW_WITH_MSG(SVI_VENDOR, "OpenSSL 3.0 and newer not yet supported");
+    public_key_uncompressed_size = EVP_PKEY_get1_encoded_public_key(pkey, &public_key_uncompressed);
 #endif
     // Check size and prefix of |public_key| after conversion.
     SVI_THROW_IF(public_key_uncompressed_size != PUBLIC_KEY_UNCOMPRESSED_SIZE, SVI_VENDOR);
@@ -709,12 +709,13 @@ set_axis_communications_public_key(void *handle,
       SVI_THROW_IF(!ec_key, SVI_EXTERNAL_FAILURE);
       const EC_GROUP *ec_group = EC_KEY_get0_group(ec_key);
       SVI_THROW_IF(!ec_group, SVI_EXTERNAL_FAILURE);
-      if (EC_GROUP_get_curve_name(ec_group) != NID_X9_62_prime256v1) {
-        public_key_validation = 0;
-      }
+      SVI_THROW_IF(EC_GROUP_get_curve_name(ec_group) != NID_X9_62_prime256v1, SVI_VENDOR);
 #else
-      // OpenSSL 3.0 and newer not yet supported. Mark Public key as not valid.
-      public_key_validation = 0;
+      SVI_THROW_IF(EVP_PKEY_get_base_id(pkey) != EVP_PKEY_EC, SVI_VENDOR);
+      char group_name[100];
+      SVI_THROW_IF(EVP_PKEY_get_group_name(pkey, group_name, sizeof(group_name), NULL) != 1,
+          SVI_EXTERNAL_FAILURE);
+      SVI_THROW_IF(strcmp(group_name, SN_X9_62_prime256v1) != 0, SVI_VENDOR);
 #endif
     }
 
@@ -725,6 +726,7 @@ set_axis_communications_public_key(void *handle,
   {
     self->public_key = NULL;
     self->public_key_size = 0;
+    public_key_validation = 0;
   }
   SVI_DONE(status)
 
