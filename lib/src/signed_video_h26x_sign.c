@@ -273,6 +273,13 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     payload_size = document_size + gop_info_size + vendor_size;
     payload_size += UUID_LEN;  // UUID
     payload_size += 1;  // One byte for reserved data.
+    if ((self->max_sei_payload_size > 0) && (payload_size > self->max_sei_payload_size)) {
+      // Fallback to GOP-level signing
+      payload_size -= document_size;
+      self->gop_info->list_idx = -1;  // Reset hash list size to exclude it from TLV
+      document_size = tlv_list_encode_or_get_size(self, document_encoders, num_doc_encoders, NULL);
+      payload_size += document_size;
+    }
     // Compute total SEI NALU data size.
     sei_buffer_size += self->codec == SV_CODEC_H264 ? 6 : 7;  // NALU header
     sei_buffer_size += payload_size / 256 + 1;  // Size field
@@ -802,5 +809,14 @@ signed_video_set_sei_epb(signed_video_t *self, bool sei_epb)
   if (!self) return SV_INVALID_PARAMETER;
 
   self->sei_epb = sei_epb;
+  return SV_OK;
+}
+
+SignedVideoReturnCode
+signed_video_set_max_sei_payload_size(signed_video_t *self, size_t max_sei_payload_size)
+{
+  if (!self) return SV_INVALID_PARAMETER;
+
+  self->max_sei_payload_size = max_sei_payload_size;
   return SV_OK;
 }
