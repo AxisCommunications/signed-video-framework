@@ -806,6 +806,37 @@ START_TEST(w_wo_emulation_prevention_bytes)
 }
 END_TEST
 
+/* Test description
+ * Verify the setter for maximum SEI payload size. */
+START_TEST(limited_sei_payload_size)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  // No need to run this with recurrence nor in GOP level authentication.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
+  if (settings[_i].auth_level != SV_AUTHENTICITY_LEVEL_FRAME) return;
+
+  // Select an upper payload limit which is less then the size of the last SEI.
+  const size_t max_sei_payload_size = 1000;
+  settings[_i].max_sei_payload_size = max_sei_payload_size;
+  nalu_list_t *list = create_signed_nalus("IPPIPPPPPPI", settings[_i]);
+  nalu_list_check_str(list, "SIPPSIPPPPPPSI");
+
+  // Extract the SEIs and check their sizes, which should be smaller than |max_sei_payload_size|.
+  int sei_idx[3] = {13, 5, 1};
+  for (int ii = 0; ii < 3; ii++) {
+    nalu_list_item_t *sei = nalu_list_remove_item(list, sei_idx[ii]);
+    ck_assert_str_eq(sei->str_code, "S");
+    ck_assert_uint_le(sei->data_size, max_sei_payload_size);
+    nalu_list_free_item(sei);
+    sei = NULL;
+  }
+
+  nalu_list_free(list);
+}
+END_TEST
+
 static Suite *
 signed_video_suite(void)
 {
@@ -837,6 +868,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, correct_timestamp, s, e);
   tcase_add_loop_test(tc, correct_signing_nalus_in_parts, s, e);
   tcase_add_loop_test(tc, w_wo_emulation_prevention_bytes, s, e);
+  tcase_add_loop_test(tc, limited_sei_payload_size, s, e);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);

@@ -398,6 +398,33 @@ signed_video_set_recurrence_interval_frames(signed_video_t *self, unsigned recur
 SignedVideoReturnCode
 signed_video_set_sei_epb(signed_video_t *self, bool sei_epb);
 
+/**
+ * @brief Configures Signed Video to limit the payload size of the SEI NAL Units
+ *
+ * In many Signed Video integrations on the signing side SEIs cannot become arbitrary large due to
+ * hardware constraints. This API sets an upper limit on the payload size of the generated SEI. If
+ * the, to be generated, SEI exceeds the set |max_sei_payload_size| Signed Video falls back to GOP
+ * level authentication.
+ *
+ * Note that it is a soft limit. If the payload size is still too large even for GOP level
+ * authentication the SEI NAL Unit is generated. Further, note that the API sets the maximum SEI
+ * payload size. The final SEI size can become larger since it includes headers, size bytes and
+ * potentional emulation prevention.
+ *
+ * If this API is not used, an unlimited SEI payload size is used (|max_sei_payload_size| = 0).
+ *
+ * The behavior of this API may change in the future and replace the fallback mechanism with a
+ * forced signing mechanism.
+ *
+ * @param self Session struct pointer
+ * @param max_sei_payload_size Upper limit on SEI payload (default 0 = unlimited)
+ *
+ * @returns SV_OK Max SEI payload size was successfully set,
+ *          SV_INVALID_PARAMETER Invalid parameter.
+ */
+SignedVideoReturnCode
+signed_video_set_max_sei_payload_size(signed_video_t *self, size_t max_sei_payload_size);
+
 #ifdef __cplusplus
 }
 #endif

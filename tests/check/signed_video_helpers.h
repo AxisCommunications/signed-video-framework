@@ -52,10 +52,11 @@ struct sv_setting {
   sign_algo_t algo;
   SignedVideoRecurrence recurrence;
   SignedVideoRecurrenceOffset recurrence_offset;
+  size_t max_sei_payload_size;
 };
 
 #define NUM_SETTINGS 24
-extern const struct sv_setting settings[NUM_SETTINGS];
+extern struct sv_setting settings[NUM_SETTINGS];
 
 extern const char *axisDummyCertificateChain;
 
