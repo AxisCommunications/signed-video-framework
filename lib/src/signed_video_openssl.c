@@ -49,6 +49,19 @@
 #include "signed_video_openssl_internal.h"
 
 /**
+ * Object to keep the path structure used to create and read pem-files.
+ */
+typedef struct {
+  // Null-terminated character string specifying the location of keys.
+  char *path_to_key;
+  // Null-terminated character string specifying the full path location to the private-key pem-file.
+  char *full_path_to_private_key;
+  // Buffer pointers to store the private key content.
+  char **private_key;
+  size_t *private_key_size;
+} key_paths_t;
+
+/**
  * OpenSSL cryptographic object.
  */
 typedef struct {
@@ -60,17 +73,19 @@ typedef struct {
 } openssl_crypto_t;
 
 static svi_rc
+write_private_key_to_file(EVP_PKEY *pkey, const key_paths_t *key_paths);
+static svi_rc
+write_private_key_to_buffer(EVP_PKEY *pkey, const key_paths_t *key_paths);
+static svi_rc
 create_rsa_private_key(const key_paths_t *key_paths);
 static svi_rc
 create_ecdsa_private_key(const key_paths_t *key_paths);
 static char *
-get_path_to_key(const char *path_to_keys, const char *key_filename);
+get_path_to_key(const char *path_to_key, const char *key_filename);
 static svi_rc
-create_full_path(sign_algo_t algo, const char *path_to_keys, key_paths_t *key_paths);
+create_full_path(sign_algo_t algo, const char *path_to_key, key_paths_t *key_paths);
 static svi_rc
-copy_key_from_file(const char *path_to_file, void **key, size_t *key_size);
-static svi_rc
-openssl_create_private_key(sign_algo_t algo, const char *path_to_keys, key_paths_t *key_paths);
+openssl_create_private_key(sign_algo_t algo, const char *path_to_key, key_paths_t *key_paths);
 
 #define PRIVATE_RSA_KEY_FILE "private_rsa_key.pem"
 #define PRIVATE_ECDSA_KEY_FILE "private_ecdsa_key.pem"
@@ -203,6 +218,66 @@ openssl_verify_hash(const signature_info_t *signature_info, int *verified_result
   return svi_rc_to_signed_video_rc(status);
 }
 
+/* Writes the content of |pkey| to a file in PEM format. */
+static svi_rc
+write_private_key_to_file(EVP_PKEY *pkey, const key_paths_t *key_paths)
+{
+  FILE *f_private = NULL;
+
+  assert(key_paths && pkey);
+  if (!key_paths->full_path_to_private_key) return SVI_OK;
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    f_private = fopen(key_paths->full_path_to_private_key, "wb");
+    SVI_THROW_IF(!f_private, SVI_FILE);
+    SVI_THROW_IF(
+        !PEM_write_PrivateKey(f_private, pkey, NULL, 0, 0, NULL, NULL), SVI_EXTERNAL_FAILURE);
+  SVI_CATCH()
+  {
+    if (f_private) unlink(key_paths->full_path_to_private_key);
+  }
+  SVI_DONE(status)
+
+  if (f_private) fclose(f_private);
+
+  return status;
+}
+
+/* Writes the content of |pkey| to a buffer in PEM format. */
+static svi_rc
+write_private_key_to_buffer(EVP_PKEY *pkey, const key_paths_t *key_paths)
+{
+  BIO *pkey_bio = NULL;
+  char *private_key = NULL;
+  long private_key_size = 0;
+
+  assert(key_paths && pkey);
+  if (!key_paths->private_key || !key_paths->private_key_size) return SVI_OK;
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    pkey_bio = BIO_new(BIO_s_mem());
+    SVI_THROW_IF(!pkey_bio, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(
+        !PEM_write_bio_PrivateKey(pkey_bio, pkey, NULL, 0, 0, NULL, NULL), SVI_EXTERNAL_FAILURE);
+
+    private_key_size = BIO_get_mem_data(pkey_bio, &private_key);
+    SVI_THROW_IF(private_key_size == 0 || !private_key, SVI_EXTERNAL_FAILURE);
+
+    *(key_paths->private_key) = malloc(private_key_size);
+    SVI_THROW_IF(!*(key_paths->private_key), SVI_MEMORY);
+    memcpy(*(key_paths->private_key), private_key, private_key_size);
+    *(key_paths->private_key_size) = private_key_size;
+
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  if (pkey_bio) BIO_free(pkey_bio);
+
+  return status;
+}
+
 /* Creates a RSA private key and stores it as a PEM file in the designated location. Existing key
  * will be overwritten. */
 static svi_rc
@@ -210,11 +285,10 @@ create_rsa_private_key(const key_paths_t *key_paths)
 {
   if (!key_paths) return SVI_INVALID_PARAMETER;
 
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
   EVP_PKEY *pkey = NULL;
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
   BIGNUM *bn = NULL;
   RSA *rsa = NULL;
-  FILE *f_private = NULL;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
@@ -234,46 +308,28 @@ create_rsa_private_key(const key_paths_t *key_paths)
     // Set |pkey| to use the newly generated RSA key
     SVI_THROW_IF(!EVP_PKEY_assign_RSA(pkey, rsa), SVI_EXTERNAL_FAILURE);
 
-    f_private = fopen(key_paths->full_path_to_private_key, "wb");
-    SVI_THROW_IF(!f_private, SVI_FILE);
-
-    SVI_THROW_IF(
-        !PEM_write_PrivateKey(f_private, pkey, NULL, 0, 0, NULL, NULL), SVI_EXTERNAL_FAILURE);
+    SVI_THROW(write_private_key_to_file(pkey, key_paths));
+    SVI_THROW(write_private_key_to_buffer(pkey, key_paths));
   SVI_CATCH()
   {
-    if (f_private) unlink(key_paths->full_path_to_private_key);
     if (rsa && !pkey) RSA_free(rsa);
   }
   SVI_DONE(status)
 
-  if (f_private) fclose(f_private);
-
   BN_free(bn);
-  EVP_PKEY_free(pkey);  // Free |pkey|, |rsa| struct will be freed automatically as well
 #else
-  EVP_PKEY *pkey = NULL;
-  FILE *f_private = NULL;
-
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     pkey = EVP_RSA_gen(2048);
     SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
 
-    f_private = fopen(key_paths->full_path_to_private_key, "wb");
-    SVI_THROW_IF(!f_private, SVI_FILE);
-
-    SVI_THROW_IF(
-        !PEM_write_PrivateKey(f_private, pkey, NULL, 0, 0, NULL, NULL), SVI_EXTERNAL_FAILURE);
+    SVI_THROW(write_private_key_to_file(pkey, key_paths));
+    SVI_THROW(write_private_key_to_buffer(pkey, key_paths));
   SVI_CATCH()
-  {
-    if (f_private) unlink(key_paths->full_path_to_private_key);
-  }
   SVI_DONE(status)
 
-  if (f_private) fclose(f_private);
-
-  EVP_PKEY_free(pkey);  // Free |pkey|
 #endif
+  EVP_PKEY_free(pkey);  // Free |pkey|, |rsa| struct will be freed automatically as well
 
   return status;
 }
@@ -285,10 +341,9 @@ create_ecdsa_private_key(const key_paths_t *key_paths)
 {
   if (!key_paths) return SVI_INVALID_PARAMETER;
 
+  EVP_PKEY *pkey = NULL;
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
   EC_KEY *ec_key = NULL;
-  EVP_PKEY *pkey = NULL;
-  FILE *f_private = NULL;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
@@ -300,59 +355,44 @@ create_ecdsa_private_key(const key_paths_t *key_paths)
     SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
     SVI_THROW_IF(EVP_PKEY_assign_EC_KEY(pkey, ec_key) != 1, SVI_EXTERNAL_FAILURE);
 
-    f_private = fopen(key_paths->full_path_to_private_key, "wb");
-    SVI_THROW_IF(!f_private, SVI_FILE);
-    SVI_THROW_IF(
-        !PEM_write_PrivateKey(f_private, pkey, NULL, 0, 0, NULL, NULL), SVI_EXTERNAL_FAILURE);
+    SVI_THROW(write_private_key_to_file(pkey, key_paths));
+    SVI_THROW(write_private_key_to_buffer(pkey, key_paths));
 
   SVI_CATCH()
   {
-    if (f_private) unlink(key_paths->full_path_to_private_key);
     if (ec_key && !pkey) EC_KEY_free(ec_key);
   }
   SVI_DONE(status)
-
-  if (f_private) fclose(f_private);
-  if (pkey) EVP_PKEY_free(pkey);
 #else
-  EVP_PKEY *pkey = NULL;
-  FILE *f_private = NULL;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     pkey = EVP_EC_gen(OSSL_EC_curve_nid2name(NID_X9_62_prime256v1));
     SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
 
-    f_private = fopen(key_paths->full_path_to_private_key, "wb");
-    SVI_THROW_IF(!f_private, SVI_FILE);
-    SVI_THROW_IF(
-        !PEM_write_PrivateKey(f_private, pkey, NULL, 0, 0, NULL, NULL), SVI_EXTERNAL_FAILURE);
-
+    SVI_THROW(write_private_key_to_file(pkey, key_paths));
+    SVI_THROW(write_private_key_to_buffer(pkey, key_paths));
   SVI_CATCH()
-  {
-    if (f_private) unlink(key_paths->full_path_to_private_key);
-  }
   SVI_DONE(status)
-
-  if (f_private) fclose(f_private);
-  if (pkey) EVP_PKEY_free(pkey);
 #endif
+
+  if (pkey) EVP_PKEY_free(pkey);
 
   return status;
 }
 
-/* Joins a |key_filename| to |path_to_keys| to create a full path. */
+/* Joins a |key_filename| to |path_to_key| to create a full path. */
 static char *
-get_path_to_key(const char *path_to_keys, const char *key_filename)
+get_path_to_key(const char *path_to_key, const char *key_filename)
 {
-  size_t path_len = strlen(path_to_keys);
+  size_t path_len = strlen(path_to_key);
   const size_t str_len = path_len + strlen(key_filename) + 2;  // For '\0' and '/'
   char *str = calloc(1, str_len);
   if (!str) return NULL;
 
-  strcpy(str, path_to_keys);
+  strcpy(str, path_to_key);
   // Add '/' if not exists
-  if (path_to_keys[path_len - 1] != '/') strcat(str, "/");
+  if (path_to_key[path_len - 1] != '/') strcat(str, "/");
   strcat(str, key_filename);
 
   return str;
@@ -360,12 +400,12 @@ get_path_to_key(const char *path_to_keys, const char *key_filename)
 
 /* Creates a path string to private key PEM file. */
 static svi_rc
-create_full_path(sign_algo_t algo, const char *path_to_keys, key_paths_t *key_paths)
+create_full_path(sign_algo_t algo, const char *path_to_key, key_paths_t *key_paths)
 {
-  assert(path_to_keys && key_paths);
-  // Return directly if |path_to_keys| already exist
-  if (key_paths->path_to_keys && (strcmp(key_paths->path_to_keys, path_to_keys) == 0))
-    return SVI_OK;
+  assert(key_paths);
+  // Return directly if |path_to_key| is NULL or already exist
+  if (!path_to_key) return SVI_OK;
+  if (key_paths->path_to_key && (strcmp(key_paths->path_to_key, path_to_key) == 0)) return SVI_OK;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
@@ -374,23 +414,23 @@ create_full_path(sign_algo_t algo, const char *path_to_keys, key_paths_t *key_pa
     SVI_THROW_IF(!is_rsa && (algo != SIGN_ALGO_ECDSA), SVI_NOT_SUPPORTED);
 
     // Store path to folder with keys.
-    char *str = malloc(strlen(path_to_keys) + 1);  // Including '\0'
+    char *str = malloc(strlen(path_to_key) + 1);  // Including '\0'
     SVI_THROW_IF(!str, SVI_MEMORY);
-    strcpy(str, path_to_keys);
-    free(key_paths->path_to_keys);
-    key_paths->path_to_keys = str;
+    strcpy(str, path_to_key);
+    free(key_paths->path_to_key);
+    key_paths->path_to_key = str;
 
     // Store full path to private key.
     char *filename = is_rsa ? PRIVATE_RSA_KEY_FILE : PRIVATE_ECDSA_KEY_FILE;
-    char *full_path_to_private_key = get_path_to_key(key_paths->path_to_keys, filename);
+    char *full_path_to_private_key = get_path_to_key(key_paths->path_to_key, filename);
     SVI_THROW_IF(!full_path_to_private_key, SVI_MEMORY);
     free(key_paths->full_path_to_private_key);
     key_paths->full_path_to_private_key = full_path_to_private_key;
 
   SVI_CATCH()
   {
-    free(key_paths->path_to_keys);
-    key_paths->path_to_keys = NULL;
+    free(key_paths->path_to_key);
+    key_paths->path_to_key = NULL;
     free(key_paths->full_path_to_private_key);
     key_paths->full_path_to_private_key = NULL;
   }
@@ -479,45 +519,6 @@ openssl_free_handle(void *handle)
   free(self);
 }
 
-/* Reads the content of a key file, allocates memory and writes it to the key. */
-static svi_rc
-copy_key_from_file(const char *path_to_file, void **key, size_t *key_size)
-{
-  if (!path_to_file || !key || !key_size) return SVI_INVALID_PARAMETER;
-
-  // TODO: Consider using OpenSSL functions instead, that is read EVP_PKEY from file, etc.
-  FILE *f = NULL;
-  svi_rc status = SVI_UNKNOWN;
-  SVI_TRY()
-    f = fopen(path_to_file, "rb");
-    SVI_THROW_IF(!f, SVI_FILE);
-    SVI_THROW_IF(fseek(f, 0, SEEK_END), SVI_FILE);
-
-    long int file_key_size_check = ftell(f);
-    SVI_THROW_IF(file_key_size_check <= 0, SVI_FILE);
-    uint16_t file_key_size = (uint16_t)file_key_size_check;
-
-    // Rewind the file pointer.
-    SVI_THROW_IF(fseek(f, 0, SEEK_SET), SVI_FILE);
-
-    SVI_THROW(sv_rc_to_svi_rc(openssl_key_memory_allocated(key, key_size, file_key_size)));
-
-    // Copy the |key|.
-    SVI_THROW_IF(fread(*key, sizeof(uint8_t), file_key_size, f) != file_key_size, SVI_FILE);
-  SVI_CATCH()
-  {
-    // Free the |key| and set |key_size| to zero, since the data is corrupt.
-    free(*key);
-    *key = NULL;
-    *key_size = 0;
-  }
-  SVI_DONE(status)
-
-  if (f) fclose(f);
-
-  return status;
-}
-
 /*
  * Creates a private key in a specified location
  *
@@ -525,14 +526,14 @@ copy_key_from_file(const char *path_to_file, void **key, size_t *key_size)
  * public_key from the private_key.
  */
 static svi_rc
-openssl_create_private_key(sign_algo_t algo, const char *path_to_keys, key_paths_t *key_paths)
+openssl_create_private_key(sign_algo_t algo, const char *path_to_key, key_paths_t *key_paths)
 {
-  if (!path_to_keys || !key_paths || strlen(path_to_keys) == 0) return SVI_INVALID_PARAMETER;
+  if (path_to_key && strlen(path_to_key) == 0) return SVI_INVALID_PARAMETER;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     // Create paths if needed.
-    SVI_THROW(create_full_path(algo, path_to_keys, key_paths));
+    SVI_THROW(create_full_path(algo, path_to_key, key_paths));
     // Generate keys
     if (algo == SIGN_ALGO_RSA) {
       SVI_THROW(create_rsa_private_key(key_paths));
@@ -632,24 +633,22 @@ signed_video_generate_private_key(sign_algo_t algo,
     char **private_key,
     size_t *private_key_size)
 {
-  if (!path_to_key) return SV_INVALID_PARAMETER;
+  if (!path_to_key && (!private_key || !private_key_size)) return SV_INVALID_PARAMETER;
 
-  key_paths_t key_paths = {0};
+  key_paths_t key_paths = {.path_to_key = NULL,
+      .full_path_to_private_key = NULL,
+      .private_key = private_key,
+      .private_key_size = private_key_size};
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     SVI_THROW_IF_WITH_MSG(
         algo < 0 || algo >= SIGN_ALGO_NUM, SVI_NOT_SUPPORTED, "Algo is not supported");
     SVI_THROW(openssl_create_private_key(algo, path_to_key, &key_paths));
-    // Output the content of the PEM-file if the user asks for it.
-    if (private_key && private_key_size) {
-      SVI_THROW(copy_key_from_file(
-          key_paths.full_path_to_private_key, (void **)private_key, private_key_size));
-    }
 
   SVI_CATCH()
   SVI_DONE(status)
 
-  free(key_paths.path_to_keys);
+  free(key_paths.path_to_key);
   free(key_paths.full_path_to_private_key);
 
   return svi_rc_to_signed_video_rc(status);
