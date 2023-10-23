@@ -102,8 +102,14 @@ START_TEST(api_inputs)
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
   sv_rc = signed_video_generate_private_key(algo, NULL, NULL, NULL);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  sv_rc = signed_video_generate_private_key(algo, NULL, NULL, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  sv_rc = signed_video_generate_private_key(algo, NULL, &private_key, NULL);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   // Read content of private_key.
-  sv_rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
+  sv_rc = signed_video_generate_private_key(algo, "./", NULL, NULL);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_generate_private_key(algo, NULL, &private_key, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Check set_private_key
   sv_rc = signed_video_set_private_key(NULL, algo, private_key, private_key_size);

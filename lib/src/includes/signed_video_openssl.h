@@ -33,16 +33,6 @@ extern "C" {
 #endif
 
 /**
- * Object to keep the path structure used to create and read pem-files.
- */
-typedef struct {
-  char *path_to_keys;
-  // Null-terminated character string specifying the location of keys.
-  char *full_path_to_private_key;
-  // Null-terminated character string specifying the full path location to the private-key pem-file.
-} key_paths_t;
-
-/**
  * @brief Create cryptographic handle
  *
  * Allocates the memory for a crypthographic |handle| holding specific OpenSSL information. This
@@ -228,12 +218,16 @@ openssl_key_memory_allocated(void **key, size_t *key_size, size_t new_key_size);
  * By specifying a location and a signing algorithm (RSA, or ECDSA) a PEM file is generated and
  * stored as private_rsa_key.pem or private_ecdsa_key.pem. The user can then read this file and
  * pass the content to Signed Video through signed_video_set_private_key().
+ * If no |path_to_key| is passed in, memory is allocated for |private_key| and the content of
+ * |private_key_size| is written. Note that the ownership is transferred.
  *
- * This helper function only works on Linux.
+ * Writing to file only works on Linux.
  *
  * @param algo The signing algorithm SIGN_ALGO_RSA or SIGN_ALGO_ECDSA.
- * @param path_to_key The location where the PEM file will be written. Null-terminated string.
+ * @param path_to_key If not NULL, the location where the PEM file will be written. Null-terminated
+ *   string.
  * @param private_key If not NULL the content of the private key PEM file is copied to this output.
+ *   Ownership is transferred.
  * @param private_key_size If not NULL outputs the size of the |private_key|.
  *
  * @returns SV_OK Valid algorithm and successfully written PEM-file,
