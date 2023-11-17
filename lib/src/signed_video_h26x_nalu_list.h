@@ -24,6 +24,11 @@
 #include "signed_video_defines.h"
 #include "signed_video_h26x_internal.h"
 
+typedef enum {
+  VALIDATION_STR = 0,
+  NALU_STR = 1,
+} NaluListStringType;
+
 /* Function declarations needed to handle the linked list of NALUs used to validate the authenticity
  * of a Signed Video. */
 
@@ -168,7 +173,7 @@ h26x_nalu_list_num_pending_items(const h26x_nalu_list_t* list);
  * @returns The validation string, and a '\0' upon failure.
  */
 char*
-h26x_nalu_list_get_validation_str(const h26x_nalu_list_t* list);
+h26x_nalu_list_get_str(const h26x_nalu_list_t* list, NaluListStringType str_type);
 
 /**
  * @brief Cleans up among validated NALUs

@@ -113,6 +113,7 @@ transfer_latest_validation(signed_video_latest_validation_t *dst,
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
+    SVI_THROW(allocate_memory_and_copy_string(&dst->nalu_str, src->nalu_str));
     SVI_THROW(allocate_memory_and_copy_string(&dst->validation_str, src->validation_str));
     dst->authenticity = src->authenticity;
     dst->public_key_has_changed = src->public_key_has_changed;
@@ -183,6 +184,8 @@ latest_validation_init(signed_video_latest_validation_t *self)
   self->has_timestamp = false;
   self->timestamp = 0;
 
+  free(self->nalu_str);
+  self->nalu_str = NULL;
   free(self->validation_str);
   self->validation_str = NULL;
 }
@@ -249,42 +252,38 @@ update_accumulated_validation(const signed_video_latest_validation_t *latest,
   }
 }
 
-svi_rc
+void
 update_authenticity_report(signed_video_t *self)
 {
   assert(self && self->authenticity);
 
-  char *validation_str = NULL;
+  char *nalu_str = h26x_nalu_list_get_str(self->nalu_list, NALU_STR);
+  char *validation_str = h26x_nalu_list_get_str(self->nalu_list, VALIDATION_STR);
 
-  svi_rc status = SVI_UNKNOWN;
-  SVI_TRY()
-    validation_str = h26x_nalu_list_get_validation_str(self->nalu_list);
-    SVI_THROW(
-        allocate_memory_and_copy_string(&self->latest_validation->validation_str, validation_str));
-    DEBUG_LOG("Validation statuses 'oldest -> latest' = %s", validation_str);
+  // Transfer ownership of strings to |lastest_validation| after freeing previous.
+  free(self->latest_validation->nalu_str);
+  self->latest_validation->nalu_str = nalu_str;
+  DEBUG_LOG("NALU types 'oldest -> latest' = %s", nalu_str);
+  free(self->latest_validation->validation_str);
+  self->latest_validation->validation_str = validation_str;
+  DEBUG_LOG("Validation statuses           = %s", validation_str);
 
-    // Check for version mismatch. If |version_on_signing_side| is newer than |this_version| the
-    // authenticity result may not be reliable, hence change status.
-    if (signed_video_compare_versions(
-            self->authenticity->this_version, self->authenticity->version_on_signing_side) == 2) {
-      self->authenticity->latest_validation.authenticity = SV_AUTH_RESULT_VERSION_MISMATCH;
-    }
-    // Remove validated items from the list.
-    const unsigned int number_of_validated_nalus = h26x_nalu_list_clean_up(self->nalu_list);
-    // Update the |accumulated_validation| w.r.t. the |latest_validation|.
-    update_accumulated_validation(self->latest_validation, self->accumulated_validation);
-    // Only update |number_of_validated_nalus| if the video is signed. Currently, unsigned videos
-    // are validated (as not OK) since SEIs are assumed to arrive within a GOP. From a statistics
-    // point of view, that is not strictly not correct.
-    if (self->accumulated_validation->authenticity != SV_AUTH_RESULT_NOT_SIGNED) {
-      self->accumulated_validation->number_of_validated_nalus += number_of_validated_nalus;
-    }
-  SVI_CATCH()
-  SVI_DONE(status)
-
-  free(validation_str);
-
-  return status;
+  // Check for version mismatch. If |version_on_signing_side| is newer than |this_version| the
+  // authenticity result may not be reliable, hence change status.
+  if (signed_video_compare_versions(
+          self->authenticity->this_version, self->authenticity->version_on_signing_side) == 2) {
+    self->authenticity->latest_validation.authenticity = SV_AUTH_RESULT_VERSION_MISMATCH;
+  }
+  // Remove validated items from the list.
+  const unsigned int number_of_validated_nalus = h26x_nalu_list_clean_up(self->nalu_list);
+  // Update the |accumulated_validation| w.r.t. the |latest_validation|.
+  update_accumulated_validation(self->latest_validation, self->accumulated_validation);
+  // Only update |number_of_validated_nalus| if the video is signed. Currently, unsigned videos are
+  // validated (as not OK) since SEIs are assumed to arrive within a GOP. From a statistics point of
+  // view, that is not strictly not correct.
+  if (self->accumulated_validation->authenticity != SV_AUTH_RESULT_NOT_SIGNED) {
+    self->accumulated_validation->number_of_validated_nalus += number_of_validated_nalus;
+  }
 }
 
 /**
@@ -394,6 +393,7 @@ signed_video_authenticity_report_free(signed_video_authenticity_t *authenticity_
 
   free(authenticity_report->version_on_signing_side);
   free(authenticity_report->this_version);
+  free(authenticity_report->latest_validation.nalu_str);
   free(authenticity_report->latest_validation.validation_str);
 
   free(authenticity_report);
