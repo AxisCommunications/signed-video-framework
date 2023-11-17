@@ -84,6 +84,8 @@ nalu_type_to_str(const h26x_nalu_t *nalu)
       return nalu->is_primary_slice == true ? "P-nalu" : "p-nalu";
     case NALU_TYPE_PS:
       return "PPS/SPS/VPS";
+    case NALU_TYPE_AUD:
+      return "AUD";
     case NALU_TYPE_OTHER:
       return "valid other nalu";
     case NALU_TYPE_UNDEFINED:
@@ -92,6 +94,31 @@ nalu_type_to_str(const h26x_nalu_t *nalu)
   }
 }
 #endif
+
+char
+nalu_type_to_char(const h26x_nalu_t *nalu)
+{
+  // If no NALU is present, mark as missing, i.e., empty ' '.
+  if (!nalu) return ' ';
+
+  switch (nalu->nalu_type) {
+    case NALU_TYPE_SEI:
+      return nalu->is_gop_sei ? 'S' : 'z';
+    case NALU_TYPE_I:
+      return nalu->is_primary_slice == true ? 'I' : 'i';
+    case NALU_TYPE_P:
+      return nalu->is_primary_slice == true ? 'P' : 'p';
+    case NALU_TYPE_PS:
+      return 'v';
+    case NALU_TYPE_AUD:
+      return '_';
+    case NALU_TYPE_OTHER:
+      return 'o';
+    case NALU_TYPE_UNDEFINED:
+    default:
+      return 'U';
+  }
+}
 
 /* Declared in signed_video_internal.h */
 SignedVideoReturnCode
@@ -406,7 +433,7 @@ parse_h264_nalu_header(h26x_nalu_t *nalu)
     case 9:  // AU delimiter
       // Do not hash because these will be removed if you switch from bytestream to NALU stream
       // format
-      nalu->nalu_type = NALU_TYPE_OTHER;
+      nalu->nalu_type = NALU_TYPE_AUD;
       nalu_header_is_valid = true;
       break;
     case 10:  // End of sequence
@@ -499,6 +526,7 @@ parse_h265_nalu_header(h26x_nalu_t *nalu)
     case 35:  // 35 AUD_NUT Access unit non-VCL
       // Do not hash because these will be removed if you switch
       // from bytestream to NALU stream format
+      nalu->nalu_type = NALU_TYPE_AUD;
       nalu_header_is_valid = true;
       break;
     case 36:  // 36 EOS_NUT End non-VCL
@@ -511,7 +539,7 @@ parse_h265_nalu_header(h26x_nalu_t *nalu)
       nalu_header_is_valid = true;
       break;
     case 39:  // 39 PREFIX_SEI_NUTSUFFIX_SEI_NUT non-VCL
-    case 40:  // 40 PREFIX_SEI_NUTSUFFIX_SEI_NUT non-VCL
+    case 40:  // 40 SUFFIX_SEI_NUTSUFFIX_SEI_NUT non-VCL
       nalu->nalu_type = NALU_TYPE_SEI;
       nalu_header_is_valid = true;
       break;

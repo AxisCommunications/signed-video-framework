@@ -495,24 +495,35 @@ h26x_nalu_list_num_pending_items(const h26x_nalu_list_t *list)
 }
 
 /* Transforms all |validation_status| characters of the items in the |list| into a char string and
- * returns that string. */
+ * returns that string if VALIDATION_STR is set. Transforms all |nalu_type| characters of the items
+ * in the |list| into a char string and returns that string if NALU_STR is set. */
 char *
-h26x_nalu_list_get_validation_str(const h26x_nalu_list_t *list)
+h26x_nalu_list_get_str(const h26x_nalu_list_t *list, NaluListStringType str_type)
 {
   if (!list) return NULL;
   // Allocate memory for all items + a null terminated character.
-  char *validation_str = calloc(1, list->num_items + 1);
-  if (list) {
-    h26x_nalu_list_item_t *item = list->first_item;
-    int idx = 0;
-    while (item) {
-      memcpy(validation_str + idx, &item->validation_status, 1);
-      item = item->next;
-      idx++;
+  char *dst_str = calloc(1, list->num_items + 1);
+  if (!dst_str) return NULL;
+
+  h26x_nalu_list_item_t *item = list->first_item;
+  int idx = 0;
+  while (item) {
+    char src = 'U';
+    switch (str_type) {
+      case NALU_STR:
+        src = nalu_type_to_char(item->nalu);
+        break;
+      default:
+      case VALIDATION_STR:
+        src = item->validation_status;
+        break;
     }
+    memcpy(dst_str + idx, &src, 1);
+    item = item->next;
+    idx++;
   }
 
-  return validation_str;
+  return dst_str;
 }
 
 /* Cleans up the list by removing the validated items. */

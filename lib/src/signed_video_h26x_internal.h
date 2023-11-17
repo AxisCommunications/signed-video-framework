@@ -34,7 +34,8 @@ typedef enum {
   NALU_TYPE_I = 2,
   NALU_TYPE_P = 3,
   NALU_TYPE_PS = 4,  // Parameter Set: PPS/SPS/VPS
-  NALU_TYPE_OTHER = 5,
+  NALU_TYPE_AUD = 5,
+  NALU_TYPE_OTHER = 6,
 } SignedVideoFrameType;
 
 typedef enum {
@@ -47,6 +48,9 @@ typedef enum {
 char *
 nalu_type_to_str(const h26x_nalu_t *nalu);
 #endif
+
+char
+nalu_type_to_char(const h26x_nalu_t *nalu);
 
 /* SEI UUID types */
 extern const uint8_t kUuidSignedVideo[UUID_LEN];
