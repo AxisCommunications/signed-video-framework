@@ -260,7 +260,7 @@ update_authenticity_report(signed_video_t *self)
   char *nalu_str = h26x_nalu_list_get_str(self->nalu_list, NALU_STR);
   char *validation_str = h26x_nalu_list_get_str(self->nalu_list, VALIDATION_STR);
 
-  // Transfer ownership of strings to |lastest_validation| after freeing previous.
+  // Transfer ownership of strings to |latest_validation| after freeing previous.
   free(self->latest_validation->nalu_str);
   self->latest_validation->nalu_str = nalu_str;
   DEBUG_LOG("NALU types 'oldest -> latest' = %s", nalu_str);

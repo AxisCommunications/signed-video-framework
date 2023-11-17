@@ -503,6 +503,8 @@ h26x_nalu_list_get_str(const h26x_nalu_list_t *list, NaluListStringType str_type
   if (!list) return NULL;
   // Allocate memory for all items + a null terminated character.
   char *dst_str = calloc(1, list->num_items + 1);
+  if (!dst_str) return NULL;
+
   h26x_nalu_list_item_t *item = list->first_item;
   int idx = 0;
   while (item) {
