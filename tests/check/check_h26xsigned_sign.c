@@ -251,6 +251,10 @@ START_TEST(incorrect_operation)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
+
   SignedVideoCodec codec = settings[_i].codec;
 
   signed_video_t *sv = signed_video_create(codec);
@@ -310,6 +314,9 @@ START_TEST(vendor_axis_communications_operation)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  // TODO: Enable recurrence when test verifies it. Right now recurrence is not set.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
 
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
@@ -423,6 +430,9 @@ START_TEST(correct_nalu_sequence_without_eos)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
+
   nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPP", settings[_i]);
   nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIPP");
   nalu_list_free(list);
@@ -462,6 +472,9 @@ START_TEST(correct_multislice_nalu_sequence_without_eos)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
+
   nalu_list_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i]);
   nalu_list_check_str(list, "SIiPpPpSIiPpPp");
   nalu_list_free(list);
@@ -485,6 +498,9 @@ START_TEST(sei_increase_with_gop_length)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
+
   SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
 
   nalu_list_t *list = create_signed_nalus("IPPIPPPPPI", settings[_i]);
@@ -495,20 +511,18 @@ START_TEST(sei_increase_with_gop_length)
   nalu_list_item_check_str(sei_2, "S");
   nalu_list_item_t *sei_1 = nalu_list_remove_item(list, 1);
   nalu_list_item_check_str(sei_1, "S");
-  if (settings[_i].recurrence == SV_RECURRENCE_ONE) {
-    if (auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
-      // Verify constant size. Note that the size differs if more emulation prevention bytes have
-      // been added in one SEI compared to the other. Allow for one extra byte.
-      ck_assert_int_le(abs((int)sei_1->data_size - (int)sei_2->data_size), 1);
-      ck_assert_int_le(abs((int)sei_2->data_size - (int)sei_3->data_size), 1);
-    } else if (auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-      // Verify increased size.
-      ck_assert_uint_lt(sei_1->data_size, sei_2->data_size);
-      ck_assert_uint_lt(sei_2->data_size, sei_3->data_size);
-    } else {
-      // We should not end up here.
-      ck_assert(false);
-    }
+  if (auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
+    // Verify constant size. Note that the size differs if more emulation prevention bytes have
+    // been added in one SEI compared to the other. Allow for one extra byte.
+    ck_assert_int_le(abs((int)sei_1->data_size - (int)sei_2->data_size), 1);
+    ck_assert_int_le(abs((int)sei_2->data_size - (int)sei_3->data_size), 1);
+  } else if (auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
+    // Verify increased size.
+    ck_assert_uint_lt(sei_1->data_size, sei_2->data_size);
+    ck_assert_uint_lt(sei_2->data_size, sei_3->data_size);
+  } else {
+    // We should not end up here.
+    ck_assert(false);
   }
   nalu_list_free_item(sei_1);
   nalu_list_free_item(sei_2);
@@ -535,36 +549,35 @@ START_TEST(fallback_to_gop_level)
   // |settings|; See signed_video_helpers.h.
 
   // By construction, run the test for SV_AUTHENTICITY_LEVEL_FRAME only.
-  if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    const size_t kFallbackSize = 10;
-    signed_video_t *sv = get_initialized_signed_video(settings[_i].codec, settings[_i].algo, false);
-    ck_assert(sv);
-    ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
-    ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * HASH_DIGEST_SIZE), SVI_OK);
+  if (settings[_i].auth_level != SV_AUTHENTICITY_LEVEL_FRAME) return;
+  if (settings[_i].recurrence_offset != SV_RECURRENCE_OFFSET_ZERO) return;
 
-    // Create a list of NALUs given the input string.
-    nalu_list_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPI", false);
-    nalu_list_check_str(list, "SIPPSIPPPPPPPPPPPPPPPPPPPPPPPPSI");
-    nalu_list_item_t *sei_3 = nalu_list_remove_item(list, 31);
-    nalu_list_item_check_str(sei_3, "S");
-    nalu_list_item_t *sei_2 = nalu_list_remove_item(list, 5);
-    nalu_list_item_check_str(sei_2, "S");
-    nalu_list_item_t *sei_1 = nalu_list_remove_item(list, 1);
-    nalu_list_item_check_str(sei_1, "S");
+  const size_t kFallbackSize = 10;
+  signed_video_t *sv = get_initialized_signed_video(settings[_i].codec, settings[_i].algo, false);
+  ck_assert(sv);
+  ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
+  ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * HASH_DIGEST_SIZE), SVI_OK);
 
-    if (settings[_i].recurrence_offset == SV_RECURRENCE_OFFSET_ZERO) {
-      // Verify that the HASH_LIST_TAG is present (or not) in the SEI.
-      ck_assert(tag_is_present(sei_1, settings[_i].codec, HASH_LIST_TAG));
-      ck_assert(tag_is_present(sei_2, settings[_i].codec, HASH_LIST_TAG));
-      ck_assert(!tag_is_present(sei_3, settings[_i].codec, HASH_LIST_TAG));
-    }
+  // Create a list of NALUs given the input string.
+  nalu_list_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPI", false);
+  nalu_list_check_str(list, "SIPPSIPPPPPPPPPPPPPPPPPPPPPPPPSI");
+  nalu_list_item_t *sei_3 = nalu_list_remove_item(list, 31);
+  nalu_list_item_check_str(sei_3, "S");
+  nalu_list_item_t *sei_2 = nalu_list_remove_item(list, 5);
+  nalu_list_item_check_str(sei_2, "S");
+  nalu_list_item_t *sei_1 = nalu_list_remove_item(list, 1);
+  nalu_list_item_check_str(sei_1, "S");
 
-    nalu_list_free_item(sei_1);
-    nalu_list_free_item(sei_2);
-    nalu_list_free_item(sei_3);
-    nalu_list_free(list);
-    signed_video_free(sv);
-  }
+  // Verify that the HASH_LIST_TAG is present (or not) in the SEI.
+  ck_assert(tag_is_present(sei_1, settings[_i].codec, HASH_LIST_TAG));
+  ck_assert(tag_is_present(sei_2, settings[_i].codec, HASH_LIST_TAG));
+  ck_assert(!tag_is_present(sei_3, settings[_i].codec, HASH_LIST_TAG));
+
+  nalu_list_free_item(sei_1);
+  nalu_list_free_item(sei_2);
+  nalu_list_free_item(sei_3);
+  nalu_list_free(list);
+  signed_video_free(sv);
 }
 END_TEST
 
@@ -579,6 +592,9 @@ START_TEST(undefined_nalu_in_sequence)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
 
   nalu_list_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
   nalu_list_check_str(list, "SIPXPSIPPSI");
@@ -638,6 +654,10 @@ START_TEST(correct_timestamp)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
+
   SignedVideoCodec codec = settings[_i].codec;
   signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
   signed_video_nalu_to_prepend_t nalu_to_prepend_ts = {0};
@@ -719,6 +739,9 @@ START_TEST(correct_signing_nalus_in_parts)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
 
   nalu_list_t *list = create_signed_splitted_nalus("IPPIPP", settings[_i]);
   nalu_list_check_str(list, "SIPPSIPP");

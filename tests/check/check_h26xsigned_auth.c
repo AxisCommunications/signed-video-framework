@@ -272,6 +272,9 @@ START_TEST(invalid_api_inputs)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
+
   // For this test, the authenticity level has no meaning, since it is a setting for the signing
   // side, and we do not use a signed stream here.
   SignedVideoCodec codec = settings[_i].codec;
@@ -417,6 +420,9 @@ START_TEST(intact_stream_with_pps_nalu_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
+
   nalu_list_t *list = create_signed_nalus("VIPPIPPI", settings[_i]);
   nalu_list_check_str(list, "VSIPPSIPPSI");
 
@@ -443,6 +449,9 @@ START_TEST(intact_stream_with_pps_bytestream)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
 
   nalu_list_t *list = create_signed_nalus("VIPPIPPI", settings[_i]);
   nalu_list_check_str(list, "VSIPPSIPPSI");
@@ -491,6 +500,9 @@ START_TEST(intact_ms_stream_with_pps_nalu_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
+
   nalu_list_t *list = create_signed_nalus("VIiPpPpIiPpPpIi", settings[_i]);
   nalu_list_check_str(list, "VSIiPpPpSIiPpPpSIi");
 
@@ -517,6 +529,9 @@ START_TEST(intact_ms_stream_with_pps_bytestream)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
 
   nalu_list_t *list = create_signed_nalus("VIiPpPpIiPpPpIi", settings[_i]);
   nalu_list_check_str(list, "VSIiPpPpSIiPpPpSIi");
@@ -560,6 +575,9 @@ START_TEST(intact_with_undefined_nalu_in_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
+
   nalu_list_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
   nalu_list_check_str(list, "SIPXPSIPPSI");
 
@@ -586,6 +604,9 @@ START_TEST(intact_with_undefined_multislice_nalu_in_stream)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
 
   nalu_list_t *list = create_signed_nalus("IiPpXPpIiPpPpIi", settings[_i]);
   nalu_list_check_str(list, "SIiPpXPpSIiPpPpSIi");
@@ -1951,6 +1972,9 @@ START_TEST(no_signature)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
+
   nalu_list_t *list = nalu_list_create("IPPIPPIPPIPPI", settings[_i].codec);
   nalu_list_check_str(list, "IPPIPPIPPIPPI");
 
@@ -1983,6 +2007,9 @@ START_TEST(multislice_no_signature)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
 
   nalu_list_t *list = nalu_list_create("IiPpPpIiPpPpIiPpPpIiPpPpIi", settings[_i].codec);
   nalu_list_check_str(list, "IiPpPpIiPpPpIiPpPpIiPpPpIi");
@@ -2124,6 +2151,10 @@ START_TEST(vendor_axis_communications_operation)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  // TODO: Enable when recurrence is actually set.
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
 
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
@@ -2333,6 +2364,9 @@ START_TEST(test_public_key_scenarios)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
+
   struct pk_setting {
     bool pk_in_sei;
     bool use_wrong_pk;
@@ -2410,6 +2444,9 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  // No need to run this with recurrence.
+  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
 
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;

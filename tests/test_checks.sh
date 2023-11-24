@@ -22,22 +22,22 @@ meson -Dbuildtype=debug -Dvendors= --reconfigure . build
 ninja -C build test
 
 echo ""
-echo "=== Run check tests with all vendors ==="
+echo "=== Run check tests with all vendors and SIGNED_VIDEO_DEBUG ==="
 echo ""
 
-meson -Dbuildtype=debug -Dvendors=all --reconfigure . build
+meson -Ddebugprints=true -Dbuildtype=debug -Dvendors=all --reconfigure . build
 ninja -C build test
 
 echo ""
-echo "=== Now Runs check tests with SIGNED_VIDEO_DEBUG ==="
+echo "=== Now Runs check tests with threaded_unless_check_dep ==="
 echo ""
 
-meson -Ddebugprints=true -Dbuildtype=debug -Dsigningplugin=threaded_unless_check_dep --reconfigure . build
+meson -Ddebugprints=false -Dbuildtype=debug -Dsigningplugin=threaded_unless_check_dep --reconfigure . build
 ninja -C build test
 
 echo ""
 echo "=== Run with threaded signing plugin (should not do anything) ==="
 echo ""
 
-meson -Ddebugprints=false -Dbuildtype=debug -Dsigningplugin=threaded --reconfigure . build
+meson -Dbuildtype=debug -Dsigningplugin=threaded --reconfigure . build
 ninja -C build test
