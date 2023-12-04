@@ -48,7 +48,7 @@ typedef struct _h26x_nalu_t h26x_nalu_t;
 #define HASH_DIGEST_SIZE (256 / 8)
 
 #define SV_VERSION_BYTES 3
-#define SIGNED_VIDEO_VERSION "v1.1.23"
+#define SIGNED_VIDEO_VERSION "v1.1.24"
 #define SV_VERSION_MAX_STRLEN 13  // Longest possible string
 
 #define DEFAULT_AUTHENTICITY_LEVEL SV_AUTHENTICITY_LEVEL_FRAME
@@ -78,6 +78,8 @@ struct _validation_flags_t {
   bool is_first_validation;  // Indicates if this is the first validation. If so, a failing
   // validation result is not necessarily true, since the framework may be out of sync, e.g., after
   // exporting to a file.
+  bool reset_first_validation;  // Indicates if this a second attempt of a first validation
+  // should be performed. Hence, flag a reset.
   bool signing_present;  // Indicates if Signed Video is present or not. It is only possible to move
   // from false to true unless a reset is performed.
   bool is_first_sei;  // Indicates that this is the first received SEI.

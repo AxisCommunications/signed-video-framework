@@ -583,6 +583,9 @@ validate_authenticity(signed_video_t *self)
       valid = SV_AUTH_RESULT_SIGNATURE_PRESENT;
       num_expected_nalus = -1;
       num_received_nalus = -1;
+      // If validation was tried with the very first SEI in stream it cannot be part at.
+      // Reset the first validation to be able to validate a segment in the middle of the stream.
+      self->validation_flags.reset_first_validation = (self->gop_info->num_sent_nalus == 1);
     }
   }
   if (latest->public_key_has_changed) valid = SV_AUTH_RESULT_NOT_OK;
@@ -932,6 +935,18 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
       // validation in the middle of a stream. Now it is time to reset it.
       validation_flags->is_first_validation = !validation_flags->signing_present;
 
+      if (validation_flags->reset_first_validation) {
+        validation_flags->is_first_validation = true;
+        h26x_nalu_list_item_t *item = self->nalu_list->first_item;
+        while (item) {
+          if (item->nalu && item->nalu->is_first_nalu_in_gop) {
+            item->need_second_verification = false;
+            item->first_verification_not_authentic = false;
+            break;
+          }
+          item = item->next;
+        }
+      }
       self->gop_info->verified_signature_hash = -1;
       self->validation_flags.has_auth_result = true;
 

@@ -411,7 +411,7 @@ h26x_nalu_list_remove_missing_items(h26x_nalu_list_t *list)
       h26x_nalu_list_remove_and_free_item(list, item_to_remove);
       continue;
     }
-    if (item->has_been_decoded) {
+    if (item->has_been_decoded && item->validation_status != 'U') {
       // Usually, these items were added because we verified hashes with a SEI not associated with
       // this recording. This can happen if we export to file or fast forward in a recording. The
       // SEI used to generate these missing items is set to 'U'.
