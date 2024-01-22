@@ -52,7 +52,7 @@ typedef struct _sv_threaded_plugin {
   GMutex mutex;
   GCond cond;
 
-  // Variables that has to be r/w under mutex lock.
+  // Variables that have to be r/w under mutex lock.
   bool is_running;
   // Buffer of hashes to sign
   uint8_t *input_buffer[MAX_BUFFER_LENGTH];
@@ -447,4 +447,15 @@ void
 sv_interface_free(uint8_t *data)
 {
   openssl_free(data);
+}
+
+int
+sv_interface_init()
+{
+  return 0;
+}
+
+void
+sv_interface_exit()
+{
 }

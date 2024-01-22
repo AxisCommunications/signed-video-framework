@@ -150,6 +150,30 @@ sv_interface_malloc(size_t data_size);
 void
 sv_interface_free(uint8_t *data);
 
+/**
+ * @brief Plugin initialization
+ *
+ * This function can/should be called to initialize the signing plugin. Compared to
+ * sv_interface_setup() this function is not called by the library when creating a session.
+ * Therefore, it can be used to handle session independent operations, like setting up a thread,
+ * before any session has been created.
+ *
+ * @returns 0 upon success
+ */
+int
+sv_interface_init();
+
+/**
+ * @brief Plugin termination
+ *
+ * This function can/should be called when terminating the plugin. Compared to
+ * sv_interface_teardown() this function is not called by the library when closing a session.
+ * Therefore, it can be used to handle session independent operations, like terminating a thread,
+ * after all sessions have been closed.
+ */
+void
+sv_interface_exit();
+
 #ifdef __cplusplus
 }
 #endif

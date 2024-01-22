@@ -7,6 +7,8 @@ if (signing_plugin == 'unthreaded')
   subdir('unthreaded-signing')
 elif (signing_plugin == 'threaded')
   subdir('threaded-signing')
+elif (signing_plugin == 'single_threaded')
+  subdir('single-threaded-signing')
 else
   message('Unknown signing plugin: \'' + signing_plugin + '\'')
 endif
