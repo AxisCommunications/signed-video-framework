@@ -182,7 +182,7 @@ buffer_remove(unsigned id)
         output_buffer[j - 1] = output_buffer[j];
         j++;
       }
-      output_buffer[j - 1] = tmp;
+      output_buffer[j - 1] = *tmp;
       output_buffer_idx--;
     }
   }
@@ -197,7 +197,7 @@ buffer_remove(unsigned id)
         input_buffer[j - 1] = input_buffer[j];
         j++;
       }
-      input_buffer[j - 1] = tmp;
+      input_buffer[j - 1] = *tmp;
       input_buffer_idx--;
     }
   }

@@ -41,3 +41,10 @@ echo ""
 
 meson -Dbuildtype=debug -Dsigningplugin=threaded --reconfigure . build
 ninja -C build test
+
+echo ""
+echo "=== Run with single threaded signing plugin (should not do anything) ==="
+echo ""
+
+meson -Dbuildtype=debug -Dsigningplugin=single_threaded --reconfigure . build
+ninja -C build test
