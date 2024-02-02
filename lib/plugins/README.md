@@ -9,7 +9,7 @@ is a need to support signing through a concept of plugins.
 The Signed Video Framework comes with three plugins;
 [unthreaded-signing/plugin.c](./unthreaded-signing/plugin.c),
 [threaded-signing/plugin.c](./threaded-signing/plugin.c) and
-[single-threaded-signing/plugin.c](./single-threaded-signing/plugin.c). All thress use OpenSSL APIs
+[single-threaded-signing/plugin.c](./single-threaded-signing/plugin.c). All three use OpenSSL APIs
 to generate a signature.
 
 It is safe to use any of these plugins in a multi-threaded integration.
