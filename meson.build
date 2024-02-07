@@ -25,16 +25,11 @@ if build_with_axis
 endif
 
 signing_plugin = get_option('signingplugin')
-# Determine if 'threaded_unless_check_dep' and 'single_threaded_unless_check_dep' should use
-# 'threaded' or 'unthreaded'
+# Determine if 'threaded_unless_check_dep' should use 'threaded' or 'unthreaded'
 if (signing_plugin == 'threaded_unless_check_dep' and check_dep.found())
-  signing_plugin = 'unthreaded'
-elif (signing_plugin == 'single_threaded_unless_check_dep' and check_dep.found())
   signing_plugin = 'unthreaded'
 elif (signing_plugin == 'threaded_unless_check_dep')
   signing_plugin = 'threaded'
-elif (signing_plugin == 'single_threaded_unless_check_dep')
-  signing_plugin = 'single_threaded'
 endif
 
 

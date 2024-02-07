@@ -5,7 +5,7 @@ option('debugprints',
 option('signingplugin',
   type : 'string',
   value : 'unthreaded',
-  description : 'Select signing plugin; \'unthreaded\' (default), \'threaded\', \'single_threaded\', \'threaded_unless_check_dep\' or \'single_threaded_unless_check_dep\'')
+  description : 'Select signing plugin; \'unthreaded\' (default), \'threaded\' or \'threaded_unless_check_dep\'')
 option('vendors',
   type : 'array',
   choices : [ 'all', 'axis-communications' ],

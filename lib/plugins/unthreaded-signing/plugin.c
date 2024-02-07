@@ -37,7 +37,7 @@ typedef struct _sv_unthreaded_plugin_t {
 } sv_unthreaded_plugin_t;
 
 static SignedVideoReturnCode
-unthreaded_openssl_sign_hash(sv_unthreaded_plugin_t *self, signature_info_t *signature_info)
+unthreaded_openssl_sign_hash(sv_unthreaded_plugin_t *self, const signature_info_t *signature_info)
 {
   if (!signature_info) return SV_INVALID_PARAMETER;
   // If the generated signature has not been pulled a new signature cannot be generated without
@@ -78,7 +78,7 @@ unthreaded_openssl_has_signature(sv_unthreaded_plugin_t *self)
  */
 
 SignedVideoReturnCode
-sv_interface_sign_hash(void *plugin_handle, signature_info_t *signature_info)
+sv_interface_sign_hash(void *plugin_handle, const signature_info_t *signature_info)
 {
   sv_unthreaded_plugin_t *self = (sv_unthreaded_plugin_t *)plugin_handle;
 

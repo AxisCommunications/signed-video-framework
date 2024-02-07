@@ -6,10 +6,9 @@ Signing using a private key is usually done in a secure part of a device. This u
 device specific operations which cannot be generalized to an open source project. Therefore, there
 is a need to support signing through a concept of plugins.
 
-The Signed Video Framework comes with three plugins;
-[unthreaded-signing/plugin.c](./unthreaded-signing/plugin.c),
-[threaded-signing/plugin.c](./threaded-signing/plugin.c) and
-[single-threaded-signing/plugin.c](./single-threaded-signing/plugin.c). All three use OpenSSL APIs
+The Signed Video Framework comes with two plugins;
+[unthreaded-signing/plugin.c](./unthreaded-signing/plugin.c) and
+[threaded-signing/plugin.c](./threaded-signing/plugin.c). Both of them use OpenSSL APIs
 to generate a signature.
 
 It is safe to use any of these plugins in a multi-threaded integration.
@@ -20,20 +19,17 @@ default plugin. The check tests only work with this plugin, and validation does 
 plugin and should preferably be built with the unthreaded one.
 
 ## Threaded plugin
-The threaded plugin calls the OpenSSL signing APIs from a separate thread. A new thread is spawned
-for each created Signed Video object, which can cause quite some threads if multiple streams are
-signed. The implementation requires glib-2.0.
-
-## Single threaded plugin
-The threaded plugin calls the OpenSSL signing APIs from one (single) separate thread. If multiple
-streams are signed, these streams share the same input and output buffers. The implementation
-requires glib-2.0.
+The threaded plugin calls the OpenSSL signing APIs from a separate thread. If the plugin is
+initialized using sv_interface_init() a central thread is spawned. If the user runs multiple
+sessions they share the same input and output buffers. If the plugin is not initialized signing
+is done from a local thread in each session. This can cause quite some threads if multiple streams
+are signed. The implementation requires glib-2.0.
 
 ## Selecting a plugin
 Through the meson option `signingplugin`, one of them can be selected and the source file is added
-to the library sources. There are two extra options (`threaded_unless_check_dep` and
-`single_threaded_unless_check_dep`) which can be set if the signing side should be built with a
-threaded plugin unless libcheck exists. The unthreaded plugin is the library default.
+to the library sources. There is one extra option (`threaded_unless_check_dep`) which can be set if
+the signing side should be built with a threaded plugin unless libcheck exists. The unthreaded
+plugin is the library default.
 
 ## Creating a plugin
 
