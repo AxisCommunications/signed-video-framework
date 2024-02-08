@@ -6,7 +6,7 @@ Signing using a private key is usually done in a secure part of a device. This u
 device specific operations which cannot be generalized to an open source project. Therefore, there
 is a need to support signing through a concept of plugins.
 
-The Signed Video Framework comes with two plugins;
+The Signed Video Framework comes with implementations of two plugins;
 [unthreaded-signing/plugin.c](./unthreaded-signing/plugin.c) and
 [threaded-signing/plugin.c](./threaded-signing/plugin.c). Both of them use OpenSSL APIs
 to generate a signature.
@@ -15,12 +15,12 @@ It is safe to use any of these plugins in a multi-threaded integration.
 
 ## Unthreaded plugin
 The unthreaded plugin blocks further operations until the signature has been generated. This is the
-default plugin. The check tests only work with this plugin, and validation does not need a signing
-plugin and should preferably be built with the unthreaded one.
+default plugin. The check tests only work with this plugin. Further, the validation does not need a
+signing plugin, hence should preferably be built with the unthreaded one.
 
 ## Threaded plugin
 The threaded plugin calls the OpenSSL signing APIs from a separate thread. If the plugin is
-initialized using sv_interface_init() a central thread is spawned. If the user runs multiple
+initialized using `sv_interface_init()` a central thread is spawned. If the user runs multiple
 sessions they share the same input and output buffers. If the plugin is not initialized signing
 is done from a local thread in each session. This can cause quite some threads if multiple streams
 are signed. The implementation requires glib-2.0.
