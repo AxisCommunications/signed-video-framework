@@ -631,7 +631,7 @@ done:
  */
 
 SignedVideoReturnCode
-sv_interface_sign_hash(void *plugin_handle, const signature_info_t *signature_info)
+sv_interface_sign_hash(void *plugin_handle, signature_info_t *signature_info)
 {
   sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)plugin_handle;
 
