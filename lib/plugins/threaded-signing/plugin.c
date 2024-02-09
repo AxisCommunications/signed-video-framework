@@ -366,10 +366,10 @@ static void
 delete_item(unsigned id)
 {
   id_node_t *item = id_list;
-  while (item->next && (item->id != id)) item = item->next;
+  while (item && (item->id != id)) item = item->next;
   if (item) {
-    item->prev->next = item->next;
-    item->next->prev = item->prev;
+    (item->prev)->next = item->next;
+    if (item->next) (item->next)->prev = item->prev;
     free(item);
   }
 }
@@ -516,7 +516,7 @@ central_setup()
 
   // Find first available id and add to list of active sessions.
   unsigned id = 1;
-  while (id != 0 && !is_active(id)) id++;
+  while (is_active(id) && id != 0) id++;
   if (id == 0) {
     // Something is wrong. There cannot be this many active sessions.
     free(self);
