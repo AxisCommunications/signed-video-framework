@@ -140,3 +140,14 @@ sv_interface_free(uint8_t *data)
 {
   openssl_free(data);
 }
+
+int
+sv_interface_init()
+{
+  return 0;
+}
+
+void
+sv_interface_exit()
+{
+}
