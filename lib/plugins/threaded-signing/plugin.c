@@ -682,7 +682,7 @@ local_worker_thread(void *user_data)
       // Wait for a signal, triggered when it is time to sign a hash.
       g_cond_wait(&self->cond, &self->mutex);
     }
-  };
+  }
 
 done:
 
