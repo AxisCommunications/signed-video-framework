@@ -138,7 +138,7 @@ reset_signature_buffer(signature_data_t *buf)
 }
 
 /* Reset and free memory in a hash_data_t element. */
- static void
+static void
 free_hash_buffer(hash_data_t *buf)
 {
   reset_hash_buffer(buf);
@@ -197,6 +197,7 @@ catch_error:
 }
 
 /* Free all memory of input and ourput buffers. */
+static void
 free_buffers(threaded_data_t *self)
 {
   for (int i = 0; i < MAX_BUFFER_LENGTH; i++) {
@@ -482,7 +483,7 @@ central_worker_thread(void *user_data)
         if (!central.signature_info->hash) {
           // Failed in memory allocation.
           status = SV_MEMORY;
-          goto sign_done;
+          continue;
         }
         central.signature_info->hash_size = central.in[0].size;
       }
@@ -517,7 +518,7 @@ central_worker_thread(void *user_data)
         // id and move on.
         status = SV_NOT_SUPPORTED;
         buffer_reset(id_in_signing);
-        goto sign_done;
+        continue;
       }
 
       // If not successfully done with signing, set |signing_error| to true to
@@ -533,7 +534,7 @@ central_worker_thread(void *user_data)
           status = SV_MEMORY;
           central.is_running = false;
           free_buffers(&central);
-          goto sign_done;
+          continue;
         }
       }
 
@@ -544,12 +545,11 @@ central_worker_thread(void *user_data)
         central.out[idx].size = central.signature_info->signature_size;
       }
       central.out_idx++;
-sign_done:
     } else {
       // Wait for a signal, triggered when it is time to sign a hash.
       g_cond_wait(&(central.cond), &(central.mutex));
     }
-  };
+  }
 
 done:
 

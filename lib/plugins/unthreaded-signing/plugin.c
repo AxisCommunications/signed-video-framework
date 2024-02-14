@@ -28,6 +28,14 @@
 #include "includes/signed_video_interfaces.h"
 #include "includes/signed_video_openssl.h"
 
+#ifndef ATTR_UNUSED
+#if defined(_WIN32) || defined(_WIN64)
+#define ATTR_UNUSED
+#else
+#define ATTR_UNUSED __attribute__((unused))
+#endif
+#endif
+
 // Plugin handle to store the signature, etc.
 typedef struct _sv_unthreaded_plugin_t {
   bool signature_generated;
@@ -142,12 +150,12 @@ sv_interface_free(uint8_t *data)
 }
 
 int
-sv_interface_init()
+sv_interface_init(void ATTR_UNUSED *user_data)
 {
   return 0;
 }
 
 void
-sv_interface_exit()
+sv_interface_exit(void ATTR_UNUSED *user_data)
 {
 }
