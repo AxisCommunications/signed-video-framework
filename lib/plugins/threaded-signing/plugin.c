@@ -109,27 +109,6 @@ static id_node_t *id_list = NULL;
  * Helper functions common to both a local and a central thread.
  */
 
-/* Resets a hash_data_t element. */
-static void
-reset_hash_buffer(hash_data_t *buf)
-{
-  free(buf->hash);
-  buf->hash = NULL;
-  buf->size = 0;
-  buf->id = 0;
-}
-
-/* Resets a signature_data_t element. */
-static void
-reset_signature_buffer(signature_data_t *buf)
-{
-  free(buf->signature);
-  buf->signature = NULL;
-  buf->size = 0;
-  buf->id = 0;
-  buf->signing_error = false;
-}
-
 /* Frees the memory of |signature_info|. */
 static void
 signature_info_free(signature_info_t *signature_info)
@@ -137,9 +116,44 @@ signature_info_free(signature_info_t *signature_info)
   if (!signature_info) return;
 
   free(signature_info->private_key);
-  openssl_free(signature_info->signature);
+  if (signature_info->signature) openssl_free(signature_info->signature);
   free(signature_info->hash);
   free(signature_info);
+}
+
+/* Resets a hash_data_t element. */
+static void
+reset_hash_buffer(hash_data_t *buf)
+{
+  buf->id = 0;
+}
+
+/* Resets a signature_data_t element. */
+static void
+reset_signature_buffer(signature_data_t *buf)
+{
+  buf->size = 0;  // Note that the size of the allocated signature is handled by |signature_info|
+  buf->id = 0;
+  buf->signing_error = false;
+}
+
+/* Reset and free memory in a hash_data_t element. */
+static void
+free_hash_buffer(hash_data_t *buf)
+{
+  reset_hash_buffer(buf);
+  free(buf->hash);
+  buf->hash = NULL;
+  buf->size = 0;
+}
+
+/* Reset and free memory in a signature_data_t element. */
+static void
+free_signature_buffer(signature_data_t *buf)
+{
+  reset_signature_buffer(buf);
+  free(buf->signature);
+  buf->signature = NULL;
 }
 
 /* Allocate memory and copy data for the local |signature_info|.
@@ -159,15 +173,19 @@ signature_info_create(const signature_info_t *signature_info)
       signature_info->private_key_size);
   tmp_signature_info->private_key_size = signature_info->private_key_size;
 
-  // Allocate memory for the |signature|.
-  tmp_signature_info->signature = openssl_malloc(signature_info->max_signature_size);
-  if (!tmp_signature_info->signature) goto catch_error;
-  tmp_signature_info->max_signature_size = signature_info->max_signature_size;
+  if (signature_info->max_signature_size) {
+    // Allocate memory for the |signature|.
+    tmp_signature_info->signature = openssl_malloc(signature_info->max_signature_size);
+    if (!tmp_signature_info->signature) goto catch_error;
+    tmp_signature_info->max_signature_size = signature_info->max_signature_size;
+  }
 
-  // Allocate memory for the |hash|.
-  tmp_signature_info->hash = calloc(1, signature_info->hash_size);
-  if (!tmp_signature_info->hash) goto catch_error;
-  tmp_signature_info->hash_size = signature_info->hash_size;
+  if (signature_info->hash_size) {
+    // Allocate memory for the |hash|.
+    tmp_signature_info->hash = calloc(1, signature_info->hash_size);
+    if (!tmp_signature_info->hash) goto catch_error;
+    tmp_signature_info->hash_size = signature_info->hash_size;
+  }
   // Copy the |algo|.
   tmp_signature_info->algo = signature_info->algo;
 
@@ -178,20 +196,27 @@ catch_error:
   return NULL;
 }
 
+/* Free all memory of input and ourput buffers. */
+static void
+free_buffers(threaded_data_t *self)
+{
+  for (int i = 0; i < MAX_BUFFER_LENGTH; i++) {
+    free_signature_buffer(&self->out[i]);
+    free_hash_buffer(&self->in[i]);
+  }
+  self->in_idx = 0;
+  self->out_idx = 0;
+}
+
 /* Frees all allocated memory and resets members. Excluded are the worker thread members |thread|,
  * |mutex|, |cond| and |is_running|. */
 static void
-reset_plugin(threaded_data_t *self)
+free_plugin(threaded_data_t *self)
 {
   signature_info_free(self->signature_info);
   self->signature_info = NULL;
 
-  for (int i = 0; i < MAX_BUFFER_LENGTH; i++) {
-    reset_signature_buffer(&self->out[i]);
-    reset_hash_buffer(&self->in[i]);
-  }
-  self->in_idx = 0;
-  self->out_idx = 0;
+  free_buffers(self);
 }
 
 /* This function is called from the library upon signing and the input |signature_info| includes
@@ -212,33 +237,44 @@ sign_hash(threaded_data_t *self, unsigned id, const signature_info_t *signature_
   g_mutex_lock(&self->mutex);
   int idx = self->in_idx;
 
+  if (idx >= MAX_BUFFER_LENGTH) {
+    // |in| is full. Buffers this long are not supported.
+    status = SV_NOT_SUPPORTED;
+    goto done;
+  }
+
   if (!self->is_running) {
     // Thread is not running. Go to catch_error and return status.
     status = SV_EXTERNAL_ERROR;
     goto done;
   }
 
-  // If no |self->signature_info| exists. Allocate necessary memory for it and copy the
-  // |private_key| and |algo|.
-  if (!self->signature_info) {
-    self->signature_info = signature_info_create(signature_info);
-    if (!self->signature_info) {
-      // Failed in memory allocation.
-      status = SV_MEMORY;
-      goto done;
+  if (id) {
+    // Signing from a central thread. The |signature_info| should have been allocated when
+    // the plugin was initialized.
+    assert(self->signature_info);
+    // If this is the first time signing a hash the maximum size of the signature is known
+    // and local memory can be allocated.
+    if (!self->signature_info->signature) {
+      self->signature_info->signature = calloc(1, signature_info->max_signature_size);
+      if (!self->signature_info->signature) {
+        // Failed in memory allocation.
+        status = SV_MEMORY;
+        goto done;
+      }
+      self->signature_info->max_signature_size = signature_info->max_signature_size;
     }
-  }
-
-  // The |hash_size| has to be fixed throughout the session.
-  if (self->signature_info->hash_size != signature_info->hash_size) {
-    status = SV_NOT_SUPPORTED;
-    goto done;
-  }
-
-  if (idx >= MAX_BUFFER_LENGTH) {
-    // |in| is full. Buffers this long are not supported.
-    status = SV_NOT_SUPPORTED;
-    goto done;
+  } else {
+    // If no |self->signature_info| exists. Allocate necessary memory for it and copy the
+    // |private_key| and |algo|.
+    if (!self->signature_info) {
+      self->signature_info = signature_info_create(signature_info);
+      if (!self->signature_info) {
+        // Failed in memory allocation.
+        status = SV_MEMORY;
+        goto done;
+      }
+    }
   }
 
   if (!self->in[idx].hash) {
@@ -249,6 +285,12 @@ sign_hash(threaded_data_t *self, unsigned id, const signature_info_t *signature_
       goto done;
     }
     self->in[idx].size = signature_info->hash_size;
+  }
+
+  // The |hash_size| has to be fixed throughout the session.
+  if (self->in[idx].size != signature_info->hash_size) {
+    status = SV_NOT_SUPPORTED;
+    goto done;
   }
 
   // Copy the |hash| ready for signing.
@@ -314,13 +356,15 @@ get_signature(threaded_data_t *self,
   }
   // Move buffer
   signature_data_t tmp = self->out[0];
-  int i = 0;
-  while (self->out[i + 1].signature != NULL && i < MAX_BUFFER_LENGTH - 1) {
-    self->out[i] = self->out[i + 1];
+  reset_signature_buffer(&tmp);
+  int i = 1;
+  while (i < MAX_BUFFER_LENGTH) {
+    self->out[i - 1] = self->out[i];
     i++;
   }
-  self->out[i] = tmp;
+  self->out[MAX_BUFFER_LENGTH - 1] = tmp;
   self->out_idx--;
+
 done:
   g_mutex_unlock(&self->mutex);
 
@@ -374,39 +418,45 @@ delete_item(unsigned id)
   }
 }
 
-/* Removes all elements of input and output buffers with correct |id|. All memory is freed. */
+/* Resets all elements of input and output buffers with correct |id|. */
 static void
-buffer_remove(unsigned id)
+buffer_reset(unsigned id)
 {
-  for (int i = 0; i < central.out_idx; i++) {
+  int i = 0;
+  while (i < MAX_BUFFER_LENGTH) {
     if (central.out[i].id == id) {
       // Found an element with correct id. Reset element and move to the back of buffer.
-      signature_data_t *tmp = &(central.out[i]);
-      reset_signature_buffer(tmp);
+      signature_data_t tmp = central.out[i];
+      reset_signature_buffer(&tmp);
 
       int j = i + 1;
       while (j < MAX_BUFFER_LENGTH) {
         central.out[j - 1] = central.out[j];
         j++;
       }
-      central.out[j - 1] = *tmp;
-      central.out_idx--;
+      central.out[j - 1] = tmp;
+      if (i < central.out_idx) central.out_idx--;
+    } else {
+      i++;
     }
   }
 
-  for (int i = 0; i < central.in_idx; i++) {
+  i = 0;
+  while (i < MAX_BUFFER_LENGTH) {
     if (central.in[i].id == id) {
       // Found an element with correct id. Reset element and move to the back of buffer.
-      hash_data_t *tmp = &(central.in[i]);
-      reset_hash_buffer(tmp);
+      hash_data_t tmp = central.in[i];
+      reset_hash_buffer(&tmp);
 
       int j = i + 1;
       while (j < MAX_BUFFER_LENGTH) {
         central.in[j - 1] = central.in[j];
         j++;
       }
-      central.in[j - 1] = *tmp;
-      central.in_idx--;
+      central.in[j - 1] = tmp;
+      if (i < central.in_idx) central.in_idx--;
+    } else {
+      i++;
     }
   }
 }
@@ -426,6 +476,17 @@ central_worker_thread(void *user_data)
 
   while (central.is_running) {
     if (central.in_idx > 0) {
+      SignedVideoReturnCode status = SV_UNKNOWN_FAILURE;
+      // Allocate memory for the hash if this is the first time.
+      if (!central.signature_info->hash) {
+        central.signature_info->hash = calloc(1, central.in[0].size);
+        if (!central.signature_info->hash) {
+          // Failed in memory allocation.
+          status = SV_MEMORY;
+          continue;
+        }
+        central.signature_info->hash_size = central.in[0].size;
+      }
       // Get the oldest hash from the input buffer
       // Copy the hash to |signature_info| and start signing.
       assert(central.in[0].size == central.signature_info->hash_size);
@@ -435,28 +496,29 @@ central_worker_thread(void *user_data)
 
       // Move the oldest input buffer to end of queue for reuse at a later stage.
       hash_data_t tmp = central.in[0];
-      int j = 0;
-      while (central.in[j + 1].hash != NULL && j < MAX_BUFFER_LENGTH - 1) {
-        central.in[j] = central.in[j + 1];
+      reset_hash_buffer(&tmp);
+      int j = 1;
+      while (j < MAX_BUFFER_LENGTH) {
+        central.in[j - 1] = central.in[j];
         j++;
       }
-      central.in[j] = tmp;
+      central.in[MAX_BUFFER_LENGTH - 1] = tmp;
       central.in_idx--;
 
       // Let the signing operate outside a lock. Otherwise sv_interface_get_signature() is blocked,
       // since variables need to be read under a lock.
       g_mutex_unlock(&(central.mutex));
-      SignedVideoReturnCode status = openssl_sign_hash(central.signature_info);
+      status = openssl_sign_hash(central.signature_info);
       g_mutex_lock(&(central.mutex));
 
       int idx = central.out_idx;
       if (idx >= MAX_BUFFER_LENGTH) {
         // |out| is full. Buffers this long are not supported.
-        // There are no means to signal an error to the signing session. Flush all buffers and stop
-        // the thread.
-        central.is_running = false;
-        reset_plugin(&central);
-        goto done;
+        // There are no means to signal an error to the signing session. Flush all buffers for this
+        // id and move on.
+        status = SV_NOT_SUPPORTED;
+        buffer_reset(id_in_signing);
+        continue;
       }
 
       // If not successfully done with signing, set |signing_error| to true to
@@ -469,9 +531,10 @@ central_worker_thread(void *user_data)
         central.out[idx].signature = calloc(1, central.signature_info->max_signature_size);
         if (!central.out[idx].signature) {
           // Failed in memory allocation. Stop the thread and free all memory.
+          status = SV_MEMORY;
           central.is_running = false;
-          reset_plugin(&central);
-          goto done;
+          free_buffers(&central);
+          continue;
         }
       }
 
@@ -486,7 +549,7 @@ central_worker_thread(void *user_data)
       // Wait for a signal, triggered when it is time to sign a hash.
       g_cond_wait(&(central.cond), &(central.mutex));
     }
-  };
+  }
 
 done:
 
@@ -505,46 +568,38 @@ central_setup()
 
   if (!self) return NULL;
 
-  // Make sure that the thread is running.
   g_mutex_lock(&(central.mutex));
 
-  if (!central.is_running) {
-    free(self);
-    self = NULL;
-    goto done;
-  }
+  // Make sure that the thread is running.
+  if (!central.is_running) goto catch_error;
 
   // Find first available id and add to list of active sessions.
   unsigned id = 1;
   while (is_active(id) && id != 0) id++;
-  if (id == 0) {
-    // Something is wrong. There cannot be this many active sessions.
-    free(self);
-    self = NULL;
-    goto done;
-  }
+  if (id == 0) goto catch_error;
 
   id_node_t *item = (id_node_t *)calloc(1, sizeof(id_node_t));
-  if (!item) {
-    free(self);
-    self = NULL;
-    goto done;
-  }
+  if (!item) goto catch_error;
+
   item->id = id;
   append_item(item);
   self->id = id;
 
-done:
   g_mutex_unlock(&(central.mutex));
 
   return self;
+
+catch_error:
+  g_mutex_unlock(&(central.mutex));
+  free(self);
+  return NULL;
 }
 
 static void
 central_teardown(central_threaded_data_t *self)
 {
   g_mutex_lock(&(central.mutex));
-  buffer_remove(self->id);
+  buffer_reset(self->id);
   delete_item(self->id);
   g_mutex_unlock(&(central.mutex));
 
@@ -597,7 +652,7 @@ local_worker_thread(void *user_data)
       if (idx >= MAX_BUFFER_LENGTH) {
         // |out| is full. Buffers this long are not supported.
         self->is_running = false;
-        reset_plugin(self);
+        free_plugin(self);
         goto done;
       }
 
@@ -611,7 +666,7 @@ local_worker_thread(void *user_data)
         if (!self->out[idx].signature) {
           // Failed in memory allocation. Stop the thread and free all memory.
           self->is_running = false;
-          reset_plugin(self);
+          free_plugin(self);
           goto done;
         }
       }
@@ -627,7 +682,7 @@ local_worker_thread(void *user_data)
       // Wait for a signal, triggered when it is time to sign a hash.
       g_cond_wait(&self->cond, &self->mutex);
     }
-  };
+  }
 
 done:
 
@@ -669,10 +724,8 @@ catch_error:
 }
 
 static void
-local_teardown(threaded_data_t *self)
+local_teardown_locked(threaded_data_t *self)
 {
-  g_mutex_lock(&self->mutex);
-
   if (!self->thread) {
     g_mutex_unlock(&self->mutex);
     goto done;
@@ -688,8 +741,7 @@ local_teardown(threaded_data_t *self)
   g_thread_join(thread);
 
 done:
-  reset_plugin(self);
-  free(self);
+  free_plugin(self);
 }
 
 /**
@@ -743,6 +795,7 @@ sv_interface_setup()
   if (!self) return NULL;
 
   if (central.thread) {
+    assert(id_list);
     self->central = central_setup();
     if (!self->central) goto catch_error;
   } else {
@@ -763,7 +816,9 @@ sv_interface_teardown(void *plugin_handle)
   sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)plugin_handle;
 
   if (self->local) {
-    local_teardown(self->local);
+    g_mutex_lock(&(self->local)->mutex);
+    local_teardown_locked(self->local);
+    free(self->local);
     self->local = NULL;
   }
   if (self->central) {
@@ -785,23 +840,34 @@ sv_interface_free(uint8_t *data)
   openssl_free(data);
 }
 
+/* This plugin initializer expect the |user_data| to be a signature_info_t struct. The content is
+ * copied to the local |signature_info| and the important part is the |private_key| which will be
+ * used throught all added sessions.
+ *
+ * A central thread is set up and a list, containing the IDs of the active sessions, is allocated
+ * with an empty list head.
+ */
 int
-sv_interface_init()
+sv_interface_init(void *user_data)
 {
-  if (central.thread || id_list) return 0;
+  signature_info_t *signature_info = (signature_info_t *)user_data;
+
+  if (central.thread || id_list || central.signature_info) {
+    // Central thread, id list or signature_info already exists
+    return -1;
+  }
 
   id_list = (id_node_t *)calloc(1, sizeof(id_node_t));
-  if (!id_list) return -1;
+  if (!id_list) goto catch_error;
+
+  central.signature_info = signature_info_create(signature_info);
+  if (!central.signature_info) goto catch_error;
 
   g_mutex_init(&(central.mutex));
   g_cond_init(&(central.cond));
 
   central.thread = g_thread_try_new("central-signing", central_worker_thread, NULL, NULL);
-  if (!central.thread) {
-    free(id_list);
-    id_list = NULL;
-    return -1;
-  }
+  if (!central.thread) goto catch_error;
 
   // Wait for the thread to start before returning.
   g_mutex_lock(&(central.mutex));
@@ -810,11 +876,26 @@ sv_interface_init()
 
   g_mutex_unlock(&(central.mutex));
   return 0;
+
+catch_error:
+  signature_info_free(central.signature_info);
+  central.signature_info = NULL;
+  free(id_list);
+  id_list = NULL;
+  return -1;
 }
 
+/* This function closes down the plugin. No |user_data| is expected and aborts the action if
+ * present.
+ *
+ * All allocated memory is freed and the thread is terminated.
+ */
 void
-sv_interface_exit()
+sv_interface_exit(void *user_data)
 {
+  // User is not expected to pass in any data. Aborting.
+  if (user_data) return;
+
   g_mutex_lock(&(central.mutex));
 
   if (id_list) {
@@ -827,20 +908,5 @@ sv_interface_exit()
     id_list = NULL;
   }
 
-  if (!central.thread) {
-    g_mutex_unlock(&(central.mutex));
-    goto done;
-  }
-
-  GThread *tmp_thread = central.thread;
-
-  central.is_running = false;
-  central.thread = NULL;
-  g_cond_signal(&(central.cond));
-  g_mutex_unlock(&(central.mutex));
-
-  g_thread_join(tmp_thread);
-
-done:
-  reset_plugin(&central);
+  local_teardown_locked(&central);
 }

@@ -158,10 +158,12 @@ sv_interface_free(uint8_t *data);
  * Therefore, it can be used to handle session independent operations, like setting up a thread,
  * before any session has been created.
  *
+ * @param user_data Generic data to provide if needed.
+ *
  * @returns 0 upon success
  */
 int
-sv_interface_init();
+sv_interface_init(void *user_data);
 
 /**
  * @brief Plugin termination
@@ -170,9 +172,11 @@ sv_interface_init();
  * sv_interface_teardown() this function is not called by the library when closing a session.
  * Therefore, it can be used to handle session independent operations, like terminating a thread,
  * after all sessions have been closed.
+ *
+ * @param user_data Generic data to provide if needed.
  */
 void
-sv_interface_exit();
+sv_interface_exit(void *user_data);
 
 #ifdef __cplusplus
 }
