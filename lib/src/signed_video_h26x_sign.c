@@ -559,7 +559,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     // Note that |recurrence| is counted in frames and not in NALUs, hence we only increment the
     // counter for primary slices.
     if (nalu.is_primary_slice && nalu.is_last_nalu_part) {
-      if (((self->frame_count + self->recurrence_offset) % self->recurrence) == 0) {
+      if ((self->frame_count % self->recurrence) == 0) {
         self->has_recurrent_data = true;
       }
       self->frame_count++;  // It is ok for this variable to wrap around
@@ -789,19 +789,6 @@ signed_video_set_recurrence_interval_frames(signed_video_t *self, unsigned recur
 
   return SV_OK;
 }
-
-#ifdef SV_UNIT_TEST
-SignedVideoReturnCode
-signed_video_set_recurrence_offset(signed_video_t *self, unsigned offset)
-{
-  if (!self) return SV_INVALID_PARAMETER;
-  if (offset >= self->recurrence) return SV_NOT_SUPPORTED;
-
-  self->recurrence_offset = offset;
-
-  return SV_OK;
-}
-#endif
 
 SignedVideoReturnCode
 signed_video_set_sei_epb(signed_video_t *self, bool sei_epb)

@@ -252,9 +252,6 @@ START_TEST(incorrect_operation)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  // No need to run this with recurrence.
-  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
-
   SignedVideoCodec codec = settings[_i].codec;
 
   signed_video_t *sv = signed_video_create(codec);
@@ -315,9 +312,6 @@ START_TEST(vendor_axis_communications_operation)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  // TODO: Enable recurrence when test verifies it. Right now recurrence is not set.
-  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
-
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
   sign_algo_t algo = settings[_i].algo;
@@ -373,10 +367,6 @@ START_TEST(vendor_axis_communications_operation)
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
   free(attestation);
 
-  // // Check setting recurrence.
-  // sv_rc = signed_video_set_recurrence_interval_frames(sv, 1);
-  // ck_assert_int_eq(sv_rc, SV_OK);
-
   // Setting validation level.
   sv_rc = signed_video_set_authenticity_level(sv, auth_level);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -430,9 +420,6 @@ START_TEST(correct_nalu_sequence_without_eos)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  // No need to run this with recurrence.
-  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
-
   nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPP", settings[_i]);
   nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIPP");
   nalu_list_free(list);
@@ -472,9 +459,6 @@ START_TEST(correct_multislice_nalu_sequence_without_eos)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  // No need to run this with recurrence.
-  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
-
   nalu_list_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i]);
   nalu_list_check_str(list, "SIiPpPpSIiPpPp");
   nalu_list_free(list);
@@ -497,9 +481,6 @@ START_TEST(sei_increase_with_gop_length)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
-
-  // No need to run this with recurrence.
-  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
 
   SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
 
@@ -550,7 +531,6 @@ START_TEST(fallback_to_gop_level)
 
   // By construction, run the test for SV_AUTHENTICITY_LEVEL_FRAME only.
   if (settings[_i].auth_level != SV_AUTHENTICITY_LEVEL_FRAME) return;
-  if (settings[_i].recurrence_offset != SV_RECURRENCE_OFFSET_ZERO) return;
 
   const size_t kFallbackSize = 10;
   signed_video_t *sv = get_initialized_signed_video(settings[_i].codec, settings[_i].algo, false);
@@ -593,50 +573,8 @@ START_TEST(undefined_nalu_in_sequence)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  // No need to run this with recurrence.
-  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
-
   nalu_list_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
   nalu_list_check_str(list, "SIPXPSIPPSI");
-  nalu_list_free(list);
-}
-END_TEST
-
-/* Test description
- * Verify that metadata is sent with correct recurrence interval in frames on the average.
- * The operation is as follows:
- * 1. Generate a nalu_list with a sequence of signed GOPs.
- * 2. Check the sequence of NALUs.
- * 3. Check if SEI has PUBLIC_KEY_TAG, which is recurrent data
- *
- * S = SEI-NALU, I = I-NALU and P = P-NALU.
- * PUBLIC_KEY_TAG is checked in 'S' because that is where the metadata is located.
- */
-START_TEST(recurrence)
-{
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
-  ck_assert(list);
-  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
-
-  nalu_list_item_t *item;
-  int gop_counter = 0;
-  const int gop_length = 3;  // IPP
-  int gop = 0;
-  int recurrence = 0;  // Recurrence in gops
-
-  for (int i = 1; i <= (list->num_items); i++) {
-    item = nalu_list_get_item(list, i);
-    if (strncmp(item->str_code, "S", 1) == 0) {
-      gop = (gop_counter * gop_length + settings[_i].recurrence_offset) / gop_length;
-      recurrence = ((settings[_i].recurrence - 1) / gop_length + 1);  // Frames to gop
-      if (gop % recurrence == 0) {
-        ck_assert(tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
-      } else {
-        ck_assert(!tag_is_present(item, settings[_i].codec, PUBLIC_KEY_TAG));
-      }
-      gop_counter++;
-    }
-  }
   nalu_list_free(list);
 }
 END_TEST
@@ -654,9 +592,6 @@ START_TEST(correct_timestamp)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
-
-  // No need to run this with recurrence.
-  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
 
   SignedVideoCodec codec = settings[_i].codec;
   signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
@@ -740,9 +675,6 @@ START_TEST(correct_signing_nalus_in_parts)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  // No need to run this with recurrence.
-  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
-
   nalu_list_t *list = create_signed_splitted_nalus("IPPIPP", settings[_i]);
   nalu_list_check_str(list, "SIPPSIPP");
   nalu_list_free(list);
@@ -757,9 +689,6 @@ START_TEST(w_wo_emulation_prevention_bytes)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
-
-  // No need to run this with recurrence.
-  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
 
   SignedVideoCodec codec = settings[_i].codec;
   SignedVideoReturnCode sv_rc;
@@ -842,8 +771,7 @@ START_TEST(limited_sei_payload_size)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  // No need to run this with recurrence nor in GOP level authentication.
-  if (settings[_i].recurrence != SV_RECURRENCE_ONE) return;
+  // No need to run this with GOP level authentication.
   if (settings[_i].auth_level != SV_AUTHENTICITY_LEVEL_FRAME) return;
 
   // Select an upper payload limit which is less then the size of the last SEI.
@@ -893,7 +821,6 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, sei_increase_with_gop_length, s, e);
   tcase_add_loop_test(tc, fallback_to_gop_level, s, e);
   tcase_add_loop_test(tc, undefined_nalu_in_sequence, s, e);
-  tcase_add_loop_test(tc, recurrence, s, e);
   tcase_add_loop_test(tc, correct_timestamp, s, e);
   tcase_add_loop_test(tc, correct_signing_nalus_in_parts, s, e);
   tcase_add_loop_test(tc, w_wo_emulation_prevention_bytes, s, e);

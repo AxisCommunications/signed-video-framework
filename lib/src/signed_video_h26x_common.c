@@ -1170,12 +1170,11 @@ signed_video_create(SignedVideoCodec codec)
     self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
 
     self->recurrence = RECURRENCE_ALWAYS;
-    self->recurrence_offset = RECURRENCE_OFFSET_DEFAULT;
     self->has_public_key = false;
 
     self->add_public_key_to_sei = true;
     self->sei_epb = true;
-    self->frame_count = RECURRENCE_OFFSET_DEFAULT;
+    self->frame_count = 0;
     self->has_recurrent_data = false;
     self->authentication_started = false;
 

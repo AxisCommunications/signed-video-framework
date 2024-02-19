@@ -40,22 +40,14 @@
   "aaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbb" \
   "bbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaacc"
 
-typedef enum { SV_RECURRENCE_ONE = 1, SV_RECURRENCE_EIGHT = 8 } SignedVideoRecurrence;
-typedef enum {
-  SV_RECURRENCE_OFFSET_ZERO = 0,
-  SV_RECURRENCE_OFFSET_THREE = 3
-} SignedVideoRecurrenceOffset;
-
 struct sv_setting {
   SignedVideoCodec codec;
   SignedVideoAuthenticityLevel auth_level;
   sign_algo_t algo;
-  SignedVideoRecurrence recurrence;
-  SignedVideoRecurrenceOffset recurrence_offset;
   size_t max_sei_payload_size;
 };
 
-#define NUM_SETTINGS 24
+#define NUM_SETTINGS 8
 extern struct sv_setting settings[NUM_SETTINGS];
 
 extern const char *axisDummyCertificateChain;
