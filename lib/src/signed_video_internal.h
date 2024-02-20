@@ -48,14 +48,13 @@ typedef struct _h26x_nalu_t h26x_nalu_t;
 #define HASH_DIGEST_SIZE (256 / 8)
 
 #define SV_VERSION_BYTES 3
-#define SIGNED_VIDEO_VERSION "v1.1.26"
+#define SIGNED_VIDEO_VERSION "v1.1.27"
 #define SV_VERSION_MAX_STRLEN 13  // Longest possible string
 
 #define DEFAULT_AUTHENTICITY_LEVEL SV_AUTHENTICITY_LEVEL_FRAME
 
 #define DEFAULT_MAX_GOP_LENGTH 300
 #define RECURRENCE_ALWAYS 1
-#define RECURRENCE_OFFSET_DEFAULT 0
 
 /* Compile time defined, otherwise set default value */
 #ifndef MAX_GOP_LENGTH
@@ -141,7 +140,6 @@ struct _signed_video_t {
   validation_flags_t validation_flags;
   gop_state_t gop_state;
   unsigned recurrence;
-  unsigned recurrence_offset;
 
   // Frame counter and flag to handle recurrence
   bool has_recurrent_data;

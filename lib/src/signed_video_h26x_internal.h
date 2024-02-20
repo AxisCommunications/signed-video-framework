@@ -196,24 +196,4 @@ copy_nalu_except_pointers(h26x_nalu_t *dst_nalu, const h26x_nalu_t *src_nalu);
 void
 update_hashable_data(h26x_nalu_t *nalu);
 
-#ifdef SV_UNIT_TEST
-/**
- * @brief Sets the recurrence offset for the signed video session
- *
- * Without an offset the recurrent tags are included in the first SEI. But with an offset the
- * recurrent tags are included later dependent on offset.
- *
- * This API is only possible to use when executing unit tests.
- *
- * @param self Session struct pointer
- * @param offset Recurrence offset
- *
- * @returns SV_OK Recurrence offset was successfully set,
- *          SV_INVALID_PARAMETER Invalid parameter,
- *          SV_NOT_SUPPORTED Recurrence interval is not supported.
- */
-SignedVideoReturnCode
-signed_video_set_recurrence_offset(signed_video_t *self, unsigned offset);
-#endif
-
 #endif  // __SIGNED_VIDEO_H26X_INTERNAL__

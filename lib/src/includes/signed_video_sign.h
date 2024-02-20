@@ -375,6 +375,7 @@ signed_video_set_authenticity_level(signed_video_t *self,
  *          SV_INVALID_PARAMETER Invalid parameter,
  *          SV_NOT_SUPPORTED Recurrence interval is not supported.
  */
+/* TO BE DEPRECATED */
 SignedVideoReturnCode
 signed_video_set_recurrence_interval_frames(signed_video_t *self, unsigned recurrence);
 
