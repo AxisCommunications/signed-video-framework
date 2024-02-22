@@ -518,7 +518,7 @@ h26x_nalu_list_get_str(const h26x_nalu_list_t *list, NaluListStringType str_type
         src = item->validation_status;
         break;
     }
-    memcpy(dst_str + idx, &src, 1);
+    dst_str[idx] = src;
     item = item->next;
     idx++;
   }
