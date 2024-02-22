@@ -49,7 +49,7 @@ extern const uint8_t sei_nalu_h265[DUMMY_SEI_NALU_SIZE];
 typedef struct _nalu_list_item_t {
   uint8_t *data;  // Pointer to NALU data
   size_t data_size;  // Size of NALU data
-  char str_code[2];  // One character representation of NALU + null termination
+  char str_code;  // One character representation of NALU + null termination
   struct _nalu_list_item_t *prev;  // Previous item
   struct _nalu_list_item_t *next;  // Next item
 } nalu_list_item_t;
@@ -67,7 +67,6 @@ typedef struct _nalu_list_t {
   char str_code[MAX_NUM_ITEMS + 1];  // One extra for null termination.
   SignedVideoCodec codec;  // H264 or H265
 } nalu_list_t;
-
 
 /**
  * nalu_list_t functions
@@ -95,8 +94,7 @@ nalu_list_append_and_free(nalu_list_t *list, nalu_list_t *list_to_append);
 /* Appends the list item with position item_number with a new item.
  */
 void
-nalu_list_append_item(nalu_list_t *list, nalu_list_item_t *new_item,
-    int item_number_to_append);
+nalu_list_append_item(nalu_list_t *list, nalu_list_item_t *new_item, int item_number_to_append);
 
 /* Appends the last_item of a list with a new_item.
  */
@@ -122,14 +120,13 @@ nalu_list_check_str(const nalu_list_t *list, const char *str);
 void
 nalu_list_print(nalu_list_t *list);
 
-
 /**
  * nalu_list_item_t functions
  **/
 
 /* Creates a nalu_list_item_t from a |str| and |codec|. Then sets the |id|. */
 nalu_list_item_t *
-nalu_list_item_create_and_set_id(const char *str, uint8_t id, SignedVideoCodec codec);
+nalu_list_item_create_and_set_id(char str, uint8_t id, SignedVideoCodec codec);
 
 /* Creates a new NALU list item. Takes pointers to the NALU data, the nalu data size. Memory
  * ownership is transfered.
@@ -167,13 +164,11 @@ nalu_list_pop_last_item(nalu_list_t *list);
 
 /* Appends a list item with a new item. Assumes list_item exists. */
 void
-nalu_list_item_append_item(nalu_list_item_t *list_item,
-    nalu_list_item_t *new_item);
+nalu_list_item_append_item(nalu_list_item_t *list_item, nalu_list_item_t *new_item);
 
 /* Prepends a list item with a new item. Assumes list_item exists. */
 void
-nalu_list_item_prepend_item(nalu_list_item_t *list_item,
-    nalu_list_item_t *new_item);
+nalu_list_item_prepend_item(nalu_list_item_t *list_item, nalu_list_item_t *new_item);
 
 /* Checks the NALU |item| against the expected |str|. */
 void

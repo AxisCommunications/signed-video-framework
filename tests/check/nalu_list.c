@@ -79,35 +79,34 @@ const uint8_t sei_nalu_h265[DUMMY_SEI_NALU_SIZE] = {0x4e, 0x01, 0x05, 0x11, 0xaa
 /* Helper that parses information from the NALU and returns a one character string (+ null
  * termination) representing the NALU type.
  */
-static char *
+static char
 get_str_code(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
 {
   h26x_nalu_t nalu = parse_nalu_info(data, data_size, codec, false, true);
 
-  char *str;
+  char str;
   switch (nalu.nalu_type) {
     case NALU_TYPE_UNDEFINED:
-      str = nalu.is_valid == 0 ? "X" : "\0";
+      str = nalu.is_valid == 0 ? 'X' : '\0';
       break;
     case NALU_TYPE_I:
-      str = nalu.is_primary_slice == true ? "I" : "i";
+      str = nalu.is_primary_slice == true ? 'I' : 'i';
       break;
     case NALU_TYPE_P:
-      str = nalu.is_primary_slice == true ? "P" : "p";
+      str = nalu.is_primary_slice == true ? 'P' : 'p';
       break;
     case NALU_TYPE_PS:
-      str = "V";
+      str = 'V';
       break;
-
     case NALU_TYPE_SEI: {
       if (!nalu.is_gop_sei)
-        str = "Z";
+        str = 'Z';
       else
-        str = "S";
+        str = 'S';
       break;
     }
     default:
-      str = "\0";
+      str = '\0';
       break;
   }
 
@@ -148,38 +147,35 @@ generate_nalu(bool valid_start_code,
 
 /* Creates a nalu_list_item_t from a |str| and |codec|. Then sets the |id|. */
 nalu_list_item_t *
-nalu_list_item_create_and_set_id(const char *str, uint8_t id, SignedVideoCodec codec)
+nalu_list_item_create_and_set_id(char str, uint8_t id, SignedVideoCodec codec)
 {
-  const char *valid_str = "IiPpZVX";
   uint8_t *nalu = NULL;  // Final NALU with start code and id.
   const uint8_t *nalu_data = NULL;
   size_t nalu_data_size = DUMMY_NALU_SIZE;  // Change if we have a SEI NALU.
   bool start_code = true;  // Use a valid start code by default.
-  const char *str_idx = strchr(valid_str, *str);
-  if (!str_idx) return NULL;  // If no character could be identified.
 
   // Find out which type of NALU the string character is and point |nalu_data| to it.
-  switch (str_idx - valid_str) {
-    case 0:
+  switch (str) {
+    case 'I':
       nalu_data = codec == SV_CODEC_H264 ? I_nalu_h264 : I_nalu_h265;
       break;
-    case 1:
+    case 'i':
       nalu_data = codec == SV_CODEC_H264 ? i_nalu_h264 : i_nalu_h265;
       break;
-    case 2:
+    case 'P':
       nalu_data = codec == SV_CODEC_H264 ? P_nalu_h264 : P_nalu_h265;
       break;
-    case 3:
+    case 'p':
       nalu_data = codec == SV_CODEC_H264 ? p_nalu_h264 : p_nalu_h265;
       break;
-    case 4:
+    case 'Z':
       nalu_data = codec == SV_CODEC_H264 ? sei_nalu_h264 : sei_nalu_h265;
       nalu_data_size = DUMMY_SEI_NALU_SIZE;
       break;
-    case 5:
+    case 'V':
       nalu_data = codec == SV_CODEC_H264 ? pps_nalu_h264 : pps_nalu_h265;
       break;
-    case 6:
+    case 'X':
     default:
       nalu_data = invalid_nalu;
       start_code = false;
@@ -208,7 +204,7 @@ nalu_list_create_item(const uint8_t *data, size_t data_size, SignedVideoCodec co
 
   item->data = (uint8_t *)data;
   item->data_size = data_size;
-  strcpy(item->str_code, get_str_code(data, data_size, codec));
+  item->str_code = get_str_code(data, data_size, codec);
 
   return item;
 }
@@ -330,7 +326,7 @@ void
 nalu_list_item_check_str(const nalu_list_item_t *item, const char *str)
 {
   if (!item || !str) return;
-  ck_assert_int_eq(strcmp(item->str_code, str), 0);
+  ck_assert_int_eq(item->str_code, str[0]);
 }
 
 /* Helper function to print nalu_list_item_t members. */
@@ -339,9 +335,10 @@ nalu_list_print_item(nalu_list_item_t *item)
 {
   printf("\n-- PRINT LIST ITEM: %p --\n", item);
   if (item) {
+    char str[2] = {item->str_code, '\0'};
     printf("  data = %p\n", item->data);
     printf("  data_size = %zu\n", item->data_size);
-    printf("  str_code = %s\n", item->str_code);
+    printf("  str_code = %s\n", str);
     printf("  prev = %p\n", item->prev);
     printf("  next = %p\n", item->next);
   }
@@ -364,7 +361,7 @@ nalu_list_create(const char *str, SignedVideoCodec codec)
   uint8_t i = 0;
 
   while (str[i]) {
-    nalu_list_item_t *new_item = nalu_list_item_create_and_set_id(&str[i], i, codec);
+    nalu_list_item_t *new_item = nalu_list_item_create_and_set_id(str[i], i, codec);
     if (!new_item) {
       // No character could be identified. Continue without adding.
       i++;
@@ -410,7 +407,8 @@ nalu_list_refresh(nalu_list_t *list)
   // Start from the first_item and count as well as updating the str_code.
   nalu_list_item_t *item = list->first_item;
   while (item) {
-    memcpy(&list->str_code[list->num_items], item->str_code, sizeof(char));
+    // memcpy(&list->str_code[list->num_items], item->str_code, sizeof(char));
+    list->str_code[list->num_items] = item->str_code;
     list->num_items++;
 
     if (!item->next) break;

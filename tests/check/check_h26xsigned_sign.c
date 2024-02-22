@@ -86,8 +86,8 @@ START_TEST(api_inputs)
   SignedVideoCodec codec = settings[_i].codec;
   sign_algo_t algo = settings[_i].algo;
   signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
-  nalu_list_item_t *p_nalu = nalu_list_item_create_and_set_id("P", 0, codec);
-  nalu_list_item_t *invalid = nalu_list_item_create_and_set_id("X", 0, codec);
+  nalu_list_item_t *p_nalu = nalu_list_item_create_and_set_id('P', 0, codec);
+  nalu_list_item_t *invalid = nalu_list_item_create_and_set_id('X', 0, codec);
   char *private_key = NULL;
   size_t private_key_size = 0;
 
@@ -258,8 +258,8 @@ START_TEST(incorrect_operation)
   ck_assert(sv);
   char *private_key = NULL;
   size_t private_key_size = 0;
-  nalu_list_item_t *p_nalu = nalu_list_item_create_and_set_id("P", 0, codec);
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *p_nalu = nalu_list_item_create_and_set_id('P', 0, codec);
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
   // The path to openssl keys has to be set before start of signing.
   SignedVideoReturnCode sv_rc =
       signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
@@ -317,7 +317,7 @@ START_TEST(vendor_axis_communications_operation)
   sign_algo_t algo = settings[_i].algo;
   SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
   signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
   nalu_list_item_t *sei = NULL;
   char *private_key = NULL;
   size_t private_key_size = 0;
@@ -604,7 +604,7 @@ START_TEST(correct_timestamp)
   ck_assert(sv_ts);
   char *private_key = NULL;
   size_t private_key_size = 0;
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
 
   // Setup the key
   sv_rc =
@@ -699,7 +699,7 @@ START_TEST(w_wo_emulation_prevention_bytes)
   bool with_emulation_prevention[NUM_EPB_CASES] = {true, false};
   char *private_key = NULL;
   size_t private_key_size = 0;
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
 
   // Generate a Private key.
   sv_rc =
@@ -784,7 +784,7 @@ START_TEST(limited_sei_payload_size)
   int sei_idx[3] = {13, 5, 1};
   for (int ii = 0; ii < 3; ii++) {
     nalu_list_item_t *sei = nalu_list_remove_item(list, sei_idx[ii]);
-    ck_assert_str_eq(sei->str_code, "S");
+    ck_assert_int_eq(sei->str_code, 'S');
     ck_assert_uint_le(sei->data_size, max_sei_payload_size);
     nalu_list_free_item(sei);
     sei = NULL;

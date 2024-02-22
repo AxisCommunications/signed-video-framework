@@ -277,8 +277,8 @@ START_TEST(invalid_api_inputs)
 
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
-  nalu_list_item_t *p_nalu = nalu_list_item_create_and_set_id("P", 0, codec);
-  nalu_list_item_t *invalid = nalu_list_item_create_and_set_id("X", 0, codec);
+  nalu_list_item_t *p_nalu = nalu_list_item_create_and_set_id('P', 0, codec);
+  nalu_list_item_t *invalid = nalu_list_item_create_and_set_id('X', 0, codec);
   // signed_video_add_nalu_and_authenticate()
   // NULL pointers are invalid, as well as zero sized nalus.
   SignedVideoReturnCode sv_rc =
@@ -1125,7 +1125,7 @@ START_TEST(add_one_sei_nalu_after_signing)
   nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
 
   const uint8_t id = 0;
-  nalu_list_item_t *sei = nalu_list_item_create_and_set_id("Z", id, settings[_i].codec);
+  nalu_list_item_t *sei = nalu_list_item_create_and_set_id('Z', id, settings[_i].codec);
 
   // Middle P-NALU in second non-empty GOP: SIPPSIP P(Z) PSIPPSI
   const int append_nalu_number = 8;
@@ -1716,7 +1716,7 @@ START_TEST(vendor_axis_communications_operation)
   sign_algo_t algo = settings[_i].algo;
   SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
   signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
   nalu_list_item_t *sei = NULL;
   char *private_key = NULL;
   size_t private_key_size = 0;
@@ -1810,7 +1810,7 @@ generate_and_set_private_key_on_camera_side(struct sv_setting setting,
   char *private_key = NULL;
   size_t private_key_size = 0;
   signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, setting.codec);
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, setting.codec);
 
   signed_video_t *sv = signed_video_create(setting.codec);
   ck_assert(sv);
@@ -1857,7 +1857,7 @@ validate_public_key_scenario(signed_video_t *sv,
   signed_video_authenticity_t *auth_report = NULL;
   signed_video_latest_validation_t *latest = NULL;
 
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
   sv_rc = signed_video_add_nalu_and_authenticate(sv, sei->data, sei->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(!auth_report);
@@ -1996,7 +1996,7 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
   sign_algo_t algo = settings[_i].algo;
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
   nalu_list_item_t *sei = NULL;
   signed_video_t *sv_camera = NULL;
 
@@ -2054,7 +2054,7 @@ START_TEST(no_emulation_prevention_bytes)
   SignedVideoReturnCode sv_rc;
 
   // Create a video with a single I-frame, and a SEI (to be created later).
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id("I", 0, codec);
+  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
   nalu_list_item_t *sei = NULL;
 
   // Signing side
