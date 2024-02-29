@@ -69,6 +69,7 @@ typedef struct _threaded_data {
 
   // Variables that have to be r/w under mutex lock.
   bool is_running;
+  bool is_in_signing;
   // Buffer of hashes to sign
   hash_data_t in[MAX_BUFFER_LENGTH];
   int in_idx;
@@ -507,9 +508,11 @@ central_worker_thread(void *user_data)
 
       // Let the signing operate outside a lock. Otherwise sv_interface_get_signature() is blocked,
       // since variables need to be read under a lock.
+      central.is_in_signing = true;
       g_mutex_unlock(&(central.mutex));
       status = openssl_sign_hash(central.signature_info);
       g_mutex_lock(&(central.mutex));
+      central.is_in_signing = false;
 
       int idx = central.out_idx;
       if (idx >= MAX_BUFFER_LENGTH) {
@@ -552,7 +555,8 @@ central_worker_thread(void *user_data)
   }
 
 done:
-
+  // Send a signal that thread has stopped.
+  g_cond_signal(&(central.cond));
   g_mutex_unlock(&(central.mutex));
 
   return NULL;
@@ -644,9 +648,11 @@ local_worker_thread(void *user_data)
 
       // Let the signing operate outside a lock. Otherwise sv_interface_get_signature() is blocked,
       // since variables need to be read under a lock.
+      self->is_in_signing = true;
       g_mutex_unlock(&self->mutex);
       SignedVideoReturnCode status = openssl_sign_hash(self->signature_info);
       g_mutex_lock(&self->mutex);
+      self->is_in_signing = false;
 
       int idx = self->out_idx;
       if (idx >= MAX_BUFFER_LENGTH) {
@@ -685,7 +691,8 @@ local_worker_thread(void *user_data)
   }
 
 done:
-
+  // Send a signal that thread has stopped.
+  g_cond_signal(&self->cond);
   g_mutex_unlock(&self->mutex);
 
   return NULL;
@@ -735,6 +742,15 @@ local_teardown_locked(threaded_data_t *self)
 
   self->is_running = false;
   self->thread = NULL;
+
+  // Wait for ongoing signing to complete
+  int64_t end_time = g_get_monotonic_time() + 2 * G_TIME_SPAN_SECOND;
+  while (self->is_in_signing) {
+    if (!g_cond_wait_until(&self->cond, &self->mutex, end_time)) {
+      // timeout has passed.
+      break;
+    }
+  }
   g_cond_signal(&self->cond);
   g_mutex_unlock(&self->mutex);
 
