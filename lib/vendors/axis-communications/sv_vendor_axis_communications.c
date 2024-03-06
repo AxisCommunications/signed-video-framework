@@ -552,9 +552,9 @@ get_untrusted_certificates_size(const sv_vendor_axis_communications_t *self)
     certs_left--;
     cert_chain_ptr = cert_ptr + 1;
   }
-  // Check if |cert_ptr| is the third certificate and compare it against expected
-  // |kTrustedAxisRootCA|.
-  if ((certs_left == 0) && cert_ptr && (strcmp(cert_ptr, kTrustedAxisRootCA) == 0)) {
+  // Check if |cert_ptr| points at the third (last) certificate. If not, the certificate chain is
+  // incomplete.
+  if ((certs_left == 0) && cert_ptr) {
     certificate_chain_encode_size = cert_ptr - self->certificate_chain;
   }
 
