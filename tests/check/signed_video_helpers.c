@@ -100,10 +100,6 @@ pull_nalus(signed_video_t *sv, nalu_list_item_t *item)
     if (0 != data_size) {
       nalu_list_item_prepend_item(cur_item, new_item);
       cur_item = cur_item->prev;
-    } else {
-      // No prepend instruction. Append the NALU instead.
-      nalu_list_item_append_item(cur_item, new_item);
-      cur_item = cur_item->next;
     }
     // Move to next nalu_to_prepend.
     sv_rc = signed_video_get_sei(sv, NULL, &data_size);

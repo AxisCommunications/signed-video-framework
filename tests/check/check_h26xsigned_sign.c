@@ -52,29 +52,22 @@ static SignedVideoReturnCode
 pull_nalus(signed_video_t *sv, int num_nalus_to_pull, int *nalus_pulled)
 {
   SignedVideoReturnCode sv_rc = SV_OK;
-  //  signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
-  // alaocate memory nalu_to_prepend
-  size_t data_size = 0;
-  sv_rc = signed_video_get_sei(sv, NULL, &data_size);
+  size_t nalu_data_size = 0;
+  sv_rc = signed_video_get_sei(sv, NULL, &nalu_data_size);
   if (SV_OK != sv_rc) return sv_rc;
-  uint8_t *nalu_data = malloc(data_size);
   int num_pulled_nalus = 0;
-
   if (num_nalus_to_pull == 0) goto done;
-  sv_rc = signed_video_get_sei(sv, nalu_data, &data_size);
-  while (sv_rc == SV_OK && 0 != data_size) {
-
+  while (sv_rc == SV_OK && 0 < nalu_data_size) {
+    uint8_t *nalu_data = malloc(nalu_data_size);
+    sv_rc = signed_video_get_sei(sv, nalu_data, &nalu_data_size);
+    free(nalu_data);
     num_pulled_nalus++;
-    // Free the nalu_data before pulling a new nalu_to_prepend.
-    //   signed_video_nalu_data_free(nalu_to_prepend.nalu_data);
-
     num_nalus_to_pull--;
     if (num_nalus_to_pull == 0) break;
-    sv_rc = signed_video_get_sei(sv, nalu_data, &data_size);
+    sv_rc = signed_video_get_sei(sv, NULL, &nalu_data_size);
   }
 
 done:
-  free(nalu_data);
   if (nalus_pulled) *nalus_pulled = num_pulled_nalus;
   return sv_rc;
 }
@@ -90,7 +83,6 @@ START_TEST(api_inputs)
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
   sign_algo_t algo = settings[_i].algo;
-  //  signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
   nalu_list_item_t *p_nalu = nalu_list_item_create_and_set_id('P', 0, codec);
   nalu_list_item_t *invalid = nalu_list_item_create_and_set_id('X', 0, codec);
   char *private_key = NULL;
@@ -205,15 +197,15 @@ START_TEST(api_inputs)
 
   // TODO: Add check on |sv| to make sure nothing has changed.
   // Checking signed_video_get_sei() for NULL pointers.
-  sv_rc = signed_video_get_sei(sv, NULL, &data_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_get_sei(sv, NULL, NULL);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   sv_rc = signed_video_get_sei(sv, NULL, &data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   uint8_t *nalu_data = malloc(data_size);
   sv_rc = signed_video_get_sei(NULL, nalu_data, &data_size);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_get_sei(sv, NULL, NULL);
-  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  sv_rc = signed_video_get_sei(sv, nalu_data, &data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
   // Checking signed_video_set_end_of_stream() for NULL pointers.
   sv_rc = signed_video_set_end_of_stream(NULL);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
@@ -304,7 +296,6 @@ START_TEST(incorrect_operation)
   // Pull all nalus.
   sv_rc = pull_nalus(sv, -1, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
-
   // Free nalu_list_item and session.
   nalu_list_free_item(p_nalu);
   nalu_list_free_item(i_nalu);
@@ -326,7 +317,6 @@ START_TEST(vendor_axis_communications_operation)
   SignedVideoCodec codec = settings[_i].codec;
   sign_algo_t algo = settings[_i].algo;
   SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
-  //  signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
   nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
   nalu_list_item_t *sei = NULL;
   char *private_key = NULL;
@@ -608,8 +598,6 @@ START_TEST(correct_timestamp)
   // |settings|; See signed_video_helpers.h.
 
   SignedVideoCodec codec = settings[_i].codec;
-  //  signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
-  //  signed_video_nalu_to_prepend_t nalu_to_prepend_ts = {0};
   SignedVideoReturnCode sv_rc;
 
   signed_video_t *sv = signed_video_create(codec);
@@ -728,7 +716,6 @@ START_TEST(w_wo_emulation_prevention_bytes)
   ck_assert_int_eq(sv_rc, SV_OK);
 
   for (size_t ii = 0; ii < NUM_EPB_CASES; ii++) {
-    //    signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
     signed_video_t *sv = signed_video_create(codec);
     ck_assert(sv);
 
@@ -755,21 +742,14 @@ START_TEST(w_wo_emulation_prevention_bytes)
     ck_assert_int_eq(sv_rc, SV_OK);
     sv_rc = signed_video_get_sei(sv, NULL, &data_size);
     ck_assert_int_eq(sv_rc, SV_OK);
-    uint8_t *nalu_data = malloc(data_size);
-    sv_rc = signed_video_get_sei(sv, nalu_data, &data_size);
-    ck_assert_int_eq(sv_rc, SV_OK);
-    ck_assert(nalu_data != NULL);
-
     ck_assert(data_size > 0);
     sei[ii] = malloc(data_size);
+    sv_rc = signed_video_get_sei(sv, sei[ii], &data_size);
+    ck_assert_int_eq(sv_rc, SV_OK);
     ck_assert(sei[ii]);
     sei_size[ii] = data_size;
-    memcpy(sei[ii], nalu_data, data_size);
-    //    signed_video_nalu_data_free(nalu_to_prepend.nalu_data);
-
     nalus[ii] = parse_nalu_info(sei[ii], sei_size[ii], codec, false, true);
     update_hashable_data(&nalus[ii]);
-    free(nalu_data);
     signed_video_free(sv);
     sv = NULL;
   }
