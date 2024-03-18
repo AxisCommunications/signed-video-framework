@@ -226,6 +226,9 @@ SignedVideoReturnCode
 signed_video_get_nalu_to_prepend(signed_video_t *self,
     signed_video_nalu_to_prepend_t *nalu_to_prepend);
 
+SignedVideoReturnCode
+signed_video_get_sei(signed_video_t *self, uint8_t *nalu_data, size_t *nalu_data_size);
+
 /**
  * @brief Frees the |nalu_data| of signed_video_nalu_to_prepend_t
  *

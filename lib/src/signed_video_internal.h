@@ -105,6 +105,8 @@ struct _sei_data_t {
   uint8_t *payload;  // Pointer to the allocated SEI data
   uint8_t *payload_signature_ptr;
   uint16_t last_two_bytes;
+  uint8_t *nalu_data;  // nalu_data = payload
+  size_t nalu_data_size;  // nalu_data_size = payload_signature_ptr - payload
 };
 
 struct _signed_video_t {
@@ -122,7 +124,7 @@ struct _signed_video_t {
 
   // Frames to prepend list
   signed_video_nalu_to_prepend_t nalus_to_prepend_list[MAX_NALUS_TO_PREPEND];
-  int num_nalus_to_prepend;
+  int num_of_completed_seis;
 
   sei_data_t sei_data_buffer[MAX_NALUS_TO_PREPEND];
   int sei_data_buffer_idx;
