@@ -86,23 +86,21 @@ static void
 pull_nalus(signed_video_t *sv, nalu_list_item_t *item)
 {
   nalu_list_item_t *cur_item = item;
-  size_t data_size = 0;
-  SignedVideoReturnCode sv_rc = signed_video_get_sei(sv, NULL, &data_size);
+  size_t sei_size = 0;
+  SignedVideoReturnCode sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  while (sv_rc == SV_OK && (0 != data_size)) {
-    uint8_t *nalu_data = malloc(data_size);
+  while (sv_rc == SV_OK && (sei_size != 0)) {
+    uint8_t *sei = malloc(sei_size);
+    sv_rc = signed_video_get_sei(sv, sei, &sei_size);
     ck_assert_int_eq(sv_rc, SV_OK);
-    sv_rc = signed_video_get_sei(sv, nalu_data, &data_size);
-    // Generate a new nalu_list_item with this NALU data.
-    nalu_list_item_t *new_item = nalu_list_create_item(nalu_data, data_size, sv->codec);
-    // Prepend, or append, the nalu_list_item with this new item.
-    if (0 != data_size) {
-      nalu_list_item_prepend_item(cur_item, new_item);
-      cur_item = cur_item->prev;
-    }
-    // Move to next nalu_to_prepend.
-    sv_rc = signed_video_get_sei(sv, NULL, &data_size);
+    // Generate a new nalu_list_item with this SEI.
+    nalu_list_item_t *new_item = nalu_list_create_item(sei, sei_size, sv->codec);
+    // Prepend the nalu_list_item with this new item.
+    nalu_list_item_prepend_item(cur_item, new_item);
+    cur_item = cur_item->prev;
+    // Move to next completed SEI.
+    sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
     ck_assert_int_eq(sv_rc, SV_OK);
   }
 }

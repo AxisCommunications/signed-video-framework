@@ -105,8 +105,8 @@ struct _sei_data_t {
   uint8_t *payload;  // Pointer to the allocated SEI data
   uint8_t *payload_signature_ptr;
   uint16_t last_two_bytes;
-  uint8_t *sei_data;  // nalu_data = payload
-  size_t sei_size;  // nalu_data_size = payload_signature_ptr - payload
+  uint8_t *completed_sei;  // nalu_data = payload
+  size_t completed_sei_size;  // nalu_data_size = payload_signature_ptr - payload
 };
 
 struct _signed_video_t {
@@ -122,11 +122,9 @@ struct _signed_video_t {
   bool sei_epb;  // Flag that tells whether to generate SEI frames w/wo emulation prevention bytes
   size_t max_sei_payload_size;  // Default 0 = unlimited
 
-  // Frames to prepend list
-  int num_of_completed_seis;
-
   sei_data_t sei_data_buffer[MAX_NALUS_TO_PREPEND];
   int sei_data_buffer_idx;
+  int num_of_completed_seis;
 
   // TODO: Collect everything needed by the authentication part only in one struct/object, which
   // then is not needed to be created on the signing side, saving some memory.

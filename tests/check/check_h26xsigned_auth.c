@@ -1715,7 +1715,6 @@ START_TEST(vendor_axis_communications_operation)
   SignedVideoCodec codec = settings[_i].codec;
   sign_algo_t algo = settings[_i].algo;
   SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
-
   nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
   nalu_list_item_t *sei = NULL;
   char *private_key = NULL;
@@ -1751,13 +1750,13 @@ START_TEST(vendor_axis_communications_operation)
   sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
+  ck_assert(sei_size > 0);
   ck_assert_int_eq(sv_rc, SV_OK);
   uint8_t *nalu_data = malloc(sei_size);
   sv_rc = signed_video_get_sei(sv, nalu_data, &sei_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sei = nalu_list_create_item(nalu_data, sei_size, codec);
   ck_assert(tag_is_present(sei, codec, VENDOR_AXIS_COMMUNICATIONS_TAG));
-  // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory.
   sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(sei_size == 0);
@@ -1814,7 +1813,6 @@ generate_and_set_private_key_on_camera_side(struct sv_setting setting,
   char *private_key = NULL;
   size_t private_key_size = 0;
   nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, setting.codec);
-  size_t sei_size;
   signed_video_t *sv = signed_video_create(setting.codec);
   ck_assert(sv);
   // Read and set content of private_key.
@@ -1831,7 +1829,10 @@ generate_and_set_private_key_on_camera_side(struct sv_setting setting,
   // Add an I-NALU to trigger a SEI.
   sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
+
+  size_t sei_size = 0;
   sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
+  ck_assert(sei_size > 0);
   ck_assert_int_eq(sv_rc, SV_OK);
   uint8_t *nalu_data = malloc(sei_size);
   sv_rc = signed_video_get_sei(sv, nalu_data, &sei_size);
