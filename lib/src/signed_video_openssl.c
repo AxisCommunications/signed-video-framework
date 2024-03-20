@@ -104,6 +104,38 @@ openssl_free(uint8_t *data)
   OPENSSL_free(data);
 }
 
+/* Allocates enough memory for the signature when using the |private_key| in |signature_info|. */
+SignedVideoReturnCode
+openssl_signature_malloc(signature_info_t *signature_info)
+{
+  // Sanity check input
+  if (!signature_info) return SV_INVALID_PARAMETER;
+
+  const void *private_key = signature_info->private_key;
+  int private_key_size = (int)signature_info->private_key_size;
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    SVI_THROW_IF(!private_key || private_key_size == 0, SV_INVALID_PARAMETER);
+
+    // Read private key
+    BIO *bp = BIO_new_mem_buf(private_key, private_key_size);
+    EVP_PKEY *signing_key = PEM_read_bio_PrivateKey(bp, NULL, NULL, NULL);
+    BIO_free(bp);
+    SVI_THROW_IF(!signing_key, SVI_EXTERNAL_FAILURE);
+
+    // Read the maximum size of the signature that the |private_key| can generate
+    size_t max_signature_size = EVP_PKEY_size(signing_key);
+    EVP_PKEY_free(signing_key);
+    SVI_THROW_IF(max_signature_size == 0, SVI_EXTERNAL_FAILURE);
+    signature_info->signature = openssl_malloc(max_signature_size);
+    SVI_THROW_IF(!signature_info->signature, SVI_MEMORY);
+    signature_info->max_signature_size = max_signature_size;
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  return svi_rc_to_signed_video_rc(status);
+}
+
 /* Signs a hash. */
 SignedVideoReturnCode
 openssl_sign_hash(signature_info_t *signature_info)
@@ -119,7 +151,6 @@ openssl_sign_hash(signature_info_t *signature_info)
   EVP_PKEY_CTX *ctx = NULL;
   EVP_PKEY *signing_key = NULL;
   size_t siglen = 0;
-  sign_algo_t algo = signature_info->algo;
   const uint8_t *hash_to_sign = signature_info->hash;
 
   const void *private_key = signature_info->private_key;
@@ -139,7 +170,7 @@ openssl_sign_hash(signature_info_t *signature_info)
     // Initialize key
     SVI_THROW_IF(EVP_PKEY_sign_init(ctx) <= 0, SVI_EXTERNAL_FAILURE);
 
-    if (algo == SIGN_ALGO_RSA) {
+    if (EVP_PKEY_base_id(signing_key) == EVP_PKEY_RSA) {
       SVI_THROW_IF(EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0, SVI_EXTERNAL_FAILURE);
     }
     // Set message digest type to sha256
