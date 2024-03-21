@@ -45,17 +45,12 @@ static svi_rc
 complete_sei_nalu_and_add_to_prepend(signed_video_t *self);
 
 /* Functions related to the list of NALUs to prepend. */
-static void
-reset_nalu_to_prepend(signed_video_nalu_to_prepend_t *nalu_to_prepend);
 static svi_rc
 generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_signature_ptr);
 static svi_rc
-add_nalu_to_prepend(signed_video_t *self,
-    SignedVideoPrependInstruction prepend_instruction,
-    size_t data_size);
-static svi_rc
 prepare_for_nalus_to_prepend(signed_video_t *self);
-
+static void
+shift_sei_buffer_index(signed_video_t *self);
 static void
 h26x_set_nal_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDType uuid_type)
 {
@@ -115,13 +110,13 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   // Get the oldest sei data
   const int sei_data_buffer_end = self->sei_data_buffer_idx;
   assert(sei_data_buffer_end <= MAX_NALUS_TO_PREPEND);
-  SignedVideoPrependInstruction prepend_instruction = SIGNED_VIDEO_PREPEND_NOTHING;
   size_t data_size = 0;
   svi_rc status = SVI_UNKNOWN;
+  sei_data_t *sei_data = &(self->sei_data_buffer[self->num_of_completed_seis]);
   // Transfer oldest pointer in |payload_buffer| to local |payload|
-  uint8_t *payload = self->sei_data_buffer[0].payload;
-  uint8_t *payload_signature_ptr = self->sei_data_buffer[0].payload_signature_ptr;
-  self->last_two_bytes = self->sei_data_buffer[0].last_two_bytes;
+  uint8_t *payload = sei_data->payload;
+  uint8_t *payload_signature_ptr = sei_data->payload_signature_ptr;
+  self->last_two_bytes = sei_data->last_two_bytes;
 
   // If the signature could not be generated |signature_size| equals zero. Free the started SEI and
   // move on. This is a valid operation. What will happen is that the video will have an unsigned
@@ -140,14 +135,9 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
     // Add the signature to the SEI payload.
     data_size = get_sign_and_complete_sei_nalu(self, &payload, payload_signature_ptr);
     SVI_THROW_IF(!data_size, SVI_UNKNOWN);
-    // Add created SEI to the prepend list.
-    prepend_instruction = SIGNED_VIDEO_PREPEND_NALU;
-    signed_video_nalu_to_prepend_t *nalu_to_prepend =
-        &(self->nalus_to_prepend_list[self->num_nalus_to_prepend]);
-    // TODO: Include setting |nalu_data| in add_nalu_to_prepend().
-    // Transfer |payload| to |nalu_to_prepend|.
-    nalu_to_prepend->nalu_data = payload;
-    SVI_THROW(add_nalu_to_prepend(self, prepend_instruction, data_size));
+    sei_data->completed_sei = payload;
+    sei_data->completed_sei_size = data_size;
+    self->num_of_completed_seis++;
 
     // Unset flag when SEI is completed and prepended.
     // Note: If signature could not be generated then nalu data is freed. See
@@ -158,8 +148,16 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   SVI_DONE(status)
 
 done:
-  // Done with the SEI payload. Move |sei_data_buffer|. This should be done even if we caught a
-  // failure.
+
+  return status;
+}
+
+/* Removes the first element from the SEI buffer of a `signed_video_t` structure,
+ * shifting remaining elements left and clearing the last slot. */
+static void
+shift_sei_buffer_index(signed_video_t *self)
+{
+  const int sei_data_buffer_end = self->sei_data_buffer_idx;
   for (int j = 0; j < sei_data_buffer_end - 1; j++) {
     self->sei_data_buffer[j] = self->sei_data_buffer[j + 1];
   }
@@ -167,32 +165,6 @@ done:
   self->sei_data_buffer[sei_data_buffer_end - 1].payload_signature_ptr = NULL;
   self->sei_data_buffer[sei_data_buffer_end - 1].last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
   self->sei_data_buffer_idx -= 1;
-
-  return status;
-}
-
-/* Resets a signed_video_nalu_to_prepend_t object. It is assumed that any nalu_data has been freed
- * to avoid memory leakage.
- */
-static void
-reset_nalu_to_prepend(signed_video_nalu_to_prepend_t *nalu_to_prepend)
-{
-  nalu_to_prepend->nalu_data = NULL;
-  nalu_to_prepend->nalu_data_size = 0;
-  nalu_to_prepend->prepend_instruction = SIGNED_VIDEO_PREPEND_NOTHING;
-}
-
-/* Frees all nalu_data memory and resets all items in the nalus_to_prepend_list of signed_video_t.
- */
-void
-free_and_reset_nalu_to_prepend_list(signed_video_t *self)
-{
-  if (!self) return;
-  for (int ii = 0; ii < MAX_NALUS_TO_PREPEND; ++ii) {
-    signed_video_nalu_data_free(self->nalus_to_prepend_list[ii].nalu_data);
-    reset_nalu_to_prepend(&self->nalus_to_prepend_list[ii]);
-  }
-  self->num_nalus_to_prepend = 0;
 }
 
 /* This function generates a SEI NALU of type "user data unregistered". The payload encoded in this
@@ -447,26 +419,6 @@ get_sign_and_complete_sei_nalu(signed_video_t *self,
   return payload_ptr - *payload;
 }
 
-/* Generates and adds the SEI-NALU to the nalus_to_prepend_list. */
-static svi_rc
-add_nalu_to_prepend(signed_video_t *self,
-    SignedVideoPrependInstruction prepend_instruction,
-    size_t data_size)
-{
-  assert(data_size > 0);
-
-  signed_video_nalu_to_prepend_t *nalu_to_prepend =
-      &(self->nalus_to_prepend_list[self->num_nalus_to_prepend]);
-
-  if (data_size > 0) {
-    nalu_to_prepend->nalu_data_size = data_size;
-    nalu_to_prepend->prepend_instruction = prepend_instruction;
-    self->num_nalus_to_prepend++;
-  }
-
-  return data_size > 0 ? SVI_OK : SVI_MEMORY;
-}
-
 static svi_rc
 prepare_for_nalus_to_prepend(signed_video_t *self)
 {
@@ -482,15 +434,11 @@ prepare_for_nalus_to_prepend(signed_video_t *self)
     // empty list item, the pull action has no impact. We can therefore silently remove it and
     // proceed. But if there are vital SEI-nalus waiting to be pulled we return an error message
     // (SV_NOT_SUPPORTED).
-    SVI_THROW_IF_WITH_MSG(self->num_nalus_to_prepend > 1, SVI_NOT_SUPPORTED,
-        "There are remaining NALUs in list to prepend");
-    if (self->num_nalus_to_prepend > 0) self->num_nalus_to_prepend = 0;
-
-    assert(self->num_nalus_to_prepend == 0);
+    SVI_THROW_IF_WITH_MSG(
+        self->num_of_completed_seis > 0, SVI_NOT_SUPPORTED, "There are remainin SEI's.");
     // Add an empty nalu_to_prepend item to the queue. This first item in the nalus_to_prepend_list
     // is always empty, hence we can simply increment the queue counter. The reason to have an empty
     // NALU is to be able to signal the end of the list with a proper instruction at the end.
-    self->num_nalus_to_prepend++;
 
   SVI_CATCH()
   SVI_DONE(status)
@@ -569,7 +517,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       }
       self->frame_count++;  // It is ok for this variable to wrap around
     }
-
+    //
     SVI_THROW(hash_and_add(self, &nalu));
     // Depending on the input NALU, we need to take different actions. If the input is an I-NALU we
     // have a transition to a new GOP. Then we need to generate the necessary SEI-NALU(s) and put in
@@ -630,28 +578,77 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
 }
 
 SignedVideoReturnCode
+signed_video_get_sei(signed_video_t *self, uint8_t *sei, size_t *sei_size)
+{
+
+  if (!self || !sei_size) return SV_INVALID_PARAMETER;
+  *sei_size = 0;
+  if (self->num_of_completed_seis < 1) {
+    DEBUG_LOG("There are no completed seis.");
+    return SV_OK;
+  }
+  if (!sei) {
+    // Assign the SEI size to the provided pointers.
+    *sei_size = self->sei_data_buffer[0].completed_sei_size;
+    return SV_OK;
+  }
+  // Assign the SEI size and SEI data to the provided pointers.
+  *sei_size = self->sei_data_buffer[0].completed_sei_size;
+  memcpy(sei, self->sei_data_buffer[0].payload, *sei_size);
+
+  // Reset the fetched SEI information from the sei buffer.
+  signed_video_nalu_data_free(self->sei_data_buffer[0].payload);
+
+  --(self->num_of_completed_seis);
+  shift_sei_buffer_index(self);
+  return SV_OK;
+}
+
+static SignedVideoReturnCode
+signed_video_get_lastest_sei(signed_video_t *self, uint8_t *sei, size_t *sei_size)
+{
+
+  if (!self || !sei_size) return SV_INVALID_PARAMETER;
+  *sei_size = 0;
+  if (self->num_of_completed_seis < 1) {
+    DEBUG_LOG("There are no completed seis.");
+    return SV_OK;
+  }
+  if (!sei) {
+    // Assign the SEI size to the provided pointers.
+    *sei_size = self->sei_data_buffer[self->num_of_completed_seis].completed_sei_size;
+    return SV_OK;
+  }
+  // Assign the SEI size and SEI data to the provided pointers.
+  *sei_size = self->sei_data_buffer[self->num_of_completed_seis].completed_sei_size;
+  memcpy(sei, self->sei_data_buffer[self->num_of_completed_seis].payload, *sei_size);
+
+  // Reset the fetched SEI information from the sei buffer.
+  signed_video_nalu_data_free(self->sei_data_buffer[self->num_of_completed_seis].payload);
+
+  --(self->num_of_completed_seis);
+  shift_sei_buffer_index(self);
+  return SV_OK;
+}
+
+SignedVideoReturnCode
 signed_video_get_nalu_to_prepend(signed_video_t *self,
     signed_video_nalu_to_prepend_t *nalu_to_prepend)
 {
   if (!self || !nalu_to_prepend) return SV_INVALID_PARAMETER;
-
-  if (self->num_nalus_to_prepend < 1) {
-    DEBUG_LOG("No items in |nalus_to_prepend_list|");
-    return SV_NOT_SUPPORTED;
+  // Directly pass the members of nalu_to_prepend as arguments to signed_video_get_sei().
+  size_t sei_size = 0;
+  // Get the size from signed_video_get_sei() and check if its success.
+  SignedVideoReturnCode status = signed_video_get_sei(self, NULL, &sei_size);
+  if (SV_OK != status) return status;
+  if (0 != sei_size) {
+    nalu_to_prepend->nalu_data = malloc(sei_size);
+    nalu_to_prepend->prepend_instruction = SIGNED_VIDEO_PREPEND_NALU;
+  } else {
+    nalu_to_prepend->prepend_instruction = SIGNED_VIDEO_PREPEND_NOTHING;
   }
-
-  int list_item = --(self->num_nalus_to_prepend);
-  DEBUG_LOG("Getting list item %d", list_item);
-  if (list_item < 0 || list_item >= MAX_NALUS_TO_PREPEND) {
-    // Frames to prepend list seems out of sync. Flushing list.
-    free_and_reset_nalu_to_prepend_list(self);
-    return SV_UNKNOWN_FAILURE;
-  }
-  *nalu_to_prepend = self->nalus_to_prepend_list[list_item];
-  // Memory has been transferred to the caller. Reset list item.
-  reset_nalu_to_prepend(&(self->nalus_to_prepend_list[list_item]));
-
-  return SV_OK;
+  return signed_video_get_lastest_sei(
+      self, (nalu_to_prepend->nalu_data), &(nalu_to_prepend->nalu_data_size));
 }
 
 void
