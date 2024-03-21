@@ -864,7 +864,7 @@ sv_interface_free(uint8_t *data)
  * with an empty list head.
  */
 int
-sv_interface_init(void *user_data)
+sv_signing_plugin_init(void *user_data)
 {
   signature_info_t *signature_info = (signature_info_t *)user_data;
 
@@ -907,7 +907,7 @@ catch_error:
  * All allocated memory is freed and the thread is terminated.
  */
 void
-sv_interface_exit(void *user_data)
+sv_signing_plugin_exit(void *user_data)
 {
   // User is not expected to pass in any data. Aborting.
   if (user_data) return;

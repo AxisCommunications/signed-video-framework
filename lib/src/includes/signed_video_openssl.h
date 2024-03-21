@@ -194,6 +194,20 @@ SignedVideoReturnCode
 openssl_sign_hash(signature_info_t *signature_info);
 
 /**
+ * @brief Allocates enough memory for a signature
+ *
+ * The function allocates enough memory for a signature given the |private_key| in |signature_info|.
+ *
+ * @param signature_info A pointer to the struct that holds all necessary information for signing.
+ *
+ * @returns SV_OK Successfully generated |signature|,
+ *          SV_INVALID_PARAMETER Errors in |signature_info|,
+ *          SV_MEMORY Failed allocating memory for the |signature|,
+ *          SV_EXTERNAL_ERROR Failure in OpenSSL.
+ */
+SignedVideoReturnCode
+openssl_signature_malloc(signature_info_t *signature_info);
+/**
  * @brief Allocates memory for a key
  *
  * This is a helper function to allocate memory for a key. If a new key size is detected memory is
