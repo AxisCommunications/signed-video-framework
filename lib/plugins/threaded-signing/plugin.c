@@ -179,6 +179,8 @@ signature_info_create(const signature_info_t *signature_info)
     tmp_signature_info->signature = openssl_malloc(signature_info->max_signature_size);
     if (!tmp_signature_info->signature) goto catch_error;
     tmp_signature_info->max_signature_size = signature_info->max_signature_size;
+  } else {
+    if (openssl_signature_malloc(tmp_signature_info) != SV_OK) goto catch_error;
   }
 
   if (signature_info->hash_size) {
@@ -229,7 +231,65 @@ free_plugin(threaded_data_t *self)
  * The hash from |signature_info| is copied to |in|. If memory for the hash has not been
  * allocated it will be allocated. */
 static SignedVideoReturnCode
-sign_hash(threaded_data_t *self, unsigned id, const signature_info_t *signature_info)
+sign_hash(threaded_data_t *self, unsigned id, const uint8_t *hash, size_t hash_size)
+{
+  assert(self && hash);
+  SignedVideoReturnCode status = SV_UNKNOWN_FAILURE;
+  g_mutex_lock(&self->mutex);
+  int idx = self->in_idx;
+
+  if (idx >= MAX_BUFFER_LENGTH) {
+    // |in| is full. Buffers this long are not supported.
+    status = SV_NOT_SUPPORTED;
+    goto done;
+  }
+
+  if (!self->is_running) {
+    // Thread is not running. Go to catch_error and return status.
+    status = SV_EXTERNAL_ERROR;
+    goto done;
+  }
+
+  // Signing from a central thread. The |signature_info| should have been allocated when
+  // the plugin was initialized.
+  assert(self->signature_info);
+  // Also memory for the signature should have been allocated.
+  assert(self->signature_info->signature && self->signature_info->max_signature_size);
+
+  if (!self->in[idx].hash) {
+    self->in[idx].hash = calloc(1, hash_size);
+    if (!self->in[idx].hash) {
+      // Failed in memory allocation.
+      status = SV_MEMORY;
+      goto done;
+    }
+    self->in[idx].size = hash_size;
+  }
+
+  // The |hash_size| has to be fixed throughout the session.
+  if (self->in[idx].size != hash_size) {
+    status = SV_NOT_SUPPORTED;
+    goto done;
+  }
+
+  // Copy the |hash| ready for signing.
+  memcpy(self->in[idx].hash, hash, hash_size);
+  self->in[idx].id = id;
+  self->in_idx++;
+
+  status = SV_OK;
+
+done:
+
+  g_cond_signal(&self->cond);
+  g_mutex_unlock(&self->mutex);
+
+  return status;
+}
+
+#if 0
+static SignedVideoReturnCode
+sign_hash_old(threaded_data_t *self, unsigned id, const signature_info_t *signature_info)
 {
   assert(self && signature_info);
   if (!signature_info->private_key || !signature_info->hash) return SV_INVALID_PARAMETER;
@@ -308,6 +368,7 @@ done:
 
   return status;
 }
+#endif
 
 /* If
  *   1. the |id| matches the oldest |out|, and
@@ -702,11 +763,24 @@ done:
  *
  * returns sv_threaded_plugin_t upon success, and NULL upon failure. */
 static threaded_data_t *
-local_setup()
+local_setup(const void *private_key, size_t private_key_size)
 {
   threaded_data_t *self = calloc(1, sizeof(threaded_data_t));
 
   if (!self) return NULL;
+
+  // Setup |signature_info| with |private_key| if there is one
+  if (private_key && private_key_size > 0) {
+    self->signature_info = calloc(1, sizeof(signature_info_t));
+    if (!self->signature_info) goto catch_error;
+    // Allocate memory and copy |private_key|.
+    self->signature_info->private_key = malloc(private_key_size);
+    if (!self->signature_info->private_key) goto catch_error;
+    memcpy(self->signature_info->private_key, private_key, private_key_size);
+    self->signature_info->private_key_size = private_key_size;
+
+    if (openssl_signature_malloc(self->signature_info) != SV_OK) goto catch_error;
+  }
 
   // Initialize |self|.
   g_mutex_init(&(self->mutex));
@@ -765,6 +839,23 @@ done:
  */
 
 SignedVideoReturnCode
+sv_signing_plugin_sign(void *handle, const uint8_t *hash, size_t hash_size)
+{
+  sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)handle;
+
+  if (!self || !hash || hash_size == 0) return SV_INVALID_PARAMETER;
+
+  if (self->local) {
+    return sign_hash(self->local, 0, hash, hash_size);
+  } else if (self->central) {
+    return sign_hash(&central, self->central->id, hash, hash_size);
+  } else {
+    return SV_NOT_SUPPORTED;
+  }
+}
+
+/* TO BE DEPRECATED */
+SignedVideoReturnCode
 sv_interface_sign_hash(void *plugin_handle, signature_info_t *signature_info)
 {
   sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)plugin_handle;
@@ -772,22 +863,22 @@ sv_interface_sign_hash(void *plugin_handle, signature_info_t *signature_info)
   if (!self || !signature_info) return SV_INVALID_PARAMETER;
 
   if (self->local) {
-    return sign_hash(self->local, 0, signature_info);
+    return sign_hash(self->local, 0, signature_info->hash, signature_info->hash_size);
   } else if (self->central) {
-    return sign_hash(&central, self->central->id, signature_info);
+    return sign_hash(&central, self->central->id, signature_info->hash, signature_info->hash_size);
   } else {
     return SV_NOT_SUPPORTED;
   }
 }
 
 bool
-sv_interface_get_signature(void *plugin_handle,
+sv_signing_plugin_get_signature(void *handle,
     uint8_t *signature,
     size_t max_signature_size,
     size_t *written_signature_size,
     SignedVideoReturnCode *error)
 {
-  sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)plugin_handle;
+  sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)handle;
 
   if (!self || !signature || !written_signature_size) return false;
 
@@ -803,6 +894,41 @@ sv_interface_get_signature(void *plugin_handle,
   }
 }
 
+bool
+sv_interface_get_signature(void *plugin_handle,
+    uint8_t *signature,
+    size_t max_signature_size,
+    size_t *written_signature_size,
+    SignedVideoReturnCode *error)
+{
+  return sv_signing_plugin_get_signature(
+      plugin_handle, signature, max_signature_size, written_signature_size, error);
+}
+
+void *
+sv_signing_plugin_session_setup(const void *private_key, size_t private_key_size)
+{
+  sv_threaded_plugin_t *self = calloc(1, sizeof(sv_threaded_plugin_t));
+
+  if (!self) return NULL;
+
+  if (central.thread) {
+    assert(id_list);
+    self->central = central_setup();
+    if (!self->central) goto catch_error;
+  } else {
+    self->local = local_setup(private_key, private_key_size);
+    if (!self->local) goto catch_error;
+  }
+
+  return (void *)self;
+
+catch_error:
+  free(self);
+  return NULL;
+}
+
+/* TO BE DEPRECATED */
 void *
 sv_interface_setup()
 {
@@ -815,7 +941,7 @@ sv_interface_setup()
     self->central = central_setup();
     if (!self->central) goto catch_error;
   } else {
-    self->local = local_setup();
+    self->local = local_setup(NULL, 0);
     if (!self->local) goto catch_error;
   }
 
@@ -827,9 +953,10 @@ catch_error:
 }
 
 void
-sv_interface_teardown(void *plugin_handle)
+sv_signing_plugin_session_teardown(void *handle)
 {
-  sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)plugin_handle;
+  sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)handle;
+  if (!self) return;
 
   if (self->local) {
     g_mutex_lock(&(self->local)->mutex);
@@ -844,19 +971,28 @@ sv_interface_teardown(void *plugin_handle)
   free(self);
 }
 
+/* TO BE DEPRECATED */
+void
+sv_interface_teardown(void *plugin_handle)
+{
+  sv_signing_plugin_session_teardown(plugin_handle);
+}
+
+/* TO BE DEPRECATED */
 uint8_t *
 sv_interface_malloc(size_t data_size)
 {
   return openssl_malloc(data_size);
 }
 
+/* TO BE DEPRECATED */
 void
 sv_interface_free(uint8_t *data)
 {
   openssl_free(data);
 }
 
-/* This plugin initializer expect the |user_data| to be a signature_info_t struct. The content is
+/* This plugin initializer expects the |user_data| to be a signature_info_t struct. The content is
  * copied to the local |signature_info| and the important part is the |private_key| which will be
  * used throught all added sessions.
  *
