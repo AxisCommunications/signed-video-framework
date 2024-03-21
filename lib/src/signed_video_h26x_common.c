@@ -1183,8 +1183,10 @@ signed_video_create(SignedVideoCodec codec)
     SVI_THROW_IF(!self->crypto_handle, SVI_EXTERNAL_FAILURE);
 
     // Setup the plugin.
+#ifdef OLD_INTERFACE
     self->plugin_handle = sv_interface_setup();
     SVI_THROW_IF(!self->plugin_handle, SVI_EXTERNAL_FAILURE);
+#endif
     // Setup vendor handle.
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     self->vendor_handle = sv_vendor_axis_communications_setup();
@@ -1243,7 +1245,11 @@ signed_video_free(signed_video_t *self)
   if (!self) return;
 
   // Teardown the plugin before closing.
+#ifdef OLD_INTERFACE
   sv_interface_teardown(self->plugin_handle);
+#else
+  sv_signing_plugin_session_teardown(self->plugin_handle);
+#endif
   // Teardown the vendor handle.
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   sv_vendor_axis_communications_teardown(self->vendor_handle);
