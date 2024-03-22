@@ -184,7 +184,7 @@ sv_signing_plugin_session_teardown(void *handle)
   if (!self) return;
 
   free(self->signature_info.private_key);
-  if (self->signature_info.signature) openssl_free(self->signature_info.signature);
+  free(self->signature_info.signature);
   free(self);
 }
 
@@ -204,7 +204,7 @@ sv_interface_malloc(size_t data_size)
 void
 sv_interface_free(uint8_t *data)
 {
-  openssl_free(data);
+  free(data);
 }
 
 int

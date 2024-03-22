@@ -55,16 +55,6 @@ void
 openssl_free_handle(void *handle);
 
 /**
- * @brief Frees data
- *
- * Free the allocated data memory.
- *
- * @param data Pointer to the data.
- */
-void
-openssl_free(uint8_t *data);
-
-/**
  * @brief Hashes data into a 256 bit hash
  *
  * Uses the OpenSSL SHA256() API to hash data. The hashed data has 256 bits, which needs to be

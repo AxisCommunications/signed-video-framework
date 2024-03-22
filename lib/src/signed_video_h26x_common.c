@@ -202,7 +202,7 @@ signature_free(signature_info_t *self)
   free(self->private_key);
   free(self->public_key);
   free(self->hash);
-  sv_interface_free(self->signature);
+  free(self->signature);
   free(self);
 }
 
