@@ -31,7 +31,7 @@ difference in building the library for signing or for validation.
 
 Signing is commonly device specific with separate calls for, e.g., reading and using private keys.
 Therefore, the framework uses the concept of signing plugins which implements a set of
-[interfaces](./lib/src/includes/signed_video_interfaces.h). The framework comes with both a
+[interfaces](./lib/src/includes/signed_video_signing_plugin.h). The framework comes with both a
 threaded and an unthreaded signing plugin.
 
 Further, the framework allows for vendor specific metadata. Adding that on the signing side, and

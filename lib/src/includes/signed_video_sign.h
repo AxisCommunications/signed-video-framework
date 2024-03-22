@@ -22,11 +22,12 @@
 #ifndef __SIGNED_VIDEO_SIGN_H__
 #define __SIGNED_VIDEO_SIGN_H__
 
+#include <stdbool.h>  // bool
 #include <stdint.h>  // uint8_t
 #include <string.h>  // size_t
 
 #include "signed_video_common.h"  // signed_video_t, SignedVideoReturnCode
-#include "signed_video_interfaces.h"  // sign_algo_t
+#include "signed_video_openssl.h"  // sign_algo_t
 
 #ifdef __cplusplus
 extern "C" {

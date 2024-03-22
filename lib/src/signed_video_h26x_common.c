@@ -29,8 +29,8 @@
 #include "axis-communications/sv_vendor_axis_communications_internal.h"
 #endif
 #include "includes/signed_video_common.h"
-#include "includes/signed_video_interfaces.h"  // signature_info_t
-#include "includes/signed_video_openssl.h"  // openssl_hash_data()
+#include "includes/signed_video_openssl.h"  // openssl_hash_data(), signature_info_t
+#include "includes/signed_video_signing_plugin.h"
 #include "signed_video_authenticity.h"  // latest_validation_init()
 #include "signed_video_h26x_internal.h"  // h26x_nalu_list_item_t
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_create()
@@ -1182,9 +1182,8 @@ signed_video_create(SignedVideoCodec codec)
     self->crypto_handle = openssl_create_handle();
     SVI_THROW_IF(!self->crypto_handle, SVI_EXTERNAL_FAILURE);
 
-    // Setup the plugin.
-    self->plugin_handle = sv_interface_setup();
-    SVI_THROW_IF(!self->plugin_handle, SVI_EXTERNAL_FAILURE);
+    // Signing plugin is setup when the private key is set.
+
     // Setup vendor handle.
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     self->vendor_handle = sv_vendor_axis_communications_setup();
@@ -1243,7 +1242,7 @@ signed_video_free(signed_video_t *self)
   if (!self) return;
 
   // Teardown the plugin before closing.
-  sv_interface_teardown(self->plugin_handle);
+  sv_signing_plugin_session_teardown(self->plugin_handle);
   // Teardown the vendor handle.
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   sv_vendor_axis_communications_teardown(self->vendor_handle);

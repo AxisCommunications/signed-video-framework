@@ -25,6 +25,7 @@
 
 #include "includes/signed_video_openssl.h"  // openssl_read_pubkey_from_private_key()
 #include "includes/signed_video_sign.h"
+#include "includes/signed_video_signing_plugin.h"
 #include "signed_video_authenticity.h"  // allocate_memory_and_copy_string
 #include "signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
 #include "signed_video_h26x_internal.h"  // parse_nalu_info()
@@ -391,7 +392,8 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     // Reset the timestamp to avoid including a duplicate in the next SEI.
     gop_info->has_timestamp = false;
 
-    SVI_THROW(sv_rc_to_svi_rc(sv_interface_sign_hash(self->plugin_handle, signature_info)));
+    SVI_THROW(sv_rc_to_svi_rc(sv_signing_plugin_sign(
+        self->plugin_handle, signature_info->hash, signature_info->hash_size)));
 
   SVI_CATCH()
   {
@@ -602,7 +604,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     if ((nalu.nalu_type == NALU_TYPE_I || nalu.nalu_type == NALU_TYPE_P) && nalu.is_primary_slice &&
         signature_info->signature) {
       SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
-      while (sv_interface_get_signature(self->plugin_handle, signature_info->signature,
+      while (sv_signing_plugin_get_signature(self->plugin_handle, signature_info->signature,
           signature_info->max_signature_size, &signature_info->signature_size, &signature_error)) {
         SVI_THROW(sv_rc_to_svi_rc(signature_error));
 #ifdef SIGNED_VIDEO_DEBUG
@@ -676,7 +678,7 @@ signed_video_set_end_of_stream(signed_video_t *self)
     // Fetch the signature. If it is not ready we exit without generating the SEI.
     signature_info_t *signature_info = self->signature_info;
     SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
-    while (sv_interface_get_signature(self->plugin_handle, signature_info->signature,
+    while (sv_signing_plugin_get_signature(self->plugin_handle, signature_info->signature,
         signature_info->max_signature_size, &signature_info->signature_size, &signature_error)) {
       SVI_THROW(sv_rc_to_svi_rc(signature_error));
       SVI_THROW(complete_sei_nalu_and_add_to_prepend(self));
@@ -744,6 +746,8 @@ signed_video_set_private_key(signed_video_t *self,
 
     SVI_THROW(sv_rc_to_svi_rc(openssl_read_pubkey_from_private_key(self->signature_info)));
 
+    self->plugin_handle = sv_signing_plugin_session_setup(private_key, private_key_size);
+    SVI_THROW_IF(!self->plugin_handle, SVI_EXTERNAL_FAILURE);
   SVI_CATCH()
   {
     // Remove all key information if we fail.

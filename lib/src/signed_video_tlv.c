@@ -26,8 +26,7 @@
 #include "axis-communications/sv_vendor_axis_communications_internal.h"
 #endif
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
-#include "includes/signed_video_interfaces.h"  // signature_info_t, sign_algo_t
-#include "includes/signed_video_openssl.h"  // openssl_key_memory_allocated()
+#include "includes/signed_video_openssl.h"  // openssl_key_memory_allocated(), signature_info_t, sign_algo_t
 #include "signed_video_authenticity.h"  // transfer_product_info()
 
 /**

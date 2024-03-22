@@ -25,8 +25,7 @@
 #include "axis-communications/sv_vendor_axis_communications_internal.h"
 #endif
 #include "includes/signed_video_auth.h"
-#include "includes/signed_video_interfaces.h"  // signature_info_t
-#include "includes/signed_video_openssl.h"  // openssl_verify_hash()
+#include "includes/signed_video_openssl.h"  // openssl_verify_hash(), signature_info_t
 #include "signed_video_authenticity.h"  // create_local_authenticity_report_if_needed()
 #include "signed_video_defines.h"  // svi_rc
 #include "signed_video_h26x_internal.h"  // gop_state_*(), update_gop_hash(), update_validation_flags()

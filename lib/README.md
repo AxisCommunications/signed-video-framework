@@ -23,9 +23,9 @@ conceptual difference in building the library for signing or for validation.
 
 The signing part of the code makes some interface calls. These interfaces should be implemented as a
 plugin. The interfaces can be found in
-[signed_video_interfaces.h](./src/includes/signed_video_interfaces.h). The framework comes with both
-a threaded and an unthreaded signing plugin. When building the library with the meson structure in
-this repository, the library includes that plugin.
+[signed_video_signing_plugin.h](./src/includes/signed_video_signing_plugin.h). The framework comes
+with both a threaded and an unthreaded signing plugin. When building the library with the meson
+structure in this repository, the library includes that plugin.
 
 Vendor specific code and APIs are typically handling extra metadata added to the SEI, which needs to
 be interpreted correctly when validating authenticity. With the meson option `vendor` the user can
