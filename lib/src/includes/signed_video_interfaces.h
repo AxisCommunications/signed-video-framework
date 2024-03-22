@@ -37,8 +37,6 @@ typedef struct _signature_info_t signature_info_t;
 #define sv_interface_init sv_signing_plugin_init
 #define sv_interface_exit sv_signing_plugin_exit
 
-// #define OLD_INTERFACE
-
 /**
  * @brief Signing algorithm
  *
