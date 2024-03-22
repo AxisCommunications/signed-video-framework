@@ -160,7 +160,7 @@ free_signature_buffer(signature_data_t *buf)
 /* Allocate memory and copy data from |signature_info|.
  *
  * This is only done once and the necessary |private_key| is copied. Memory
- * for the |signature| and, if known also the |hash|, is allocated. */
+ * for the |signature| is allocated and if known, also the |hash|. */
 static signature_info_t *
 signature_info_create(const signature_info_t *signature_info)
 {
@@ -189,8 +189,6 @@ signature_info_create(const signature_info_t *signature_info)
     if (!tmp_signature_info->hash) goto catch_error;
     tmp_signature_info->hash_size = signature_info->hash_size;
   }
-  // Copy the |algo|.
-  // tmp_signature_info->algo = signature_info->algo;
 
   return tmp_signature_info;
 
