@@ -157,10 +157,10 @@ free_signature_buffer(signature_data_t *buf)
   buf->signature = NULL;
 }
 
-/* Allocate memory and copy data for the local |signature_info|.
+/* Allocate memory and copy data from |signature_info|.
  *
- * This is only done once and the necessary |private_key| as well as the |algo| is copied. Memory
- * for the |signature| and the |hash| is allocated. */
+ * This is only done once and the necessary |private_key| is copied. Memory
+ * for the |signature| is allocated and if known, also the |hash|. */
 static signature_info_t *
 signature_info_create(const signature_info_t *signature_info)
 {
@@ -179,6 +179,8 @@ signature_info_create(const signature_info_t *signature_info)
     tmp_signature_info->signature = openssl_malloc(signature_info->max_signature_size);
     if (!tmp_signature_info->signature) goto catch_error;
     tmp_signature_info->max_signature_size = signature_info->max_signature_size;
+  } else {
+    if (openssl_signature_malloc(tmp_signature_info) != SV_OK) goto catch_error;
   }
 
   if (signature_info->hash_size) {
@@ -187,8 +189,6 @@ signature_info_create(const signature_info_t *signature_info)
     if (!tmp_signature_info->hash) goto catch_error;
     tmp_signature_info->hash_size = signature_info->hash_size;
   }
-  // Copy the |algo|.
-  tmp_signature_info->algo = signature_info->algo;
 
   return tmp_signature_info;
 
@@ -220,20 +220,15 @@ free_plugin(threaded_data_t *self)
   free_buffers(self);
 }
 
-/* This function is called from the library upon signing and the input |signature_info| includes
- * all necessary information to do so.
+/* This function is, via sv_signing_plugin_sign(), called from the library upon signing.
  *
- * If this is the first time of signing, memory for |self->signature_info| is allocated and
- * |private_key| and |algo| is copied.
- *
- * The hash from |signature_info| is copied to |in|. If memory for the hash has not been
- * allocated it will be allocated. */
+ * If this is the first time of signing, memory for |self->signature_info->hash| is allocated.
+ * The |hash| is copied to |in|. If memory for the |in| hash has not been allocated it will be
+ * allocated. */
 static SignedVideoReturnCode
-sign_hash(threaded_data_t *self, unsigned id, const signature_info_t *signature_info)
+sign_hash(threaded_data_t *self, unsigned id, const uint8_t *hash, size_t hash_size)
 {
-  assert(self && signature_info);
-  if (!signature_info->private_key || !signature_info->hash) return SV_INVALID_PARAMETER;
-
+  assert(self && hash);
   SignedVideoReturnCode status = SV_UNKNOWN_FAILURE;
   g_mutex_lock(&self->mutex);
   int idx = self->in_idx;
@@ -250,52 +245,39 @@ sign_hash(threaded_data_t *self, unsigned id, const signature_info_t *signature_
     goto done;
   }
 
-  if (id) {
-    // Signing from a central thread. The |signature_info| should have been allocated when
-    // the plugin was initialized.
-    assert(self->signature_info);
-    // If this is the first time signing a hash the maximum size of the signature is known
-    // and local memory can be allocated.
-    if (!self->signature_info->signature) {
-      self->signature_info->signature = calloc(1, signature_info->max_signature_size);
-      if (!self->signature_info->signature) {
-        // Failed in memory allocation.
-        status = SV_MEMORY;
-        goto done;
-      }
-      self->signature_info->max_signature_size = signature_info->max_signature_size;
+  // Signing from a central thread. The |signature_info| should have been allocated when
+  // the plugin was initialized.
+  assert(self->signature_info);
+  // Allocate memory for the hash slot in |signature_info| if this is the first time,
+  // since it is now known to the signing plugin and cannot be changed.
+  if (!self->signature_info->hash) {
+    self->signature_info->hash = calloc(1, hash_size);
+    if (!self->signature_info->hash) {
+      // Failed in memory allocation.
+      status = SV_MEMORY;
+      goto done;
     }
-  } else {
-    // If no |self->signature_info| exists. Allocate necessary memory for it and copy the
-    // |private_key| and |algo|.
-    if (!self->signature_info) {
-      self->signature_info = signature_info_create(signature_info);
-      if (!self->signature_info) {
-        // Failed in memory allocation.
-        status = SV_MEMORY;
-        goto done;
-      }
-    }
+    self->signature_info->hash_size = hash_size;
   }
 
   if (!self->in[idx].hash) {
-    self->in[idx].hash = calloc(1, signature_info->hash_size);
+    self->in[idx].hash = calloc(1, hash_size);
     if (!self->in[idx].hash) {
       // Failed in memory allocation.
       status = SV_MEMORY;
       goto done;
     }
-    self->in[idx].size = signature_info->hash_size;
+    self->in[idx].size = hash_size;
   }
 
   // The |hash_size| has to be fixed throughout the session.
-  if (self->in[idx].size != signature_info->hash_size) {
+  if (self->in[idx].size != hash_size) {
     status = SV_NOT_SUPPORTED;
     goto done;
   }
 
   // Copy the |hash| ready for signing.
-  memcpy(self->in[idx].hash, signature_info->hash, signature_info->hash_size);
+  memcpy(self->in[idx].hash, hash, hash_size);
   self->in[idx].id = id;
   self->in_idx++;
 
@@ -478,16 +460,6 @@ central_worker_thread(void *user_data)
   while (central.is_running) {
     if (central.in_idx > 0) {
       SignedVideoReturnCode status = SV_UNKNOWN_FAILURE;
-      // Allocate memory for the hash if this is the first time.
-      if (!central.signature_info->hash) {
-        central.signature_info->hash = calloc(1, central.in[0].size);
-        if (!central.signature_info->hash) {
-          // Failed in memory allocation.
-          status = SV_MEMORY;
-          continue;
-        }
-        central.signature_info->hash_size = central.in[0].size;
-      }
       // Get the oldest hash from the input buffer
       // Copy the hash to |signature_info| and start signing.
       assert(central.in[0].size == central.signature_info->hash_size);
@@ -506,8 +478,8 @@ central_worker_thread(void *user_data)
       central.in[MAX_BUFFER_LENGTH - 1] = tmp;
       central.in_idx--;
 
-      // Let the signing operate outside a lock. Otherwise sv_interface_get_signature() is blocked,
-      // since variables need to be read under a lock.
+      // Let the signing operate outside a lock. Otherwise sv_signing_plugin_get_signature() is
+      // blocked, since variables need to be read under a lock.
       central.is_in_signing = true;
       g_mutex_unlock(&(central.mutex));
       status = openssl_sign_hash(central.signature_info);
@@ -564,7 +536,7 @@ done:
 
 /* This function creates an id for the session to identify hashes and signatures.
  *
- * returns sv_threaded_plugin_t upon success, and NULL upon failure. */
+ * returns central_threaded_data_t upon success, and NULL upon failure. */
 static central_threaded_data_t *
 central_setup()
 {
@@ -635,8 +607,7 @@ local_worker_thread(void *user_data)
       assert(self->signature_info->hash);
       memcpy(self->signature_info->hash, self->in[0].hash, self->in[0].size);
 
-      // Store the oldest hash temporarily by moving it from the first element of the buffer to the
-      // end and move all other elements in the buffer forward.
+      // Move the oldest input buffer to end of queue for reuse at a later stage.
       hash_data_t tmp = self->in[0];
       int j = 0;
       while (self->in[j + 1].hash != NULL && j < MAX_BUFFER_LENGTH - 1) {
@@ -646,8 +617,8 @@ local_worker_thread(void *user_data)
       self->in[j] = tmp;
       self->in_idx--;
 
-      // Let the signing operate outside a lock. Otherwise sv_interface_get_signature() is blocked,
-      // since variables need to be read under a lock.
+      // Let the signing operate outside a lock. Otherwise sv_signing_plugin_get_signature() is
+      // blocked, since variables need to be read under a lock.
       self->is_in_signing = true;
       g_mutex_unlock(&self->mutex);
       SignedVideoReturnCode status = openssl_sign_hash(self->signature_info);
@@ -700,13 +671,26 @@ done:
 
 /* This function starts a local worker thread for signing.
  *
- * returns sv_threaded_plugin_t upon success, and NULL upon failure. */
+ * returns threaded_data_t upon success, and NULL upon failure. */
 static threaded_data_t *
-local_setup()
+local_setup(const void *private_key, size_t private_key_size)
 {
   threaded_data_t *self = calloc(1, sizeof(threaded_data_t));
 
   if (!self) return NULL;
+
+  // Setup |signature_info| with |private_key| if there is one
+  if (private_key && private_key_size > 0 && !self->signature_info) {
+    self->signature_info = calloc(1, sizeof(signature_info_t));
+    if (!self->signature_info) goto catch_error;
+    // Allocate memory and copy |private_key|.
+    self->signature_info->private_key = malloc(private_key_size);
+    if (!self->signature_info->private_key) goto catch_error;
+    memcpy(self->signature_info->private_key, private_key, private_key_size);
+    self->signature_info->private_key_size = private_key_size;
+
+    if (openssl_signature_malloc(self->signature_info) != SV_OK) goto catch_error;
+  }
 
   // Initialize |self|.
   g_mutex_init(&(self->mutex));
@@ -726,7 +710,7 @@ local_setup()
   return self;
 
 catch_error:
-  free(self);
+  free_plugin(self);
   return NULL;
 }
 
@@ -743,7 +727,7 @@ local_teardown_locked(threaded_data_t *self)
   self->is_running = false;
   self->thread = NULL;
 
-  // Wait for ongoing signing to complete
+  // Wait (at most 2 seconds) for an ongoing signing to complete
   int64_t end_time = g_get_monotonic_time() + 2 * G_TIME_SPAN_SECOND;
   while (self->is_in_signing) {
     if (!g_cond_wait_until(&self->cond, &self->mutex, end_time)) {
@@ -765,6 +749,23 @@ done:
  */
 
 SignedVideoReturnCode
+sv_signing_plugin_sign(void *handle, const uint8_t *hash, size_t hash_size)
+{
+  sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)handle;
+
+  if (!self || !hash || hash_size == 0) return SV_INVALID_PARAMETER;
+
+  if (self->local) {
+    return sign_hash(self->local, 0, hash, hash_size);
+  } else if (self->central) {
+    return sign_hash(&central, self->central->id, hash, hash_size);
+  } else {
+    return SV_NOT_SUPPORTED;
+  }
+}
+
+/* TO BE DEPRECATED */
+SignedVideoReturnCode
 sv_interface_sign_hash(void *plugin_handle, signature_info_t *signature_info)
 {
   sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)plugin_handle;
@@ -772,22 +773,26 @@ sv_interface_sign_hash(void *plugin_handle, signature_info_t *signature_info)
   if (!self || !signature_info) return SV_INVALID_PARAMETER;
 
   if (self->local) {
-    return sign_hash(self->local, 0, signature_info);
+    // If this is the first signing call, copy |private_key| etc. from the input.
+    if (!self->local->signature_info) {
+      self->local->signature_info = signature_info_create(signature_info);
+    }
+    return sign_hash(self->local, 0, signature_info->hash, signature_info->hash_size);
   } else if (self->central) {
-    return sign_hash(&central, self->central->id, signature_info);
+    return sign_hash(&central, self->central->id, signature_info->hash, signature_info->hash_size);
   } else {
     return SV_NOT_SUPPORTED;
   }
 }
 
 bool
-sv_interface_get_signature(void *plugin_handle,
+sv_signing_plugin_get_signature(void *handle,
     uint8_t *signature,
     size_t max_signature_size,
     size_t *written_signature_size,
     SignedVideoReturnCode *error)
 {
-  sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)plugin_handle;
+  sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)handle;
 
   if (!self || !signature || !written_signature_size) return false;
 
@@ -803,8 +808,20 @@ sv_interface_get_signature(void *plugin_handle,
   }
 }
 
+/* TO BE DEPRECATED */
+bool
+sv_interface_get_signature(void *plugin_handle,
+    uint8_t *signature,
+    size_t max_signature_size,
+    size_t *written_signature_size,
+    SignedVideoReturnCode *error)
+{
+  return sv_signing_plugin_get_signature(
+      plugin_handle, signature, max_signature_size, written_signature_size, error);
+}
+
 void *
-sv_interface_setup()
+sv_signing_plugin_session_setup(const void *private_key, size_t private_key_size)
 {
   sv_threaded_plugin_t *self = calloc(1, sizeof(sv_threaded_plugin_t));
 
@@ -815,7 +832,10 @@ sv_interface_setup()
     self->central = central_setup();
     if (!self->central) goto catch_error;
   } else {
-    self->local = local_setup();
+    // Setting a |private_key| is only necessary if setup to use separate threads for each session.
+    if (!private_key || private_key_size == 0) goto catch_error;
+
+    self->local = local_setup(private_key, private_key_size);
     if (!self->local) goto catch_error;
   }
 
@@ -826,10 +846,18 @@ catch_error:
   return NULL;
 }
 
-void
-sv_interface_teardown(void *plugin_handle)
+/* TO BE DEPRECATED */
+void *
+sv_interface_setup()
 {
-  sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)plugin_handle;
+  return sv_signing_plugin_session_setup(NULL, 0);
+}
+
+void
+sv_signing_plugin_session_teardown(void *handle)
+{
+  sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)handle;
+  if (!self) return;
 
   if (self->local) {
     g_mutex_lock(&(self->local)->mutex);
@@ -844,23 +872,32 @@ sv_interface_teardown(void *plugin_handle)
   free(self);
 }
 
+/* TO BE DEPRECATED */
+void
+sv_interface_teardown(void *plugin_handle)
+{
+  sv_signing_plugin_session_teardown(plugin_handle);
+}
+
+/* TO BE DEPRECATED */
 uint8_t *
 sv_interface_malloc(size_t data_size)
 {
   return openssl_malloc(data_size);
 }
 
+/* TO BE DEPRECATED */
 void
 sv_interface_free(uint8_t *data)
 {
   openssl_free(data);
 }
 
-/* This plugin initializer expect the |user_data| to be a signature_info_t struct. The content is
- * copied to the local |signature_info| and the important part is the |private_key| which will be
+/* This plugin initializer expects the |user_data| to be a signature_info_t struct. Only the
+ * |private_key| in it is copied to the static |signature_info|. The |private_key| will be
  * used throught all added sessions.
  *
- * A central thread is set up and a list, containing the IDs of the active sessions, is allocated
+ * A central thread is set up and a list, containing the IDs of the active sessions, is initialized
  * with an empty list head.
  */
 int
@@ -904,7 +941,7 @@ catch_error:
 /* This function closes down the plugin. No |user_data| is expected and aborts the action if
  * present.
  *
- * All allocated memory is freed and the thread is terminated.
+ * The thread is terminated and all allocated memory is freed.
  */
 void
 sv_signing_plugin_exit(void *user_data)
