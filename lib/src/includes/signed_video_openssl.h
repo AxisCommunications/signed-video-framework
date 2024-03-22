@@ -55,18 +55,6 @@ void
 openssl_free_handle(void *handle);
 
 /**
- * @brief Malloc data
- *
- * Allocates the memory for data.
- *
- * @param size Data size.
- *
- * @returns Pointer to allocated memory.
- */
-uint8_t *
-openssl_malloc(size_t size);
-
-/**
  * @brief Frees data
  *
  * Free the allocated data memory.

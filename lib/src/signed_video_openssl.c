@@ -90,13 +90,6 @@ openssl_create_private_key(sign_algo_t algo, const char *path_to_key, key_paths_
 #define PRIVATE_RSA_KEY_FILE "private_rsa_key.pem"
 #define PRIVATE_ECDSA_KEY_FILE "private_ecdsa_key.pem"
 
-/* Allocate data using OpenSSL API. */
-uint8_t *
-openssl_malloc(size_t size)
-{
-  return OPENSSL_malloc(size);
-}
-
 /* Free the data allocated by OpenSSL. */
 void
 openssl_free(uint8_t *data)
@@ -127,7 +120,7 @@ openssl_signature_malloc(signature_info_t *signature_info)
     size_t max_signature_size = EVP_PKEY_size(signing_key);
     EVP_PKEY_free(signing_key);
     SVI_THROW_IF(max_signature_size == 0, SVI_EXTERNAL_FAILURE);
-    signature_info->signature = openssl_malloc(max_signature_size);
+    signature_info->signature = malloc(max_signature_size);
     SVI_THROW_IF(!signature_info->signature, SVI_MEMORY);
     signature_info->max_signature_size = max_signature_size;
   SVI_CATCH()

@@ -198,7 +198,7 @@ sv_interface_teardown(void *plugin_handle)
 uint8_t *
 sv_interface_malloc(size_t data_size)
 {
-  return openssl_malloc(data_size);
+  return malloc(data_size);
 }
 
 void

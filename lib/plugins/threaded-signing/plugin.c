@@ -176,7 +176,7 @@ signature_info_create(const signature_info_t *signature_info)
 
   if (signature_info->max_signature_size) {
     // Allocate memory for the |signature|.
-    tmp_signature_info->signature = openssl_malloc(signature_info->max_signature_size);
+    tmp_signature_info->signature = malloc(signature_info->max_signature_size);
     if (!tmp_signature_info->signature) goto catch_error;
     tmp_signature_info->max_signature_size = signature_info->max_signature_size;
   } else {
@@ -883,7 +883,7 @@ sv_interface_teardown(void *plugin_handle)
 uint8_t *
 sv_interface_malloc(size_t data_size)
 {
-  return openssl_malloc(data_size);
+  return malloc(data_size);
 }
 
 /* TO BE DEPRECATED */
