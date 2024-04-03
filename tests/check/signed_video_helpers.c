@@ -226,7 +226,7 @@ get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_
       memcpy(private_key_rsa, private_key, private_key_size);
       private_key_size_rsa = private_key_size;
     }
-    rc = signed_video_set_private_key(sv, algo, private_key_rsa, private_key_size_rsa);
+    rc = signed_video_set_private_key_new(sv, private_key_rsa, private_key_size_rsa);
     ck_assert_int_eq(rc, SV_OK);
   }
   if (algo == SIGN_ALGO_ECDSA) {
@@ -238,7 +238,7 @@ get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_
       memcpy(private_key_ecdsa, private_key, private_key_size);
       private_key_size_ecdsa = private_key_size;
     }
-    rc = signed_video_set_private_key(sv, algo, private_key_ecdsa, private_key_size_ecdsa);
+    rc = signed_video_set_private_key_new(sv, private_key_ecdsa, private_key_size_ecdsa);
     ck_assert_int_eq(rc, SV_OK);
   }
 

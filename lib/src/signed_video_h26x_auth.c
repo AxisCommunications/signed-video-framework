@@ -31,7 +31,6 @@
 #include "signed_video_h26x_internal.h"  // gop_state_*(), update_gop_hash(), update_validation_flags()
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_append()
 #include "signed_video_internal.h"  // gop_info_t, gop_state_t, reset_gop_hash()
-#include "signed_video_openssl_internal.h"  // openssl_get_algo_of_public_key()
 #include "signed_video_tlv.h"  // tlv_find_tag()
 
 static svi_rc
@@ -1080,10 +1079,8 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
   if (self->signature_info->public_key) return SV_NOT_SUPPORTED;
   if (self->authentication_started) return SV_NOT_SUPPORTED;
 
-  sign_algo_t *algo = &(self->signature_info->algo);
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    SVI_THROW(openssl_get_algo_of_public_key(public_key, public_key_size, algo));
     // Allocate memory and copy |public_key|.
     self->signature_info->public_key = malloc(public_key_size);
     SVI_THROW_IF(!self->signature_info->public_key, SVI_MEMORY);

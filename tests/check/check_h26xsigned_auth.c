@@ -1727,7 +1727,7 @@ START_TEST(vendor_axis_communications_operation)
   // Read and set content of private_key.
   sv_rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_private_key(sv, algo, private_key, private_key_size);
+  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Check setting attestation report.
@@ -1817,7 +1817,7 @@ generate_and_set_private_key_on_camera_side(struct sv_setting setting,
   // Read and set content of private_key.
   sv_rc = signed_video_generate_private_key(setting.algo, "./", &private_key, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_private_key(sv, setting.algo, private_key, private_key_size);
+  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   sv_rc = signed_video_add_public_key_to_sei(sv, add_public_key_to_sei);
@@ -2070,7 +2070,7 @@ START_TEST(no_emulation_prevention_bytes)
   ck_assert(sv);
 
   // Apply settings to session.
-  sv_rc = signed_video_set_private_key(sv, settings[_i].algo, private_key, private_key_size);
+  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
   ck_assert_int_eq(sv_rc, SV_OK);

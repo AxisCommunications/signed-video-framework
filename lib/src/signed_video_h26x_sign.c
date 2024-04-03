@@ -208,7 +208,6 @@ static svi_rc
 generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_signature_ptr)
 {
   signature_info_t *signature_info = self->signature_info;
-  sign_algo_t algo = signature_info->algo;
 
   // Metadata + hash_list forming a document.
   const sv_tlv_tag_t document_encoders[] = {
@@ -246,25 +245,9 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    // Create new local signature.
     if (!signature_info->signature) {
-      // Check and set algo and digest length.
-      // TODO: Replace these hard-coded variables. We should add an interface to get this size.
-      size_t max_signature_size = 0;
-      if (algo == SIGN_ALGO_RSA) {
-        max_signature_size = 256;
-      } else if (algo == SIGN_ALGO_ECDSA) {
-        max_signature_size = 72;
-      } else {
-        DEBUG_LOG("Algo %d is not supported", algo);
-        SVI_THROW(SVI_NOT_SUPPORTED);
-      }
-
-      signature_info->signature_size = 0;
-      signature_info->max_signature_size = 0;
-      signature_info->signature = malloc(max_signature_size);
-      SVI_THROW_IF(!signature_info->signature, SVI_MEMORY);
-      signature_info->max_signature_size = max_signature_size;
+      // Allocate enough memory for the signature.
+      SVI_THROW(sv_rc_to_svi_rc(openssl_signature_malloc(signature_info)));
     }
 
     // Get the total payload size of all TLVs. Then compute the total size of the SEI NALU to be
@@ -719,8 +702,7 @@ signed_video_set_product_info(signed_video_t *self,
 }
 
 SignedVideoReturnCode
-signed_video_set_private_key(signed_video_t *self,
-    sign_algo_t algo,
+signed_video_set_private_key_new(signed_video_t *self,
     const char *private_key,
     size_t private_key_size)
 {
@@ -729,9 +711,6 @@ signed_video_set_private_key(signed_video_t *self,
   uint8_t *new_private_key = NULL;
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    SVI_THROW_IF_WITH_MSG(
-        algo < 0 || algo >= SIGN_ALGO_NUM, SVI_NOT_SUPPORTED, "Algo is not supported");
-
     // Make sure we have allocated enough memory.
     if (self->signature_info->private_key_size != private_key_size) {
       new_private_key = realloc(self->signature_info->private_key, private_key_size);
@@ -741,7 +720,6 @@ signed_video_set_private_key(signed_video_t *self,
     SVI_THROW_IF(!self->signature_info->private_key, SVI_MEMORY);
     memcpy(self->signature_info->private_key, private_key, private_key_size);
 
-    self->signature_info->algo = algo;
     self->signature_info->private_key_size = private_key_size;
 
     SVI_THROW(sv_rc_to_svi_rc(openssl_read_pubkey_from_private_key(self->signature_info)));
@@ -758,6 +736,17 @@ signed_video_set_private_key(signed_video_t *self,
   SVI_DONE(status)
 
   return svi_rc_to_signed_video_rc(status);
+}
+
+/* TO BE DEPRECATED */
+SignedVideoReturnCode
+signed_video_set_private_key(signed_video_t *self,
+    sign_algo_t algo,
+    const char *private_key,
+    size_t private_key_size)
+{
+  if (algo < 0 || algo >= SIGN_ALGO_NUM) return SV_NOT_SUPPORTED;
+  return signed_video_set_private_key_new(self, private_key, private_key_size);
 }
 
 SignedVideoReturnCode

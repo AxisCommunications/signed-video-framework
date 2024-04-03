@@ -216,7 +216,7 @@ openssl_verify_hash(const signature_info_t *signature_info, int *verified_result
     ctx = EVP_PKEY_CTX_new(verify_key, NULL /* No engine */);
     SVI_THROW_IF(!ctx, SVI_EXTERNAL_FAILURE);
     SVI_THROW_IF(EVP_PKEY_verify_init(ctx) <= 0, SVI_EXTERNAL_FAILURE);
-    if (signature_info->algo == SIGN_ALGO_RSA) {
+    if (EVP_PKEY_base_id(verify_key) == EVP_PKEY_RSA) {
       SVI_THROW_IF(EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0, SVI_EXTERNAL_FAILURE);
     }
     SVI_THROW_IF(EVP_PKEY_CTX_set_signature_md(ctx, EVP_sha256()) <= 0, SVI_EXTERNAL_FAILURE);
