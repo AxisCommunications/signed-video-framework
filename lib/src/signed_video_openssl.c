@@ -90,33 +90,46 @@ openssl_create_private_key(sign_algo_t algo, const char *path_to_key, key_paths_
 #define PRIVATE_RSA_KEY_FILE "private_rsa_key.pem"
 #define PRIVATE_ECDSA_KEY_FILE "private_ecdsa_key.pem"
 
-/* Allocates enough memory for the signature when using the |private_key| in |signature_info|. */
+/* Frees an EVP_PKEY object. */
+void
+openssl_free_key(void *pkey)
+{
+  EVP_PKEY_free((EVP_PKEY *)pkey);
+}
+
+/* Reads the |private_key| which is expected to be on PEM form and creates an EVP_PKEY
+ * object out of it and sets it in |signature_info|. Further, enough memory for the signature
+ * is allocated. */
 SignedVideoReturnCode
-openssl_signature_malloc(signature_info_t *signature_info)
+openssl_private_key_malloc(signature_info_t *signature_info,
+    const char *private_key,
+    size_t private_key_size)
 {
   // Sanity check input
-  if (!signature_info) return SV_INVALID_PARAMETER;
+  if (!signature_info || !private_key || private_key_size == 0) return SV_INVALID_PARAMETER;
 
-  const void *private_key = signature_info->private_key;
-  int private_key_size = (int)signature_info->private_key_size;
+  EVP_PKEY *signing_key = NULL;
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    SVI_THROW_IF(!private_key || private_key_size == 0, SV_INVALID_PARAMETER);
+    SVI_THROW_IF(!private_key, SVI_INVALID_PARAMETER);
 
     // Read private key
     BIO *bp = BIO_new_mem_buf(private_key, private_key_size);
-    EVP_PKEY *signing_key = PEM_read_bio_PrivateKey(bp, NULL, NULL, NULL);
+    signing_key = PEM_read_bio_PrivateKey(bp, NULL, NULL, NULL);
     BIO_free(bp);
     SVI_THROW_IF(!signing_key, SVI_EXTERNAL_FAILURE);
 
     // Read the maximum size of the signature that the |private_key| can generate
     size_t max_signature_size = EVP_PKEY_size(signing_key);
-    EVP_PKEY_free(signing_key);
     SVI_THROW_IF(max_signature_size == 0, SVI_EXTERNAL_FAILURE);
     signature_info->signature = malloc(max_signature_size);
     SVI_THROW_IF(!signature_info->signature, SVI_MEMORY);
     signature_info->max_signature_size = max_signature_size;
+    signature_info->private_key = signing_key;
   SVI_CATCH()
+  {
+    EVP_PKEY_free(signing_key);
+  }
   SVI_DONE(status)
 
   return svi_rc_to_signed_video_rc(status);
@@ -135,22 +148,13 @@ openssl_sign_hash(signature_info_t *signature_info)
   if (!signature || max_signature_size == 0) return SV_INVALID_PARAMETER;
 
   EVP_PKEY_CTX *ctx = NULL;
-  EVP_PKEY *signing_key = NULL;
+  EVP_PKEY *signing_key = (EVP_PKEY *)signature_info->private_key;
   size_t siglen = 0;
   const uint8_t *hash_to_sign = signature_info->hash;
 
-  const void *private_key = signature_info->private_key;
-  int private_key_size = (int)signature_info->private_key_size;
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    SVI_THROW_IF(!private_key || private_key_size == 0, SVI_NOT_SUPPORTED);
-
-    // Read private key, let it allocate signing_key
-    BIO *bp = BIO_new_mem_buf(private_key, private_key_size);
-    signing_key = PEM_read_bio_PrivateKey(bp, NULL, NULL, NULL);
-    BIO_free(bp);
-
-    SVI_THROW_IF(!signing_key, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!signing_key, SVI_NOT_SUPPORTED);
     ctx = EVP_PKEY_CTX_new(signing_key, NULL /* no engine */);
     SVI_THROW_IF(!ctx, SVI_EXTERNAL_FAILURE);
     // Initialize key
@@ -175,7 +179,6 @@ openssl_sign_hash(signature_info_t *signature_info)
   SVI_CATCH()
   SVI_DONE(status)
 
-  EVP_PKEY_free(signing_key);
   EVP_PKEY_CTX_free(ctx);
 
   return svi_rc_to_signed_video_rc(status);
@@ -597,25 +600,16 @@ openssl_read_pubkey_from_private_key(signature_info_t *signature_info)
 {
   EVP_PKEY *pkey = NULL;
   BIO *pub_bio = NULL;
-  const void *private_key = NULL;
-  int private_key_size = 0;
   char *public_key = NULL;
   long public_key_size = 0;
 
   if (!signature_info) return SV_INVALID_PARAMETER;
 
-  private_key = signature_info->private_key;
-  private_key_size = (int)signature_info->private_key_size;
-  if (!private_key || private_key_size == 0) return SV_INVALID_PARAMETER;
-
-  // Read private key, let it allocate signing_key.
-  BIO *bp = BIO_new_mem_buf(private_key, private_key_size);
-  pkey = PEM_read_bio_PrivateKey(bp, NULL, NULL, NULL);
-  BIO_free(bp);
+  pkey = (EVP_PKEY *)signature_info->private_key;
+  if (!pkey) return SV_INVALID_PARAMETER;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
     // Write public key to BIO.
     pub_bio = BIO_new(BIO_s_mem());
     SVI_THROW_IF(!pub_bio, SVI_EXTERNAL_FAILURE);
@@ -633,7 +627,6 @@ openssl_read_pubkey_from_private_key(signature_info_t *signature_info)
   SVI_DONE(status)
 
   BIO_free(pub_bio);
-  EVP_PKEY_free(pkey);
 
   // Transfer ownership to |signature_info|.
   free(signature_info->public_key);

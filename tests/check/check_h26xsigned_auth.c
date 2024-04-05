@@ -1950,6 +1950,8 @@ START_TEST(test_public_key_scenarios)
     nalu_list_item_t *sei = NULL;
     signed_video_t *sv_camera = NULL;
     sign_algo_t algo = settings[_i].algo;
+    char *tmp_private_key = NULL;
+    size_t tmp_private_key_size = 0;
 
     sv_camera =
         generate_and_set_private_key_on_camera_side(settings[_i], pk_tests[j].pk_in_sei, &sei);
@@ -1960,8 +1962,9 @@ START_TEST(test_public_key_scenarios)
     signature_info_t sign_info_wrong_key = {0};
     // Generate a new private key in order to extract a bad private key (a key not compatible with
     // the one generated on the camera side)
-    signed_video_generate_private_key(algo, "./", (char **)&sign_info_wrong_key.private_key,
-        &sign_info_wrong_key.private_key_size);
+    signed_video_generate_private_key(algo, NULL, &tmp_private_key, &tmp_private_key_size);
+    sv_rc = openssl_private_key_malloc(&sign_info_wrong_key, tmp_private_key, tmp_private_key_size);
+    ck_assert_int_eq(sv_rc, SV_OK);
     openssl_read_pubkey_from_private_key(&sign_info_wrong_key);
 
     signature_info_t *sign_info = sv_camera->signature_info;
@@ -1980,7 +1983,9 @@ START_TEST(test_public_key_scenarios)
 
     signed_video_free(sv_camera);
     signed_video_free(sv_vms);
-    free(sign_info_wrong_key.private_key);
+    free(tmp_private_key);
+    openssl_free_key(sign_info_wrong_key.private_key);
+    free(sign_info_wrong_key.signature);
     free(sign_info_wrong_key.public_key);
     nalu_list_free_item(sei);
   }
@@ -1999,6 +2004,8 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
   nalu_list_item_t *sei = NULL;
   signed_video_t *sv_camera = NULL;
+  char *tmp_private_key = NULL;
+  size_t tmp_private_key_size = 0;
 
   // On camera side
   sv_camera = generate_and_set_private_key_on_camera_side(settings[_i], false, &sei);
@@ -2009,8 +2016,9 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   // Generate a new private key in order to extract a bad private key (a key not compatible with the
   // one generated on the camera side)
   signature_info_t sign_info = {0};
-  signed_video_generate_private_key(
-      algo, "./", (char **)&sign_info.private_key, &sign_info.private_key_size);
+  signed_video_generate_private_key(algo, NULL, &tmp_private_key, &tmp_private_key_size);
+  sv_rc = openssl_private_key_malloc(&sign_info, tmp_private_key, tmp_private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
   openssl_read_pubkey_from_private_key(&sign_info);
   // Set public key
   sv_rc = signed_video_set_public_key(sv_vms, sign_info.public_key, sign_info.public_key_size);
@@ -2037,7 +2045,9 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   nalu_list_free_item(i_nalu);
   signed_video_free(sv_vms);
   signed_video_free(sv_camera);
-  free(sign_info.private_key);
+  free(tmp_private_key);
+  openssl_free_key(sign_info.private_key);
+  free(sign_info.signature);
   free(sign_info.public_key);
 }
 END_TEST

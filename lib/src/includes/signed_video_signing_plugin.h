@@ -120,6 +120,9 @@ sv_signing_plugin_session_teardown(void *handle);
  */
 int
 sv_signing_plugin_init(void *user_data);
+/* Temporary function for backwards compatibility while re-interpreting |user_data|. */
+int
+sv_signing_plugin_init_new(void *user_data);
 
 /**
  * @brief Plugin termination
