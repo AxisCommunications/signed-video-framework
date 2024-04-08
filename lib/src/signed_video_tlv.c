@@ -554,13 +554,13 @@ decode_arbitrary_data(signed_video_t *self, const uint8_t *data, size_t data_siz
 static size_t
 encode_public_key(signed_video_t *self, uint8_t *data)
 {
-  signature_info_t *signature_info = self->signature_info;
+  pem_pkey_t *pem_public_key = &self->pem_public_key;
   size_t data_size = 0;
   const uint8_t version = 2;
 
-  // If there is no |public_key| present, or if it should not be added to the SEI, skip encoding,
+  // If there is no |pkey| present, or if it should not be added to the SEI, skip encoding,
   // that is, return 0.
-  if (!signature_info->public_key || !self->add_public_key_to_sei) return 0;
+  if (!pem_public_key->pkey || !self->add_public_key_to_sei) return 0;
 
   // Version 1:
   //  - version (1 byte)
@@ -572,21 +572,20 @@ encode_public_key(signed_video_t *self, uint8_t *data)
   data_size += sizeof(version);
 
   // Size of pubkey
-  data_size += signature_info->public_key_size;
+  data_size += pem_public_key->pkey_size;
 
   if (!data) return data_size;
 
   uint8_t *data_ptr = data;
   uint16_t *last_two_bytes = &self->last_two_bytes;
   bool epb = self->sei_epb;
-  uint8_t *public_key = signature_info->public_key;
+  uint8_t *public_key = (uint8_t *)pem_public_key->pkey;
 
-  // Fill Camera Info data
   // Version
   write_byte(last_two_bytes, &data_ptr, version, epb);
 
-  // public_key; public_key_size (451) bytes
-  for (size_t ii = 0; ii < signature_info->public_key_size; ++ii) {
+  // public_key; public_key_size bytes
+  for (size_t ii = 0; ii < pem_public_key->pkey_size; ++ii) {
     write_byte(last_two_bytes, &data_ptr, public_key[ii], epb);
   }
 
@@ -601,7 +600,7 @@ static svi_rc
 decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
   const uint8_t *data_ptr = data;
-  signature_info_t *signature_info = self->signature_info;
+  pem_pkey_t *pem_public_key = &self->pem_public_key;
   uint8_t version = *data_ptr++;
   uint16_t pubkey_size = (uint16_t)(data_size - 1);  // We only store version and the key.
 
@@ -615,17 +614,26 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
-    SVI_THROW_IF(pubkey_size == 0, SVI_OK);
+    SVI_THROW_IF(pubkey_size == 0, SVI_DECODING_ERROR);
 
-    SVI_THROW(sv_rc_to_svi_rc(openssl_key_memory_allocated(
-        &signature_info->public_key, &signature_info->public_key_size, pubkey_size)));
+    if (pem_public_key->pkey_size != pubkey_size) {
+      free(pem_public_key->pkey);
+      pem_public_key->pkey = calloc(1, pubkey_size);
+      SVI_THROW_IF(!pem_public_key->pkey, SVI_MEMORY);
+      pem_public_key->pkey_size = pubkey_size;
+    }
 
-    if (self->has_public_key && memcmp(data_ptr, signature_info->public_key, pubkey_size)) {
+    int key_diff = memcmp(data_ptr, pem_public_key->pkey, pubkey_size);
+    if (self->has_public_key && key_diff) {
       self->latest_validation->public_key_has_changed = true;
     }
-    memcpy(signature_info->public_key, data_ptr, pubkey_size);
+    memcpy(pem_public_key->pkey, data_ptr, pubkey_size);
     self->has_public_key = true;
     data_ptr += pubkey_size;
+
+    // Convert to EVP_PKEY
+    SVI_THROW(
+        sv_rc_to_svi_rc(openssl_public_key_malloc(self->signature_info, &self->pem_public_key)));
 
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // If "Axis Communications AB" can be identified from the |product_info|, set |public_key| to
@@ -633,8 +641,8 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     if (self->product_info->manufacturer &&
         strcmp(self->product_info->manufacturer, "Axis Communications AB") == 0) {
       // Set public key.
-      SVI_THROW(set_axis_communications_public_key(self->vendor_handle, signature_info->public_key,
-          signature_info->public_key_size, self->latest_validation->public_key_has_changed));
+      SVI_THROW(set_axis_communications_public_key(self->vendor_handle,
+          self->signature_info->public_key, self->latest_validation->public_key_has_changed));
     }
 #endif
 

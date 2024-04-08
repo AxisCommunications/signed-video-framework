@@ -56,6 +56,7 @@ typedef struct _signature_info_t {
   // Internally used as EVP_PKEY.
   size_t private_key_size;  // The size of the |private_key| if pem file format.
   void *public_key;  // The public key used for validation in a pem file format.
+  // Internally used as EVP_PKEY.
   size_t public_key_size;  // The size of the |public_key|.
   uint8_t *signature;  // The signature of the |hash|.
   size_t signature_size;  // The size of the |signature|.
@@ -178,18 +179,19 @@ openssl_verify_hash(const signature_info_t *signature_info, int *verified_result
 /**
  * @brief Reads the public key from the private key
  *
- * This function extracts the public key from the |private_key| and writes it to |public_key|. The
+ * This function extracts the public key from the |private_key| and writes it to |pem_pkey|. The
  * |private_key| is assumed to be on EVP_PKEY form.
  *
- * @param signature_info A pointer to the object holding all information of the keys.
+ * @param signature_info A pointer to the object holding the |private_key|.
+ * @param pem_pkey A pointer to the object where the public key, on PEM format, will be written.
  *
- * @returns SV_OK Successfully written |public_key| to |signature_info|,
+ * @returns SV_OK Successfully written |pkey| to |pem_pkey|,
  *          SV_INVALID_PARAMETER Errors in |signature_info|, or no private key present,
- *          SV_MEMORY Could not allocate memory for |public_key|,
+ *          SV_MEMORY Could not allocate memory for |pkey|,
  *          SV_EXTERNAL_ERROR Failure in OpenSSL.
  */
 SignedVideoReturnCode
-openssl_read_pubkey_from_private_key(signature_info_t *signature_info);
+openssl_read_pubkey_from_private_key(signature_info_t *signature_info, pem_pkey_t *pem_pkey);
 
 /**
  * @brief Signs a hash
@@ -214,6 +216,7 @@ openssl_sign_hash(signature_info_t *signature_info);
  * and allocates memory for a signature
  *
  * The function allocates enough memory for a signature given the |private_key|.
+ * Use openssl_free_key() to free the key.
  *
  * @param signature_info A pointer to the struct that holds all necessary information for signing.
  * @param private_key The content of the private key PEM file.
@@ -228,6 +231,23 @@ SignedVideoReturnCode
 openssl_private_key_malloc(signature_info_t *signature_info,
     const char *private_key,
     size_t private_key_size);
+
+/**
+ * @brief Turns a public key on PEM form to EVP_PKEY form
+ *
+ * The function takes the public key as a pem_pkey_t and stores it as |public_key| in
+ * |signature_info| on the EVP_PKEY form.
+ * Use openssl_free_key() to free the key.
+ *
+ * @param signature_info A pointer to the struct that holds all necessary information for signing.
+ * @param pem_public_key A pointer to the PEM format struct.
+ *
+ * @returns SV_OK Successfully stored |public_key|,
+ *          SV_INVALID_PARAMETER Missing inputs,
+ *          SV_EXTERNAL_ERROR Failure in OpenSSL.
+ */
+SignedVideoReturnCode
+openssl_public_key_malloc(signature_info_t *signature_info, pem_pkey_t *pem_public_key);
 
 /**
  * @brief Frees the memory of a private/public key

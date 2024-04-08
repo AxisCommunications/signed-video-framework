@@ -133,6 +133,35 @@ openssl_private_key_malloc(signature_info_t *signature_info,
   return svi_rc_to_signed_video_rc(status);
 }
 
+/* Reads the |pem_public_key| which is expected to be on PEM form and creates an EVP_PKEY
+ * object out of it and sets it in |signature_info|. */
+SignedVideoReturnCode
+openssl_public_key_malloc(signature_info_t *signature_info, pem_pkey_t *pem_public_key)
+{
+  // Sanity check input
+  if (!signature_info || !pem_public_key) return SV_INVALID_PARAMETER;
+
+  EVP_PKEY *verify_key = NULL;
+  const void *buf = pem_public_key->pkey;
+  int buf_size = (int)(pem_public_key->pkey_size);
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    // Read public key
+    SVI_THROW_IF(!buf, SVI_INVALID_PARAMETER);
+    SVI_THROW_IF(buf_size == 0, SVI_INVALID_PARAMETER);
+
+    BIO *bp = BIO_new_mem_buf(buf, buf_size);
+    verify_key = PEM_read_bio_PUBKEY(bp, NULL, NULL, NULL);
+    BIO_free(bp);
+
+    SVI_THROW_IF(!verify_key, SVI_EXTERNAL_FAILURE);
+    signature_info->public_key = verify_key;
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  return svi_rc_to_signed_video_rc(status);
+}
+
 /* Signs a hash. */
 SignedVideoReturnCode
 openssl_sign_hash(signature_info_t *signature_info)
@@ -197,20 +226,10 @@ openssl_verify_hash(const signature_info_t *signature_info, int *verified_result
   if (!signature || (signature_size == 0) || !hash_to_verify) return SV_INVALID_PARAMETER;
 
   EVP_PKEY_CTX *ctx = NULL;
-  EVP_PKEY *verify_key = NULL;
-
-  const void *buf = signature_info->public_key;
-  int buf_size = (int)(signature_info->public_key_size);
+  EVP_PKEY *verify_key = (EVP_PKEY *)signature_info->public_key;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    SVI_THROW_IF(!buf, SVI_NULL_PTR);
-    SVI_THROW_IF(buf_size == 0, SVI_MEMORY);
-
-    BIO *bp = BIO_new_mem_buf(buf, buf_size);
-    verify_key = PEM_read_bio_PUBKEY(bp, NULL, NULL, NULL);
-    BIO_free(bp);
-
     SVI_THROW_IF(!verify_key, SVI_EXTERNAL_FAILURE);
 
     // Create EVP context
@@ -228,7 +247,6 @@ openssl_verify_hash(const signature_info_t *signature_info, int *verified_result
   SVI_CATCH()
   SVI_DONE(status)
 
-  EVP_PKEY_free(verify_key);
   EVP_PKEY_CTX_free(ctx);
 
   *verified_result = verified_hash;
@@ -594,7 +612,7 @@ openssl_key_memory_allocated(void **key, size_t *key_size, size_t new_key_size)
 
 /* Reads the public key from the private key. */
 SignedVideoReturnCode
-openssl_read_pubkey_from_private_key(signature_info_t *signature_info)
+openssl_read_pubkey_from_private_key(signature_info_t *signature_info, pem_pkey_t *pem_pkey)
 {
   EVP_PKEY *pkey = NULL;
   BIO *pub_bio = NULL;
@@ -626,10 +644,10 @@ openssl_read_pubkey_from_private_key(signature_info_t *signature_info)
 
   BIO_free(pub_bio);
 
-  // Transfer ownership to |signature_info|.
-  free(signature_info->public_key);
-  signature_info->public_key = public_key;
-  signature_info->public_key_size = public_key_size;
+  // Transfer ownership to |pem_pkey|.
+  free(pem_pkey->pkey);
+  pem_pkey->pkey = public_key;
+  pem_pkey->pkey_size = public_key_size;
 
   return svi_rc_to_signed_video_rc(status);
 }

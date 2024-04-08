@@ -99,8 +99,7 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
  * A reference to the |public_key| is stored, hence memory is not transferred.
  *
  * @param handle The handle to which the Public key is set.
- * @param public_key Pointer to the Public key data to set.
- * @param public_key_size Size of Public key data.
+ * @param public_key Pointer to the Public key data on EVP_PKEY form to set.
  * @param public_key_has_changed Flag to indicate if the Public key has changed.
  *
  * @returns An internal return code to catch potential errors.
@@ -108,7 +107,6 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
 svi_rc
 set_axis_communications_public_key(void *handle,
     void const *public_key,
-    size_t public_key_size,
     bool public_key_has_changed);
 
 /**

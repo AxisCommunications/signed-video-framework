@@ -200,7 +200,7 @@ signature_free(signature_info_t *self)
   if (!self) return;
 
   openssl_free_key(self->private_key);
-  free(self->public_key);
+  openssl_free_key(self->public_key);
   free(self->hash);
   free(self->signature);
   free(self);
@@ -1261,6 +1261,7 @@ signed_video_free(signed_video_t *self)
   product_info_free(self->product_info);
   gop_info_free(self->gop_info);
   signature_free(self->signature_info);
+  free(self->pem_public_key.pkey);
 
   free(self);
 }

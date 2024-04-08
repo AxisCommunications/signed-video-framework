@@ -115,9 +115,8 @@ typedef struct _sv_vendor_axis_communications_t {
   struct attestation_report attestation_report;
 
   // Public key to validate using |attestation| and |certificate_chain|
-  const void *public_key;  // A pointer to the public key used for validation. Assumed to be a PEM.
-  // Ownership is NOT transferred.
-  size_t public_key_size;  // The size of the |public_key|.
+  const void *public_key;  // A pointer to the public key used for validation. Assumed to be a
+  // EVP_PKEY struct. Ownership is NOT transferred.
 
   // Public key validation results
   sv_vendor_axis_supplemental_authenticity_t supplemental_authenticity;
@@ -373,7 +372,6 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
 {
   assert(self);
 
-  BIO *bio = NULL;
   EVP_PKEY *pkey = NULL;
   uint8_t *public_key_uncompressed = NULL;
   size_t public_key_uncompressed_size = 0;
@@ -385,14 +383,12 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
   SVI_TRY()
     // If no message digest context exists, the |public_key| cannot be validated.
     SVI_THROW_IF(!self->md_ctx, SVI_VENDOR);
-    SVI_THROW_IF(!self->public_key || self->public_key_size == 0, SVI_NOT_SUPPORTED);
+    SVI_THROW_IF(!self->public_key, SVI_NOT_SUPPORTED);
     // Convert |public_key| to uncompressed Weierstrass form which will be part of |signed_data|.
-    //   public_key -> BIO -> EVP_PKEY -> EC_KEY -> EC_KEY_key2buf
-    bio = BIO_new_mem_buf(self->public_key, (int)self->public_key_size);
-    SVI_THROW_IF(!bio, SVI_EXTERNAL_FAILURE);
-    pkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
+    pkey = (EVP_PKEY *)self->public_key;
     SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
+    //   public_key (EVP_PKEY) -> EC_KEY -> EC_KEY_key2buf
     const EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
     public_key_uncompressed_size =
         EC_KEY_key2buf(ec_key, POINT_CONVERSION_UNCOMPRESSED, &public_key_uncompressed, NULL);
@@ -476,8 +472,6 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
 
   free(signed_data);
   OPENSSL_free(public_key_uncompressed);
-  EVP_PKEY_free(pkey);
-  BIO_free(bio);
 
   return status;
 }
@@ -671,14 +665,12 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
 svi_rc
 set_axis_communications_public_key(void *handle,
     const void *public_key,
-    size_t public_key_size,
     bool public_key_has_changed)
 {
-  if (!handle || !public_key || public_key_size == 0) return SVI_INVALID_PARAMETER;
+  if (!handle || !public_key) return SVI_INVALID_PARAMETER;
 
   sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
-  EVP_PKEY *pkey = NULL;
-  BIO *bp = NULL;
+  EVP_PKEY *pkey = (EVP_PKEY *)public_key;
 
   // If the Public key previously has been validated unsuccessful, skip checking type and size.
   if (self->supplemental_authenticity.public_key_validation == 0) {
@@ -696,9 +688,6 @@ set_axis_communications_public_key(void *handle,
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     // Validate that the public key is of correct type and size.
-    bp = BIO_new_mem_buf(public_key, (int)public_key_size);
-    SVI_THROW_IF(!bp, SVI_EXTERNAL_FAILURE);
-    pkey = PEM_read_bio_PUBKEY(bp, NULL, NULL, NULL);
     SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
     // Ensure it is a NIST P-256 key with correct curve.
     if (EVP_PKEY_base_id(pkey) != EVP_PKEY_EC) {
@@ -721,17 +710,12 @@ set_axis_communications_public_key(void *handle,
 
     // The Public key is of correct type and size.
     self->public_key = public_key;
-    self->public_key_size = public_key_size;
   SVI_CATCH()
   {
     self->public_key = NULL;
-    self->public_key_size = 0;
     public_key_validation = 0;
   }
   SVI_DONE(status)
-
-  BIO_free(bp);
-  EVP_PKEY_free(pkey);
 
   self->supplemental_authenticity.public_key_validation = public_key_validation;
 
