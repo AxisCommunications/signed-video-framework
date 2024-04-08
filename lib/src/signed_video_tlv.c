@@ -809,7 +809,7 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
       signature_info->max_signature_size = 0;
       signature_info->signature_size = 0;
       // Allocate enough space for future signatures as well, that is, max_signature_size.
-      *signature_ptr = sv_interface_malloc(max_signature_size);
+      *signature_ptr = malloc(max_signature_size);
       SVI_THROW_IF(!*signature_ptr, SVI_MEMORY);
       // Set memory size.
       signature_info->max_signature_size = max_signature_size;

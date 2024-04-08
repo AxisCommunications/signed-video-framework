@@ -261,7 +261,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
       signature_info->signature_size = 0;
       signature_info->max_signature_size = 0;
-      signature_info->signature = sv_interface_malloc(max_signature_size);
+      signature_info->signature = malloc(max_signature_size);
       SVI_THROW_IF(!signature_info->signature, SVI_MEMORY);
       signature_info->max_signature_size = max_signature_size;
     }
