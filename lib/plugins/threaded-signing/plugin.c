@@ -27,7 +27,7 @@
  * for a new signature or if sv_signing_plugin_session_teardown() is called.
  *
  * If the plugin is initialized, sv_signing_plugin_init(), one single central thread is spawned.
- * Each Signed Video session will then get an id to distiguish between tehm since they use common
+ * Each Signed Video session will then get an id to distiguish between them since they use common
  * input and output buffers. The thread is stopped if |out| is full, if there was a failure in the
  * memory allocation for a new signature or if sv_signing_plugin_exit() is called.
  */
