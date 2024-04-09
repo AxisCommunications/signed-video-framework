@@ -90,13 +90,6 @@ openssl_create_private_key(sign_algo_t algo, const char *path_to_key, key_paths_
 #define PRIVATE_RSA_KEY_FILE "private_rsa_key.pem"
 #define PRIVATE_ECDSA_KEY_FILE "private_ecdsa_key.pem"
 
-/* Free the data allocated by OpenSSL. */
-void
-openssl_free(uint8_t *data)
-{
-  OPENSSL_free(data);
-}
-
 /* Allocates enough memory for the signature when using the |private_key| in |signature_info|. */
 SignedVideoReturnCode
 openssl_signature_malloc(signature_info_t *signature_info)

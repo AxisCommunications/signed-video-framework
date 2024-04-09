@@ -117,7 +117,7 @@ signature_info_free(signature_info_t *signature_info)
   if (!signature_info) return;
 
   free(signature_info->private_key);
-  if (signature_info->signature) openssl_free(signature_info->signature);
+  free(signature_info->signature);
   free(signature_info->hash);
   free(signature_info);
 }
@@ -890,7 +890,7 @@ sv_interface_malloc(size_t data_size)
 void
 sv_interface_free(uint8_t *data)
 {
-  openssl_free(data);
+  free(data);
 }
 
 /* This plugin initializer expects the |user_data| to be a signature_info_t struct. Only the
