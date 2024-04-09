@@ -42,7 +42,7 @@ extern "C" {
  */
 typedef enum { SIGN_ALGO_RSA = 0, SIGN_ALGO_ECDSA = 1, SIGN_ALGO_NUM } sign_algo_t;
 
-/* NOTE: This struct is under a process of refactoring. */
+/* NOTE: This struct is in a refactoring state, hence subject to changes. */
 /**
  * Struct for storing necessary information to generate and verify a signature
  *
@@ -53,11 +53,11 @@ typedef struct _signature_info_t {
   size_t hash_size;  // The size of the |hash|. For now with a fixed size of HASH_DIGEST_SIZE.
   sign_algo_t algo;  // The algorithm used to sign the |hash|. NOT USED ANYMORE
   void *private_key;  // The private key used for signing in a pem file format.
-  // Internally used as EVP_PKEY.
+  // Internally used as EVP_PKEY_CTX.
   size_t private_key_size;  // The size of the |private_key| if pem file format.
   void *public_key;  // The public key used for validation in a pem file format.
-  // Internally used as EVP_PKEY.
-  size_t public_key_size;  // The size of the |public_key|.
+  // Internally used as EVP_PKEY_CTX.
+  size_t public_key_size;  // The size of the |public_key| if pem file format.
   uint8_t *signature;  // The signature of the |hash|.
   size_t signature_size;  // The size of the |signature|.
   size_t max_signature_size;  // The allocated size of the |signature|.

@@ -94,7 +94,7 @@ openssl_create_private_key(sign_algo_t algo, const char *path_to_key, key_paths_
 void
 openssl_free_key(void *pkey)
 {
-  EVP_PKEY_free((EVP_PKEY *)pkey);
+  EVP_PKEY_CTX_free((EVP_PKEY_CTX *)pkey);
 }
 
 /* Reads the |private_key| which is expected to be on PEM form and creates an EVP_PKEY
@@ -108,6 +108,7 @@ openssl_private_key_malloc(signature_info_t *signature_info,
   // Sanity check input
   if (!signature_info || !private_key || private_key_size == 0) return SV_INVALID_PARAMETER;
 
+  EVP_PKEY_CTX *ctx = NULL;
   EVP_PKEY *signing_key = NULL;
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
@@ -122,13 +123,31 @@ openssl_private_key_malloc(signature_info_t *signature_info,
     SVI_THROW_IF(max_signature_size == 0, SVI_EXTERNAL_FAILURE);
     signature_info->signature = malloc(max_signature_size);
     SVI_THROW_IF(!signature_info->signature, SVI_MEMORY);
+    // Create a context from the |signing_key|
+    ctx = EVP_PKEY_CTX_new(signing_key, NULL /* no engine */);
+    SVI_THROW_IF(!ctx, SVI_EXTERNAL_FAILURE);
+    // Initialize key
+    SVI_THROW_IF(EVP_PKEY_sign_init(ctx) <= 0, SVI_EXTERNAL_FAILURE);
+
+    if (EVP_PKEY_base_id(signing_key) == EVP_PKEY_RSA) {
+      SVI_THROW_IF(EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0, SVI_EXTERNAL_FAILURE);
+    }
+    // Set message digest type to sha256
+    SVI_THROW_IF(EVP_PKEY_CTX_set_signature_md(ctx, EVP_sha256()) <= 0, SVI_EXTERNAL_FAILURE);
+
+    // Set the content in |signature_info|
     signature_info->max_signature_size = max_signature_size;
-    signature_info->private_key = signing_key;
+    signature_info->private_key = ctx;
   SVI_CATCH()
   {
-    EVP_PKEY_free(signing_key);
+    free(signature_info->signature);
+    signature_info->signature = NULL;
+    EVP_PKEY_CTX_free(ctx);
+    ctx = NULL;
   }
   SVI_DONE(status)
+
+  EVP_PKEY_free(signing_key);
 
   return svi_rc_to_signed_video_rc(status);
 }
@@ -141,7 +160,8 @@ openssl_public_key_malloc(signature_info_t *signature_info, pem_pkey_t *pem_publ
   // Sanity check input
   if (!signature_info || !pem_public_key) return SV_INVALID_PARAMETER;
 
-  EVP_PKEY *verify_key = NULL;
+  EVP_PKEY_CTX *ctx = NULL;
+  EVP_PKEY *verification_key = NULL;
   const void *buf = pem_public_key->pkey;
   int buf_size = (int)(pem_public_key->pkey_size);
   svi_rc status = SVI_UNKNOWN;
@@ -151,15 +171,31 @@ openssl_public_key_malloc(signature_info_t *signature_info, pem_pkey_t *pem_publ
     SVI_THROW_IF(buf_size == 0, SVI_INVALID_PARAMETER);
 
     BIO *bp = BIO_new_mem_buf(buf, buf_size);
-    verify_key = PEM_read_bio_PUBKEY(bp, NULL, NULL, NULL);
+    verification_key = PEM_read_bio_PUBKEY(bp, NULL, NULL, NULL);
     BIO_free(bp);
 
-    SVI_THROW_IF(!verify_key, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!verification_key, SVI_EXTERNAL_FAILURE);
+    // Create an EVP context
+    ctx = EVP_PKEY_CTX_new(verification_key, NULL /* No engine */);
+    SVI_THROW_IF(!ctx, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(EVP_PKEY_verify_init(ctx) <= 0, SVI_EXTERNAL_FAILURE);
+    if (EVP_PKEY_base_id(verification_key) == EVP_PKEY_RSA) {
+      SVI_THROW_IF(EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0, SVI_EXTERNAL_FAILURE);
+    }
+    SVI_THROW_IF(EVP_PKEY_CTX_set_signature_md(ctx, EVP_sha256()) <= 0, SVI_EXTERNAL_FAILURE);
+
     // Free any existing key
-    EVP_PKEY_free(signature_info->public_key);
-    signature_info->public_key = verify_key;
+    EVP_PKEY_CTX_free(signature_info->public_key);
+    // Set the content in |signature_info|
+    signature_info->public_key = ctx;
   SVI_CATCH()
+  {
+    EVP_PKEY_CTX_free(ctx);
+    ctx = NULL;
+  }
   SVI_DONE(status)
+
+  EVP_PKEY_free(verification_key);
 
   return svi_rc_to_signed_video_rc(status);
 }
@@ -176,25 +212,14 @@ openssl_sign_hash(signature_info_t *signature_info)
   // Return if no memory has been allocated for the signature.
   if (!signature || max_signature_size == 0) return SV_INVALID_PARAMETER;
 
-  EVP_PKEY_CTX *ctx = NULL;
-  EVP_PKEY *signing_key = (EVP_PKEY *)signature_info->private_key;
+  EVP_PKEY_CTX *ctx = (EVP_PKEY_CTX *)signature_info->private_key;
   size_t siglen = 0;
   const uint8_t *hash_to_sign = signature_info->hash;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    SVI_THROW_IF(!signing_key, SVI_NOT_SUPPORTED);
-    ctx = EVP_PKEY_CTX_new(signing_key, NULL /* no engine */);
-    SVI_THROW_IF(!ctx, SVI_EXTERNAL_FAILURE);
-    // Initialize key
-    SVI_THROW_IF(EVP_PKEY_sign_init(ctx) <= 0, SVI_EXTERNAL_FAILURE);
-
-    if (EVP_PKEY_base_id(signing_key) == EVP_PKEY_RSA) {
-      SVI_THROW_IF(EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0, SVI_EXTERNAL_FAILURE);
-    }
-    // Set message digest type to sha256
-    SVI_THROW_IF(EVP_PKEY_CTX_set_signature_md(ctx, EVP_sha256()) <= 0, SVI_EXTERNAL_FAILURE);
-    // Determine required buffer length
+    SVI_THROW_IF(!ctx, SVI_INVALID_PARAMETER);
+    // Determine required buffer length of the signature
     SVI_THROW_IF(EVP_PKEY_sign(ctx, NULL, &siglen, hash_to_sign, HASH_DIGEST_SIZE) <= 0,
         SVI_EXTERNAL_FAILURE);
     // Check allocated space for signature
@@ -207,8 +232,6 @@ openssl_sign_hash(signature_info_t *signature_info)
     signature_info->signature_size = siglen;
   SVI_CATCH()
   SVI_DONE(status)
-
-  EVP_PKEY_CTX_free(ctx);
 
   return svi_rc_to_signed_video_rc(status);
 }
@@ -227,29 +250,16 @@ openssl_verify_hash(const signature_info_t *signature_info, int *verified_result
 
   if (!signature || (signature_size == 0) || !hash_to_verify) return SV_INVALID_PARAMETER;
 
-  EVP_PKEY_CTX *ctx = NULL;
-  EVP_PKEY *verify_key = (EVP_PKEY *)signature_info->public_key;
+  EVP_PKEY_CTX *ctx = (EVP_PKEY_CTX *)signature_info->public_key;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    SVI_THROW_IF(!verify_key, SVI_EXTERNAL_FAILURE);
-
-    // Create EVP context
-    ctx = EVP_PKEY_CTX_new(verify_key, NULL /* No engine */);
-    SVI_THROW_IF(!ctx, SVI_EXTERNAL_FAILURE);
-    SVI_THROW_IF(EVP_PKEY_verify_init(ctx) <= 0, SVI_EXTERNAL_FAILURE);
-    if (EVP_PKEY_base_id(verify_key) == EVP_PKEY_RSA) {
-      SVI_THROW_IF(EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0, SVI_EXTERNAL_FAILURE);
-    }
-    SVI_THROW_IF(EVP_PKEY_CTX_set_signature_md(ctx, EVP_sha256()) <= 0, SVI_EXTERNAL_FAILURE);
-
+    SVI_THROW_IF(!ctx, SVI_INVALID_PARAMETER);
     // EVP_PKEY_verify returns 1 indicates success, 0 verify failure and < 0 for some other error.
     verified_hash =
         EVP_PKEY_verify(ctx, signature, signature_size, hash_to_verify, HASH_DIGEST_SIZE);
   SVI_CATCH()
   SVI_DONE(status)
-
-  EVP_PKEY_CTX_free(ctx);
 
   *verified_result = verified_hash;
 
@@ -616,6 +626,7 @@ openssl_key_memory_allocated(void **key, size_t *key_size, size_t new_key_size)
 SignedVideoReturnCode
 openssl_read_pubkey_from_private_key(signature_info_t *signature_info, pem_pkey_t *pem_pkey)
 {
+  EVP_PKEY_CTX *ctx = NULL;
   EVP_PKEY *pkey = NULL;
   BIO *pub_bio = NULL;
   char *public_key = NULL;
@@ -623,11 +634,13 @@ openssl_read_pubkey_from_private_key(signature_info_t *signature_info, pem_pkey_
 
   if (!signature_info) return SV_INVALID_PARAMETER;
 
-  pkey = (EVP_PKEY *)signature_info->private_key;
-  if (!pkey) return SV_INVALID_PARAMETER;
-
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
+    ctx = (EVP_PKEY_CTX *)signature_info->private_key;
+    SVI_THROW_IF(!ctx, SVI_INVALID_PARAMETER);
+    // Borrow the EVP_PKEY |pkey| from |ctx|.
+    pkey = EVP_PKEY_CTX_get0_pkey(ctx);
+    SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
     // Write public key to BIO.
     pub_bio = BIO_new(BIO_s_mem());
     SVI_THROW_IF(!pub_bio, SVI_EXTERNAL_FAILURE);
