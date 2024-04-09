@@ -22,8 +22,8 @@
 #ifndef __SIGNED_VIDEO_OPENSSL_INTERNAL_H__
 #define __SIGNED_VIDEO_OPENSSL_INTERNAL_H__
 
+#include "includes/signed_video_openssl.h"  // sign_algo_t
 #include "signed_video_defines.h"  // svi_rc
-#include "includes/signed_video_interfaces.h"  // sign_algo_t
 
 /* Extracts the algorithm from the public key */
 svi_rc

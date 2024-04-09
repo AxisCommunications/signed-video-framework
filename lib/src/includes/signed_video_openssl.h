@@ -26,11 +26,39 @@
 #include <string.h>  // size_t, strcmp, strlen, strcpy, strcat
 
 #include "signed_video_common.h"  // SignedVideoReturnCode
-#include "signed_video_interfaces.h"  // signature_info_t, sign_algo_t
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**
+ * @brief Signing algorithm
+ *
+ * The following signing algorithms are supported and has to be set when creating the signed video
+ * session on the signing side.
+ *
+ * NOTE: The algorithms are currently fixed to SHA-256, which needs to be addressed when
+ * implementing the interfaces.
+ */
+typedef enum { SIGN_ALGO_RSA = 0, SIGN_ALGO_ECDSA = 1, SIGN_ALGO_NUM } sign_algo_t;
+
+/**
+ * Struct for storing necessary information to generate a signature
+ *
+ * It is used by the signing plugins and also to validated the authenticity.
+ */
+typedef struct _signature_info_t {
+  uint8_t *hash;  // The hash to be signed, or to verify the signature.
+  size_t hash_size;  // The size of the |hash|. For now with a fixed size of HASH_DIGEST_SIZE.
+  sign_algo_t algo;  // The algorithm used to sign the |hash|.
+  void *private_key;  // The private key used for signing in a pem file format.
+  size_t private_key_size;  // The size of the |private_key|.
+  void *public_key;  // The public key used for validation in a pem file format.
+  size_t public_key_size;  // The size of the |public_key|.
+  uint8_t *signature;  // The signature of the |hash|.
+  size_t signature_size;  // The size of the |signature|.
+  size_t max_signature_size;  // The allocated size of the |signature|.
+} signature_info_t;
 
 /**
  * @brief Create cryptographic handle
@@ -124,7 +152,7 @@ openssl_finalize_hash(void *handle, uint8_t *hash);
  * @brief Verifies a signature against a hash
  *
  * The |hash| is verified against the |signature| using the |public_key|, all located in the input
- * parameter |signature_info|. For information on signature_info_t see signed_video_interfaces.h.
+ * parameter |signature_info|.
  *
  * @param signature_info Pointer to the signature_info_t object in use.
  * @param verified_result Poiniter to the place where the verification result is written. The
@@ -157,8 +185,7 @@ openssl_read_pubkey_from_private_key(signature_info_t *signature_info);
  * @brief Signs a hash
  *
  * The function generates a signature of the |hash| in |singature_info| and stores the result in
- * |signature| of |signature_info|. For more information on signature_info_t see
- * signed_video_interfaces.h.
+ * |signature| of |signature_info|.
  *
  * @param signature_info A pointer to the struct that holds all necessary information for signing.
  *

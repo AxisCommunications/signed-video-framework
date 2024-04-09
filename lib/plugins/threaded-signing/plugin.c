@@ -24,12 +24,12 @@
  * thread, when there is a new hash to sign. To handle several signatures at the same time, the
  * plugin has two buffers. One for incomming hashes and another for outgoing signatures.
  * The thread is stopped if |out| is full, if there was a failure in the memory allocation
- * for a new signature or if sv_interface_teardown() is called.
+ * for a new signature or if sv_signing_plugin_session_teardown() is called.
  *
- * If the plugin is initialized, sv_interface_init(), one single central thread is spawned. Each
- * Signed Video session will then get an id to distiguish between tehm since they use common input
- * and output buffers. The thread is stopped if |out| is full, if there was a failure in
- * the memory allocation for a new signature or if sv_interface_exit() is called.
+ * If the plugin is initialized, sv_signing_plugin_init(), one single central thread is spawned.
+ * Each Signed Video session will then get an id to distiguish between them since they use common
+ * input and output buffers. The thread is stopped if |out| is full, if there was a failure in the
+ * memory allocation for a new signature or if sv_signing_plugin_exit() is called.
  */
 
 #include <assert.h>
@@ -37,8 +37,8 @@
 #include <stdlib.h>  // calloc, malloc, free
 #include <string.h>  // memcpy
 
-#include "includes/signed_video_interfaces.h"
 #include "includes/signed_video_openssl.h"
+#include "includes/signed_video_signing_plugin.h"
 
 // This means that the signing plugin can handle a blocked signing hardware up to, for example, 60
 // seconds if the GOP length is 1 second
@@ -745,7 +745,7 @@ done:
 }
 
 /**
- * Definitions of declared interfaces. For declarations see signed_video_interfaces.h.
+ * Definitions of declared interfaces. For declarations see signed_video_signing_plugin.h.
  */
 
 SignedVideoReturnCode
@@ -759,27 +759,6 @@ sv_signing_plugin_sign(void *handle, const uint8_t *hash, size_t hash_size)
     return sign_hash(self->local, 0, hash, hash_size);
   } else if (self->central) {
     return sign_hash(&central, self->central->id, hash, hash_size);
-  } else {
-    return SV_NOT_SUPPORTED;
-  }
-}
-
-/* TO BE DEPRECATED */
-SignedVideoReturnCode
-sv_interface_sign_hash(void *plugin_handle, signature_info_t *signature_info)
-{
-  sv_threaded_plugin_t *self = (sv_threaded_plugin_t *)plugin_handle;
-
-  if (!self || !signature_info) return SV_INVALID_PARAMETER;
-
-  if (self->local) {
-    // If this is the first signing call, copy |private_key| etc. from the input.
-    if (!self->local->signature_info) {
-      self->local->signature_info = signature_info_create(signature_info);
-    }
-    return sign_hash(self->local, 0, signature_info->hash, signature_info->hash_size);
-  } else if (self->central) {
-    return sign_hash(&central, self->central->id, signature_info->hash, signature_info->hash_size);
   } else {
     return SV_NOT_SUPPORTED;
   }
@@ -808,18 +787,6 @@ sv_signing_plugin_get_signature(void *handle,
   }
 }
 
-/* TO BE DEPRECATED */
-bool
-sv_interface_get_signature(void *plugin_handle,
-    uint8_t *signature,
-    size_t max_signature_size,
-    size_t *written_signature_size,
-    SignedVideoReturnCode *error)
-{
-  return sv_signing_plugin_get_signature(
-      plugin_handle, signature, max_signature_size, written_signature_size, error);
-}
-
 void *
 sv_signing_plugin_session_setup(const void *private_key, size_t private_key_size)
 {
@@ -846,13 +813,6 @@ catch_error:
   return NULL;
 }
 
-/* TO BE DEPRECATED */
-void *
-sv_interface_setup()
-{
-  return sv_signing_plugin_session_setup(NULL, 0);
-}
-
 void
 sv_signing_plugin_session_teardown(void *handle)
 {
@@ -870,27 +830,6 @@ sv_signing_plugin_session_teardown(void *handle)
     self->central = NULL;
   }
   free(self);
-}
-
-/* TO BE DEPRECATED */
-void
-sv_interface_teardown(void *plugin_handle)
-{
-  sv_signing_plugin_session_teardown(plugin_handle);
-}
-
-/* TO BE DEPRECATED */
-uint8_t *
-sv_interface_malloc(size_t data_size)
-{
-  return malloc(data_size);
-}
-
-/* TO BE DEPRECATED */
-void
-sv_interface_free(uint8_t *data)
-{
-  free(data);
 }
 
 /* This plugin initializer expects the |user_data| to be a signature_info_t struct. Only the

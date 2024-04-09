@@ -20,10 +20,10 @@ signing plugin, hence should preferably be built with the unthreaded one.
 
 ## Threaded plugin
 The threaded plugin calls the OpenSSL signing APIs from a separate thread. If the plugin is
-initialized using `sv_interface_init(user_data)` a central thread is spawned. The `user_data` is
-a `signature_info_t` struct (See
-[signed_video_interfaces.h](../src/includes/signed_video_interfaces.h)) and should include the
-signing key to use. If the user runs multiple sessions they share the same input and output buffers.
+initialized using `sv_signing_plugin_init(user_data)` a central thread is spawned. The `user_data`
+is a `signature_info_t` struct (See
+[signed_video_openssl.h](../src/includes/signed_video_openssl.h)) and should include the signing key
+to use. If the user runs multiple sessions they share the same input and output buffers.
 If the plugin is not initialized signing is done from a local thread in each session. This can cause
 quite some threads if multiple streams are signed. The implementation requires glib-2.0.
 
@@ -36,8 +36,9 @@ plugin is the library default.
 ## Creating a plugin
 
 It is feasible to build your own signing plugin. The only requirement is to implement the
-interfaces declared in [signed_video_interfaces.h](../src/includes/signed_video_interfaces.h). For
-an example, see [unthreaded-signing/plugin.c](./unthreaded-signing/plugin.c) or
+interfaces declared in
+[signed_video_signing_plugin.h](../src/includes/signed_video_signing_plugin.h). For an example, see
+[unthreaded-signing/plugin.c](./unthreaded-signing/plugin.c) or
 [threaded-signing/plugin.c](./threaded-signing/plugin.c).
 
 ## Loading a plugin

@@ -21,12 +21,12 @@
 
 /**
  * This signing plugin calls openssl_sign_hash() and stores the generated signature before return.
- * This signature is then copied to the user when sv_interface_get_signature().
+ * This signature is then copied to the user when sv_signing_plugin_get_signature().
  */
 #include <stdlib.h>  // calloc
 
-#include "includes/signed_video_interfaces.h"
 #include "includes/signed_video_openssl.h"
+#include "includes/signed_video_signing_plugin.h"
 
 #ifndef ATTR_UNUSED
 #if defined(_WIN32) || defined(_WIN64)
@@ -76,7 +76,7 @@ unthreaded_openssl_has_signature(sv_unthreaded_plugin_t *self)
 }
 
 /**
- * Definitions of declared interfaces according to signed_video_interfaces.h.
+ * Definitions of declared interfaces according to signed_video_signing_plugin.h.
  */
 
 SignedVideoReturnCode
@@ -86,28 +86,6 @@ sv_signing_plugin_sign(void *handle, const uint8_t *hash, size_t hash_size)
   if (!self || !hash || hash_size == 0) return SV_INVALID_PARAMETER;
 
   return unthreaded_openssl_sign_hash(self, hash, hash_size);
-}
-
-/* TO BE DEPRECATED */
-SignedVideoReturnCode
-sv_interface_sign_hash(void *plugin_handle, signature_info_t *signature_info)
-{
-  sv_unthreaded_plugin_t *self = (sv_unthreaded_plugin_t *)plugin_handle;
-  if (!self || !signature_info) return SV_INVALID_PARAMETER;
-  if (!signature_info->hash || signature_info->hash_size == 0) return SV_INVALID_PARAMETER;
-
-  // Copy |private_key| since the new behavior is to set it through
-  // sv_signing_plugin_session_setup().
-  if (!self->signature_info.private_key) {
-    self->signature_info.private_key = malloc(signature_info->private_key_size);
-    if (!self->signature_info.private_key) return SV_MEMORY;
-    memcpy(self->signature_info.private_key, signature_info->private_key,
-        signature_info->private_key_size);
-    self->signature_info.private_key_size = signature_info->private_key_size;
-  }
-
-  // Pass in the hash to sign using the new API.
-  return unthreaded_openssl_sign_hash(self, signature_info->hash, signature_info->hash_size);
 }
 
 /* The |signature| is copied from the local |signature_info| if the |signature_generated|
@@ -138,18 +116,6 @@ sv_signing_plugin_get_signature(void *handle,
   return has_signature;
 }
 
-/* TO BE DEPRECATED */
-bool
-sv_interface_get_signature(void *plugin_handle,
-    uint8_t *signature,
-    size_t max_signature_size,
-    size_t *written_signature_size,
-    SignedVideoReturnCode *error)
-{
-  return sv_signing_plugin_get_signature(
-      plugin_handle, signature, max_signature_size, written_signature_size, error);
-}
-
 void *
 sv_signing_plugin_session_setup(const void *private_key, size_t private_key_size)
 {
@@ -170,13 +136,6 @@ sv_signing_plugin_session_setup(const void *private_key, size_t private_key_size
   return self;
 }
 
-/* TO BE DEPRECATED */
-void *
-sv_interface_setup()
-{
-  return calloc(1, sizeof(sv_unthreaded_plugin_t));
-}
-
 void
 sv_signing_plugin_session_teardown(void *handle)
 {
@@ -186,25 +145,6 @@ sv_signing_plugin_session_teardown(void *handle)
   free(self->signature_info.private_key);
   free(self->signature_info.signature);
   free(self);
-}
-
-/* TO BE DEPRECATED */
-void
-sv_interface_teardown(void *plugin_handle)
-{
-  sv_signing_plugin_session_teardown(plugin_handle);
-}
-
-uint8_t *
-sv_interface_malloc(size_t data_size)
-{
-  return malloc(data_size);
-}
-
-void
-sv_interface_free(uint8_t *data)
-{
-  free(data);
 }
 
 int
