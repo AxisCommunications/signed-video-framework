@@ -29,12 +29,13 @@
 #include "axis-communications/sv_vendor_axis_communications_internal.h"
 #endif
 #include "includes/signed_video_common.h"
-#include "includes/signed_video_openssl.h"  // openssl_hash_data(), signature_info_t
+#include "includes/signed_video_openssl.h"  // pem_pkey_t, signature_info_t
 #include "includes/signed_video_signing_plugin.h"
 #include "signed_video_authenticity.h"  // latest_validation_init()
 #include "signed_video_h26x_internal.h"  // h26x_nalu_list_item_t
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_create()
 #include "signed_video_internal.h"  // gop_info_t, gop_state_t, HASH_DIGEST_SIZE
+#include "signed_video_openssl_internal.h"
 #include "signed_video_tlv.h"  // read_32bits()
 
 #define USER_DATA_UNREGISTERED 5

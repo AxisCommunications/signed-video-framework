@@ -23,13 +23,14 @@
 #include <stdlib.h>  // free, malloc
 #include <string.h>  // size_t
 
-#include "includes/signed_video_openssl.h"  // openssl_read_pubkey_from_private_key()
+#include "includes/signed_video_openssl.h"  // pem_pkey_t
 #include "includes/signed_video_sign.h"
 #include "includes/signed_video_signing_plugin.h"
 #include "signed_video_authenticity.h"  // allocate_memory_and_copy_string
 #include "signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
 #include "signed_video_h26x_internal.h"  // parse_nalu_info()
 #include "signed_video_internal.h"  // gop_info_t, reset_gop_hash(), sv_rc_to_svi_rc()
+#include "signed_video_openssl_internal.h"
 #include "signed_video_tlv.h"  // tlv_list_encode_or_get_size()
 
 static void
