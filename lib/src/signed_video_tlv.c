@@ -26,7 +26,7 @@
 #include "axis-communications/sv_vendor_axis_communications_internal.h"
 #endif
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
-#include "includes/signed_video_openssl.h"  // openssl_key_memory_allocated(), signature_info_t, sign_algo_t
+#include "includes/signed_video_openssl.h"  // openssl_key_memory_allocated(), signature_info_t
 #include "signed_video_authenticity.h"  // transfer_product_info()
 
 /**
@@ -556,7 +556,7 @@ encode_public_key(signed_video_t *self, uint8_t *data)
 {
   signature_info_t *signature_info = self->signature_info;
   size_t data_size = 0;
-  const uint8_t version = 1;
+  const uint8_t version = 2;
 
   // If there is no |public_key| present, or if it should not be added to the SEI, skip encoding,
   // that is, return 0.
@@ -570,8 +570,6 @@ encode_public_key(signed_video_t *self, uint8_t *data)
   // length.
 
   data_size += sizeof(version);
-  // Casting enum to uint8_t
-  data_size += sizeof((uint8_t)signature_info->algo);
 
   // Size of pubkey
   data_size += signature_info->public_key_size;
@@ -586,7 +584,6 @@ encode_public_key(signed_video_t *self, uint8_t *data)
   // Fill Camera Info data
   // Version
   write_byte(last_two_bytes, &data_ptr, version, epb);
-  write_byte(last_two_bytes, &data_ptr, signature_info->algo, epb);
 
   // public_key; public_key_size (451) bytes
   for (size_t ii = 0; ii < signature_info->public_key_size; ++ii) {
@@ -606,15 +603,19 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
   const uint8_t *data_ptr = data;
   signature_info_t *signature_info = self->signature_info;
   uint8_t version = *data_ptr++;
-  sign_algo_t algo = *data_ptr++;
-  uint16_t pubkey_size = (uint16_t)(data_size - 2);  // We only store version, algo and the key.
+  uint16_t pubkey_size = (uint16_t)(data_size - 1);  // We only store version and the key.
+
+  // The algo was removed in version 2 since it is not needed. Simply move to next byte if
+  // older version.
+  if (version < 2) {
+    data_ptr++;
+    pubkey_size -= 1;
+  }
 
   svi_rc status = SVI_UNKNOWN;
-
   SVI_TRY()
     SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
     SVI_THROW_IF(pubkey_size == 0, SVI_OK);
-    SVI_THROW_IF(algo < SIGN_ALGO_RSA || algo >= SIGN_ALGO_NUM, SVI_DECODING_ERROR);
 
     SVI_THROW(sv_rc_to_svi_rc(openssl_key_memory_allocated(
         &signature_info->public_key, &signature_info->public_key_size, pubkey_size)));
@@ -638,7 +639,6 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
 #endif
 
     SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
-    self->signature_info->algo = algo;
   SVI_CATCH()
   SVI_DONE(status)
 

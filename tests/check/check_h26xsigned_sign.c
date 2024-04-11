@@ -124,11 +124,17 @@ START_TEST(api_inputs)
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   sv_rc = signed_video_set_private_key(sv, algo, private_key, 0);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  sv_rc = signed_video_set_private_key_new(NULL, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  sv_rc = signed_video_set_private_key_new(sv, NULL, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  sv_rc = signed_video_set_private_key_new(sv, private_key, 0);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   // Adding nalu for signing without setting private key is invalid.
   sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
   // Will set keys.
-  sv_rc = signed_video_set_private_key(sv, algo, private_key, private_key_size);
+  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Check setting recurrence
@@ -267,7 +273,7 @@ START_TEST(incorrect_operation)
   sv_rc =
       signed_video_generate_private_key(settings[_i].algo, "./", &private_key, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_private_key(sv, settings[_i].algo, private_key, private_key_size);
+  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -328,7 +334,7 @@ START_TEST(vendor_axis_communications_operation)
   // Read and set content of private_key.
   sv_rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_private_key(sv, algo, private_key, private_key_size);
+  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Exercise two byte string in product info to catch potential errors.
@@ -611,12 +617,12 @@ START_TEST(correct_timestamp)
       signed_video_generate_private_key(settings[_i].algo, "./", &private_key, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  sv_rc = signed_video_set_private_key(sv, settings[_i].algo, private_key, private_key_size);
+  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  sv_rc = signed_video_set_private_key(sv_ts, settings[_i].algo, private_key, private_key_size);
+  sv_rc = signed_video_set_private_key_new(sv_ts, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_set_authenticity_level(sv_ts, settings[_i].auth_level);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -712,7 +718,7 @@ START_TEST(w_wo_emulation_prevention_bytes)
     ck_assert(sv);
 
     // Apply settings to session.
-    sv_rc = signed_video_set_private_key(sv, settings[_i].algo, private_key, private_key_size);
+    sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
     ck_assert_int_eq(sv_rc, SV_OK);
     sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
     ck_assert_int_eq(sv_rc, SV_OK);

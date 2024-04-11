@@ -50,7 +50,7 @@ typedef enum { SIGN_ALGO_RSA = 0, SIGN_ALGO_ECDSA = 1, SIGN_ALGO_NUM } sign_algo
 typedef struct _signature_info_t {
   uint8_t *hash;  // The hash to be signed, or to verify the signature.
   size_t hash_size;  // The size of the |hash|. For now with a fixed size of HASH_DIGEST_SIZE.
-  sign_algo_t algo;  // The algorithm used to sign the |hash|.
+  sign_algo_t algo;  // The algorithm used to sign the |hash|. NOT USED ANYMORE
   void *private_key;  // The private key used for signing in a pem file format.
   size_t private_key_size;  // The size of the |private_key|.
   void *public_key;  // The public key used for validation in a pem file format.
@@ -236,7 +236,7 @@ openssl_key_memory_allocated(void **key, size_t *key_size, size_t new_key_size);
  *
  * By specifying a location and a signing algorithm (RSA, or ECDSA) a PEM file is generated and
  * stored as private_rsa_key.pem or private_ecdsa_key.pem. The user can then read this file and
- * pass the content to Signed Video through signed_video_set_private_key().
+ * pass the content to Signed Video through signed_video_set_private_key_new().
  * If no |path_to_key| is passed in, memory is allocated for |private_key| and the content of
  * |private_key_size| is written. Note that the ownership is transferred.
  *

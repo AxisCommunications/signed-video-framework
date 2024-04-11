@@ -120,7 +120,7 @@ typedef enum {
  * @param is_last_part Flag to mark the last part of the NALU data.
  *
  * @returns SV_OK            - the NALU was processed successfully.
- *          SV_NOT_SUPPORTED - signed_video_set_private_key(...) has not been set
+ *          SV_NOT_SUPPORTED - signed_video_set_private_key_new(...) has not been set
  *                             OR
  *                             there are generated NALUs waiting to be pulled. Use
  *                             signed_video_get_nalu_to_prepend(...) to fetch them. Then call this
@@ -181,8 +181,7 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
  *   if (!sv) {
  *     // Handle error
  *   }
- *   if (signed_video_set_private_key(sv, SIGN_ALGO_ECDSA, private_key, private_key_size)
- *       != SV_OK) {
+ *   if (signed_video_set_private_key_new(sv, private_key, private_key_size) != SV_OK) {
  *     // Handle error
  *   }
  *   SignedVideoReturnCode status;
@@ -299,17 +298,19 @@ signed_video_set_product_info(signed_video_t *self,
  * then be able to take necessary actions on their side before verifying the signature.
  *
  * @param self Pointer to the signed_video_t object session.
- * @param algo Enum type of sign_algo_t specifying the algorithm use to generate the
- *   private key.
  * @param private_key The content of the private key pem file.
  * @param private_key_size The size of the |private_key|.
  *
- * @return SV_OK If the |algo| is supported and set,
+ * @return SV_OK If the |private_key| is set,
  *         SV_INVALID_PARAMETER Invalid input parameter(s),
- *         SV_NOT_SUPPORTED If the algo is not supported,
  *         SV_MEMORY If failed allocating memory for the private key,
  *         SV_EXTERNAL_ERROR The public key could not be extracted.
  */
+SignedVideoReturnCode
+signed_video_set_private_key_new(signed_video_t *self,
+    const char *private_key,
+    size_t private_key_size);
+/* TO BE REPLACED BY signed_video_set_private_key_new(). */
 SignedVideoReturnCode
 signed_video_set_private_key(signed_video_t *self,
     sign_algo_t algo,
