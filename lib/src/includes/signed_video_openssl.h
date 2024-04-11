@@ -260,25 +260,6 @@ void
 openssl_free_key(void *pkey);
 
 /**
- * @brief Allocates memory for a key
- *
- * This is a helper function to allocate memory for a key. If a new key size is detected memory is
- * re-allocated. The API applies to both public and private keys.
- *
- * @param key A pointer to the memory which should be (re-)allocated.
- * @param key_size A pointer to which the size of the allocated memory is written. If a key already
- *   exists, the pointer should hold the current size of the key.
- * @param new_key_size The desired size of the key.
- *
- * @returns SV_OK Successfully allocated memory for the |key|,
- *          SV_INVALID_PARAMETER Null pointers,
- *          SV_NOT_SUPPORTED Invalid |new_key_size|,
- *          SV_MEMORY Could not allocate memory for the |key|,
- */
-SignedVideoReturnCode
-openssl_key_memory_allocated(void **key, size_t *key_size, size_t new_key_size);
-
-/**
  * @brief Helper function to generate a private key
  *
  * By specifying a location and a signing algorithm (RSA, or ECDSA) a PEM file is generated and

@@ -596,32 +596,6 @@ openssl_create_private_key(sign_algo_t algo, const char *path_to_key, key_paths_
   return status;
 }
 
-/* Allocates memory for a key. */
-SignedVideoReturnCode
-openssl_key_memory_allocated(void **key, size_t *key_size, size_t new_key_size)
-{
-  if (!key || !key_size) return SV_INVALID_PARAMETER;
-  // Allocating zero size is not allowed.
-  if (new_key_size == 0) return SV_NOT_SUPPORTED;
-  // Return if memory size match.
-  if (*key_size == new_key_size) return SV_OK;
-
-  // Free existing key.
-  free(*key);
-  *key = NULL;
-
-  // Allocate memory for a new one.
-  void *new_key = calloc(1, new_key_size);
-  if (!new_key) {
-    new_key_size = 0;
-  }
-  // Set key also upon failure, for which it will be a null pointer.
-  *key_size = new_key_size;
-  *key = new_key;
-
-  return new_key ? SV_OK : SV_MEMORY;
-}
-
 /* Reads the public key from the private key. */
 SignedVideoReturnCode
 openssl_read_pubkey_from_private_key(signature_info_t *signature_info, pem_pkey_t *pem_pkey)
@@ -693,31 +667,4 @@ signed_video_generate_private_key(sign_algo_t algo,
   free(key_paths.full_path_to_private_key);
 
   return svi_rc_to_signed_video_rc(status);
-}
-
-svi_rc
-openssl_get_algo_of_public_key(const char *public_key, size_t public_key_size, sign_algo_t *algo)
-{
-  EVP_PKEY *pkey = NULL;
-  BIO *bp = BIO_new_mem_buf(public_key, (int)public_key_size);
-  pkey = PEM_read_bio_PUBKEY(bp, NULL, NULL, NULL);
-  BIO_free(bp);
-
-  svi_rc status = SVI_UNKNOWN;
-  SVI_TRY()
-    SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
-
-    if (EVP_PKEY_base_id(pkey) == EVP_PKEY_EC) {
-      *algo = SIGN_ALGO_ECDSA;
-    } else if (EVP_PKEY_base_id(pkey) == EVP_PKEY_RSA) {
-      *algo = SIGN_ALGO_RSA;
-    } else {
-      SVI_THROW(SVI_NOT_SUPPORTED);
-    }
-  SVI_CATCH()
-  SVI_DONE(status)
-
-  EVP_PKEY_free(pkey);
-
-  return status;
 }
