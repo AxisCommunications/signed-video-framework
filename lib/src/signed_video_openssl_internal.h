@@ -25,8 +25,8 @@
 #include <stdint.h>  // uint8_t
 #include <string.h>  // size_t
 
-#include "includes/signed_video_common.h"  // SignedVideoReturnCode
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, signature_info_t
+#include "signed_video_defines.h"  // svi_rc
 
 /**
  * @brief Create cryptographic handle
@@ -63,11 +63,11 @@ openssl_free_handle(void *handle);
  * @param data_size Size of the |data| to hash.
  * @param hash A pointer to the hashed output. This memory has to be pre-allocated.
  *
- * @returns SV_OK Successfully hashed |data|,
- *          SV_INVALID_PARAMETER Null pointer inputs, or invalid |data_size|,
- *          SV_EXTERNAL_ERROR Failed to hash.
+ * @returns SVI_OK Successfully hashed |data|,
+ *          SVI_INVALID_PARAMETER Null pointer inputs, or invalid |data_size|,
+ *          SVI_EXTERNAL_FAILURE Failed to hash.
  */
-SignedVideoReturnCode
+svi_rc
 openssl_hash_data(const uint8_t *data, size_t data_size, uint8_t *hash);
 
 /**
@@ -77,11 +77,11 @@ openssl_hash_data(const uint8_t *data, size_t data_size, uint8_t *hash);
  *
  * @param handle Pointer to the OpenSSL cryptographic handle.
  *
- * @returns SV_OK Successfully initialized SHA256_CTX object in |handle|,
- *          SV_INVALID_PARAMETER Null pointer input,
- *          SV_EXTERNAL_ERROR Failed to initialize.
+ * @returns SVI_OK Successfully initialized SHA256_CTX object in |handle|,
+ *          SVI_INVALID_PARAMETER Null pointer input,
+ *          SVI_EXTERNAL_FAILURE Failed to initialize.
  */
-SignedVideoReturnCode
+svi_rc
 openssl_init_hash(void *handle);
 
 /**
@@ -93,11 +93,11 @@ openssl_init_hash(void *handle);
  * @param data Pointer to the data to update an ongoing hash.
  * @param data_size Size of the |data|.
  *
- * @returns SV_OK Successfully updated SHA256_CTX object in |handle|,
- *          SV_INVALID_PARAMETER Null pointer inputs, or invalid |data_size|,
- *          SV_EXTERNAL_ERROR Failed to update.
+ * @returns SVI_OK Successfully updated SHA256_CTX object in |handle|,
+ *          SVI_INVALID_PARAMETER Null pointer inputs, or invalid |data_size|,
+ *          SVI_EXTERNAL_FAILURE Failed to update.
  */
-SignedVideoReturnCode
+svi_rc
 openssl_update_hash(void *handle, const uint8_t *data, size_t data_size);
 
 /**
@@ -109,11 +109,11 @@ openssl_update_hash(void *handle, const uint8_t *data, size_t data_size);
  * @param handle Pointer to the OpenSSL cryptographic handle.
  * @param hash A pointer to the hashed output. This memory has to be pre-allocated.
  *
- * @returns SV_OK Successfully wrote the final result of SHA256_CTX object in |handle| to |hash|,
- *          SV_INVALID_PARAMETER Null pointer inputs,
- *          SV_EXTERNAL_ERROR Failed to finalize.
+ * @returns SVI_OK Successfully wrote the final result of SHA256_CTX object in |handle| to |hash|,
+ *          SVI_INVALID_PARAMETER Null pointer inputs,
+ *          SVI_EXTERNAL_FAILURE Failed to finalize.
  */
-SignedVideoReturnCode
+svi_rc
 openssl_finalize_hash(void *handle, uint8_t *hash);
 
 /**
@@ -126,11 +126,10 @@ openssl_finalize_hash(void *handle, uint8_t *hash);
  * @param verified_result Poiniter to the place where the verification result is written. The
  *   |verified_result| can either be 1 (success), 0 (failure), or < 0 (error).
  *
- * @returns SV_OK Successfully generated |signature|,
- *          SV_INVALID_PARAMETER Errors in |signature_info|, or null pointer inputs,
- *          SV_EXTERNAL_ERROR Failure in OpenSSL.
+ * @returns SVI_OK Successfully generated |signature|,
+ *          SVI_INVALID_PARAMETER Errors in |signature_info|, or null pointer inputs,
  */
-SignedVideoReturnCode
+svi_rc
 openssl_verify_hash(const signature_info_t *signature_info, int *verified_result);
 
 /**
@@ -142,12 +141,12 @@ openssl_verify_hash(const signature_info_t *signature_info, int *verified_result
  * @param signature_info A pointer to the object holding the |private_key|.
  * @param pem_pkey A pointer to the object where the public key, on PEM format, will be written.
  *
- * @returns SV_OK Successfully written |pkey| to |pem_pkey|,
- *          SV_INVALID_PARAMETER Errors in |signature_info|, or no private key present,
- *          SV_MEMORY Could not allocate memory for |pkey|,
- *          SV_EXTERNAL_ERROR Failure in OpenSSL.
+ * @returns SVI_OK Successfully written |pkey| to |pem_pkey|,
+ *          SVI_INVALID_PARAMETER Errors in |signature_info|, or no private key present,
+ *          SVI_MEMORY Could not allocate memory for |pkey|,
+ *          SVI_EXTERNAL_FAILURE Failure in OpenSSL.
  */
-SignedVideoReturnCode
+svi_rc
 openssl_read_pubkey_from_private_key(signature_info_t *signature_info, pem_pkey_t *pem_pkey);
 
 /**
@@ -160,11 +159,11 @@ openssl_read_pubkey_from_private_key(signature_info_t *signature_info, pem_pkey_
  * @param signature_info A pointer to the struct that holds all necessary information for signing.
  * @param pem_public_key A pointer to the PEM format struct.
  *
- * @returns SV_OK Successfully stored |public_key|,
- *          SV_INVALID_PARAMETER Missing inputs,
- *          SV_EXTERNAL_ERROR Failure in OpenSSL.
+ * @returns SVI_OK Successfully stored |public_key|,
+ *          SVI_INVALID_PARAMETER Missing inputs,
+ *          SVI_EXTERNAL_FAILURE Failure in OpenSSL.
  */
-SignedVideoReturnCode
+svi_rc
 openssl_public_key_malloc(signature_info_t *signature_info, pem_pkey_t *pem_public_key);
 
 #endif  // __SIGNED_VIDEO_OPENSSL_INTERNAL__

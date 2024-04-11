@@ -319,7 +319,7 @@ reset_gop_hash(signed_video_t *self)
   assert(gop_info);
 
   gop_info->num_nalus_in_gop_hash = 0;
-  return sv_rc_to_svi_rc(openssl_hash_data(&gop_info->gop_hash_init, 1, gop_info->gop_hash));
+  return openssl_hash_data(&gop_info->gop_hash_init, 1, gop_info->gop_hash);
 }
 
 /**
@@ -864,8 +864,7 @@ update_gop_hash(gop_info_t *gop_info)
   SVI_TRY()
     // Update the gop_hash, that is, hash the memory (both hashes) in hashes = [gop_hash, latest
     // nalu_hash] and replace the gop_hash part with the new hash.
-    SVI_THROW(sv_rc_to_svi_rc(
-        openssl_hash_data(gop_info->hashes, 2 * HASH_DIGEST_SIZE, gop_info->gop_hash)));
+    SVI_THROW(openssl_hash_data(gop_info->hashes, 2 * HASH_DIGEST_SIZE, gop_info->gop_hash));
 
 #ifdef SIGNED_VIDEO_DEBUG
     printf("Latest NALU hash ");
@@ -937,8 +936,7 @@ update_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t ATTR_UNUSED *
   const uint8_t *hashable_data = nalu->hashable_data;
   size_t hashable_data_size = nalu->hashable_data_size;
 
-  return sv_rc_to_svi_rc(
-      openssl_update_hash(self->crypto_handle, hashable_data, hashable_data_size));
+  return openssl_update_hash(self->crypto_handle, hashable_data, hashable_data_size);
 }
 
 /* simply_hash()
@@ -954,12 +952,12 @@ simply_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *nalu_hash)
 
   if (nalu->is_first_nalu_part) {
     // Entire NALU can be hashed in one part.
-    return sv_rc_to_svi_rc(openssl_hash_data(hashable_data, hashable_data_size, nalu_hash));
+    return openssl_hash_data(hashable_data, hashable_data_size, nalu_hash);
   } else {
     svi_rc status = update_hash(self, nalu, nalu_hash);
     if (status == SVI_OK) {
       // Finalize the ongoing hash of NALU parts.
-      status = sv_rc_to_svi_rc(openssl_finalize_hash(self->crypto_handle, nalu_hash));
+      status = openssl_finalize_hash(self->crypto_handle, nalu_hash);
       // For the first NALU in a GOP, the hash is used twice. Once for linking and once as reference
       // for the future. Store the |nalu_hash| in |tmp_hash| to be copied for its second use, since
       // it is not possible to recompute the hash from partial NALU data.
@@ -1032,8 +1030,7 @@ hash_with_reference(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *budd
     // Hash NALU data and store as |nalu_hash|.
     SVI_THROW(simply_hash(self, nalu, nalu_hash));
     // Hash reference hash together with the |nalu_hash| and store in |buddy_hash|.
-    SVI_THROW(sv_rc_to_svi_rc(
-        openssl_hash_data(gop_info->hash_buddies, HASH_DIGEST_SIZE * 2, buddy_hash)));
+    SVI_THROW(openssl_hash_data(gop_info->hash_buddies, HASH_DIGEST_SIZE * 2, buddy_hash));
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -1059,7 +1056,7 @@ hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
     if (nalu->is_first_nalu_part && !nalu->is_last_nalu_part) {
       // If this is the first part of a non-complete NALU, initialize the |crypto_handle| to enable
       // sequentially updating the hash with more parts.
-      SVI_THROW(sv_rc_to_svi_rc(openssl_init_hash(self->crypto_handle)));
+      SVI_THROW(openssl_init_hash(self->crypto_handle));
     }
     // Select hash function, hash the NALU and store as 'latest hash'
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
@@ -1227,7 +1224,7 @@ signed_video_reset(signed_video_t *self)
 
     memset(self->last_nalu, 0, sizeof(h26x_nalu_t));
     self->last_nalu->is_last_nalu_part = true;
-    SVI_THROW(sv_rc_to_svi_rc(openssl_init_hash(self->crypto_handle)));
+    SVI_THROW(openssl_init_hash(self->crypto_handle));
 
     SVI_THROW(reset_gop_hash(self));
   SVI_CATCH()

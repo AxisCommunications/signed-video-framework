@@ -633,8 +633,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     data_ptr += pubkey_size;
 
     // Convert to EVP_PKEY
-    SVI_THROW(
-        sv_rc_to_svi_rc(openssl_public_key_malloc(self->signature_info, &self->pem_public_key)));
+    SVI_THROW(openssl_public_key_malloc(self->signature_info, &self->pem_public_key));
 
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // If "Axis Communications AB" can be identified from the |product_info|, set |public_key| to
