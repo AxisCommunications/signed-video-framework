@@ -111,8 +111,6 @@ openssl_private_key_malloc(signature_info_t *signature_info,
   EVP_PKEY *signing_key = NULL;
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    SVI_THROW_IF(!private_key, SVI_INVALID_PARAMETER);
-
     // Read private key
     BIO *bp = BIO_new_mem_buf(private_key, private_key_size);
     signing_key = PEM_read_bio_PrivateKey(bp, NULL, NULL, NULL);
