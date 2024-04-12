@@ -155,6 +155,8 @@ openssl_public_key_malloc(signature_info_t *signature_info, pem_pkey_t *pem_publ
     BIO_free(bp);
 
     SVI_THROW_IF(!verify_key, SVI_EXTERNAL_FAILURE);
+    // Free any existing key
+    EVP_PKEY_free(signature_info->public_key);
     signature_info->public_key = verify_key;
   SVI_CATCH()
   SVI_DONE(status)
