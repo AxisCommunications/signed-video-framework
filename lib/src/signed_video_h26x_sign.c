@@ -588,6 +588,9 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
 #ifdef SIGNED_VIDEO_DEBUG
         // TODO: This might not work for blocked signatures, that is if the hash in
         // |signature_info| does not correspond to the copied |signature|.
+        // Convert the public key to EVP_PKEY for verification. Normally done upon validation.
+        SVI_THROW(
+            sv_rc_to_svi_rc(openssl_public_key_malloc(signature_info, &self->pem_public_key)));
         // Verify the just signed hash.
         int verified = -1;
         SVI_THROW_WITH_MSG(sv_rc_to_svi_rc(openssl_verify_hash(signature_info, &verified)),
@@ -708,7 +711,8 @@ signed_video_set_private_key_new(signed_video_t *self,
     // Temporally turn the PEM |private_key| into an EVP_PKEY and allocate memory for signatures.
     SVI_THROW(sv_rc_to_svi_rc(
         openssl_private_key_malloc(self->signature_info, private_key, private_key_size)));
-    SVI_THROW(sv_rc_to_svi_rc(openssl_read_pubkey_from_private_key(self->signature_info)));
+    SVI_THROW(sv_rc_to_svi_rc(
+        openssl_read_pubkey_from_private_key(self->signature_info, &self->pem_public_key)));
 
     self->plugin_handle = sv_signing_plugin_session_setup(private_key, private_key_size);
     SVI_THROW_IF(!self->plugin_handle, SVI_EXTERNAL_FAILURE);

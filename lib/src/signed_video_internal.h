@@ -168,6 +168,7 @@ struct _signed_video_t {
   // For signing plugin
   void *plugin_handle;
   signature_info_t *signature_info;  // Pointer to all necessary information to sign in a plugin.
+  pem_pkey_t pem_public_key;  // Public key in PEM form for writing/reading to/from SEIs
 
   // Arbitrary data
   uint8_t *arbitrary_data;  // Enables the user to transmit user specific data and is automatically

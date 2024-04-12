@@ -1847,7 +1847,7 @@ static void
 validate_public_key_scenario(signed_video_t *sv,
     nalu_list_item_t *sei,
     bool wrong_key,
-    signature_info_t *signature_info)
+    pem_pkey_t *public_key)
 {
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = sv->codec;
@@ -1863,9 +1863,8 @@ validate_public_key_scenario(signed_video_t *sv,
   ck_assert(!auth_report);
 
   // Late public key
-  if (signature_info) {
-    sv_rc = signed_video_set_public_key(
-        sv, signature_info->public_key, signature_info->public_key_size);
+  if (public_key) {
+    sv_rc = signed_video_set_public_key(sv, public_key->pkey, public_key->pkey_size);
     ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
     // Since setting a public key after the session start is not supported, there is no point in
     // adding the i_nalu and authenticate.
@@ -1952,6 +1951,7 @@ START_TEST(test_public_key_scenarios)
     sign_algo_t algo = settings[_i].algo;
     char *tmp_private_key = NULL;
     size_t tmp_private_key_size = 0;
+    pem_pkey_t wrong_public_key = {0};
 
     sv_camera =
         generate_and_set_private_key_on_camera_side(settings[_i], pk_tests[j].pk_in_sei, &sei);
@@ -1965,28 +1965,29 @@ START_TEST(test_public_key_scenarios)
     signed_video_generate_private_key(algo, NULL, &tmp_private_key, &tmp_private_key_size);
     sv_rc = openssl_private_key_malloc(&sign_info_wrong_key, tmp_private_key, tmp_private_key_size);
     ck_assert_int_eq(sv_rc, SV_OK);
-    openssl_read_pubkey_from_private_key(&sign_info_wrong_key);
+    sv_rc = openssl_read_pubkey_from_private_key(&sign_info_wrong_key, &wrong_public_key);
+    ck_assert_int_eq(sv_rc, SV_OK);
 
-    signature_info_t *sign_info = sv_camera->signature_info;
+    pem_pkey_t *public_key = &sv_camera->pem_public_key;
     if (pk_tests[j].use_wrong_pk) {
-      sign_info = &sign_info_wrong_key;
+      public_key = &wrong_public_key;
     }
     if (pk_tests[j].set_pk_before_session_start) {
-      sv_rc =
-          signed_video_set_public_key(sv_vms, sign_info->public_key, sign_info->public_key_size);
+      sv_rc = signed_video_set_public_key(sv_vms, public_key->pkey, public_key->pkey_size);
       ck_assert_int_eq(sv_rc, SV_OK);
     }
     if (!pk_tests[j].set_pk_after_session_start) {
-      sign_info = NULL;
+      public_key = NULL;
     }
-    validate_public_key_scenario(sv_vms, sei, pk_tests[j].use_wrong_pk, sign_info);
+    validate_public_key_scenario(sv_vms, sei, pk_tests[j].use_wrong_pk, public_key);
 
     signed_video_free(sv_camera);
     signed_video_free(sv_vms);
     free(tmp_private_key);
     openssl_free_key(sign_info_wrong_key.private_key);
     free(sign_info_wrong_key.signature);
-    free(sign_info_wrong_key.public_key);
+    openssl_free_key(sign_info_wrong_key.public_key);
+    free(wrong_public_key.pkey);
     nalu_list_free_item(sei);
   }
 }
@@ -2006,6 +2007,7 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   signed_video_t *sv_camera = NULL;
   char *tmp_private_key = NULL;
   size_t tmp_private_key_size = 0;
+  pem_pkey_t wrong_public_key = {0};
 
   // On camera side
   sv_camera = generate_and_set_private_key_on_camera_side(settings[_i], false, &sei);
@@ -2019,9 +2021,9 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   signed_video_generate_private_key(algo, NULL, &tmp_private_key, &tmp_private_key_size);
   sv_rc = openssl_private_key_malloc(&sign_info, tmp_private_key, tmp_private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  openssl_read_pubkey_from_private_key(&sign_info);
+  openssl_read_pubkey_from_private_key(&sign_info, &wrong_public_key);
   // Set public key
-  sv_rc = signed_video_set_public_key(sv_vms, sign_info.public_key, sign_info.public_key_size);
+  sv_rc = signed_video_set_public_key(sv_vms, wrong_public_key.pkey, wrong_public_key.pkey_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Validate this first GOP.
@@ -2048,7 +2050,8 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   free(tmp_private_key);
   openssl_free_key(sign_info.private_key);
   free(sign_info.signature);
-  free(sign_info.public_key);
+  openssl_free_key(sign_info.public_key);
+  free(wrong_public_key.pkey);
 }
 END_TEST
 
