@@ -116,7 +116,7 @@ signature_info_free(signature_info_t *signature_info)
 {
   if (!signature_info) return;
 
-  free(signature_info->private_key);
+  openssl_free_key(signature_info->private_key);
   free(signature_info->signature);
   free(signature_info->hash);
   free(signature_info);
@@ -167,27 +167,10 @@ signature_info_create(const signature_info_t *signature_info)
   signature_info_t *tmp_signature_info = calloc(1, sizeof(signature_info_t));
   if (!tmp_signature_info) goto catch_error;
 
-  // Allocate memory and copy |private_key|.
-  tmp_signature_info->private_key = malloc(signature_info->private_key_size);
-  if (!tmp_signature_info->private_key) goto catch_error;
-  memcpy(tmp_signature_info->private_key, signature_info->private_key,
-      signature_info->private_key_size);
-  tmp_signature_info->private_key_size = signature_info->private_key_size;
-
-  if (signature_info->max_signature_size) {
-    // Allocate memory for the |signature|.
-    tmp_signature_info->signature = malloc(signature_info->max_signature_size);
-    if (!tmp_signature_info->signature) goto catch_error;
-    tmp_signature_info->max_signature_size = signature_info->max_signature_size;
-  } else {
-    if (openssl_signature_malloc(tmp_signature_info) != SV_OK) goto catch_error;
-  }
-
-  if (signature_info->hash_size) {
-    // Allocate memory for the |hash|.
-    tmp_signature_info->hash = calloc(1, signature_info->hash_size);
-    if (!tmp_signature_info->hash) goto catch_error;
-    tmp_signature_info->hash_size = signature_info->hash_size;
+  // Turn the PEM key into an EVP_PKEY and allocate memory for signatures.
+  if (openssl_private_key_malloc(tmp_signature_info, signature_info->private_key,
+          signature_info->private_key_size) != SV_OK) {
+    goto catch_error;
   }
 
   return tmp_signature_info;
@@ -683,13 +666,10 @@ local_setup(const void *private_key, size_t private_key_size)
   if (private_key && private_key_size > 0 && !self->signature_info) {
     self->signature_info = calloc(1, sizeof(signature_info_t));
     if (!self->signature_info) goto catch_error;
-    // Allocate memory and copy |private_key|.
-    self->signature_info->private_key = malloc(private_key_size);
-    if (!self->signature_info->private_key) goto catch_error;
-    memcpy(self->signature_info->private_key, private_key, private_key_size);
-    self->signature_info->private_key_size = private_key_size;
-
-    if (openssl_signature_malloc(self->signature_info) != SV_OK) goto catch_error;
+    // Turn the PEM |private_key| into an EVP_PKEY and allocate memory for signatures.
+    if (openssl_private_key_malloc(self->signature_info, private_key, private_key_size) != SV_OK) {
+      goto catch_error;
+    }
   }
 
   // Initialize |self|.
@@ -854,6 +834,50 @@ sv_signing_plugin_init(void *user_data)
 
   central.signature_info = signature_info_create(signature_info);
   if (!central.signature_info) goto catch_error;
+
+  g_mutex_init(&(central.mutex));
+  g_cond_init(&(central.cond));
+
+  central.thread = g_thread_try_new("central-signing", central_worker_thread, NULL, NULL);
+  if (!central.thread) goto catch_error;
+
+  // Wait for the thread to start before returning.
+  g_mutex_lock(&(central.mutex));
+  // TODO: Consider using g_cond_wait_until() instead, to avoid deadlock.
+  while (!central.is_running) g_cond_wait(&(central.cond), &(central.mutex));
+
+  g_mutex_unlock(&(central.mutex));
+  return 0;
+
+catch_error:
+  signature_info_free(central.signature_info);
+  central.signature_info = NULL;
+  free(id_list);
+  id_list = NULL;
+  return -1;
+}
+
+int
+sv_signing_plugin_init_new(void *user_data)
+{
+  pem_pkey_t *pem_private_key = (pem_pkey_t *)user_data;
+
+  if (central.thread || id_list || central.signature_info || !user_data) {
+    // Central thread, id list or signature_info already exists. Or no |user_data| is set.
+    return -1;
+  }
+
+  id_list = (id_node_t *)calloc(1, sizeof(id_node_t));
+  if (!id_list) goto catch_error;
+
+  central.signature_info = calloc(1, sizeof(signature_info_t));
+  if (!central.signature_info) goto catch_error;
+
+  // Turn the PEM key into an EVP_PKEY and allocate memory for signatures.
+  if (openssl_private_key_malloc(central.signature_info, (const char *)pem_private_key->pkey,
+          pem_private_key->pkey_size) != SV_OK) {
+    goto catch_error;
+  }
 
   g_mutex_init(&(central.mutex));
   g_cond_init(&(central.cond));

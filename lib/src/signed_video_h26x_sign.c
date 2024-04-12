@@ -245,11 +245,6 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    if (!signature_info->signature) {
-      // Allocate enough memory for the signature.
-      SVI_THROW(sv_rc_to_svi_rc(openssl_signature_malloc(signature_info)));
-    }
-
     // Get the total payload size of all TLVs. Then compute the total size of the SEI NALU to be
     // generated. Add extra space for potential emulation prevention bytes.
     document_size = tlv_list_encode_or_get_size(self, document_encoders, num_doc_encoders, NULL);
@@ -456,13 +451,13 @@ static svi_rc
 prepare_for_nalus_to_prepend(signed_video_t *self)
 {
   svi_rc status = SVI_UNKNOWN;
-  signature_info_t *signature_info = self->signature_info;
   SVI_TRY()
     SVI_THROW_IF(!self, SVI_INVALID_PARAMETER);
 
-    // Without a private key we cannot sign.
+    // Without a private key we cannot sign, which is equivalent with the existence of a signin
+    // plugin.
     SVI_THROW_IF_WITH_MSG(
-        !signature_info->private_key, SVI_NOT_SUPPORTED, "The private key has not been set");
+        !self->plugin_handle, SVI_NOT_SUPPORTED, "The private key has not been set");
     // Check if we have NALUs to prepend waiting to be pulled. If we have one item only, this is an
     // empty list item, the pull action has no impact. We can therefore silently remove it and
     // proceed. But if there are vital SEI-nalus waiting to be pulled we return an error message
@@ -708,32 +703,21 @@ signed_video_set_private_key_new(signed_video_t *self,
 {
   if (!self || !private_key || private_key_size == 0) return SV_INVALID_PARAMETER;
 
-  uint8_t *new_private_key = NULL;
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    // Make sure we have allocated enough memory.
-    if (self->signature_info->private_key_size != private_key_size) {
-      new_private_key = realloc(self->signature_info->private_key, private_key_size);
-      SVI_THROW_IF(!new_private_key, SVI_MEMORY);
-      self->signature_info->private_key = new_private_key;
-    }
-    SVI_THROW_IF(!self->signature_info->private_key, SVI_MEMORY);
-    memcpy(self->signature_info->private_key, private_key, private_key_size);
-
-    self->signature_info->private_key_size = private_key_size;
-
+    // Temporally turn the PEM |private_key| into an EVP_PKEY and allocate memory for signatures.
+    SVI_THROW(sv_rc_to_svi_rc(
+        openssl_private_key_malloc(self->signature_info, private_key, private_key_size)));
     SVI_THROW(sv_rc_to_svi_rc(openssl_read_pubkey_from_private_key(self->signature_info)));
 
     self->plugin_handle = sv_signing_plugin_session_setup(private_key, private_key_size);
     SVI_THROW_IF(!self->plugin_handle, SVI_EXTERNAL_FAILURE);
   SVI_CATCH()
-  {
-    // Remove all key information if we fail.
-    free(self->signature_info->private_key);
-    self->signature_info->private_key = NULL;
-    self->signature_info->private_key_size = 0;
-  }
   SVI_DONE(status)
+
+  // Free the EVP_PKEY since it is no longer needed. It is handled by the signing plugin.
+  openssl_free_key(self->signature_info->private_key);
+  self->signature_info->private_key = NULL;
 
   return svi_rc_to_signed_video_rc(status);
 }

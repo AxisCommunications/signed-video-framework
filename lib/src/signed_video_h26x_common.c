@@ -199,7 +199,7 @@ signature_free(signature_info_t *self)
 {
   if (!self) return;
 
-  free(self->private_key);
+  openssl_free_key(self->private_key);
   free(self->public_key);
   free(self->hash);
   free(self->signature);
