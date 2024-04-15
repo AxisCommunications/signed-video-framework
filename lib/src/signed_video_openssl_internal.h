@@ -51,6 +51,21 @@ void
 openssl_free_handle(void *handle);
 
 /**
+ * @brief Sets hashing algorithm
+ *
+ * Assigns a hashing algorithm to the |handle|, identified by its |name_or_oid|.
+ * If a nullptr is passed in as |name_or_oid|, the default SHA256 is used.
+ *
+ * @param handle Pointer to the OpenSSL cryptographic handle.
+ * @param name_or_oid A null-terminated string defining the hashing algorithm.
+ *
+ * @returns SVI_OK Successfully set hash algorithm,
+ *          SVI_INVALID_PARAMETER Null pointer |handle| or invalid |name_or_oid|.
+ */
+svi_rc
+openssl_set_hash_algo(void *handle, const char *name_or_oid);
+
+/**
  * @brief Hashes data into a 256 bit hash
  *
  * Uses the OpenSSL SHA256() API to hash data. The hashed data has 256 bits, which needs to be

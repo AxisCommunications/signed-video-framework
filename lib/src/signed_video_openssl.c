@@ -25,6 +25,7 @@
 #include <openssl/crypto.h>  // OPENSSL_malloc, OPENSSL_free
 #include <openssl/ec.h>  // EC_*
 #include <openssl/evp.h>  // EVP_*
+#include <openssl/objects.h>  // OBJ_*
 #include <openssl/opensslv.h>  // OPENSSL_VERSION_*
 #include <openssl/pem.h>  // PEM_*
 #include <openssl/rsa.h>  // RSA_*
@@ -66,6 +67,9 @@ typedef struct {
  */
 typedef struct {
   EVP_MD_CTX *ctx;  // Hashing context
+  // Ownership NOT transferred to this struct
+  const EVP_MD *hash_algo_type;
+  ASN1_OBJECT *hash_algo_oid;  // OID form
 } openssl_crypto_t;
 
 static svi_rc
@@ -85,6 +89,8 @@ openssl_create_private_key(sign_algo_t algo, const char *path_to_key, key_paths_
 
 #define PRIVATE_RSA_KEY_FILE "private_rsa_key.pem"
 #define PRIVATE_ECDSA_KEY_FILE "private_ecdsa_key.pem"
+
+#define DEFAULT_HASH_ALGO "sha256"
 
 /* Frees an EVP_PKEY object. */
 void
@@ -506,11 +512,13 @@ openssl_init_hash(void *handle)
 {
   if (!handle) return SVI_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
+  if (!self->hash_algo_type) return SVI_INVALID_PARAMETER;
   // Initialize the SHA256 hashing function.
   if (self->ctx) EVP_MD_CTX_free(self->ctx);
   self->ctx = EVP_MD_CTX_new();
   if (!self->ctx) return SVI_EXTERNAL_FAILURE;
-  return EVP_DigestInit_ex(self->ctx, EVP_sha256(), NULL) == 1 ? SVI_OK : SVI_EXTERNAL_FAILURE;
+  return EVP_DigestInit_ex(self->ctx, self->hash_algo_type, NULL) == 1 ? SVI_OK
+                                                                       : SVI_EXTERNAL_FAILURE;
 }
 
 /* Updates SHA256_CTX in |handle| with |data|. */
@@ -544,7 +552,12 @@ openssl_finalize_hash(void *handle, uint8_t *hash)
 void *
 openssl_create_handle(void)
 {
-  return (void *)calloc(1, sizeof(openssl_crypto_t));
+  openssl_crypto_t *self = (openssl_crypto_t *)calloc(1, sizeof(openssl_crypto_t));
+  if (!self) return NULL;
+  // self->hash_algo_type = EVP_get_digestbyname(DEFAULT_HASH_ALGO);
+  self->hash_algo_oid = OBJ_txt2obj(DEFAULT_HASH_ALGO, 0 /* Accept both name and OID */);
+  self->hash_algo_type = EVP_get_digestbyobj(self->hash_algo_oid);
+  return (void *)self;
 }
 
 /* Frees the |handle|. */
@@ -555,6 +568,26 @@ openssl_free_handle(void *handle)
   if (!self) return;
   EVP_MD_CTX_free(self->ctx);
   free(self);
+}
+
+svi_rc
+openssl_set_hash_algo(void *handle, const char *name_or_oid)
+{
+  openssl_crypto_t *self = (openssl_crypto_t *)handle;
+  if (!self) return SVI_INVALID_PARAMETER;
+  if (!name_or_oid) {
+    name_or_oid = DEFAULT_HASH_ALGO;
+  }
+
+  ASN1_OBJECT *hash_algo_oid = OBJ_txt2obj(name_or_oid, 0 /* Accept both name and OID */);
+  const EVP_MD *hash_algo_type = EVP_get_digestbyobj(hash_algo_oid);
+  if (!hash_algo_type) {
+    DEBUG_LOG("Could not identify hashing algorithm: %s", name_or_oid);
+    return SVI_INVALID_PARAMETER;
+  }
+  self->hash_algo_type = hash_algo_type;
+  self->hash_algo_oid = hash_algo_oid;
+  return SVI_OK;
 }
 
 /*
