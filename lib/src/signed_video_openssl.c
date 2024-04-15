@@ -20,6 +20,7 @@
  */
 #include <assert.h>  // assert
 // Include all openssl header files explicitly.
+#include <openssl/asn1.h>  // ASN1_*
 #include <openssl/bio.h>  // BIO_*
 #include <openssl/bn.h>  // BN_*
 #include <openssl/crypto.h>  // OPENSSL_malloc, OPENSSL_free
@@ -63,13 +64,23 @@ typedef struct {
 } key_paths_t;
 
 /**
+ * Object to keep a message digest as both an EVP_MD type and on serialized OID form. This
+ * holds for both the hash algorithm used to hash NAL Units and the message digest used in
+ * signing.
+ */
+typedef struct {
+  unsigned char *encoded_oid;  // Serialized OID form
+  size_t encoded_oid_size;  // Size of serialized OID form
+  // Ownership NOT transferred to this struct
+  const EVP_MD *type;
+} message_digest_t;
+
+/**
  * OpenSSL cryptographic object.
  */
 typedef struct {
   EVP_MD_CTX *ctx;  // Hashing context
-  // Ownership NOT transferred to this struct
-  const EVP_MD *hash_algo_type;
-  ASN1_OBJECT *hash_algo_oid;  // OID form
+  message_digest_t hash_algo;
 } openssl_crypto_t;
 
 static svi_rc
@@ -506,22 +517,23 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
   return status;
 }
 
-/* Initializes SHA256_CTX in |handle|. */
+/* Initializes EVP_MD_CTX in |handle| with |hash_algo.type|. */
 svi_rc
 openssl_init_hash(void *handle)
 {
   if (!handle) return SVI_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
-  if (!self->hash_algo_type) return SVI_INVALID_PARAMETER;
-  // Initialize the SHA256 hashing function.
+  if (!self->hash_algo.type) return SVI_INVALID_PARAMETER;
+  // Free any existing context before creating a new one.
   if (self->ctx) EVP_MD_CTX_free(self->ctx);
   self->ctx = EVP_MD_CTX_new();
   if (!self->ctx) return SVI_EXTERNAL_FAILURE;
-  return EVP_DigestInit_ex(self->ctx, self->hash_algo_type, NULL) == 1 ? SVI_OK
-                                                                       : SVI_EXTERNAL_FAILURE;
+  // Initialize the hashing function.
+  int ret = EVP_DigestInit_ex(self->ctx, self->hash_algo.type, NULL);
+  return ret == 1 ? SVI_OK : SVI_EXTERNAL_FAILURE;
 }
 
-/* Updates SHA256_CTX in |handle| with |data|. */
+/* Updates EVP_MD_CTX in |handle| with |data|. */
 svi_rc
 openssl_update_hash(void *handle, const uint8_t *data, size_t data_size)
 {
@@ -532,7 +544,7 @@ openssl_update_hash(void *handle, const uint8_t *data, size_t data_size)
   return EVP_DigestUpdate(self->ctx, data, data_size) == 1 ? SVI_OK : SVI_EXTERNAL_FAILURE;
 }
 
-/* Finalizes SHA256_CTX in |handle| and writes result to |hash|. */
+/* Finalizes EVP_MD_CTX in |handle| and writes result to |hash|. */
 svi_rc
 openssl_finalize_hash(void *handle, uint8_t *hash)
 {
@@ -548,15 +560,71 @@ openssl_finalize_hash(void *handle, uint8_t *hash)
   }
 }
 
-/* Creates a |handle| with a SHA256_CTX. */
+/* Given an message_digest_t object, this function reads the serialized data in |oid| and
+ * sets its |type|. */
+static svi_rc
+oid_to_type(message_digest_t *self)
+{
+  ASN1_OBJECT *obj = NULL;
+  const unsigned char *encoded_oid_ptr = NULL;
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    // Point to the first byte of the OID. The |oid_ptr| will increment while decoding.
+    encoded_oid_ptr = self->encoded_oid;
+    SVI_THROW_IF(
+        !d2i_ASN1_OBJECT(&obj, &encoded_oid_ptr, self->encoded_oid_size), SVI_EXTERNAL_FAILURE);
+    self->type = EVP_get_digestbyobj(obj);
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  ASN1_OBJECT_free(obj);
+
+  return status;
+}
+
+/* Given an ASN1_OBJECT |obj|, this function writes the serialized data |oid| and |type|
+ * of an message_digest_t struct. */
+static svi_rc
+obj_to_oid_and_type(message_digest_t *self, const ASN1_OBJECT *obj)
+{
+  const EVP_MD *type = NULL;
+  unsigned char *encoded_oid_ptr = NULL;
+  size_t encoded_oid_size = 0;
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    SVI_THROW_IF(!obj, SVI_INVALID_PARAMETER);
+    type = EVP_get_digestbyobj(obj);
+    SVI_THROW_IF(!type, SVI_EXTERNAL_FAILURE);
+    // Encode the OID into ASN1/DER format. Memory is allocated and transferred.
+    encoded_oid_size = i2d_ASN1_OBJECT(obj, &encoded_oid_ptr);
+    SVI_THROW_IF(encoded_oid_size == 0 || !encoded_oid_ptr, SVI_EXTERNAL_FAILURE);
+
+    self->type = type;
+    free(self->encoded_oid);
+    self->encoded_oid = encoded_oid_ptr;
+    self->encoded_oid_size = encoded_oid_size;
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  return status;
+}
+
+/* Creates a |handle| with a EVP_MD_CTX and hash algo. */
 void *
 openssl_create_handle(void)
 {
   openssl_crypto_t *self = (openssl_crypto_t *)calloc(1, sizeof(openssl_crypto_t));
   if (!self) return NULL;
-  // self->hash_algo_type = EVP_get_digestbyname(DEFAULT_HASH_ALGO);
-  self->hash_algo_oid = OBJ_txt2obj(DEFAULT_HASH_ALGO, 0 /* Accept both name and OID */);
-  self->hash_algo_type = EVP_get_digestbyobj(self->hash_algo_oid);
+
+  // No need for sanity checks since DEFAULT_HASH_ALGO is a valid name.
+  ASN1_OBJECT *hash_algo_obj = OBJ_txt2obj(DEFAULT_HASH_ALGO, 0 /* Accept both name and OID */);
+  if (obj_to_oid_and_type(&self->hash_algo, hash_algo_obj) != SVI_OK) {
+    openssl_free_handle(self);
+    self = NULL;
+  }
+
   return (void *)self;
 }
 
@@ -567,6 +635,7 @@ openssl_free_handle(void *handle)
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   if (!self) return;
   EVP_MD_CTX_free(self->ctx);
+  free(self->hash_algo.encoded_oid);
   free(self);
 }
 
@@ -575,19 +644,66 @@ openssl_set_hash_algo(void *handle, const char *name_or_oid)
 {
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   if (!self) return SVI_INVALID_PARAMETER;
+  // NULL pointer as input means default setting.
   if (!name_or_oid) {
     name_or_oid = DEFAULT_HASH_ALGO;
   }
 
-  ASN1_OBJECT *hash_algo_oid = OBJ_txt2obj(name_or_oid, 0 /* Accept both name and OID */);
-  const EVP_MD *hash_algo_type = EVP_get_digestbyobj(hash_algo_oid);
-  if (!hash_algo_type) {
-    DEBUG_LOG("Could not identify hashing algorithm: %s", name_or_oid);
-    return SVI_INVALID_PARAMETER;
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    ASN1_OBJECT *hash_algo_obj = OBJ_txt2obj(name_or_oid, 0 /* Accept both name and OID */);
+    SVI_THROW_IF_WITH_MSG(!hash_algo_obj, SVI_INVALID_PARAMETER,
+        "Could not identify hashing algorithm: %s", name_or_oid);
+    SVI_THROW(obj_to_oid_and_type(&self->hash_algo, hash_algo_obj));
+    DEBUG_LOG("Setting hash algo %s that has ASN.1/DER coded OID length %zu", name_or_oid,
+        self->hash_algo.encoded_oid_size);
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  return status;
+}
+
+svi_rc
+openssl_set_hash_algo_by_encoded_oid(void *handle,
+    const unsigned char *encoded_oid,
+    size_t encoded_oid_size)
+{
+  openssl_crypto_t *self = (openssl_crypto_t *)handle;
+  if (!self || !encoded_oid || !encoded_oid_size) return SVI_INVALID_PARAMETER;
+
+  // If the |encoded_oid| has not changed do nothing.
+  if (encoded_oid_size == self->hash_algo.encoded_oid_size &&
+      memcmp(encoded_oid, self->hash_algo.encoded_oid, encoded_oid_size) == 0) {
+    return SVI_OK;
   }
-  self->hash_algo_type = hash_algo_type;
-  self->hash_algo_oid = hash_algo_oid;
-  return SVI_OK;
+
+  // A new hash algorithm to set. Reset existing one.
+  free(self->hash_algo.encoded_oid);
+  self->hash_algo.encoded_oid = NULL;
+  self->hash_algo.encoded_oid_size = 0;
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    self->hash_algo.encoded_oid = malloc(encoded_oid_size);
+    SVI_THROW_IF(!self->hash_algo.encoded_oid, SVI_MEMORY);
+    memcpy(self->hash_algo.encoded_oid, encoded_oid, encoded_oid_size);
+    self->hash_algo.encoded_oid_size = encoded_oid_size;
+
+    SVI_THROW(oid_to_type(&self->hash_algo));
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  return status;
+}
+
+const unsigned char *
+openssl_get_hash_algo_encoded_oid(void *handle, size_t *encoded_oid_size)
+{
+  openssl_crypto_t *self = (openssl_crypto_t *)handle;
+  if (!self || !encoded_oid_size) return NULL;
+
+  *encoded_oid_size = self->hash_algo.encoded_oid_size;
+  return (const unsigned char *)self->hash_algo.encoded_oid;
 }
 
 /*

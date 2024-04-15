@@ -88,6 +88,11 @@ encode_signature(signed_video_t *self, uint8_t *data);
 static svi_rc
 decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size);
 
+static size_t
+encode_crypto_info(signed_video_t *self, uint8_t *data);
+static svi_rc
+decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size);
+
 // Vendor specific encoders and decoders. Serves as wrappers of vendor specific calls with
 // |vendor_handle| as input.
 static size_t
@@ -123,6 +128,7 @@ static const sv_tlv_tuple_t tlv_tuples[] = {
     {HASH_LIST_TAG, 2, encode_hash_list, decode_hash_list, true},
     {SIGNATURE_TAG, 2, encode_signature, decode_signature, true},
     {ARBITRARY_DATA_TAG, 2, encode_arbitrary_data, decode_arbitrary_data, true},
+    {CRYPTO_INFO_TAG, 1, encode_crypto_info, decode_crypto_info, false},
     {NUMBER_OF_TLV_TAGS, 0, NULL, NULL, true},
 };
 
@@ -548,6 +554,7 @@ decode_arbitrary_data(signed_video_t *self, const uint8_t *data, size_t data_siz
 
   return status;
 }
+
 /**
  * @brief Encodes the PUBLIC_KEY_TAG into data
  *
@@ -829,6 +836,78 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
     signature_info->signature_size = signature_size;
     gop_info->encoding_status = encoding_status;
     gop_info->signature_hash_type = hash_type;
+    SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  return status;
+}
+
+/**
+ * @brief Encodes the CRYPTO_INFO_TAG into data
+ *
+ */
+static size_t
+encode_crypto_info(signed_video_t *self, uint8_t *data)
+{
+  size_t hash_algo_encoded_oid_size = 0;
+  const unsigned char *hash_algo_encoded_oid =
+      openssl_get_hash_algo_encoded_oid(self->crypto_handle, &hash_algo_encoded_oid_size);
+  size_t data_size = 0;
+  const uint8_t version = 1;
+
+  // If there is no hash algorithm present skip encoding, that is, return 0.
+  if (!hash_algo_encoded_oid || !hash_algo_encoded_oid_size) return 0;
+
+  // Version 1:
+  //  - version (1 byte)
+  //  - size of hash algo OID (serialized form) (1 byte)
+  //  - hash algo (hash_algo_encoded_oid_size bytes)
+
+  data_size += sizeof(version);
+  data_size += sizeof(uint8_t);
+  // Size of hash algorithm in OID serialized form
+  data_size += hash_algo_encoded_oid_size;
+
+  if (!data) return data_size;
+
+  uint8_t *data_ptr = data;
+  uint16_t *last_two_bytes = &self->last_two_bytes;
+  bool epb = self->sei_epb;
+
+  // Version
+  write_byte(last_two_bytes, &data_ptr, version, epb);
+  // OID size
+  write_byte(last_two_bytes, &data_ptr, (uint8_t)hash_algo_encoded_oid_size, epb);
+
+  // OID data; hash_algo_encoded_oid_size bytes
+  for (size_t ii = 0; ii < hash_algo_encoded_oid_size; ++ii) {
+    write_byte(last_two_bytes, &data_ptr, hash_algo_encoded_oid[ii], epb);
+  }
+
+  return (data_ptr - data);
+}
+
+/**
+ * @brief Decodes the CRYPTO_INFO_TAG from data
+ *
+ */
+static svi_rc
+decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
+{
+  const uint8_t *data_ptr = data;
+  uint8_t version = *data_ptr++;
+  size_t hash_algo_encoded_oid_size = *data_ptr++;
+  const unsigned char *hash_algo_encoded_oid = (const unsigned char *)data_ptr;
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
+    SVI_THROW_IF(hash_algo_encoded_oid_size == 0, SVI_DECODING_ERROR);
+    SVI_THROW(openssl_set_hash_algo_by_encoded_oid(
+        self->crypto_handle, hash_algo_encoded_oid, hash_algo_encoded_oid_size));
+    data_ptr += hash_algo_encoded_oid_size;
+
     SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
   SVI_CATCH()
   SVI_DONE(status)

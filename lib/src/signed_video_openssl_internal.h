@@ -66,6 +66,37 @@ svi_rc
 openssl_set_hash_algo(void *handle, const char *name_or_oid);
 
 /**
+ * @brief Sets the hashing algorithm given by its OID on serialized form
+ *
+ * Stores the OID of the hashing algorithm on serialized form and determines its type.
+ *
+ * @param handle Pointer to the OpenSSL cryptographic handle.
+ * @param encoded_oid A pointer to the encoded OID of the hashing algorithm.
+ * @param encoded_oid_size The size of the encoded OID data.
+ *
+ * @returns SVI_OK Successfully set hash algorithm,
+ *          Other appropriate error.
+ */
+svi_rc
+openssl_set_hash_algo_by_encoded_oid(void *handle,
+    const unsigned char *encoded_oid,
+    size_t encoded_oid_size);
+
+/**
+ * @brief Gets hashing algorithm on ASN.1/DER form
+ *
+ * Returns the hashing algorithm OID on serialized form, that is encoded as ASN.1/DER.
+ *
+ * @param handle Pointer to the OpenSSL cryptographic handle.
+ * @param encoded_oid_size A Pointer to where the size of the encoded OID is written.
+ *
+ * @returns A pointer to the encoded OID of the hashing algorithm,
+ *          and a NULL pointer upon failure.
+ */
+const unsigned char *
+openssl_get_hash_algo_encoded_oid(void *handle, size_t *encoded_oid_size);
+
+/**
  * @brief Hashes data into a 256 bit hash
  *
  * Uses the OpenSSL SHA256() API to hash data. The hashed data has 256 bits, which needs to be

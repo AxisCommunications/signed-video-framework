@@ -213,6 +213,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
   // Metadata + hash_list forming a document.
   const sv_tlv_tag_t document_encoders[] = {
       GENERAL_TAG,
+      CRYPTO_INFO_TAG,
       PUBLIC_KEY_TAG,
       PRODUCT_INFO_TAG,
       ARBITRARY_DATA_TAG,
