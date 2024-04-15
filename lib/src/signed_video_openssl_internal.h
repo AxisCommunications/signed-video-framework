@@ -68,7 +68,7 @@ openssl_free_handle(void *handle);
  *          SVI_EXTERNAL_FAILURE Failed to hash.
  */
 svi_rc
-openssl_hash_data(const uint8_t *data, size_t data_size, uint8_t *hash);
+openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *hash);
 
 /**
  * @brief Initiates the cryptographic handle for hashing data
