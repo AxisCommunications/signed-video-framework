@@ -26,8 +26,9 @@
 #include "axis-communications/sv_vendor_axis_communications_internal.h"
 #endif
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
-#include "includes/signed_video_openssl.h"  // signature_info_t
+#include "includes/signed_video_openssl.h"  // pem_pkey_t, signature_info_t
 #include "signed_video_authenticity.h"  // transfer_product_info()
+#include "signed_video_openssl_internal.h"  // openssl_public_key_malloc()
 
 /**
  * Encoder and decoder interfaces

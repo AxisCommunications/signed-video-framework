@@ -25,12 +25,13 @@
 
 #include "lib/src/includes/signed_video_auth.h"  // signed_video_authenticity_t
 #include "lib/src/includes/signed_video_common.h"  // signed_video_t
-#include "lib/src/includes/signed_video_openssl.h"  // signed_video_generate_private_key()
+#include "lib/src/includes/signed_video_openssl.h"  // pem_pkey_t, signed_video_generate_private_key()
 #include "lib/src/includes/signed_video_sign.h"  // signed_video_set_authenticity_level()
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "lib/src/includes/sv_vendor_axis_communications.h"
 #endif
 #include "lib/src/signed_video_internal.h"  // set_hash_list_size()
+#include "lib/src/signed_video_openssl_internal.h"  // openssl_read_pubkey_from_private_key()
 #include "lib/src/signed_video_tlv.h"  // write_byte_many()
 #include "nalu_list.h"  // nalu_list_create()
 #include "signed_video_helpers.h"  // sv_setting, create_signed_nalus()
