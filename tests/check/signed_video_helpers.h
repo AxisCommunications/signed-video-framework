@@ -45,9 +45,10 @@ struct sv_setting {
   SignedVideoAuthenticityLevel auth_level;
   sign_algo_t algo;
   size_t max_sei_payload_size;
+  const char *hash_algo_name;
 };
 
-#define NUM_SETTINGS 8
+#define NUM_SETTINGS 9
 extern struct sv_setting settings[NUM_SETTINGS];
 
 extern const char *axisDummyCertificateChain;

@@ -45,8 +45,10 @@ typedef struct _h26x_nalu_t h26x_nalu_t;
 #else
 #define ATTR_UNUSED __attribute__((unused))
 #endif
-// Currently only support SHA-256 which produces hashes of size 256 bits.
-#define HASH_DIGEST_SIZE (256 / 8)
+// Currently the SHA-512 produces maximum hashe sizes.
+#define MAX_HASH_SIZE (512 / 8)
+// Currently only support SHA-256 (default hash) which produces hashes of size 256 bits.
+#define SHA256_HASH_SIZE (256 / 8)
 
 #define SV_VERSION_BYTES 3
 #define SIGNED_VIDEO_VERSION "v1.1.29"
@@ -71,7 +73,7 @@ typedef struct _h26x_nalu_t h26x_nalu_t;
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 #endif
 
-#define HASH_LIST_SIZE (HASH_DIGEST_SIZE * MAX_GOP_LENGTH)
+#define HASH_LIST_SIZE (MAX_HASH_SIZE * MAX_GOP_LENGTH)
 
 struct _validation_flags_t {
   bool has_auth_result;  // Indicates that an authenticity result is available for the user.
@@ -196,10 +198,10 @@ typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;
  */
 struct _gop_info_t {
   uint8_t version;  // Version of this struct.
-  uint8_t hash_buddies[2 * HASH_DIGEST_SIZE];  // Memory for two hashes organized as
+  uint8_t hash_buddies[2 * MAX_HASH_SIZE];  // Memory for two hashes organized as
   // [reference_hash, nalu_hash].
   bool has_reference_hash;  // Flags if the reference hash in |hash_buddies| is valid.
-  uint8_t hashes[2 * HASH_DIGEST_SIZE];  // Memory for storing, in order, the gop_hash and
+  uint8_t hashes[2 * MAX_HASH_SIZE];  // Memory for storing, in order, the gop_hash and
   // 'latest hash'.
   uint8_t *gop_hash;  // Pointing to the memory slot of the gop_hash in |hashes|.
   uint8_t hash_list[HASH_LIST_SIZE];  // Pointer to the list of hashes used for
@@ -209,9 +211,9 @@ struct _gop_info_t {
   // like exceeding available memory, |list_idx| = -1.
   uint8_t gop_hash_init;  // The initialization value for the |gop_hash|.
   uint8_t *nalu_hash;  // Pointing to the memory slot of the NALU hash in |hashes|.
-  uint8_t document_hash[HASH_DIGEST_SIZE];  // Memory for storing the document hash to be signed
+  uint8_t document_hash[MAX_HASH_SIZE];  // Memory for storing the document hash to be signed
   // when SV_AUTHENTICITY_LEVEL_FRAME.
-  uint8_t tmp_hash[HASH_DIGEST_SIZE];  // Memory for storing a temporary hash needed when a NALU is
+  uint8_t tmp_hash[MAX_HASH_SIZE];  // Memory for storing a temporary hash needed when a NALU is
   // split in parts.
   uint8_t *tmp_hash_ptr;
   uint8_t encoding_status;  // Stores potential errors when encoding, to transmit to the client

@@ -22,7 +22,7 @@
 #ifdef SIGNED_VIDEO_DEBUG
 #include <stdio.h>  // printf
 
-#include "signed_video_internal.h"  // HASH_DIGEST_SIZE
+#include "signed_video_internal.h"  // SHA_HASH_SIZE
 #endif
 #include <stdint.h>
 #include <stdlib.h>  // calloc, malloc, free, size_t
@@ -150,7 +150,7 @@ h26x_nalu_list_item_print(const h26x_nalu_list_item_t *item)
 {
   // h26x_nalu_t *nalu;
   // char validation_status;
-  // uint8_t hash[HASH_DIGEST_SIZE];
+  // uint8_t hash[MAX_HASH_SIZE];
   // uint8_t *second_hash;
   // bool taken_ownership_of_nalu;
   // bool need_second_verification;
@@ -174,12 +174,12 @@ h26x_nalu_list_item_print(const h26x_nalu_list_item_t *item)
       (item->has_been_decoded ? ", has_been_decoded" : ""),
       (item->used_in_gop_hash ? ", used_in_gop_hash" : ""));
   printf("item->hash     ");
-  for (int i = 0; i < HASH_DIGEST_SIZE; i++) {
+  for (int i = 0; i < SHA256_HASH_SIZE; i++) {
     printf("%02x", item->hash[i]);
   }
   if (item->second_hash) {
     printf("\nitem->second_hash ");
-    for (int i = 0; i < HASH_DIGEST_SIZE; i++) {
+    for (int i = 0; i < SHA256_HASH_SIZE; i++) {
       printf("%02x", item->second_hash[i]);
     }
   }

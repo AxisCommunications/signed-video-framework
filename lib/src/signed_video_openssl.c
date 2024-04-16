@@ -228,18 +228,19 @@ openssl_sign_hash(signature_info_t *signature_info)
   EVP_PKEY_CTX *ctx = (EVP_PKEY_CTX *)signature_info->private_key;
   size_t siglen = 0;
   const uint8_t *hash_to_sign = signature_info->hash;
+  size_t hash_size = signature_info->hash_size;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     SVI_THROW_IF(!ctx, SVI_INVALID_PARAMETER);
     // Determine required buffer length of the signature
-    SVI_THROW_IF(EVP_PKEY_sign(ctx, NULL, &siglen, hash_to_sign, HASH_DIGEST_SIZE) <= 0,
-        SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(
+        EVP_PKEY_sign(ctx, NULL, &siglen, hash_to_sign, hash_size) <= 0, SVI_EXTERNAL_FAILURE);
     // Check allocated space for signature
     SVI_THROW_IF(siglen > max_signature_size, SVI_MEMORY);
     // Finally sign hash with context
-    SVI_THROW_IF(EVP_PKEY_sign(ctx, signature, &siglen, hash_to_sign, HASH_DIGEST_SIZE) <= 0,
-        SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(
+        EVP_PKEY_sign(ctx, signature, &siglen, hash_to_sign, hash_size) <= 0, SVI_EXTERNAL_FAILURE);
     // Set the actually written size of the signature. Depending on signing algorithm a shorter
     // signature may have been written.
     signature_info->signature_size = siglen;
@@ -260,6 +261,7 @@ openssl_verify_hash(const signature_info_t *signature_info, int *verified_result
   const unsigned char *signature = signature_info->signature;
   const size_t signature_size = signature_info->signature_size;
   const uint8_t *hash_to_verify = signature_info->hash;
+  size_t hash_size = signature_info->hash_size;
 
   if (!signature || (signature_size == 0) || !hash_to_verify) return SVI_INVALID_PARAMETER;
 
@@ -269,8 +271,7 @@ openssl_verify_hash(const signature_info_t *signature_info, int *verified_result
   SVI_TRY()
     SVI_THROW_IF(!ctx, SVI_INVALID_PARAMETER);
     // EVP_PKEY_verify returns 1 indicates success, 0 verify failure and < 0 for some other error.
-    verified_hash =
-        EVP_PKEY_verify(ctx, signature, signature_size, hash_to_verify, HASH_DIGEST_SIZE);
+    verified_hash = EVP_PKEY_verify(ctx, signature, signature_size, hash_to_verify, hash_size);
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -554,7 +555,7 @@ openssl_finalize_hash(void *handle, uint8_t *hash)
   if (!self->ctx) return SVI_EXTERNAL_FAILURE;
   unsigned int hash_size = 0;
   if (EVP_DigestFinal_ex(self->ctx, hash, &hash_size) == 1) {
-    return hash_size == HASH_DIGEST_SIZE ? SVI_OK : SVI_EXTERNAL_FAILURE;
+    return hash_size <= MAX_HASH_SIZE ? SVI_OK : SVI_EXTERNAL_FAILURE;
   } else {
     return SVI_EXTERNAL_FAILURE;
   }

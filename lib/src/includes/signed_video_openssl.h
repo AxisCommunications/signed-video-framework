@@ -50,7 +50,7 @@ typedef enum { SIGN_ALGO_RSA = 0, SIGN_ALGO_ECDSA = 1, SIGN_ALGO_NUM } sign_algo
  */
 typedef struct _signature_info_t {
   uint8_t *hash;  // The hash to be signed, or to verify the signature.
-  size_t hash_size;  // The size of the |hash|. For now with a fixed size of HASH_DIGEST_SIZE.
+  size_t hash_size;  // The size of the |hash|. For now with a fixed size of SHA256_HASH_SIZE.
   sign_algo_t algo;  // The algorithm used to sign the |hash|. NOT USED ANYMORE
   void *private_key;  // The private key used for signing in a pem file format.
   // Internally used as EVP_PKEY_CTX.

@@ -24,7 +24,7 @@
 #include <stdbool.h>  // bool
 
 #include "signed_video_defines.h"  // svi_rc
-#include "signed_video_internal.h"  // gop_info_t, gop_state_t, HASH_DIGEST_SIZE
+#include "signed_video_internal.h"  // gop_info_t, gop_state_t, MAX_HASH_SIZE
 
 typedef struct _h26x_nalu_list_item_t h26x_nalu_list_item_t;
 
@@ -87,7 +87,7 @@ struct _h26x_nalu_list_item_t {
   //       changing the order of NALUs will detect a missing NALU and an invalid NALU.
   // 'E' : An error occurred and validation could not be performed. This should be treated as an
   //       invalid NALU.
-  uint8_t hash[HASH_DIGEST_SIZE];  // The hash of the NALU is stored in this memory slot, if it is
+  uint8_t hash[MAX_HASH_SIZE];  // The hash of the NALU is stored in this memory slot, if it is
   // hashable that is.
   uint8_t *second_hash;  // The hash used for a second verification. Some NALUs, for example the
   // first NALU in a GOP is used in two neighboring GOPs, but with different hashes. The NALU might
