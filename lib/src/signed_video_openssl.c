@@ -501,21 +501,19 @@ create_full_path(sign_algo_t algo, const char *path_to_key, key_paths_t *key_pat
   return status;
 }
 
-/* Hashes the data using SHA256. */
+/* Hashes the data using |hash_algo.type|. */
 svi_rc
 openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *hash)
 {
+  openssl_crypto_t *self = (openssl_crypto_t *)handle;
+
   if (!data || data_size == 0 || !hash) return SVI_INVALID_PARAMETER;
+  if (!self->hash_algo.type) return SVI_INVALID_PARAMETER;
 
-  svi_rc status = SVI_UNKNOWN;
-  SVI_TRY()
-    SVI_THROW(openssl_init_hash(handle));
-    SVI_THROW(openssl_update_hash(handle, data, data_size));
-    SVI_THROW(openssl_finalize_hash(handle, hash));
-  SVI_CATCH()
-  SVI_DONE(status)
-
-  return status;
+  unsigned int hash_size = 0;
+  int ret = EVP_Digest(data, data_size, hash, &hash_size, self->hash_algo.type, NULL);
+  svi_rc status = hash_size == SHA256_HASH_SIZE ? SVI_OK : SVI_EXTERNAL_FAILURE;
+  return ret == 1 ? status : SVI_EXTERNAL_FAILURE;
 }
 
 /* Initializes EVP_MD_CTX in |handle| with |hash_algo.type|. */
@@ -524,13 +522,20 @@ openssl_init_hash(void *handle)
 {
   if (!handle) return SVI_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
-  if (!self->hash_algo.type) return SVI_INVALID_PARAMETER;
-  // Free any existing context before creating a new one.
-  if (self->ctx) EVP_MD_CTX_free(self->ctx);
-  self->ctx = EVP_MD_CTX_new();
-  if (!self->ctx) return SVI_EXTERNAL_FAILURE;
-  // Initialize the hashing function.
-  int ret = EVP_DigestInit_ex(self->ctx, self->hash_algo.type, NULL);
+  int ret = 0;
+
+  if (self->ctx) {
+    // Message digest type already set in context. Initialize the hashing function.
+    ret = EVP_DigestInit_ex(self->ctx, NULL, NULL);
+  } else {
+    if (!self->hash_algo.type) return SVI_INVALID_PARAMETER;
+    // Create a new context and set message digest type.
+    self->ctx = EVP_MD_CTX_new();
+    if (!self->ctx) return SVI_EXTERNAL_FAILURE;
+    // Set a message digest type and initialize the hashing function.
+    ret = EVP_DigestInit_ex(self->ctx, self->hash_algo.type, NULL);
+  }
+
   return ret == 1 ? SVI_OK : SVI_EXTERNAL_FAILURE;
 }
 
@@ -619,9 +624,7 @@ openssl_create_handle(void)
   openssl_crypto_t *self = (openssl_crypto_t *)calloc(1, sizeof(openssl_crypto_t));
   if (!self) return NULL;
 
-  // No need for sanity checks since DEFAULT_HASH_ALGO is a valid name.
-  ASN1_OBJECT *hash_algo_obj = OBJ_txt2obj(DEFAULT_HASH_ALGO, 0 /* Accept both name and OID */);
-  if (obj_to_oid_and_type(&self->hash_algo, hash_algo_obj) != SVI_OK) {
+  if (openssl_set_hash_algo(self, DEFAULT_HASH_ALGO) != SVI_OK) {
     openssl_free_handle(self);
     self = NULL;
   }
@@ -656,6 +659,11 @@ openssl_set_hash_algo(void *handle, const char *name_or_oid)
     SVI_THROW_IF_WITH_MSG(!hash_algo_obj, SVI_INVALID_PARAMETER,
         "Could not identify hashing algorithm: %s", name_or_oid);
     SVI_THROW(obj_to_oid_and_type(&self->hash_algo, hash_algo_obj));
+    // Free the context to be able to assign a new message digest type to it.
+    EVP_MD_CTX_free(self->ctx);
+    self->ctx = NULL;
+
+    SVI_THROW(openssl_init_hash(self));
     DEBUG_LOG("Setting hash algo %s that has ASN.1/DER coded OID length %zu", name_or_oid,
         self->hash_algo.encoded_oid_size);
   SVI_CATCH()
