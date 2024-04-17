@@ -183,6 +183,7 @@ static svi_rc
 generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_signature_ptr)
 {
   signature_info_t *signature_info = self->signature_info;
+  const size_t hash_size = signature_info->hash_size;
 
   // Metadata + hash_list forming a document.
   const sv_tlv_tag_t document_encoders[] = {
@@ -324,16 +325,16 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
       // The current |nalu_hash| is the document hash. Copy to |document_hash|. In principle we only
       // need to do this for SV_AUTHENTICITY_LEVEL_FRAME, but for simplicity we always copy it.
-      memcpy(self->gop_info->document_hash, self->gop_info->nalu_hash, SHA256_HASH_SIZE);
+      memcpy(self->gop_info->document_hash, self->gop_info->nalu_hash, hash_size);
       // Free the memory allocated when parsing the NALU.
       free(nalu_without_signature_data.nalu_data_wo_epb);
     }
 
     gop_info_t *gop_info = self->gop_info;
     if (gop_info->signature_hash_type == DOCUMENT_HASH) {
-      memcpy(signature_info->hash, gop_info->document_hash, SHA256_HASH_SIZE);
+      memcpy(signature_info->hash, gop_info->document_hash, hash_size);
     } else {
-      memcpy(signature_info->hash, gop_info->gop_hash, SHA256_HASH_SIZE);
+      memcpy(signature_info->hash, gop_info->gop_hash, hash_size);
     }
 
     // Reset the gop_hash since we start a new GOP.
@@ -795,9 +796,11 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid)
   SVI_TRY()
     SVI_THROW(openssl_set_hash_algo(self->crypto_handle, name_or_oid));
     hash_size = openssl_get_hash_size(self->crypto_handle);
-    SVI_THROW_IF(hash_size == 0, SVI_NOT_SUPPORTED);
+    SVI_THROW_IF(hash_size == 0 || hash_size > MAX_HASH_SIZE, SVI_NOT_SUPPORTED);
 
     self->signature_info->hash_size = hash_size;
+    // Point |nalu_hash| to the correct location in the |hashes| buffer.
+    self->gop_info->nalu_hash = self->gop_info->hashes + hash_size;
   SVI_CATCH()
   SVI_DONE(status)
 

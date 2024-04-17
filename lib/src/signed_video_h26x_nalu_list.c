@@ -174,12 +174,12 @@ h26x_nalu_list_item_print(const h26x_nalu_list_item_t *item)
       (item->has_been_decoded ? ", has_been_decoded" : ""),
       (item->used_in_gop_hash ? ", used_in_gop_hash" : ""));
   printf("item->hash     ");
-  for (int i = 0; i < SHA256_HASH_SIZE; i++) {
+  for (size_t i = 0; i < item->hash_size; i++) {
     printf("%02x", item->hash[i]);
   }
   if (item->second_hash) {
     printf("\nitem->second_hash ");
-    for (int i = 0; i < SHA256_HASH_SIZE; i++) {
+    for (size_t i = 0; i < item->hash_size; i++) {
       printf("%02x", item->second_hash[i]);
     }
   }

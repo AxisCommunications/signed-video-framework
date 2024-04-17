@@ -93,7 +93,7 @@ struct _h26x_nalu_list_item_t {
   // first NALU in a GOP is used in two neighboring GOPs, but with different hashes. The NALU might
   // also require a second verification due to lost NALUs. Memory for this hash is allocated when
   // needed.
-
+  size_t hash_size;
   // Flags
   bool taken_ownership_of_nalu;  // Flag to indicate if the item has taken ownership of the |nalu|
   // memory, hence need to free the memory if the item is released.
