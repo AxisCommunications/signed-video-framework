@@ -71,6 +71,7 @@ typedef struct {
 typedef struct {
   unsigned char *encoded_oid;  // Serialized OID form
   size_t encoded_oid_size;  // Size of serialized OID form
+  size_t size;  // The size of the produced message digest
   // Ownership NOT transferred to this struct
   const EVP_MD *type;
 } message_digest_t;
@@ -581,6 +582,7 @@ oid_to_type(message_digest_t *self)
     SVI_THROW_IF(
         !d2i_ASN1_OBJECT(&obj, &encoded_oid_ptr, self->encoded_oid_size), SVI_EXTERNAL_FAILURE);
     self->type = EVP_get_digestbyobj(obj);
+    self->size = EVP_MD_size(self->type);
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -611,6 +613,7 @@ obj_to_oid_and_type(message_digest_t *self, const ASN1_OBJECT *obj)
     free(self->encoded_oid);
     self->encoded_oid = encoded_oid_ptr;
     self->encoded_oid_size = encoded_oid_size;
+    self->size = EVP_MD_size(type);
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -713,6 +716,14 @@ openssl_get_hash_algo_encoded_oid(void *handle, size_t *encoded_oid_size)
 
   *encoded_oid_size = self->hash_algo.encoded_oid_size;
   return (const unsigned char *)self->hash_algo.encoded_oid;
+}
+
+size_t
+openssl_get_hash_size(void *handle)
+{
+  if (!handle) return 0;
+
+  return ((openssl_crypto_t *)handle)->hash_algo.size;
 }
 
 /*
