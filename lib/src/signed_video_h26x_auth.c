@@ -762,8 +762,7 @@ prepare_for_validation(signed_video_t *self)
 
     // If we have received a SEI there is a signature to use for verification.
     if (self->gop_state.has_gop_sei) {
-      SVI_THROW(sv_rc_to_svi_rc(
-          openssl_verify_hash(signature_info, &self->gop_info->verified_signature_hash)));
+      SVI_THROW(openssl_verify_hash(signature_info, &self->gop_info->verified_signature_hash));
     }
 
   SVI_CATCH()
@@ -1088,8 +1087,7 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
     memcpy(self->pem_public_key.pkey, public_key, public_key_size);
     self->pem_public_key.pkey_size = public_key_size;
     // Turn the public key from PEM to EVP_PKEY form.
-    SVI_THROW(
-        sv_rc_to_svi_rc(openssl_public_key_malloc(self->signature_info, &self->pem_public_key)));
+    SVI_THROW(openssl_public_key_malloc(self->signature_info, &self->pem_public_key));
     self->has_public_key = true;
 
   SVI_CATCH()

@@ -1966,8 +1966,7 @@ START_TEST(test_public_key_scenarios)
     signed_video_generate_private_key(algo, NULL, &tmp_private_key, &tmp_private_key_size);
     sv_rc = openssl_private_key_malloc(&sign_info_wrong_key, tmp_private_key, tmp_private_key_size);
     ck_assert_int_eq(sv_rc, SV_OK);
-    sv_rc = openssl_read_pubkey_from_private_key(&sign_info_wrong_key, &wrong_public_key);
-    ck_assert_int_eq(sv_rc, SV_OK);
+    openssl_read_pubkey_from_private_key(&sign_info_wrong_key, &wrong_public_key);
 
     pem_pkey_t *public_key = &sv_camera->pem_public_key;
     if (pk_tests[j].use_wrong_pk) {

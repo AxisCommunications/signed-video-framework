@@ -154,11 +154,11 @@ openssl_private_key_malloc(signature_info_t *signature_info,
 
 /* Reads the |pem_public_key| which is expected to be on PEM form and creates an EVP_PKEY
  * object out of it and sets it in |signature_info|. */
-SignedVideoReturnCode
+svi_rc
 openssl_public_key_malloc(signature_info_t *signature_info, pem_pkey_t *pem_public_key)
 {
   // Sanity check input
-  if (!signature_info || !pem_public_key) return SV_INVALID_PARAMETER;
+  if (!signature_info || !pem_public_key) return SVI_INVALID_PARAMETER;
 
   EVP_PKEY_CTX *ctx = NULL;
   EVP_PKEY *verification_key = NULL;
@@ -197,7 +197,7 @@ openssl_public_key_malloc(signature_info_t *signature_info, pem_pkey_t *pem_publ
 
   EVP_PKEY_free(verification_key);
 
-  return svi_rc_to_signed_video_rc(status);
+  return status;
 }
 
 /* Signs a hash. */
@@ -237,10 +237,10 @@ openssl_sign_hash(signature_info_t *signature_info)
 }
 
 /* Verifies the |signature|. */
-SignedVideoReturnCode
+svi_rc
 openssl_verify_hash(const signature_info_t *signature_info, int *verified_result)
 {
-  if (!signature_info || !verified_result) return SV_INVALID_PARAMETER;
+  if (!signature_info || !verified_result) return SVI_INVALID_PARAMETER;
 
   int verified_hash = -1;  // Initialize to 'error'.
 
@@ -248,7 +248,7 @@ openssl_verify_hash(const signature_info_t *signature_info, int *verified_result
   const size_t signature_size = signature_info->signature_size;
   const uint8_t *hash_to_verify = signature_info->hash;
 
-  if (!signature || (signature_size == 0) || !hash_to_verify) return SV_INVALID_PARAMETER;
+  if (!signature || (signature_size == 0) || !hash_to_verify) return SVI_INVALID_PARAMETER;
 
   EVP_PKEY_CTX *ctx = (EVP_PKEY_CTX *)signature_info->public_key;
 
@@ -263,7 +263,7 @@ openssl_verify_hash(const signature_info_t *signature_info, int *verified_result
 
   *verified_result = verified_hash;
 
-  return svi_rc_to_signed_video_rc(status);
+  return status;
 }
 
 /* Writes the content of |pkey| to a file in PEM format. */
@@ -488,63 +488,63 @@ create_full_path(sign_algo_t algo, const char *path_to_key, key_paths_t *key_pat
 }
 
 /* Hashes the data using SHA256. */
-SignedVideoReturnCode
+svi_rc
 openssl_hash_data(const uint8_t *data, size_t data_size, uint8_t *hash)
 {
-  if (!data || data_size == 0 || !hash) return SV_INVALID_PARAMETER;
+  if (!data || data_size == 0 || !hash) return SVI_INVALID_PARAMETER;
   // If there is a mismatch between where the hash has been stored (return value of SHA256()) and
   // where we want it stored (|hash|), we return failure.
-  return SHA256(data, data_size, hash) == hash ? SV_OK : SV_EXTERNAL_ERROR;
+  return SHA256(data, data_size, hash) == hash ? SVI_OK : SVI_EXTERNAL_FAILURE;
 }
 
 /* Initializes SHA256_CTX in |handle|. */
-SignedVideoReturnCode
+svi_rc
 openssl_init_hash(void *handle)
 {
-  if (!handle) return SV_INVALID_PARAMETER;
+  if (!handle) return SVI_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   // Initialize the SHA256 hashing function.
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
-  return SHA256_Init(&self->ctx) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
+  return SHA256_Init(&self->ctx) == 1 ? SVI_OK : SVI_EXTERNAL_FAILURE;
 #else
   if (self->ctx) EVP_MD_CTX_free(self->ctx);
   self->ctx = EVP_MD_CTX_new();
-  if (!self->ctx) return SV_EXTERNAL_ERROR;
-  return EVP_DigestInit_ex(self->ctx, EVP_sha256(), NULL) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
+  if (!self->ctx) return SVI_EXTERNAL_FAILURE;
+  return EVP_DigestInit_ex(self->ctx, EVP_sha256(), NULL) == 1 ? SVI_OK : SVI_EXTERNAL_FAILURE;
 #endif
 }
 
 /* Updates SHA256_CTX in |handle| with |data|. */
-SignedVideoReturnCode
+svi_rc
 openssl_update_hash(void *handle, const uint8_t *data, size_t data_size)
 {
-  if (!data || data_size == 0 || !handle) return SV_INVALID_PARAMETER;
+  if (!data || data_size == 0 || !handle) return SVI_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   // Update the "ongoing" hash with new data.
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
-  return SHA256_Update(&self->ctx, data, data_size) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
+  return SHA256_Update(&self->ctx, data, data_size) == 1 ? SVI_OK : SVI_EXTERNAL_FAILURE;
 #else
-  if (!self->ctx) return SV_EXTERNAL_ERROR;
-  return EVP_DigestUpdate(self->ctx, data, data_size) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
+  if (!self->ctx) return SVI_EXTERNAL_FAILURE;
+  return EVP_DigestUpdate(self->ctx, data, data_size) == 1 ? SVI_OK : SVI_EXTERNAL_FAILURE;
 #endif
 }
 
 /* Finalizes SHA256_CTX in |handle| and writes result to |hash|. */
-SignedVideoReturnCode
+svi_rc
 openssl_finalize_hash(void *handle, uint8_t *hash)
 {
-  if (!hash || !handle) return SV_INVALID_PARAMETER;
+  if (!hash || !handle) return SVI_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   // Finalize and write the |hash| to output.
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
-  return SHA256_Final(hash, &self->ctx) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
+  return SHA256_Final(hash, &self->ctx) == 1 ? SVI_OK : SVI_EXTERNAL_FAILURE;
 #else
-  if (!self->ctx) return SV_EXTERNAL_ERROR;
+  if (!self->ctx) return SVI_EXTERNAL_FAILURE;
   unsigned int hash_size = 0;
   if (EVP_DigestFinal_ex(self->ctx, hash, &hash_size) == 1) {
-    return hash_size == HASH_DIGEST_SIZE ? SV_OK : SV_EXTERNAL_ERROR;
+    return hash_size == HASH_DIGEST_SIZE ? SVI_OK : SVI_EXTERNAL_FAILURE;
   } else {
-    return SV_EXTERNAL_ERROR;
+    return SVI_EXTERNAL_FAILURE;
   }
 #endif
 }
@@ -597,7 +597,7 @@ openssl_create_private_key(sign_algo_t algo, const char *path_to_key, key_paths_
 }
 
 /* Reads the public key from the private key. */
-SignedVideoReturnCode
+svi_rc
 openssl_read_pubkey_from_private_key(signature_info_t *signature_info, pem_pkey_t *pem_pkey)
 {
   EVP_PKEY_CTX *ctx = NULL;
@@ -606,7 +606,7 @@ openssl_read_pubkey_from_private_key(signature_info_t *signature_info, pem_pkey_
   char *public_key = NULL;
   long public_key_size = 0;
 
-  if (!signature_info) return SV_INVALID_PARAMETER;
+  if (!signature_info) return SVI_INVALID_PARAMETER;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
@@ -638,7 +638,7 @@ openssl_read_pubkey_from_private_key(signature_info_t *signature_info, pem_pkey_
   pem_pkey->pkey = public_key;
   pem_pkey->pkey_size = public_key_size;
 
-  return svi_rc_to_signed_video_rc(status);
+  return status;
 }
 
 /* Helper function to generate a private key. Only applicable on Linux platforms. */
