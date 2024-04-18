@@ -85,7 +85,7 @@ h26x_nalu_list_append(h26x_nalu_list_t* list, const h26x_nalu_t* nalu);
  * @returns Signed Video Internal Return Code
  */
 svi_rc
-h26x_nalu_list_copy_last_item(h26x_nalu_list_t* list);
+h26x_nalu_list_copy_last_item(h26x_nalu_list_t* list, bool hash_algo_known);
 
 /**
  * @brief Appends or prepends a certain item of a list with a new item marked as missing

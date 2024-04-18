@@ -773,6 +773,7 @@ validation_flags_print(const validation_flags_t *validation_flags)
   DEBUG_LOG("     is_first_validation: %u", validation_flags->is_first_validation);
   DEBUG_LOG("         signing_present: %u", validation_flags->signing_present);
   DEBUG_LOG("            is_first_sei: %u", validation_flags->is_first_sei);
+  DEBUG_LOG("         hash_algo_known: %u", validation_flags->hash_algo_known);
   DEBUG_LOG("");
 }
 
@@ -1085,21 +1086,27 @@ hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
 }
 
 svi_rc
-hash_and_add_for_auth(signed_video_t *self, const h26x_nalu_t *nalu)
+hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
 {
-  if (!self || !nalu) return SVI_INVALID_PARAMETER;
+  if (!self || !item) return SVI_INVALID_PARAMETER;
+
+  const h26x_nalu_t *nalu = item->nalu;
+  if (!nalu) return SVI_INVALID_PARAMETER;
 
   if (!nalu->is_hashable) {
     DEBUG_LOG("This NALU (type %d) was not hashed.", nalu->nalu_type);
+    return SVI_OK;
+  }
+  if (!self->validation_flags.hash_algo_known) {
+    DEBUG_LOG("NALU will be hashed when hash algo is known.");
     return SVI_OK;
   }
 
   gop_info_t *gop_info = self->gop_info;
   gop_state_t *gop_state = &self->gop_state;
 
-  // Store the hash in the |last_item| of |nalu_list|.
-  h26x_nalu_list_item_t *this_item = self->nalu_list->last_item;
-  uint8_t *nalu_hash = this_item->hash;
+  uint8_t *nalu_hash = NULL;
+  nalu_hash = item->hash;
   assert(nalu_hash);
 
   svi_rc status = SVI_UNKNOWN;
@@ -1118,10 +1125,10 @@ hash_and_add_for_auth(signed_video_t *self, const h26x_nalu_t *nalu)
       // the current NALU belongs to both the ended and the started GOP. Note that we need to get
       // the hash wrapper again since conditions may have changed.
       hash_wrapper = get_hash_wrapper(self, nalu);
-      free(this_item->second_hash);
-      this_item->second_hash = malloc(MAX_HASH_SIZE);
-      SVI_THROW_IF(!this_item->second_hash, SVI_MEMORY);
-      SVI_THROW(hash_wrapper(self, nalu, this_item->second_hash));
+      free(item->second_hash);
+      item->second_hash = malloc(MAX_HASH_SIZE);
+      SVI_THROW_IF(!item->second_hash, SVI_MEMORY);
+      SVI_THROW(hash_wrapper(self, nalu, item->second_hash));
     }
 
   SVI_CATCH()
