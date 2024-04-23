@@ -65,11 +65,7 @@ typedef struct {
  * OpenSSL cryptographic object.
  */
 typedef struct {
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-  SHA256_CTX ctx;  // Hashing context
-#else
   EVP_MD_CTX *ctx;  // Hashing context
-#endif
 } openssl_crypto_t;
 
 static svi_rc
@@ -489,12 +485,19 @@ create_full_path(sign_algo_t algo, const char *path_to_key, key_paths_t *key_pat
 
 /* Hashes the data using SHA256. */
 svi_rc
-openssl_hash_data(const uint8_t *data, size_t data_size, uint8_t *hash)
+openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *hash)
 {
   if (!data || data_size == 0 || !hash) return SVI_INVALID_PARAMETER;
-  // If there is a mismatch between where the hash has been stored (return value of SHA256()) and
-  // where we want it stored (|hash|), we return failure.
-  return SHA256(data, data_size, hash) == hash ? SVI_OK : SVI_EXTERNAL_FAILURE;
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    SVI_THROW(openssl_init_hash(handle));
+    SVI_THROW(openssl_update_hash(handle, data, data_size));
+    SVI_THROW(openssl_finalize_hash(handle, hash));
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  return status;
 }
 
 /* Initializes SHA256_CTX in |handle|. */
@@ -504,14 +507,10 @@ openssl_init_hash(void *handle)
   if (!handle) return SVI_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   // Initialize the SHA256 hashing function.
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-  return SHA256_Init(&self->ctx) == 1 ? SVI_OK : SVI_EXTERNAL_FAILURE;
-#else
   if (self->ctx) EVP_MD_CTX_free(self->ctx);
   self->ctx = EVP_MD_CTX_new();
   if (!self->ctx) return SVI_EXTERNAL_FAILURE;
   return EVP_DigestInit_ex(self->ctx, EVP_sha256(), NULL) == 1 ? SVI_OK : SVI_EXTERNAL_FAILURE;
-#endif
 }
 
 /* Updates SHA256_CTX in |handle| with |data|. */
@@ -521,12 +520,8 @@ openssl_update_hash(void *handle, const uint8_t *data, size_t data_size)
   if (!data || data_size == 0 || !handle) return SVI_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   // Update the "ongoing" hash with new data.
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-  return SHA256_Update(&self->ctx, data, data_size) == 1 ? SVI_OK : SVI_EXTERNAL_FAILURE;
-#else
   if (!self->ctx) return SVI_EXTERNAL_FAILURE;
   return EVP_DigestUpdate(self->ctx, data, data_size) == 1 ? SVI_OK : SVI_EXTERNAL_FAILURE;
-#endif
 }
 
 /* Finalizes SHA256_CTX in |handle| and writes result to |hash|. */
@@ -536,9 +531,6 @@ openssl_finalize_hash(void *handle, uint8_t *hash)
   if (!hash || !handle) return SVI_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   // Finalize and write the |hash| to output.
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-  return SHA256_Final(hash, &self->ctx) == 1 ? SVI_OK : SVI_EXTERNAL_FAILURE;
-#else
   if (!self->ctx) return SVI_EXTERNAL_FAILURE;
   unsigned int hash_size = 0;
   if (EVP_DigestFinal_ex(self->ctx, hash, &hash_size) == 1) {
@@ -546,7 +538,6 @@ openssl_finalize_hash(void *handle, uint8_t *hash)
   } else {
     return SVI_EXTERNAL_FAILURE;
   }
-#endif
 }
 
 /* Creates a |handle| with a SHA256_CTX. */
@@ -561,9 +552,8 @@ void
 openssl_free_handle(void *handle)
 {
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-  if (self->ctx) EVP_MD_CTX_free(self->ctx);
-#endif
+  if (!self) return;
+  EVP_MD_CTX_free(self->ctx);
   free(self);
 }
 

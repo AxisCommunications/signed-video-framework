@@ -666,7 +666,7 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
       hash_to_add = item->need_second_verification ? item->second_hash : item->hash;
       // Copy to the |nalu_hash| slot in the memory and update the gop_hash.
       memcpy(nalu_hash, hash_to_add, HASH_DIGEST_SIZE);
-      SVI_THROW(update_gop_hash(gop_info));
+      SVI_THROW(update_gop_hash(self->crypto_handle, gop_info));
 
       // Mark the item and move to next.
       item->used_in_gop_hash = true;
@@ -675,7 +675,7 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
 
     // Complete the gop_hash with the hash of the SEI.
     memcpy(nalu_hash, sei->hash, HASH_DIGEST_SIZE);
-    SVI_THROW(update_gop_hash(gop_info));
+    SVI_THROW(update_gop_hash(self->crypto_handle, gop_info));
     sei->used_in_gop_hash = true;
 
   SVI_CATCH()

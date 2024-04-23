@@ -172,7 +172,7 @@ void
 update_num_nalus_in_gop_hash(signed_video_t *signed_video, const h26x_nalu_t *nalu);
 
 svi_rc
-update_gop_hash(gop_info_t *gop_info);
+update_gop_hash(void *crypto_handle, gop_info_t *gop_info);
 
 void
 check_and_copy_hash_to_hash_list(signed_video_t *signed_video, const uint8_t *nalu_hash);

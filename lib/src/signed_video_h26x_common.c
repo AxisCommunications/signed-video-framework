@@ -319,7 +319,7 @@ reset_gop_hash(signed_video_t *self)
   assert(gop_info);
 
   gop_info->num_nalus_in_gop_hash = 0;
-  return openssl_hash_data(&gop_info->gop_hash_init, 1, gop_info->gop_hash);
+  return openssl_hash_data(self->crypto_handle, &gop_info->gop_hash_init, 1, gop_info->gop_hash);
 }
 
 /**
@@ -856,7 +856,7 @@ update_num_nalus_in_gop_hash(signed_video_t *self, const h26x_nalu_t *nalu)
 }
 
 svi_rc
-update_gop_hash(gop_info_t *gop_info)
+update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
 {
   if (!gop_info) return SVI_INVALID_PARAMETER;
 
@@ -864,7 +864,8 @@ update_gop_hash(gop_info_t *gop_info)
   SVI_TRY()
     // Update the gop_hash, that is, hash the memory (both hashes) in hashes = [gop_hash, latest
     // nalu_hash] and replace the gop_hash part with the new hash.
-    SVI_THROW(openssl_hash_data(gop_info->hashes, 2 * HASH_DIGEST_SIZE, gop_info->gop_hash));
+    SVI_THROW(openssl_hash_data(
+        crypto_handle, gop_info->hashes, 2 * HASH_DIGEST_SIZE, gop_info->gop_hash));
 
 #ifdef SIGNED_VIDEO_DEBUG
     printf("Latest NALU hash ");
@@ -952,7 +953,7 @@ simply_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *nalu_hash)
 
   if (nalu->is_first_nalu_part) {
     // Entire NALU can be hashed in one part.
-    return openssl_hash_data(hashable_data, hashable_data_size, nalu_hash);
+    return openssl_hash_data(self->crypto_handle, hashable_data, hashable_data_size, nalu_hash);
   } else {
     svi_rc status = update_hash(self, nalu, nalu_hash);
     if (status == SVI_OK) {
@@ -1030,7 +1031,8 @@ hash_with_reference(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *budd
     // Hash NALU data and store as |nalu_hash|.
     SVI_THROW(simply_hash(self, nalu, nalu_hash));
     // Hash reference hash together with the |nalu_hash| and store in |buddy_hash|.
-    SVI_THROW(openssl_hash_data(gop_info->hash_buddies, HASH_DIGEST_SIZE * 2, buddy_hash));
+    SVI_THROW(openssl_hash_data(
+        self->crypto_handle, gop_info->hash_buddies, HASH_DIGEST_SIZE * 2, buddy_hash));
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -1064,7 +1066,7 @@ hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
     if (nalu->is_last_nalu_part) {
       // The end of the NALU has been reached. Update hash list and GOP hash.
       check_and_copy_hash_to_hash_list(self, nalu_hash);
-      SVI_THROW(update_gop_hash(gop_info));
+      SVI_THROW(update_gop_hash(self->crypto_handle, gop_info));
       update_num_nalus_in_gop_hash(self, nalu);
     }
   SVI_CATCH()
@@ -1153,7 +1155,6 @@ signed_video_create(SignedVideoCodec codec)
 
     self->gop_info = gop_info_create();
     SVI_THROW_IF_WITH_MSG(!self->gop_info, SVI_MEMORY, "Couldn't allocate gop_info");
-    SVI_THROW_WITH_MSG(reset_gop_hash(self), "Couldn't reset gop_hash");
 
     self->authenticity_level = DEFAULT_AUTHENTICITY_LEVEL;
 
@@ -1179,6 +1180,7 @@ signed_video_create(SignedVideoCodec codec)
     // Setup crypto handle.
     self->crypto_handle = openssl_create_handle();
     SVI_THROW_IF(!self->crypto_handle, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_WITH_MSG(reset_gop_hash(self), "Couldn't reset gop_hash");
 
     // Signing plugin is setup when the private key is set.
 
