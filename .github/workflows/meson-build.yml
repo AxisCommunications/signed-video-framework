@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Update system
-      run: sudo apt-get update
+      run: sudo apt-get update || true
     - name: Install check manually
       run: sudo apt-get install check
     - uses: actions/checkout@v2
