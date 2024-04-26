@@ -165,6 +165,21 @@ START_TEST(api_inputs)
   sv_rc = signed_video_set_sei_epb(sv, true);
   ck_assert_int_eq(sv_rc, SV_OK);
 
+  // Checking signed_video_set_hash_algo().
+  sv_rc = signed_video_set_hash_algo(NULL, "sha512");
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  sv_rc = signed_video_set_hash_algo(sv, "bogus-algo");
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  // Set via name.
+  sv_rc = signed_video_set_hash_algo(sv, "sha512");
+  ck_assert_int_eq(sv_rc, SV_OK);
+  // Set via OID.
+  sv_rc = signed_video_set_hash_algo(sv, "2.16.840.1.101.3.4.2.3");
+  ck_assert_int_eq(sv_rc, SV_OK);
+  // Passing in a nullptr algo is the same as default value, hence should return SV_OK.
+  sv_rc = signed_video_set_hash_algo(sv, NULL);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
   // Prepare for next iteration of tests.
   sv_rc = signed_video_set_product_info(sv, HW_ID, FW_VER, SER_NO, MANUFACT, ADDR);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -235,6 +250,9 @@ START_TEST(api_inputs)
   sv_rc = signed_video_set_product_info(
       sv, "hardware_id", "firmware_version", "serial_number", "manufacturer", LONG_STRING);
   ck_assert_int_eq(sv_rc, SV_OK);
+  // Trying to use signed_video_set_hash_algo() after first NAL Unit.
+  sv_rc = signed_video_set_hash_algo(sv, "sha512");
+  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
   // Free nalu_list_item and session.
   nalu_list_free_item(p_nalu);
   nalu_list_free_item(invalid);

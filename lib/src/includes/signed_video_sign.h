@@ -428,6 +428,34 @@ signed_video_set_sei_epb(signed_video_t *self, bool sei_epb);
 SignedVideoReturnCode
 signed_video_set_max_sei_payload_size(signed_video_t *self, size_t max_sei_payload_size);
 
+/**
+ * @brief Configures Signed Video to use a specific hash algorithm
+ *
+ * Signed Video hashes NAL Units and, depending on configuration, sends these hashes in a SEI.
+ * The default hash algorithm used is SHA256. With this function, the user can change hash
+ * algorithm.
+ *
+ * Only hash algorithms supported by OpenSSL can be used and should be specified by |name_or_oid|.
+ * For example, to use SHA512 use the name "sha512", or the OID "2.16.840.1.101.3.4.2.3".
+ * For a complete list of, by OpenSSL, supported algorithms see the OpenSSL documentation.
+ *
+ * If this API is not used, or if a nullptr is passed in as |name_or_oid|, SHA256 is used.
+ *
+ * This function can only be used before a Signed Video stream has started, or after a reset.
+ * Changing the hash algorithm on the fly is not supported.
+ *
+ * NOTE: that this is NOT the message digest hash used in signing data.
+ *
+ * @param self Session struct pointer
+ * @param name_or_oid A null terminated string of the name or OID of the hash function to use
+ *
+ * @returns SV_OK A hash algorithm was successfully set,
+ *          SV_INVALID_PARAMETER Invalid parameter,
+ *          SV_NOT_SUPPORTED If called during ongoing signing.
+ */
+SignedVideoReturnCode
+signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid);
+
 #ifdef __cplusplus
 }
 #endif

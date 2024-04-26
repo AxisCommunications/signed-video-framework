@@ -120,6 +120,7 @@ struct _signed_video_t {
   bool add_public_key_to_sei;
   bool sei_epb;  // Flag that tells whether to generate SEI frames w/wo emulation prevention bytes
   size_t max_sei_payload_size;  // Default 0 = unlimited
+  bool signing_started;
 
   // Frames to prepend list
   signed_video_nalu_to_prepend_t nalus_to_prepend_list[MAX_NALUS_TO_PREPEND];

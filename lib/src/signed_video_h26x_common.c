@@ -1176,6 +1176,7 @@ signed_video_create(SignedVideoCodec codec)
     self->frame_count = 0;
     self->has_recurrent_data = false;
     self->authentication_started = false;
+    self->signing_started = false;
 
     // Setup crypto handle.
     self->crypto_handle = openssl_create_handle();
@@ -1210,6 +1211,7 @@ signed_video_reset(signed_video_t *self)
     SVI_THROW_IF(!self, SVI_INVALID_PARAMETER);
     DEBUG_LOG("Resetting signed session");
     // Reset session states
+    self->signing_started = false;
     // TODO: Move these to gop_info_reset(...)
     self->gop_info->verified_signature_hash = -1;
     // If a reset is forced, the stored hashes in |hash_list| have no meaning anymore.

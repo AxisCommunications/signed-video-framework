@@ -459,6 +459,9 @@ prepare_for_nalus_to_prepend(signed_video_t *self)
     // plugin.
     SVI_THROW_IF_WITH_MSG(
         !self->plugin_handle, SVI_NOT_SUPPORTED, "The private key has not been set");
+    // Mark the start of signing when the first NAL Unit is passed in and a signing key
+    // has been set.
+    self->signing_started = true;
     // Check if we have NALUs to prepend waiting to be pulled. If we have one item only, this is an
     // empty list item, the pull action has no impact. We can therefore silently remove it and
     // proceed. But if there are vital SEI-nalus waiting to be pulled we return an error message
@@ -791,4 +794,13 @@ signed_video_set_max_sei_payload_size(signed_video_t *self, size_t max_sei_paylo
 
   self->max_sei_payload_size = max_sei_payload_size;
   return SV_OK;
+}
+
+SignedVideoReturnCode
+signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid)
+{
+  if (!self) return SV_INVALID_PARAMETER;
+  if (self->signing_started) return SV_NOT_SUPPORTED;
+
+  return svi_rc_to_signed_video_rc(openssl_set_hash_algo(self->crypto_handle, name_or_oid));
 }
