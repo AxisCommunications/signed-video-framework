@@ -23,29 +23,24 @@
 #include <openssl/asn1.h>  // ASN1_*
 #include <openssl/bio.h>  // BIO_*
 #include <openssl/bn.h>  // BN_*
-#include <openssl/crypto.h>  // OPENSSL_malloc, OPENSSL_free
 #include <openssl/ec.h>  // EC_*
 #include <openssl/evp.h>  // EVP_*
 #include <openssl/objects.h>  // OBJ_*
 #include <openssl/opensslv.h>  // OPENSSL_VERSION_*
 #include <openssl/pem.h>  // PEM_*
 #include <openssl/rsa.h>  // RSA_*
-#include <openssl/sha.h>  // SHA256
-#include <stdbool.h>  // bool
 #include <stdio.h>  // FILE, fopen, fclose
 #include <stdlib.h>  // malloc, free, calloc
 
-// We do not support creating keys on Windows. Adding dummy defines for Linux specific functions.
+// Creating keys on Windows is currently not supported. Add dummy defines for Linux specific
+// functions.
 #if defined(_WIN32) || defined(_WIN64)
-#define F_OK 0
-#define R_OK 0x04
-#define access(p, m) 0
 #define unlink(p) ((void)0)
 #else
-#include <unistd.h>  // access, unlink, F_OK, R_OK
+#include <unistd.h>  // unlink
 #endif
 
-#include "includes/signed_video_openssl.h"  // pem_pkey_t
+#include "includes/signed_video_openssl.h"  // pem_pkey_t, signature_info_t
 #include "signed_video_defines.h"
 #include "signed_video_internal.h"  // svi_rc_to_signed_video_rc(), sv_rc_to_svi_rc()
 #include "signed_video_openssl_internal.h"
@@ -53,7 +48,7 @@
 /**
  * Object to keep a message digest as both an EVP_MD type and on serialized OID form. This
  * holds for both the hash algorithm used to hash NAL Units and the message digest used in
- * signing.
+ * signing with RSA.
  */
 typedef struct {
   unsigned char *encoded_oid;  // Serialized OID form
@@ -87,11 +82,11 @@ get_path_to_key(const char *dir_to_key, const char *key_filename);
 
 #define DEFAULT_HASH_ALGO "sha256"
 
-/* Frees an EVP_PKEY object. */
+/* Frees a key represented by an EVP_PKEY_CTX object. */
 void
-openssl_free_key(void *pkey)
+openssl_free_key(void *key)
 {
-  EVP_PKEY_CTX_free((EVP_PKEY_CTX *)pkey);
+  EVP_PKEY_CTX_free((EVP_PKEY_CTX *)key);
 }
 
 /* Reads the |private_key| which is expected to be on PEM form and creates an EVP_PKEY
@@ -107,6 +102,7 @@ openssl_private_key_malloc(signature_info_t *signature_info,
 
   EVP_PKEY_CTX *ctx = NULL;
   EVP_PKEY *signing_key = NULL;
+
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     // Read private key
@@ -128,9 +124,9 @@ openssl_private_key_malloc(signature_info_t *signature_info,
 
     if (EVP_PKEY_base_id(signing_key) == EVP_PKEY_RSA) {
       SVI_THROW_IF(EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0, SVI_EXTERNAL_FAILURE);
+      // Set message digest type to sha256
+      SVI_THROW_IF(EVP_PKEY_CTX_set_signature_md(ctx, EVP_sha256()) <= 0, SVI_EXTERNAL_FAILURE);
     }
-    // Set message digest type to sha256
-    SVI_THROW_IF(EVP_PKEY_CTX_set_signature_md(ctx, EVP_sha256()) <= 0, SVI_EXTERNAL_FAILURE);
 
     // Set the content in |signature_info|
     signature_info->max_signature_size = max_signature_size;
@@ -159,8 +155,9 @@ openssl_public_key_malloc(signature_info_t *signature_info, pem_pkey_t *pem_publ
 
   EVP_PKEY_CTX *ctx = NULL;
   EVP_PKEY *verification_key = NULL;
-  const void *buf = pem_public_key->pkey;
+  const void *buf = pem_public_key->key;
   int buf_size = (int)(pem_public_key->pkey_size);
+
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     // Read public key
@@ -170,16 +167,16 @@ openssl_public_key_malloc(signature_info_t *signature_info, pem_pkey_t *pem_publ
     BIO *bp = BIO_new_mem_buf(buf, buf_size);
     verification_key = PEM_read_bio_PUBKEY(bp, NULL, NULL, NULL);
     BIO_free(bp);
-
     SVI_THROW_IF(!verification_key, SVI_EXTERNAL_FAILURE);
+
     // Create an EVP context
     ctx = EVP_PKEY_CTX_new(verification_key, NULL /* No engine */);
     SVI_THROW_IF(!ctx, SVI_EXTERNAL_FAILURE);
     SVI_THROW_IF(EVP_PKEY_verify_init(ctx) <= 0, SVI_EXTERNAL_FAILURE);
     if (EVP_PKEY_base_id(verification_key) == EVP_PKEY_RSA) {
       SVI_THROW_IF(EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0, SVI_EXTERNAL_FAILURE);
+      SVI_THROW_IF(EVP_PKEY_CTX_set_signature_md(ctx, EVP_sha256()) <= 0, SVI_EXTERNAL_FAILURE);
     }
-    SVI_THROW_IF(EVP_PKEY_CTX_set_signature_md(ctx, EVP_sha256()) <= 0, SVI_EXTERNAL_FAILURE);
 
     // Free any existing key
     EVP_PKEY_CTX_free(signature_info->public_key);
@@ -247,14 +244,12 @@ openssl_verify_hash(const signature_info_t *signature_info, int *verified_result
   const uint8_t *hash_to_verify = signature_info->hash;
   size_t hash_size = signature_info->hash_size;
 
-  if (!signature || (signature_size == 0) || !hash_to_verify) return SVI_INVALID_PARAMETER;
-
-  EVP_PKEY_CTX *ctx = (EVP_PKEY_CTX *)signature_info->public_key;
-
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
+    SVI_THROW_IF(!signature || signature_size == 0 || !hash_to_verify, SVI_INVALID_PARAMETER);
+    EVP_PKEY_CTX *ctx = (EVP_PKEY_CTX *)signature_info->public_key;
     SVI_THROW_IF(!ctx, SVI_INVALID_PARAMETER);
-    // EVP_PKEY_verify returns 1 indicates success, 0 verify failure and < 0 for some other error.
+    // EVP_PKEY_verify returns 1 upon success, 0 upon failure and < 0 upon error.
     verified_hash = EVP_PKEY_verify(ctx, signature, signature_size, hash_to_verify, hash_size);
   SVI_CATCH()
   SVI_DONE(status)
@@ -311,9 +306,9 @@ write_private_key_to_buffer(EVP_PKEY *pkey, pem_pkey_t *pem_key)
     private_key_size = BIO_get_mem_data(pkey_bio, &private_key);
     SVI_THROW_IF(private_key_size == 0 || !private_key, SVI_EXTERNAL_FAILURE);
 
-    pem_key->pkey = malloc(private_key_size);
-    SVI_THROW_IF(!pem_key->pkey, SVI_MEMORY);
-    memcpy(pem_key->pkey, private_key, private_key_size);
+    pem_key->key = malloc(private_key_size);
+    SVI_THROW_IF(!pem_key->key, SVI_MEMORY);
+    memcpy(pem_key->key, private_key, private_key_size);
     pem_key->pkey_size = private_key_size;
 
   SVI_CATCH()
@@ -702,8 +697,8 @@ openssl_read_pubkey_from_private_key(signature_info_t *signature_info, pem_pkey_
   BIO_free(pub_bio);
 
   // Transfer ownership to |pem_pkey|.
-  free(pem_pkey->pkey);
-  pem_pkey->pkey = public_key;
+  free(pem_pkey->key);
+  pem_pkey->key = public_key;
   pem_pkey->pkey_size = public_key_size;
 
   return status;
@@ -726,7 +721,7 @@ signed_video_generate_ecdsa_private_key(const char *dir_to_key,
   svi_rc status = create_ecdsa_private_key(full_path_to_private_key, &pem_key);
   free(full_path_to_private_key);
   if (private_key && private_key_size) {
-    *private_key = pem_key.pkey;
+    *private_key = pem_key.key;
     *private_key_size = pem_key.pkey_size;
   } else {
     // Free the key if it is not transferred to the user.
@@ -752,7 +747,7 @@ signed_video_generate_rsa_private_key(const char *dir_to_key,
   svi_rc status = create_rsa_private_key(full_path_to_private_key, &pem_key);
   free(full_path_to_private_key);
   if (private_key && private_key_size) {
-    *private_key = pem_key.pkey;
+    *private_key = pem_key.key;
     *private_key_size = pem_key.pkey_size;
   } else {
     // Free the key if it is not transferred to the user.
@@ -762,6 +757,7 @@ signed_video_generate_rsa_private_key(const char *dir_to_key,
   return svi_rc_to_signed_video_rc(status);
 }
 
+/* TO BE DEPRECATED */
 SignedVideoReturnCode
 signed_video_generate_private_key(sign_algo_t algo,
     const char *dir_to_key,

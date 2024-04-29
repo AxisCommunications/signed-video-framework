@@ -66,7 +66,7 @@ svi_rc
 openssl_set_hash_algo(void *handle, const char *name_or_oid);
 
 /**
- * @brief Sets the hashing algorithm given by its OID on serialized form
+ * @brief Sets the hashing algorithm given by its OID on ASN.1/DER form
  *
  * Stores the OID of the hashing algorithm on serialized form and determines its type.
  *
@@ -109,10 +109,11 @@ size_t
 openssl_get_hash_size(void *handle);
 
 /**
- * @brief Hashes data into a 256 bit hash
+ * @brief Hashes data
  *
- * Uses the OpenSSL SHA256() API to hash data. The hashed data has 256 bits, which needs to be
- * allocated in advance by the user.
+ * Uses the hash algorithm set through openssl_set_hash_algo() to hash data. The memory
+ * for the |hash| has to be pre-allocated by the user. Use openssl_get_hash_size() to get
+ * the hash size.
  *
  * This is a simplification for calling openssl_init_hash(), openssl_update_hash() and
  * openssl_finalize_hash() done in one go.
@@ -131,11 +132,11 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
 /**
  * @brief Initiates the cryptographic handle for hashing data
  *
- * Uses the OpenSSL SHA256_Init() API to initiate an SHA256_CTX object in |handle|.
+ * Uses the OpenSSL API EVP_DigestInit_ex() to initiate an EVP_MD_CTX object in |handle|.
  *
  * @param handle Pointer to the OpenSSL cryptographic handle.
  *
- * @returns SVI_OK Successfully initialized SHA256_CTX object in |handle|,
+ * @returns SVI_OK Successfully initialized EVP_MD_CTX object in |handle|,
  *          SVI_INVALID_PARAMETER Null pointer input,
  *          SVI_EXTERNAL_FAILURE Failed to initialize.
  */
@@ -145,13 +146,14 @@ openssl_init_hash(void *handle);
 /**
  * @brief Updates the cryptographic handle with |data| for hashing
  *
- * Uses the OpenSSL SHA256_Update() API to update the SHA256_CTX object in |handle| with |data|.
+ * Uses the OpenSSL API EVP_DigestUpdate() to update the EVP_MD_CTX object in |handle|
+ * with |data|.
  *
  * @param handle Pointer to the OpenSSL cryptographic handle.
  * @param data Pointer to the data to update an ongoing hash.
  * @param data_size Size of the |data|.
  *
- * @returns SVI_OK Successfully updated SHA256_CTX object in |handle|,
+ * @returns SVI_OK Successfully updated EVP_MD_CTX object in |handle|,
  *          SVI_INVALID_PARAMETER Null pointer inputs, or invalid |data_size|,
  *          SVI_EXTERNAL_FAILURE Failed to update.
  */
@@ -161,13 +163,13 @@ openssl_update_hash(void *handle, const uint8_t *data, size_t data_size);
 /**
  * @brief Finalizes the cryptographic handle and outputs the hash
  *
- * Uses the OpenSSL SHA256_Final() API to finalize the SHA256_CTX object in |handle| and get the
- * |hash|. The SHA256_CTX object in |handle| is reset afterwards.
+ * Uses the OpenSSL API EVP_DigestFinal_ex() to finalize the EVP_MD_CTX object in |handle|
+ * and get the |hash|. The EVP_MD_CTX object in |handle| is reset afterwards.
  *
  * @param handle Pointer to the OpenSSL cryptographic handle.
  * @param hash A pointer to the hashed output. This memory has to be pre-allocated.
  *
- * @returns SVI_OK Successfully wrote the final result of SHA256_CTX object in |handle| to |hash|,
+ * @returns SVI_OK Successfully wrote the final result of EVP_MD_CTX object in |handle| to |hash|,
  *          SVI_INVALID_PARAMETER Null pointer inputs,
  *          SVI_EXTERNAL_FAILURE Failed to finalize.
  */
@@ -177,8 +179,8 @@ openssl_finalize_hash(void *handle, uint8_t *hash);
 /**
  * @brief Verifies a signature against a hash
  *
- * The |hash| is verified against the |signature| using the |public_key|, all located in the input
- * parameter |signature_info|.
+ * The |hash| is verified against the |signature| using the |public_key|, all being
+ * members of the input parameter |signature_info|.
  *
  * @param signature_info Pointer to the signature_info_t object in use.
  * @param verified_result Poiniter to the place where the verification result is written. The
@@ -199,9 +201,9 @@ openssl_verify_hash(const signature_info_t *signature_info, int *verified_result
  * @param signature_info A pointer to the object holding the |private_key|.
  * @param pem_pkey A pointer to the object where the public key, on PEM format, will be written.
  *
- * @returns SVI_OK Successfully written |pkey| to |pem_pkey|,
+ * @returns SVI_OK Successfully written |key| to |pem_pkey|,
  *          SVI_INVALID_PARAMETER Errors in |signature_info|, or no private key present,
- *          SVI_MEMORY Could not allocate memory for |pkey|,
+ *          SVI_MEMORY Could not allocate memory for |key|,
  *          SVI_EXTERNAL_FAILURE Failure in OpenSSL.
  */
 svi_rc
@@ -212,7 +214,7 @@ openssl_read_pubkey_from_private_key(signature_info_t *signature_info, pem_pkey_
  *
  * The function takes the public key as a pem_pkey_t and stores it as |public_key| in
  * |signature_info| on the EVP_PKEY form.
- * Use openssl_free_key() to free the key.
+ * Use openssl_free_key() to free the key context.
  *
  * @param signature_info A pointer to the struct that holds all necessary information for signing.
  * @param pem_public_key A pointer to the PEM format struct.

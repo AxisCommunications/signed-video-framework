@@ -1118,15 +1118,15 @@ SignedVideoReturnCode
 signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t public_key_size)
 {
   if (!self || !public_key || public_key_size == 0) return SV_INVALID_PARAMETER;
-  if (self->pem_public_key.pkey) return SV_NOT_SUPPORTED;
+  if (self->pem_public_key.key) return SV_NOT_SUPPORTED;
   if (self->authentication_started) return SV_NOT_SUPPORTED;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     // Allocate memory and copy |public_key|.
-    self->pem_public_key.pkey = malloc(public_key_size);
-    SVI_THROW_IF(!self->pem_public_key.pkey, SVI_MEMORY);
-    memcpy(self->pem_public_key.pkey, public_key, public_key_size);
+    self->pem_public_key.key = malloc(public_key_size);
+    SVI_THROW_IF(!self->pem_public_key.key, SVI_MEMORY);
+    memcpy(self->pem_public_key.key, public_key, public_key_size);
     self->pem_public_key.pkey_size = public_key_size;
     // Turn the public key from PEM to EVP_PKEY form.
     SVI_THROW(openssl_public_key_malloc(self->signature_info, &self->pem_public_key));

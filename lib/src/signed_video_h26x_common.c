@@ -1277,7 +1277,7 @@ signed_video_free(signed_video_t *self)
   product_info_free(self->product_info);
   gop_info_free(self->gop_info);
   signature_free(self->signature_info);
-  free(self->pem_public_key.pkey);
+  free(self->pem_public_key.key);
 
   free(self);
 }

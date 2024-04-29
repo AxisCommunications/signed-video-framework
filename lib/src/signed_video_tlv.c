@@ -566,9 +566,9 @@ encode_public_key(signed_video_t *self, uint8_t *data)
   size_t data_size = 0;
   const uint8_t version = 2;
 
-  // If there is no |pkey| present, or if it should not be added to the SEI, skip encoding,
+  // If there is no |key| present, or if it should not be added to the SEI, skip encoding,
   // that is, return 0.
-  if (!pem_public_key->pkey || !self->add_public_key_to_sei) return 0;
+  if (!pem_public_key->key || !self->add_public_key_to_sei) return 0;
 
   // Version 1:
   //  - version (1 byte)
@@ -587,7 +587,7 @@ encode_public_key(signed_video_t *self, uint8_t *data)
   uint8_t *data_ptr = data;
   uint16_t *last_two_bytes = &self->last_two_bytes;
   bool epb = self->sei_epb;
-  uint8_t *public_key = (uint8_t *)pem_public_key->pkey;
+  uint8_t *public_key = (uint8_t *)pem_public_key->key;
 
   // Version
   write_byte(last_two_bytes, &data_ptr, version, epb);
@@ -625,17 +625,17 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     SVI_THROW_IF(pubkey_size == 0, SVI_DECODING_ERROR);
 
     if (pem_public_key->pkey_size != pubkey_size) {
-      free(pem_public_key->pkey);
-      pem_public_key->pkey = calloc(1, pubkey_size);
-      SVI_THROW_IF(!pem_public_key->pkey, SVI_MEMORY);
+      free(pem_public_key->key);
+      pem_public_key->key = calloc(1, pubkey_size);
+      SVI_THROW_IF(!pem_public_key->key, SVI_MEMORY);
       pem_public_key->pkey_size = pubkey_size;
     }
 
-    int key_diff = memcmp(data_ptr, pem_public_key->pkey, pubkey_size);
+    int key_diff = memcmp(data_ptr, pem_public_key->key, pubkey_size);
     if (self->has_public_key && key_diff) {
       self->latest_validation->public_key_has_changed = true;
     }
-    memcpy(pem_public_key->pkey, data_ptr, pubkey_size);
+    memcpy(pem_public_key->key, data_ptr, pubkey_size);
     self->has_public_key = true;
     data_ptr += pubkey_size;
 
