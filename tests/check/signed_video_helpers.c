@@ -85,32 +85,21 @@ struct sv_setting settings[NUM_SETTINGS] = {
 static void
 pull_nalus(signed_video_t *sv, nalu_list_item_t *item)
 {
-  signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
   nalu_list_item_t *cur_item = item;
-
-  // Loop through all nalus_to_prepend.
-  SignedVideoReturnCode sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
+  size_t sei_size = 0;
+  SignedVideoReturnCode sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  while (sv_rc == SV_OK && nalu_to_prepend.prepend_instruction != SIGNED_VIDEO_PREPEND_NOTHING) {
 
-    // Generate a new nalu_list_item with this NALU data.
-    nalu_list_item_t *new_item =
-        nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, sv->codec);
-    // Prepend, or append, the nalu_list_item with this new item.
-    if (nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NALU) {
-      nalu_list_item_prepend_item(cur_item, new_item);
-      cur_item = cur_item->prev;
-    } else if (nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_ACCESS_UNIT) {
-      // Not yet implemented in tests.
-      ck_abort();
-    } else {
-      // No prepend instruction. Append the NALU instead.
-      nalu_list_item_append_item(cur_item, new_item);
-      cur_item = cur_item->next;
-    }
-
-    // Move to next nalu_to_prepend.
-    sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
+  while (sv_rc == SV_OK && (sei_size != 0)) {
+    uint8_t *sei = malloc(sei_size);
+    sv_rc = signed_video_get_sei(sv, sei, &sei_size);
+    ck_assert_int_eq(sv_rc, SV_OK);
+    // Generate a new nalu_list_item with this SEI.
+    nalu_list_item_t *new_item = nalu_list_create_item(sei, sei_size, sv->codec);
+    // Prepend the nalu_list_item with this new item.
+    nalu_list_item_prepend_item(cur_item, new_item);
+    // Move to next completed SEI.
+    sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
     ck_assert_int_eq(sv_rc, SV_OK);
   }
 }
