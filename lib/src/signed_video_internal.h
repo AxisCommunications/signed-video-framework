@@ -45,7 +45,7 @@ typedef struct _h26x_nalu_t h26x_nalu_t;
 #else
 #define ATTR_UNUSED __attribute__((unused))
 #endif
-// Currently the SHA-512 produces maximum hashe sizes.
+// Currently the largest supported hash is SHA-512.
 #define MAX_HASH_SIZE (512 / 8)
 // Currently only support SHA-256 (default hash) which produces hashes of size 256 bits.
 #define SHA256_HASH_SIZE (256 / 8)
