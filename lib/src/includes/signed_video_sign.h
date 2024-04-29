@@ -519,6 +519,9 @@ signed_video_set_max_sei_payload_size(signed_video_t *self, size_t max_sei_paylo
 SignedVideoReturnCode
 signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid);
 
+
+SignedVideoReturnCode
+signed_video_set_is_start_stream(signed_video_t *self, bool is_start_stream);
 #ifdef __cplusplus
 }
 #endif
