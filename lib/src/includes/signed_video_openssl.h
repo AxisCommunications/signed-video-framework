@@ -132,7 +132,7 @@ openssl_free_key(void *pkey);
  *
  * Writing to file currently only works on Linux.
  *
- * @param path_to_key If not NULL, the location where the PEM file will be written. Null-terminated
+ * @param dir_to_key If not NULL, the location where the PEM file will be written. Null-terminated
  *   string.
  * @param private_key If not NULL the content of the private key PEM file is copied to this output.
  *   Ownership is transferred.
@@ -144,11 +144,11 @@ openssl_free_key(void *pkey);
  *          SV_EXTERNAL_ERROR PEM-file could not be written.
  */
 SignedVideoReturnCode
-signed_video_generate_ecdsa_private_key(const char *path_to_key,
+signed_video_generate_ecdsa_private_key(const char *dir_to_key,
     char **private_key,
     size_t *private_key_size);
 SignedVideoReturnCode
-signed_video_generate_rsa_private_key(const char *path_to_key,
+signed_video_generate_rsa_private_key(const char *dir_to_key,
     char **private_key,
     size_t *private_key_size);
 
@@ -159,13 +159,13 @@ signed_video_generate_rsa_private_key(const char *path_to_key,
  * By specifying a location and a signing algorithm (RSA, or ECDSA) a PEM file is generated and
  * stored as private_rsa_key.pem or private_ecdsa_key.pem. The user can then read this file and
  * pass the content to Signed Video through signed_video_set_private_key_new().
- * If no |path_to_key| is passed in, memory is allocated for |private_key| and the content of
+ * If no |dir_to_key| is passed in, memory is allocated for |private_key| and the content of
  * |private_key_size| is written. Note that the ownership is transferred.
  *
  * Writing to file only works on Linux.
  *
  * @param algo The signing algorithm SIGN_ALGO_RSA or SIGN_ALGO_ECDSA.
- * @param path_to_key If not NULL, the location where the PEM file will be written. Null-terminated
+ * @param dir_to_key If not NULL, the location where the PEM file will be written. Null-terminated
  *   string.
  * @param private_key If not NULL the content of the private key PEM file is copied to this output.
  *   Ownership is transferred.
@@ -178,7 +178,7 @@ signed_video_generate_rsa_private_key(const char *path_to_key,
  */
 SignedVideoReturnCode
 signed_video_generate_private_key(sign_algo_t algo,
-    const char *path_to_key,
+    const char *dir_to_key,
     char **private_key,
     size_t *private_key_size);
 
