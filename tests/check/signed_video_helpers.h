@@ -40,15 +40,18 @@
   "aaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbb" \
   "bbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaacc"
 
+/* Function pointer typedef for generating private key. */
+typedef SignedVideoReturnCode (*generate_key_fcn_t)(const char *, char **, size_t *);
+
 struct sv_setting {
   SignedVideoCodec codec;
   SignedVideoAuthenticityLevel auth_level;
-  sign_algo_t algo;
+  generate_key_fcn_t generate_key;
   size_t max_sei_payload_size;
   const char *hash_algo_name;
 };
 
-#define NUM_SETTINGS 9
+#define NUM_SETTINGS 7
 extern struct sv_setting settings[NUM_SETTINGS];
 
 extern const char *axisDummyCertificateChain;
@@ -62,7 +65,9 @@ extern const int64_t g_testTimestamp;
  * new_private_key = Generate a new private key or not.
  * This is useful for testing the signing part and generating a signed stream of nalus. */
 signed_video_t *
-get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_private_key);
+get_initialized_signed_video(SignedVideoCodec codec,
+    generate_key_fcn_t generate_key,
+    bool new_private_key);
 
 /* See function create_signed_nalus_int */
 nalu_list_t *

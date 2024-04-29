@@ -66,17 +66,16 @@ char private_key_ecdsa[ECDSA_PRIVATE_KEY_ALLOC_BYTES];
 size_t private_key_size_ecdsa;
 
 struct sv_setting settings[NUM_SETTINGS] = {
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA, 0, NULL},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA, 0, NULL},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_RSA, 0, NULL},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_RSA, 0, NULL},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA, 0, NULL},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA, 0, NULL},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, 0, NULL},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, 0, NULL},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, signed_video_generate_ecdsa_private_key, 0, NULL},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, signed_video_generate_ecdsa_private_key, 0, NULL},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, signed_video_generate_ecdsa_private_key, 0, NULL},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, signed_video_generate_ecdsa_private_key, 0, NULL},
     // Special cases
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, signed_video_generate_rsa_private_key, 0, NULL},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, signed_video_generate_rsa_private_key, 0, NULL},
     // TODO: Fix sha512 for OpenSSL 3.x
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, 0, "sha256"},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, signed_video_generate_ecdsa_private_key, 0,
+        "sha256"},
 };
 
 /* Pull NALUs to prepend from the signed_video_t session (sv) and prepend, or append, them to the
@@ -173,7 +172,8 @@ create_signed_splitted_nalus_int(const char *str,
     bool split_nalus)
 {
   if (!str) return NULL;
-  signed_video_t *sv = get_initialized_signed_video(settings.codec, settings.algo, new_private_key);
+  signed_video_t *sv =
+      get_initialized_signed_video(settings.codec, settings.generate_key, new_private_key);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
   ck_assert_int_eq(signed_video_set_max_sei_payload_size(sv, settings.max_sei_payload_size), SV_OK);
@@ -200,7 +200,9 @@ create_signed_splitted_nalus(const char *str, struct sv_setting settings)
 
 /* Creates and initializes a signed video session. */
 signed_video_t *
-get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_private_key)
+get_initialized_signed_video(SignedVideoCodec codec,
+    generate_key_fcn_t generate_key,
+    bool new_private_key)
 {
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
@@ -208,37 +210,34 @@ get_initialized_signed_video(SignedVideoCodec codec, sign_algo_t algo, bool new_
   size_t private_key_size = 0;
   SignedVideoReturnCode rc;
 
+  if (generate_key == signed_video_generate_ecdsa_private_key) {
+    private_key = private_key_ecdsa;
+    private_key_size = private_key_size_ecdsa;
+  } else if (generate_key == signed_video_generate_rsa_private_key) {
+    private_key = private_key_rsa;
+    private_key_size = private_key_size_rsa;
+  } else {
+    signed_video_free(sv);
+    return NULL;
+  }
+
   // Generating private keys takes long time. In unit_tests a new private key is only generated if
   // it's really needed. One RSA key and one ECDSA key is stored globally to handle the scenario.
-  if (algo == SIGN_ALGO_RSA) {
-    if (private_key_size_rsa == 0 || new_private_key) {
-      rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
-      ck_assert_int_eq(rc, SV_OK);
-
-      assert(private_key_size < RSA_PRIVATE_KEY_ALLOC_BYTES);
-      memcpy(private_key_rsa, private_key, private_key_size);
-      private_key_size_rsa = private_key_size;
-    }
-    rc = signed_video_set_private_key_new(sv, private_key_rsa, private_key_size_rsa);
+  if (private_key_size == 0 || new_private_key) {
+    char *tmp_key = NULL;
+    size_t tmp_key_size = 0;
+    rc = generate_key("./", &tmp_key, &tmp_key_size);
     ck_assert_int_eq(rc, SV_OK);
+    memcpy(private_key, tmp_key, tmp_key_size);
+    private_key_size = tmp_key_size;
+    free(tmp_key);
   }
-  if (algo == SIGN_ALGO_ECDSA) {
-    if (private_key_size_ecdsa == 0 || new_private_key) {
-      rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
-      ck_assert_int_eq(rc, SV_OK);
-
-      assert(private_key_size < ECDSA_PRIVATE_KEY_ALLOC_BYTES);
-      memcpy(private_key_ecdsa, private_key, private_key_size);
-      private_key_size_ecdsa = private_key_size;
-    }
-    rc = signed_video_set_private_key_new(sv, private_key_ecdsa, private_key_size_ecdsa);
-    ck_assert_int_eq(rc, SV_OK);
-  }
+  ck_assert(private_key && private_key_size > 0);
+  rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
+  ck_assert_int_eq(rc, SV_OK);
 
   rc = signed_video_set_product_info(sv, HW_ID, FW_VER, SER_NO, MANUFACT, ADDR);
   ck_assert_int_eq(rc, SV_OK);
-
-  free(private_key);
 
   return sv;
 }
