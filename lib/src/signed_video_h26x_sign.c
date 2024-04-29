@@ -324,16 +324,16 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
       // The current |nalu_hash| is the document hash. Copy to |document_hash|. In principle we only
       // need to do this for SV_AUTHENTICITY_LEVEL_FRAME, but for simplicity we always copy it.
-      memcpy(self->gop_info->document_hash, self->gop_info->nalu_hash, HASH_DIGEST_SIZE);
+      memcpy(self->gop_info->document_hash, self->gop_info->nalu_hash, SHA256_HASH_SIZE);
       // Free the memory allocated when parsing the NALU.
       free(nalu_without_signature_data.nalu_data_wo_epb);
     }
 
     gop_info_t *gop_info = self->gop_info;
     if (gop_info->signature_hash_type == DOCUMENT_HASH) {
-      memcpy(signature_info->hash, gop_info->document_hash, HASH_DIGEST_SIZE);
+      memcpy(signature_info->hash, gop_info->document_hash, SHA256_HASH_SIZE);
     } else {
-      memcpy(signature_info->hash, gop_info->gop_hash, HASH_DIGEST_SIZE);
+      memcpy(signature_info->hash, gop_info->gop_hash, SHA256_HASH_SIZE);
     }
 
     // Reset the gop_hash since we start a new GOP.

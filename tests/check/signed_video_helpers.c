@@ -66,14 +66,16 @@ char private_key_ecdsa[ECDSA_PRIVATE_KEY_ALLOC_BYTES];
 size_t private_key_size_ecdsa;
 
 struct sv_setting settings[NUM_SETTINGS] = {
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA, 0},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA, 0},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_RSA, 0},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_RSA, 0},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA, 0},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA, 0},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, 0},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, 0},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA, 0, NULL},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA, 0, NULL},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_RSA, 0, NULL},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_RSA, 0, NULL},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA, 0, NULL},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA, 0, NULL},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, 0, NULL},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, 0, NULL},
+    // Special cases
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, 0, "sha256"},
 };
 
 /* Pull NALUs to prepend from the signed_video_t session (sv) and prepend, or append, them to the
@@ -174,6 +176,7 @@ create_signed_splitted_nalus_int(const char *str,
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
   ck_assert_int_eq(signed_video_set_max_sei_payload_size(sv, settings.max_sei_payload_size), SV_OK);
+  ck_assert_int_eq(signed_video_set_hash_algo(sv, settings.hash_algo_name), SV_OK);
 
   // Create a list of NALUs given the input string.
   nalu_list_t *list = create_signed_nalus_with_sv(sv, str, split_nalus);

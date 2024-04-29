@@ -1685,7 +1685,7 @@ START_TEST(fallback_to_gop_level)
   signed_video_t *sv = get_initialized_signed_video(settings[_i].codec, settings[_i].algo, false);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
-  ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * HASH_DIGEST_SIZE), SVI_OK);
+  ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * SHA256_HASH_SIZE), SVI_OK);
 
   // Create a list of NALUs given the input string.
   nalu_list_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPI", false);
