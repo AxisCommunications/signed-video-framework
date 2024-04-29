@@ -669,7 +669,7 @@ openssl_set_hash_algo_by_encoded_oid(void *handle,
     size_t encoded_oid_size)
 {
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
-  if (!self || !encoded_oid || !encoded_oid_size) return SVI_INVALID_PARAMETER;
+  if (!self || !encoded_oid || encoded_oid_size == 0) return SVI_INVALID_PARAMETER;
 
   // If the |encoded_oid| has not changed do nothing.
   if (encoded_oid_size == self->hash_algo.encoded_oid_size &&
@@ -700,7 +700,7 @@ const unsigned char *
 openssl_get_hash_algo_encoded_oid(void *handle, size_t *encoded_oid_size)
 {
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
-  if (!self || !encoded_oid_size) return NULL;
+  if (!self || encoded_oid_size == 0) return NULL;
 
   *encoded_oid_size = self->hash_algo.encoded_oid_size;
   return (const unsigned char *)self->hash_algo.encoded_oid;
