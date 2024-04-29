@@ -1253,7 +1253,6 @@ signed_video_free(signed_video_t *self)
   openssl_free_handle(self->crypto_handle);
 
   // Free any NALUs left to prepend.
-  free_and_reset_nalu_to_prepend_list(self);
   free_sei_data_buffer(self->sei_data_buffer);
 
   free(self->last_nalu);

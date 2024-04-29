@@ -103,9 +103,10 @@ struct _gop_state_t {
 // of the payload and |payload_signature_ptr| to where the signature is
 // about to be added.
 struct _sei_data_t {
-  uint8_t *payload;  // Pointer to the allocated SEI data
-  uint8_t *payload_signature_ptr;
+  uint8_t *sei;  // Pointer to the allocated SEI data
+  uint8_t *write_position;
   uint16_t last_two_bytes;
+  size_t completed_sei_size;  // The final SEI size, set when it is completed
 };
 
 struct _signed_video_t {
@@ -122,12 +123,9 @@ struct _signed_video_t {
   size_t max_sei_payload_size;  // Default 0 = unlimited
   bool signing_started;
 
-  // Frames to prepend list
-  signed_video_nalu_to_prepend_t nalus_to_prepend_list[MAX_NALUS_TO_PREPEND];
-  int num_nalus_to_prepend;
-
   sei_data_t sei_data_buffer[MAX_NALUS_TO_PREPEND];
   int sei_data_buffer_idx;
+  int num_of_completed_seis;
 
   // TODO: Collect everything needed by the authentication part only in one struct/object, which
   // then is not needed to be created on the signing side, saving some memory.
@@ -184,6 +182,9 @@ struct _signed_video_t {
   // Vendor encoders for signing. Only works with one vendor.
   const sv_tlv_tag_t *vendor_encoders;
   size_t num_vendor_encoders;
+
+  // Flag to enable behaviors that should only be seen in tests.
+  bool sv_test_on;
 };
 
 typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;
