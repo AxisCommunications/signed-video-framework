@@ -790,5 +790,16 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid)
   if (!self) return SV_INVALID_PARAMETER;
   if (self->signing_started) return SV_NOT_SUPPORTED;
 
-  return svi_rc_to_signed_video_rc(openssl_set_hash_algo(self->crypto_handle, name_or_oid));
+  size_t hash_size = 0;
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    SVI_THROW(openssl_set_hash_algo(self->crypto_handle, name_or_oid));
+    hash_size = openssl_get_hash_size(self->crypto_handle);
+    SVI_THROW_IF(hash_size == 0, SVI_NOT_SUPPORTED);
+
+    self->signature_info->hash_size = hash_size;
+  SVI_CATCH()
+  SVI_DONE(status)
+
+  return svi_rc_to_signed_video_rc(status);
 }

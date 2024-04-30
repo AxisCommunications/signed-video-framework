@@ -1181,6 +1181,9 @@ signed_video_create(SignedVideoCodec codec)
     // Setup crypto handle.
     self->crypto_handle = openssl_create_handle();
     SVI_THROW_IF(!self->crypto_handle, SVI_EXTERNAL_FAILURE);
+    self->signature_info->hash_size = openssl_get_hash_size(self->crypto_handle);
+    // The default hash algorithm is SHA256, hence the hash size should match that.
+    SVI_THROW_IF(self->signature_info->hash_size != SHA256_HASH_SIZE, SVI_EXTERNAL_FAILURE);
     SVI_THROW_WITH_MSG(reset_gop_hash(self), "Couldn't reset gop_hash");
 
     // Signing plugin is setup when the private key is set.

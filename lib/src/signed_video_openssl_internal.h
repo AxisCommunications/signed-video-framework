@@ -97,6 +97,18 @@ const unsigned char *
 openssl_get_hash_algo_encoded_oid(void *handle, size_t *encoded_oid_size);
 
 /**
+ * @brief Gets the hash size of the hashing algorithm
+ *
+ * Returns the hash size of the hashing algorithm and 0 upon failure.
+ *
+ * @param handle Pointer to the OpenSSL cryptographic handle.
+ *
+ * @returns The size of the hash.
+ */
+size_t
+openssl_get_hash_size(void *handle);
+
+/**
  * @brief Hashes data into a 256 bit hash
  *
  * Uses the OpenSSL SHA256() API to hash data. The hashed data has 256 bits, which needs to be
