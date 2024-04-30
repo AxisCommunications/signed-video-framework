@@ -30,7 +30,7 @@
 #include <stdbool.h>
 #include <stdlib.h>  // malloc, memcpy, calloc, free
 
-#include "signed_video_internal.h"
+#include "signed_video_internal.h"  // signed_video_t
 #include "signed_video_tlv.h"
 #include "sv_vendor_axis_communications_internal.h"
 
@@ -78,8 +78,10 @@ static const uint8_t kFreshness[FRESHNESS_LENGTH] = {
 
 #define TIMESTAMP_SIZE 12
 #define STATIC_BYTES_SIZE 22  // Bytes in signed data with unknown meaning
+// SHA-256 produces hashes of size 256 bits.
+#define SIZE_OF_SHA256_MD (256 / 8)
 #define SIGNED_DATA_SIZE \
-  (SHA256_HASH_SIZE + PUBLIC_KEY_UNCOMPRESSED_SIZE + CHIP_ID_SIZE + ATTRIBUTES_LENGTH + \
+  (SIZE_OF_SHA256_MD + PUBLIC_KEY_UNCOMPRESSED_SIZE + CHIP_ID_SIZE + ATTRIBUTES_LENGTH + \
       TIMESTAMP_SIZE + STATIC_BYTES_SIZE)
 
 #define OBJECT_ID_SIZE 4
@@ -409,7 +411,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     // Add Freshness at positions 24-39.
     memcpy(&binary_raw_data[24], kFreshness, FRESHNESS_LENGTH);
     // Hash |binary_raw_data|.
-    uint8_t binary_raw_data_hash[SHA256_HASH_SIZE] = {0};
+    uint8_t binary_raw_data_hash[SIZE_OF_SHA256_MD] = {0};
     SHA256(binary_raw_data, BINARY_RAW_DATA_SIZE, binary_raw_data_hash);
 
     // Create and fill in |signed_data|.
@@ -417,8 +419,8 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     uint8_t *sd_ptr = signed_data;
 
     // Add hash of |binary_raw_data|.
-    memcpy(sd_ptr, binary_raw_data_hash, SHA256_HASH_SIZE);
-    sd_ptr += SHA256_HASH_SIZE;
+    memcpy(sd_ptr, binary_raw_data_hash, SIZE_OF_SHA256_MD);
+    sd_ptr += SIZE_OF_SHA256_MD;
     *sd_ptr++ = 0x41;
     *sd_ptr++ = 0x82;
 

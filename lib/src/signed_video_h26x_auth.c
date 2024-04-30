@@ -132,9 +132,11 @@ verify_hashes_with_hash_list(signed_video_t *self, int *num_expected_nalus, int 
 {
   assert(self);
 
+  const size_t hash_size = self->signature_info->hash_size;
+  assert(hash_size > 0);
   // Expected hashes.
   uint8_t *expected_hashes = self->gop_info->hash_list;
-  const int num_expected_hashes = self->gop_info->list_idx / SHA256_HASH_SIZE;
+  const int num_expected_hashes = self->gop_info->list_idx / hash_size;
 
   h26x_nalu_list_t *nalu_list = self->nalu_list;
   h26x_nalu_list_item_t *last_used_item = NULL;
@@ -215,9 +217,9 @@ verify_hashes_with_hash_list(signed_video_t *self, int *num_expected_nalus, int 
     compare_idx = latest_match_idx + 1;
     // This while-loop searches for a match among the feasible hashes in |hash_list|.
     while (compare_idx < num_expected_hashes) {
-      uint8_t *expected_hash = &expected_hashes[compare_idx * SHA256_HASH_SIZE];
+      uint8_t *expected_hash = &expected_hashes[compare_idx * hash_size];
 
-      if (memcmp(hash_to_verify, expected_hash, SHA256_HASH_SIZE) == 0) {
+      if (memcmp(hash_to_verify, expected_hash, hash_size) == 0) {
         // We have a match. Set validation_status and add missing nalus if we have detected any.
         if (item->second_hash && !item->need_second_verification &&
             item->nalu->is_first_nalu_in_gop) {
@@ -621,6 +623,7 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
   if (!(sei && sei->has_been_decoded)) return SVI_INVALID_PARAMETER;
   if (!nalu_list) return SVI_NULL_PTR;
 
+  const size_t hash_size = self->signature_info->hash_size;
   h26x_nalu_list_item_t *item = NULL;
   gop_info_t *gop_info = self->gop_info;
   uint8_t *nalu_hash = gop_info->nalu_hash;
@@ -665,7 +668,7 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
       // ones in verification we use the |second_hash|.
       hash_to_add = item->need_second_verification ? item->second_hash : item->hash;
       // Copy to the |nalu_hash| slot in the memory and update the gop_hash.
-      memcpy(nalu_hash, hash_to_add, SHA256_HASH_SIZE);
+      memcpy(nalu_hash, hash_to_add, hash_size);
       SVI_THROW(update_gop_hash(self->crypto_handle, gop_info));
 
       // Mark the item and move to next.
@@ -674,7 +677,7 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
     }
 
     // Complete the gop_hash with the hash of the SEI.
-    memcpy(nalu_hash, sei->hash, SHA256_HASH_SIZE);
+    memcpy(nalu_hash, sei->hash, hash_size);
     SVI_THROW(update_gop_hash(self->crypto_handle, gop_info));
     sei->used_in_gop_hash = true;
 
@@ -705,6 +708,7 @@ prepare_for_validation(signed_video_t *self)
   validation_flags_t *validation_flags = &(self->validation_flags);
   h26x_nalu_list_t *nalu_list = self->nalu_list;
   signature_info_t *signature_info = self->signature_info;
+  const size_t hash_size = signature_info->hash_size;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
@@ -717,7 +721,7 @@ prepare_for_validation(signed_video_t *self)
       SVI_THROW(decode_sei_data(self, tlv_data, tlv_size));
       sei->has_been_decoded = true;
       if (self->gop_info->signature_hash_type == DOCUMENT_HASH) {
-        memcpy(signature_info->hash, sei->hash, SHA256_HASH_SIZE);
+        memcpy(signature_info->hash, sei->hash, hash_size);
       }
     }
     // Check if we should compute the gop_hash.
@@ -725,7 +729,7 @@ prepare_for_validation(signed_video_t *self)
         self->gop_info->signature_hash_type == GOP_HASH) {
       SVI_THROW(compute_gop_hash(self, sei));
       // TODO: Is it possible to avoid a memcpy by using a pointer strategy?
-      memcpy(signature_info->hash, self->gop_info->gop_hash, SHA256_HASH_SIZE);
+      memcpy(signature_info->hash, self->gop_info->gop_hash, hash_size);
     }
 
     SVI_THROW_IF_WITH_MSG(validation_flags->signing_present && !self->has_public_key,

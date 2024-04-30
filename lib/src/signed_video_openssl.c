@@ -513,7 +513,7 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
 
   unsigned int hash_size = 0;
   int ret = EVP_Digest(data, data_size, hash, &hash_size, self->hash_algo.type, NULL);
-  svi_rc status = hash_size == SHA256_HASH_SIZE ? SVI_OK : SVI_EXTERNAL_FAILURE;
+  svi_rc status = hash_size == self->hash_algo.size ? SVI_OK : SVI_EXTERNAL_FAILURE;
   return ret == 1 ? status : SVI_EXTERNAL_FAILURE;
 }
 
