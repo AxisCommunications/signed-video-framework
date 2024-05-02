@@ -291,7 +291,10 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
     // Add reserved byte(s).
     uint8_t reserved_byte = self->sei_epb << 7;
+    reserved_byte |= self->is_start_stream << 6;
     *payload_ptr++ = reserved_byte;
+    self->reserved_byte = &reserved_byte;
+    self->is_start_stream = false;
 
     size_t written_size =
         tlv_list_encode_or_get_size(self, document_encoders, num_doc_encoders, payload_ptr);
@@ -773,6 +776,15 @@ signed_video_set_sei_epb(signed_video_t *self, bool sei_epb)
   if (!self) return SV_INVALID_PARAMETER;
 
   self->sei_epb = sei_epb;
+  return SV_OK;
+}
+
+SignedVideoReturnCode
+signed_video_set_is_start_stream(signed_video_t *self, bool is_start_stream)
+{
+  if (!self) return SV_INVALID_PARAMETER;
+
+  self->is_start_stream = is_start_stream;
   return SV_OK;
 }
 

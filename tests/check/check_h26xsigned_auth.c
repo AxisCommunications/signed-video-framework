@@ -30,6 +30,7 @@
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "lib/src/includes/sv_vendor_axis_communications.h"
 #endif
+#include "lib/src/signed_video_h26x_internal.h"  // h26x_nalu_t
 #include "lib/src/signed_video_internal.h"  // set_hash_list_size()
 #include "lib/src/signed_video_openssl_internal.h"  // openssl_read_pubkey_from_private_key()
 #include "lib/src/signed_video_tlv.h"  // write_byte_many()
@@ -2061,6 +2062,82 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
 }
 END_TEST
 
+/* Test description
+ * 1. Setup a signed_video_t session
+ * 2. Set |is_start_stream| flag as true
+ * 3. Add 1 P NALU and 2 I NALU for signing that will trigger 2 SEI NALU
+ * 4. Check all NALUs reserved byte to confirm reserved bytes set as it is supposed to.
+ */
+START_TEST(_is_start_of_stream_byte)
+{
+  SignedVideoCodec codec = settings[_i].codec;
+  SignedVideoReturnCode sv_rc;
+  // Create a video with a single I-frame, and a SEI (to be created later).
+  nalu_list_item_t *i_1_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
+  nalu_list_item_t *p_nalu = nalu_list_item_create_and_set_id('P', 0, codec);
+  nalu_list_item_t *i_2_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
+
+  // Signing side
+  // Generate a Private key.
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+  sv_rc = signed_video_generate_rsa_private_key("./", &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  signed_video_nalu_to_prepend_t nalu_to_prepend_golden_sei = {0};
+  signed_video_nalu_to_prepend_t nalu_to_prepend_2 = {0};
+  // Create a session.
+  signed_video_t *sv = signed_video_create(codec);
+  ck_assert(sv);
+
+  // Apply settings to session.
+  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_is_start_stream(sv, true);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Add I-frame for signing and get SEI frame.
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
+      sv, i_1_nalu->data, i_1_nalu->data_size, &g_testTimestamp);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  // Check the first I frame
+  ck_assert_int_eq(
+      signed_video_is_start_of_stream(i_1_nalu->data, i_1_nalu->data_size, codec), false);
+
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend_golden_sei);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(nalu_to_prepend_golden_sei.nalu_data);
+  ck_assert_int_eq(signed_video_is_start_of_stream(nalu_to_prepend_golden_sei.nalu_data,
+                       nalu_to_prepend_golden_sei.nalu_data_size, codec),
+      true);
+
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
+      sv, i_2_nalu->data, i_2_nalu->data_size, &g_testTimestamp);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  // Check the second I frame
+  ck_assert_int_eq(
+      signed_video_is_start_of_stream(i_2_nalu->data, i_2_nalu->data_size, codec), false);
+  sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend_2);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(nalu_to_prepend_2.nalu_data);
+  ck_assert_int_eq(signed_video_is_start_of_stream(
+                       nalu_to_prepend_2.nalu_data, nalu_to_prepend_2.nalu_data_size, codec),
+      false);
+
+  // Check the P frame
+  ck_assert_int_eq(signed_video_is_start_of_stream(p_nalu->data, p_nalu->data_size, codec), false);
+  signed_video_free(sv);
+  nalu_list_free_item(i_1_nalu);
+  nalu_list_free_item(i_2_nalu);
+  nalu_list_free_item(p_nalu);
+  free(private_key);
+  free(nalu_to_prepend_golden_sei.nalu_data);
+  free(nalu_to_prepend_2.nalu_data);
+}
+
+END_TEST
 /* Test validation if emulation prevention bytes are added later, by for example an encoder.
  * We only run the case where emulation prevention bytes are not added when writing the SEI, since
  * the other case is the default and executed for all other tests. */
@@ -2292,6 +2369,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, file_export_with_dangling_end, s, e);
   tcase_add_loop_test(tc, file_export_without_dangling_end, s, e);
   tcase_add_loop_test(tc, no_signature, s, e);
+  tcase_add_loop_test(tc, _is_start_of_stream_byte, s, e);
   tcase_add_loop_test(tc, multislice_no_signature, s, e);
   tcase_add_loop_test(tc, late_public_key_and_no_sei_before_key_arrives, s, e);
   tcase_add_loop_test(tc, test_public_key_scenarios, s, e);
