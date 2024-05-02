@@ -123,6 +123,39 @@ openssl_free_key(void *pkey);
 /**
  * @brief Helper function to generate a private key
  *
+ * Two different APIs for RSA and ECDSA. By specifying a location a PEM file is generated
+ * and stored as private_rsa_key.pem or private_ecdsa_key.pem. The user can then read this
+ * file and pass the content to Signed Video through signed_video_set_private_key_new().
+ * In addition to storing as file the content can be written to buffers at once. Memory is
+ * allocated for |private_key| and the content of |private_key_size| Bytes is written.
+ * Note that the ownership is transferred.
+ *
+ * Writing to file currently only works on Linux.
+ *
+ * @param path_to_key If not NULL, the location where the PEM file will be written. Null-terminated
+ *   string.
+ * @param private_key If not NULL the content of the private key PEM file is copied to this output.
+ *   Ownership is transferred.
+ * @param private_key_size If not NULL outputs the size of the |private_key|.
+ *
+ * @returns SV_OK Valid algorithm and successfully written PEM-file,
+ *          SV_NOT_SUPPORTED Algorithm is not supported,
+ *          SV_INVALID_PARAMETER Invalid input parameter,
+ *          SV_EXTERNAL_ERROR PEM-file could not be written.
+ */
+SignedVideoReturnCode
+signed_video_generate_ecdsa_private_key(const char *path_to_key,
+    char **private_key,
+    size_t *private_key_size);
+SignedVideoReturnCode
+signed_video_generate_rsa_private_key(const char *path_to_key,
+    char **private_key,
+    size_t *private_key_size);
+
+/* TO BE DEPRECATED */
+/**
+ * @brief Helper function to generate a private key
+ *
  * By specifying a location and a signing algorithm (RSA, or ECDSA) a PEM file is generated and
  * stored as private_rsa_key.pem or private_ecdsa_key.pem. The user can then read this file and
  * pass the content to Signed Video through signed_video_set_private_key_new().

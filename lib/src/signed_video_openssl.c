@@ -54,8 +54,6 @@
  * Object to keep the path structure used to create and read pem-files.
  */
 typedef struct {
-  // Null-terminated character string specifying the location of keys.
-  char *path_to_key;
   // Null-terminated character string specifying the full path location to the private-key pem-file.
   char *full_path_to_private_key;
   // Buffer pointers to store the private key content.
@@ -94,10 +92,6 @@ static svi_rc
 create_ecdsa_private_key(const key_paths_t *key_paths);
 static char *
 get_path_to_key(const char *path_to_key, const char *key_filename);
-static svi_rc
-create_full_path(sign_algo_t algo, const char *path_to_key, key_paths_t *key_paths);
-static svi_rc
-openssl_create_private_key(sign_algo_t algo, const char *path_to_key, key_paths_t *key_paths);
 
 #define PRIVATE_RSA_KEY_FILE "private_rsa_key.pem"
 #define PRIVATE_ECDSA_KEY_FILE "private_ecdsa_key.pem"
@@ -461,47 +455,6 @@ get_path_to_key(const char *path_to_key, const char *key_filename)
   return str;
 }
 
-/* Creates a path string to private key PEM file. */
-static svi_rc
-create_full_path(sign_algo_t algo, const char *path_to_key, key_paths_t *key_paths)
-{
-  assert(key_paths);
-  // Return directly if |path_to_key| is NULL or already exist
-  if (!path_to_key) return SVI_OK;
-  if (key_paths->path_to_key && (strcmp(key_paths->path_to_key, path_to_key) == 0)) return SVI_OK;
-
-  svi_rc status = SVI_UNKNOWN;
-  SVI_TRY()
-    // Sanity check signing algorithm.
-    bool is_rsa = (algo == SIGN_ALGO_RSA);
-    SVI_THROW_IF(!is_rsa && (algo != SIGN_ALGO_ECDSA), SVI_NOT_SUPPORTED);
-
-    // Store path to folder with keys.
-    char *str = malloc(strlen(path_to_key) + 1);  // Including '\0'
-    SVI_THROW_IF(!str, SVI_MEMORY);
-    strcpy(str, path_to_key);
-    free(key_paths->path_to_key);
-    key_paths->path_to_key = str;
-
-    // Store full path to private key.
-    char *filename = is_rsa ? PRIVATE_RSA_KEY_FILE : PRIVATE_ECDSA_KEY_FILE;
-    char *full_path_to_private_key = get_path_to_key(key_paths->path_to_key, filename);
-    SVI_THROW_IF(!full_path_to_private_key, SVI_MEMORY);
-    free(key_paths->full_path_to_private_key);
-    key_paths->full_path_to_private_key = full_path_to_private_key;
-
-  SVI_CATCH()
-  {
-    free(key_paths->path_to_key);
-    key_paths->path_to_key = NULL;
-    free(key_paths->full_path_to_private_key);
-    key_paths->full_path_to_private_key = NULL;
-  }
-  SVI_DONE(status)
-
-  return status;
-}
-
 /* Hashes the data using |hash_algo.type|. */
 svi_rc
 openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *hash)
@@ -726,35 +679,6 @@ openssl_get_hash_size(void *handle)
   return ((openssl_crypto_t *)handle)->hash_algo.size;
 }
 
-/*
- * Creates a private key in a specified location
- *
- * A private key PEM-file is created. Use openssl_read_pubkey_from_private_key() to read the
- * public_key from the private_key.
- */
-static svi_rc
-openssl_create_private_key(sign_algo_t algo, const char *path_to_key, key_paths_t *key_paths)
-{
-  if (path_to_key && strlen(path_to_key) == 0) return SVI_INVALID_PARAMETER;
-
-  svi_rc status = SVI_UNKNOWN;
-  SVI_TRY()
-    // Create paths if needed.
-    SVI_THROW(create_full_path(algo, path_to_key, key_paths));
-    // Generate keys
-    if (algo == SIGN_ALGO_RSA) {
-      SVI_THROW(create_rsa_private_key(key_paths));
-    } else if (algo == SIGN_ALGO_ECDSA) {
-      SVI_THROW(create_ecdsa_private_key(key_paths));
-    } else {
-      SVI_THROW(SVI_NOT_SUPPORTED);
-    }
-  SVI_CATCH()
-  SVI_DONE(status)
-
-  return status;
-}
-
 /* Reads the public key from the private key. */
 svi_rc
 openssl_read_pubkey_from_private_key(signature_info_t *signature_info, pem_pkey_t *pem_pkey)
@@ -802,6 +726,48 @@ openssl_read_pubkey_from_private_key(signature_info_t *signature_info, pem_pkey_
 
 /* Helper function to generate a private key. Only applicable on Linux platforms. */
 SignedVideoReturnCode
+signed_video_generate_ecdsa_private_key(const char *path_to_key,
+    char **private_key,
+    size_t *private_key_size)
+{
+  if (!path_to_key && (!private_key || !private_key_size)) return SV_INVALID_PARAMETER;
+
+  char *full_path_to_private_key = NULL;
+  if (path_to_key) {
+    full_path_to_private_key = get_path_to_key(path_to_key, PRIVATE_ECDSA_KEY_FILE);
+  }
+  const key_paths_t key_paths = {.full_path_to_private_key = full_path_to_private_key,
+      .private_key = private_key,
+      .private_key_size = private_key_size};
+
+  svi_rc status = create_ecdsa_private_key(&key_paths);
+  free(full_path_to_private_key);
+
+  return svi_rc_to_signed_video_rc(status);
+}
+
+SignedVideoReturnCode
+signed_video_generate_rsa_private_key(const char *path_to_key,
+    char **private_key,
+    size_t *private_key_size)
+{
+  if (!path_to_key && (!private_key || !private_key_size)) return SV_INVALID_PARAMETER;
+
+  char *full_path_to_private_key = NULL;
+  if (path_to_key) {
+    full_path_to_private_key = get_path_to_key(path_to_key, PRIVATE_RSA_KEY_FILE);
+  }
+  const key_paths_t key_paths = {.full_path_to_private_key = full_path_to_private_key,
+      .private_key = private_key,
+      .private_key_size = private_key_size};
+
+  svi_rc status = create_rsa_private_key(&key_paths);
+  free(full_path_to_private_key);
+
+  return svi_rc_to_signed_video_rc(status);
+}
+
+SignedVideoReturnCode
 signed_video_generate_private_key(sign_algo_t algo,
     const char *path_to_key,
     char **private_key,
@@ -809,21 +775,12 @@ signed_video_generate_private_key(sign_algo_t algo,
 {
   if (!path_to_key && (!private_key || !private_key_size)) return SV_INVALID_PARAMETER;
 
-  key_paths_t key_paths = {.path_to_key = NULL,
-      .full_path_to_private_key = NULL,
-      .private_key = private_key,
-      .private_key_size = private_key_size};
-  svi_rc status = SVI_UNKNOWN;
-  SVI_TRY()
-    SVI_THROW_IF_WITH_MSG(
-        algo < 0 || algo >= SIGN_ALGO_NUM, SVI_NOT_SUPPORTED, "Algo is not supported");
-    SVI_THROW(openssl_create_private_key(algo, path_to_key, &key_paths));
-
-  SVI_CATCH()
-  SVI_DONE(status)
-
-  free(key_paths.path_to_key);
-  free(key_paths.full_path_to_private_key);
-
-  return svi_rc_to_signed_video_rc(status);
+  switch (algo) {
+    case SIGN_ALGO_RSA:
+      return signed_video_generate_rsa_private_key(path_to_key, private_key, private_key_size);
+    case SIGN_ALGO_ECDSA:
+      return signed_video_generate_ecdsa_private_key(path_to_key, private_key, private_key_size);
+    default:
+      return SV_NOT_SUPPORTED;
+  }
 }
