@@ -104,7 +104,10 @@ h26x_nalu_list_item_free(h26x_nalu_list_item_t *item)
 
   // If we have |nalu| data we free the temporarily used TLV memory slot.
   if (item->taken_ownership_of_nalu) {
-    if (item->nalu) free(item->nalu->nalu_data_wo_epb);
+    if (item->nalu) {
+      free(item->nalu->nalu_data_wo_epb);
+      free(item->nalu->pending_hashable_data);
+    }
     free(item->nalu);
   }
   free(item->second_hash);
@@ -310,13 +313,15 @@ h26x_nalu_list_append(h26x_nalu_list_t *list, const h26x_nalu_t *nalu)
 
 /* Replaces the |nalu| of the |last_item| in the list with a copy of itself. All pointers that are
  * not needed are set to NULL, since no ownership is transferred. The ownership of |nalu| is
- * released. If the |nalu| could not be copied it will be a NULL pointer. */
+ * released. If the |nalu| could not be copied it will be a NULL pointer. If hash algo is
+ * not known the |hashable_data| is copied so the NALU can be hashed later. */
 svi_rc
-h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list)
+h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list, bool hash_algo_known)
 {
   if (!list) return SVI_INVALID_PARAMETER;
 
   h26x_nalu_t *copied_nalu = NULL;
+  uint8_t *hashable_data = NULL;
   uint8_t *nalu_data_wo_epb = NULL;
   h26x_nalu_list_item_t *item = list->last_item;
 
@@ -330,9 +335,17 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list)
       SVI_THROW_IF(!nalu_data_wo_epb, SVI_MEMORY);
       memcpy(nalu_data_wo_epb, item->nalu->tlv_data, item->nalu->tlv_size);
     }
+    // If the library does not know which hash algo to use, store the |hashable_data| for later.
+    if (!hash_algo_known && item->nalu->is_hashable) {
+      hashable_data = malloc(item->nalu->hashable_data_size);
+      SVI_THROW_IF(!hashable_data, SVI_MEMORY);
+      memcpy(hashable_data, item->nalu->hashable_data, item->nalu->hashable_data_size);
+    }
     copy_nalu_except_pointers(copied_nalu, item->nalu);
     copied_nalu->nalu_data_wo_epb = nalu_data_wo_epb;
     copied_nalu->tlv_data = copied_nalu->nalu_data_wo_epb;
+    copied_nalu->pending_hashable_data = hashable_data;
+    copied_nalu->hashable_data = copied_nalu->pending_hashable_data;
   SVI_CATCH()
   {
     free(nalu_data_wo_epb);  // At this point, nalu_data_wo_epb is actually NULL.

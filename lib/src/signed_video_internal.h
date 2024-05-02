@@ -85,6 +85,7 @@ struct _validation_flags_t {
   bool signing_present;  // Indicates if Signed Video is present or not. It is only possible to move
   // from false to true unless a reset is performed.
   bool is_first_sei;  // Indicates that this is the first received SEI.
+  bool hash_algo_known;  // Information on what hash algorithm to use has been received.
 };
 
 struct _gop_state_t {

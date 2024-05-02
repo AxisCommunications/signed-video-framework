@@ -990,16 +990,42 @@ update_hashable_data(h26x_nalu_t *nalu)
   if (signature_tag_ptr) nalu->hashable_data_size = signature_tag_ptr - nalu->hashable_data;
 }
 
-/* A valid NALU is registered by hashing and adding to the nalu_list->last_item. */
+/* A valid NALU is registered by hashing and adding to the |item|. */
 static svi_rc
-register_nalu(signed_video_t *self, h26x_nalu_t *nalu)
+register_nalu(signed_video_t *self, h26x_nalu_list_item_t *item)
 {
+  h26x_nalu_t *nalu = item->nalu;
   assert(self && nalu && nalu->is_valid >= 0);
 
   if (nalu->is_valid == 0) return SVI_OK;
 
   update_hashable_data(nalu);
-  return hash_and_add_for_auth(self, nalu);
+  return hash_and_add_for_auth(self, item);
+}
+
+/* All NALUs in the |nalu_list| are re-registered by hashing them. */
+static svi_rc
+reregister_nalus(signed_video_t *self)
+{
+  assert(self);
+  assert(self->validation_flags.hash_algo_known);
+
+  h26x_nalu_list_t *nalu_list = self->nalu_list;
+  h26x_nalu_list_item_t *item = nalu_list->first_item;
+  svi_rc status = SVI_UNKNOWN;
+  while (item) {
+    if (item->nalu->is_valid <= 0) {
+      item = item->next;
+      continue;
+    }
+    status = hash_and_add_for_auth(self, item);
+    if (status != SVI_OK) {
+      break;
+    }
+    item = item->next;
+  }
+
+  return status;
 }
 
 /* The basic order of actions are:
@@ -1029,13 +1055,25 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
     SVI_THROW(h26x_nalu_list_append(nalu_list, &nalu));
     SVI_THROW_IF(nalu.is_valid < 0, SVI_UNKNOWN);
     update_validation_flags(&self->validation_flags, &nalu);
-    SVI_THROW(register_nalu(self, &nalu));
+    SVI_THROW(register_nalu(self, nalu_list->last_item));
+    // As soon as the first Signed Video SEI arrives (|signing_present| is true) and the
+    // crypto TLV tag has been decoded it is feasible to hash the temporarily stored NAL
+    // Units.
+    if (!self->validation_flags.hash_algo_known && self->validation_flags.signing_present &&
+        is_recurrent_data_decoded(self)) {
+      if (!self->validation_flags.hash_algo_known) {
+        DEBUG_LOG("No cryptographic information found in SEI. Using default hash algo");
+        self->validation_flags.hash_algo_known = true;
+      }
+      SVI_THROW(reregister_nalus(self));
+    }
     SVI_THROW(maybe_validate_gop(self, &nalu));
   SVI_CATCH()
   SVI_DONE(status)
 
-  // We need to make a copy of the |nalu| independently of failure.
-  svi_rc copy_nalu_status = h26x_nalu_list_copy_last_item(nalu_list);
+  // Need to make a copy of the |nalu| independently of failure.
+  svi_rc copy_nalu_status =
+      h26x_nalu_list_copy_last_item(nalu_list, self->validation_flags.hash_algo_known);
   // Make sure to return the first failure if both operations failed.
   status = (status == SVI_OK) ? copy_nalu_status : status;
   if (status != SVI_OK) nalu_list->last_item->validation_status = 'E';
