@@ -728,6 +728,9 @@ signed_video_generate_ecdsa_private_key(const char *dir_to_key,
   if (private_key && private_key_size) {
     *private_key = pem_key.pkey;
     *private_key_size = pem_key.pkey_size;
+  } else {
+    // Free the key if it is not transferred to the user.
+    free(pem_key.pkey);
   }
 
   return svi_rc_to_signed_video_rc(status);
@@ -751,6 +754,9 @@ signed_video_generate_rsa_private_key(const char *dir_to_key,
   if (private_key && private_key_size) {
     *private_key = pem_key.pkey;
     *private_key_size = pem_key.pkey_size;
+  } else {
+    // Free the key if it is not transferred to the user.
+    free(pem_key.pkey);
   }
 
   return svi_rc_to_signed_video_rc(status);
