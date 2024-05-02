@@ -80,7 +80,7 @@ START_TEST(api_inputs)
   // |settings|; See signed_video_helpers.h.
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
-  sign_algo_t algo = settings[_i].algo;
+  sign_algo_t algo = SIGN_ALGO_ECDSA;
   nalu_list_item_t *p_nalu = nalu_list_item_create_and_set_id('P', 0, codec);
   nalu_list_item_t *invalid = nalu_list_item_create_and_set_id('X', 0, codec);
   char *private_key = NULL;
@@ -90,24 +90,21 @@ START_TEST(api_inputs)
   // Check generate private key
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
-  sv_rc = signed_video_generate_private_key(SIGN_ALGO_NUM, "./", NULL, NULL);
-  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
-  sv_rc = signed_video_generate_private_key(SIGN_ALGO_NUM + 1, "./", NULL, NULL);
-  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
-  sv_rc = signed_video_generate_private_key(-1, "./", NULL, NULL);
-  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
-  sv_rc = signed_video_generate_private_key(algo, NULL, NULL, NULL);
+  sv_rc = settings[_i].generate_key(NULL, NULL, NULL);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_generate_private_key(algo, NULL, NULL, &private_key_size);
+  sv_rc = settings[_i].generate_key(NULL, NULL, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_generate_private_key(algo, NULL, &private_key, NULL);
+  sv_rc = settings[_i].generate_key(NULL, &private_key, NULL);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   // Read content of private_key.
-  sv_rc = signed_video_generate_private_key(algo, "./", NULL, NULL);
+  sv_rc = settings[_i].generate_key("./", NULL, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_generate_private_key(algo, NULL, &private_key, &private_key_size);
+  sv_rc = settings[_i].generate_key(NULL, &private_key, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Check set_private_key
+  if (settings[_i].generate_key == signed_video_generate_rsa_private_key) {
+    algo = SIGN_ALGO_RSA;
+  }
   sv_rc = signed_video_set_private_key(NULL, algo, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   sv_rc = signed_video_set_private_key(sv, SIGN_ALGO_NUM, private_key, private_key_size);
@@ -291,8 +288,7 @@ START_TEST(incorrect_operation)
   SignedVideoReturnCode sv_rc =
       signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
-  sv_rc =
-      signed_video_generate_private_key(settings[_i].algo, "./", &private_key, &private_key_size);
+  sv_rc = settings[_i].generate_key(NULL, &private_key, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -338,7 +334,6 @@ START_TEST(vendor_axis_communications_operation)
 
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
-  sign_algo_t algo = settings[_i].algo;
   SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
   nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
   nalu_list_item_t *sei_item = NULL;
@@ -349,7 +344,7 @@ START_TEST(vendor_axis_communications_operation)
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
   // Read and set content of private_key.
-  sv_rc = signed_video_generate_private_key(algo, "./", &private_key, &private_key_size);
+  sv_rc = settings[_i].generate_key(NULL, &private_key, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -560,7 +555,8 @@ START_TEST(fallback_to_gop_level)
   if (settings[_i].auth_level != SV_AUTHENTICITY_LEVEL_FRAME) return;
 
   const size_t kFallbackSize = 10;
-  signed_video_t *sv = get_initialized_signed_video(settings[_i].codec, settings[_i].algo, false);
+  signed_video_t *sv =
+      get_initialized_signed_video(settings[_i].codec, settings[_i].generate_key, false);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
   // If the true hash size is different from the default one, the test should still pass.
@@ -634,11 +630,10 @@ START_TEST(two_completed_seis_pending)
   nalu_list_item_t *i_nalu_1 = nalu_list_item_create_and_set_id('I', 0, codec);
   nalu_list_item_t *i_nalu_2 = nalu_list_item_create_and_set_id('I', 1, codec);
   // Setup the key
-  sv_rc =
-      signed_video_generate_private_key(settings[_i].algo, NULL, &private_key, &private_key_size);
+  sv_rc = settings[_i].generate_key(NULL, &private_key, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  sv_rc = signed_video_set_private_key(sv, settings[_i].algo, private_key, private_key_size);
+  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -705,11 +700,10 @@ START_TEST(two_completed_seis_pending_legacy)
   nalu_list_item_t *i_nalu_1 = nalu_list_item_create_and_set_id('I', 0, codec);
   nalu_list_item_t *i_nalu_2 = nalu_list_item_create_and_set_id('I', 1, codec);
   // Setup the key
-  sv_rc =
-      signed_video_generate_private_key(settings[_i].algo, NULL, &private_key, &private_key_size);
+  sv_rc = settings[_i].generate_key(NULL, &private_key, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  sv_rc = signed_video_set_private_key(sv, settings[_i].algo, private_key, private_key_size);
+  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -768,8 +762,7 @@ START_TEST(correct_timestamp)
   size_t sei_size = 0;
   size_t sei_size_ts = 0;
   // Setup the key
-  sv_rc =
-      signed_video_generate_private_key(settings[_i].algo, "./", &private_key, &private_key_size);
+  sv_rc = settings[_i].generate_key(NULL, &private_key, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
@@ -868,8 +861,7 @@ START_TEST(w_wo_emulation_prevention_bytes)
   size_t sei_size = 0;
 
   // Generate a Private key.
-  sv_rc =
-      signed_video_generate_private_key(settings[_i].algo, "./", &private_key, &private_key_size);
+  sv_rc = settings[_i].generate_key(NULL, &private_key, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   for (size_t ii = 0; ii < NUM_EPB_CASES; ii++) {
