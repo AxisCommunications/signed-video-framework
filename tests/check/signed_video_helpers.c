@@ -85,9 +85,9 @@ struct sv_setting settings[NUM_SETTINGS] = {
  * number of NALUs that were pulled will be reported back.
  */
 static void
-pull_nalus(signed_video_t *sv, nalu_list_item_t *item)
+pull_nalus(signed_video_t *sv, test_stream_item_t *item)
 {
-  nalu_list_item_t *cur_item = item;
+  test_stream_item_t *cur_item = item;
   size_t sei_size = 0;
   SignedVideoReturnCode sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -97,9 +97,9 @@ pull_nalus(signed_video_t *sv, nalu_list_item_t *item)
     sv_rc = signed_video_get_sei(sv, sei, &sei_size);
     ck_assert_int_eq(sv_rc, SV_OK);
     // Generate a new nalu_list_item with this SEI.
-    nalu_list_item_t *new_item = nalu_list_create_item(sei, sei_size, sv->codec);
+    test_stream_item_t *new_item = test_stream_item_create(sei, sei_size, sv->codec);
     // Prepend the nalu_list_item with this new item.
-    nalu_list_item_prepend_item(cur_item, new_item);
+    test_stream_item_prepend(cur_item, new_item);
     // Move to next completed SEI.
     sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
     ck_assert_int_eq(sv_rc, SV_OK);
@@ -111,7 +111,7 @@ pull_nalus(signed_video_t *sv, nalu_list_item_t *item)
  * Takes a string of NALU characters ('I', 'i', 'P', 'p', 'S', 'X') as input and generates NALU
  * data for these. Then adds these NALUs to the input session. The generated sei-nalus are added to
  * the stream. */
-nalu_list_t *
+test_stream_t *
 create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalus)
 {
   SignedVideoReturnCode rc = SV_OK;
@@ -119,8 +119,8 @@ create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalu
   SignedVideoCodec codec = sv->codec;
 
   // Create a list of NALUs given the input string.
-  nalu_list_t *list = nalu_list_create(str, codec);
-  nalu_list_item_t *item = list->first_item;
+  test_stream_t *list = test_stream_create(str, codec);
+  test_stream_item_t *item = list->first_item;
 
   // Loop through the NALUs and add for signing.
   while (item) {
@@ -145,27 +145,27 @@ create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalu
 
   // Since we have prepended individual items in the list, we have lost the list state and need tp
   // update it.
-  nalu_list_refresh(list);
+  test_stream_refresh(list);
 
   return list;
 }
 
 /* See function create_signed_nalus_int */
-nalu_list_t *
+test_stream_t *
 create_signed_nalus(const char *str, struct sv_setting settings)
 {
   return create_signed_nalus_int(str, settings, false);
 }
 
 /* Generates a signed video stream for the selected setting. The stream is returned as a
- * nalu_list_t.
+ * test_stream_t.
  *
  * Takes a string of NALU characters ('I', 'i', 'P', 'p', 'S', 'X') as input and generates NALU
  * data for these. Then a signed_video_t session is created given the input |settings|. The
  * generated NALUs are then passed through the signing process and corresponding generated
  * sei-nalus are added to the stream. If |new_private_key| is 'true' then a new private key is
  * generated else an already generated private key is used. */
-static nalu_list_t *
+static test_stream_t *
 create_signed_splitted_nalus_int(const char *str,
     struct sv_setting settings,
     bool new_private_key,
@@ -180,19 +180,19 @@ create_signed_splitted_nalus_int(const char *str,
   ck_assert_int_eq(signed_video_set_hash_algo(sv, settings.hash_algo_name), SV_OK);
 
   // Create a list of NALUs given the input string.
-  nalu_list_t *list = create_signed_nalus_with_sv(sv, str, split_nalus);
+  test_stream_t *list = create_signed_nalus_with_sv(sv, str, split_nalus);
   signed_video_free(sv);
 
   return list;
 }
 
-nalu_list_t *
+test_stream_t *
 create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_private_key)
 {
   return create_signed_splitted_nalus_int(str, settings, new_private_key, false);
 }
 
-nalu_list_t *
+test_stream_t *
 create_signed_splitted_nalus(const char *str, struct sv_setting settings)
 {
   return create_signed_splitted_nalus_int(str, settings, false, true);
@@ -245,28 +245,28 @@ get_initialized_signed_video(SignedVideoCodec codec,
 /* Removes the NALU list items with position |item_number| from the |list|. The item is, after a
  * check against the expected |str|, then freed. */
 void
-remove_item_then_check_and_free(nalu_list_t *list, int item_number, const char *str)
+remove_item_then_check_and_free(test_stream_t *list, int item_number, const char *str)
 {
   if (!list) return;
-  nalu_list_item_t *item = nalu_list_remove_item(list, item_number);
-  nalu_list_item_check_str(item, str);
-  nalu_list_free_item(item);
+  test_stream_item_t *item = test_stream_item_remove(list, item_number);
+  test_stream_item_check_type(item, str);
+  test_stream_item_free(item);
 }
 
 /* Modifies the id of |item_number| in |list| by incrementing the value by one. A sanity check on
  * expected string of that item is done. */
 void
-modify_list_item(nalu_list_t *list, int item_number, const char *exp_str)
+modify_list_item(test_stream_t *list, int item_number, const char *exp_str)
 {
   if (!list || !exp_str) return;
-  nalu_list_item_t *item = nalu_list_get_item(list, item_number);
-  nalu_list_item_check_str(item, exp_str);
+  test_stream_item_t *item = test_stream_item_get(list, item_number);
+  test_stream_item_check_type(item, exp_str);
   item->data[item->data_size - 2] += 1;  // Modifying id byte
 }
 
 /* Checks if a particular TLV tag is present in the NALU. */
 bool
-tag_is_present(nalu_list_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t tag)
+tag_is_present(test_stream_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t tag)
 {
   ck_assert(item);
 

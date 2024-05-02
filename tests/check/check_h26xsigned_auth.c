@@ -33,8 +33,8 @@
 #include "lib/src/signed_video_internal.h"  // set_hash_list_size()
 #include "lib/src/signed_video_openssl_internal.h"  // openssl_read_pubkey_from_private_key()
 #include "lib/src/signed_video_tlv.h"  // write_byte_many()
-#include "nalu_list.h"  // nalu_list_create()
 #include "signed_video_helpers.h"  // sv_setting, create_signed_nalus()
+#include "test_stream.h"  // test_stream_create()
 
 #define TMP_FIX_TO_ALLOW_TWO_INVALID_SEIS_AT_STARTUP true
 
@@ -137,7 +137,7 @@ authenticity_is_identical(signed_video_authenticity_t *orig,
  * like reset.
  */
 static void
-validate_nalu_list(signed_video_t *sv, nalu_list_t *list, struct validation_stats expected)
+validate_nalu_list(signed_video_t *sv, test_stream_t *list, struct validation_stats expected)
 {
   if (!list) return;
   bool internal_sv = false;
@@ -159,7 +159,7 @@ validate_nalu_list(signed_video_t *sv, nalu_list_t *list, struct validation_stat
   bool public_key_has_changed = false;
   bool has_timestamp = false;
   // Pop one NALU at a time.
-  nalu_list_item_t *item = nalu_list_pop_first_item(list);
+  test_stream_item_t *item = test_stream_pop_first_item(list);
   while (item) {
     SignedVideoReturnCode rc =
         signed_video_add_nalu_and_authenticate(sv, item->data, item->data_size, &auth_report);
@@ -226,8 +226,8 @@ validate_nalu_list(signed_video_t *sv, nalu_list_t *list, struct validation_stat
       signed_video_authenticity_report_free(auth_report);
     }
     // Free item and pop a new one.
-    nalu_list_free_item(item);
-    item = nalu_list_pop_first_item(list);
+    test_stream_item_free(item);
+    item = test_stream_pop_first_item(list);
   }
   // Check GOP statistics against expected.
   ck_assert_int_eq(valid_gops, expected.valid_gops);
@@ -278,8 +278,8 @@ START_TEST(invalid_api_inputs)
 
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
-  nalu_list_item_t *p_nalu = nalu_list_item_create_and_set_id('P', 0, codec);
-  nalu_list_item_t *invalid = nalu_list_item_create_and_set_id('X', 0, codec);
+  test_stream_item_t *p_nalu = test_stream_item_create_from_type('P', 0, codec);
+  test_stream_item_t *invalid = test_stream_item_create_from_type('X', 0, codec);
   // signed_video_add_nalu_and_authenticate()
   // NULL pointers are invalid, as well as zero sized nalus.
   SignedVideoReturnCode sv_rc =
@@ -293,8 +293,8 @@ START_TEST(invalid_api_inputs)
   sv_rc = signed_video_add_nalu_and_authenticate(sv, invalid->data, invalid->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Free nalu_list_item and session.
-  nalu_list_free_item(p_nalu);
-  nalu_list_free_item(invalid);
+  test_stream_item_free(p_nalu);
+  test_stream_item_free(invalid);
   signed_video_free(sv);
 }
 END_TEST
@@ -312,8 +312,8 @@ START_TEST(intact_stream)
   // |settings|; See signed_video_helpers.h.
 
   // Create a list of NALUs given the input string.
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
+  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
 
   // All NALUs but the last 'I' are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -323,7 +323,7 @@ START_TEST(intact_stream)
       .valid_gops = 7, .pending_nalus = 7, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -332,8 +332,8 @@ START_TEST(intact_multislice_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IiPpPpIiPpPpIi", settings[_i]);
-  nalu_list_check_str(list, "SIiPpPpSIiPpPpSIi");
+  test_stream_t *list = create_signed_nalus("IiPpPpIiPpPpIi", settings[_i]);
+  test_stream_check_types(list, "SIiPpPpSIiPpPpSIi");
 
   // All NALUs but the last 'I' and 'i' are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -343,7 +343,7 @@ START_TEST(intact_multislice_stream)
       .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -353,8 +353,8 @@ START_TEST(intact_stream_with_splitted_nalus)
   // |settings|; See signed_video_helpers.h.
 
   // Create a list of NALUs given the input string.
-  nalu_list_t *list = create_signed_splitted_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
+  test_stream_t *list = create_signed_splitted_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
 
   // All NALUs but the last 'I' are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -364,7 +364,7 @@ START_TEST(intact_stream_with_splitted_nalus)
       .valid_gops = 7, .pending_nalus = 7, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -376,8 +376,8 @@ START_TEST(intact_stream_with_pps_nalu_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("VIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "VSIPPSIPPSI");
+  test_stream_t *list = create_signed_nalus("VIPPIPPI", settings[_i]);
+  test_stream_check_types(list, "VSIPPSIPPSI");
 
   // All NALUs but the last 'I' are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -387,7 +387,7 @@ START_TEST(intact_stream_with_pps_nalu_stream)
       .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -396,15 +396,15 @@ START_TEST(intact_stream_with_pps_bytestream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("VIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "VSIPPSIPPSI");
+  test_stream_t *list = create_signed_nalus("VIPPIPPI", settings[_i]);
+  test_stream_check_types(list, "VSIPPSIPPSI");
 
   // Pop the PPS NALU and inject it before the I-NALU.
-  nalu_list_item_t *item = nalu_list_pop_first_item(list);
-  nalu_list_item_check_str(item, "V");
-  nalu_list_check_str(list, "SIPPSIPPSI");
-  nalu_list_append_item(list, item, 1);
-  nalu_list_check_str(list, "SVIPPSIPPSI");
+  test_stream_item_t *item = test_stream_pop_first_item(list);
+  test_stream_item_check_type(item, "V");
+  test_stream_check_types(list, "SIPPSIPPSI");
+  test_stream_append_item(list, item, 1);
+  test_stream_check_types(list, "SVIPPSIPPSI");
 
   // SVIPPSIPPSI
   //
@@ -419,7 +419,7 @@ START_TEST(intact_stream_with_pps_bytestream)
       .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -428,8 +428,8 @@ START_TEST(intact_ms_stream_with_pps_nalu_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("VIiPpPpIiPpPpIi", settings[_i]);
-  nalu_list_check_str(list, "VSIiPpPpSIiPpPpSIi");
+  test_stream_t *list = create_signed_nalus("VIiPpPpIiPpPpIi", settings[_i]);
+  test_stream_check_types(list, "VSIiPpPpSIiPpPpSIi");
 
   // All NALUs but the last 'I' and 'i' are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -439,7 +439,7 @@ START_TEST(intact_ms_stream_with_pps_nalu_stream)
       .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -448,15 +448,15 @@ START_TEST(intact_ms_stream_with_pps_bytestream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("VIiPpPpIiPpPpIi", settings[_i]);
-  nalu_list_check_str(list, "VSIiPpPpSIiPpPpSIi");
+  test_stream_t *list = create_signed_nalus("VIiPpPpIiPpPpIi", settings[_i]);
+  test_stream_check_types(list, "VSIiPpPpSIiPpPpSIi");
 
   // Pop the PPS NALU and inject it before the I-NALU.
-  nalu_list_item_t *item = nalu_list_pop_first_item(list);
-  nalu_list_item_check_str(item, "V");
-  nalu_list_check_str(list, "SIiPpPpSIiPpPpSIi");
-  nalu_list_append_item(list, item, 1);
-  nalu_list_check_str(list, "SVIiPpPpSIiPpPpSIi");
+  test_stream_item_t *item = test_stream_pop_first_item(list);
+  test_stream_item_check_type(item, "V");
+  test_stream_check_types(list, "SIiPpPpSIiPpPpSIi");
+  test_stream_append_item(list, item, 1);
+  test_stream_check_types(list, "SVIiPpPpSIiPpPpSIi");
 
   // All NALUs but the last 'I' and 'i' are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -466,7 +466,7 @@ START_TEST(intact_ms_stream_with_pps_bytestream)
       .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -483,8 +483,8 @@ START_TEST(intact_with_undefined_nalu_in_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPXPSIPPSI");
+  test_stream_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
+  test_stream_check_types(list, "SIPXPSIPPSI");
 
   // All NALUs but the last 'I' are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -494,7 +494,7 @@ START_TEST(intact_with_undefined_nalu_in_stream)
       .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -503,8 +503,8 @@ START_TEST(intact_with_undefined_multislice_nalu_in_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IiPpXPpIiPpPpIi", settings[_i]);
-  nalu_list_check_str(list, "SIiPpXPpSIiPpPpSIi");
+  test_stream_t *list = create_signed_nalus("IiPpXPpIiPpPpIi", settings[_i]);
+  test_stream_check_types(list, "SIiPpXPpSIiPpPpSIi");
 
   // All NALUs but the last 'I' and 'i' are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -514,7 +514,7 @@ START_TEST(intact_with_undefined_multislice_nalu_in_stream)
       .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -529,13 +529,13 @@ START_TEST(remove_one_p_nalu)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
+  test_stream_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPPPSIPPSI");
 
   // Item counting starts at 1.  Middle P-NALU in second non-empty GOP: SIPPSIP P PSIPPSI
   const int remove_nalu_number = 8;
   remove_item_then_check_and_free(list, remove_nalu_number, "P");
-  nalu_list_check_str(list, "SIPPSIPPSIPPSI");
+  test_stream_check_types(list, "SIPPSIPPSIPPSI");
 
   // All NALUs but the last 'I' are validated and since one NALU has been removed the authenticity
   // is NOT OK.
@@ -556,7 +556,7 @@ START_TEST(remove_one_p_nalu)
   }
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -568,18 +568,18 @@ START_TEST(interchange_two_p_nalus)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
+  test_stream_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPPPSIPPSI");
 
   // Item counting starts at 1.  Middle P-NALU in second non-empty GOP: SIPPSIP P PSIPPSI
   const int nalu_number = 8;
-  nalu_list_item_t *item = nalu_list_remove_item(list, nalu_number);
-  nalu_list_item_check_str(item, "P");
+  test_stream_item_t *item = test_stream_item_remove(list, nalu_number);
+  test_stream_item_check_type(item, "P");
 
   // Inject the item again, but at position nalu_number + 1, that is, append the list item at
   // position nalu_number.
-  nalu_list_append_item(list, item, nalu_number);
-  nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
+  test_stream_append_item(list, item, nalu_number);
+  test_stream_check_types(list, "SIPPSIPPPSIPPSI");
 
   // All NALUs but the last 'I' are validated and since two NALUs have been moved the authenticity
   // is NOT OK.
@@ -598,7 +598,7 @@ START_TEST(interchange_two_p_nalus)
   }
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -611,8 +611,8 @@ START_TEST(modify_one_p_nalu)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
+  test_stream_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPPPSIPPSI");
 
   // Second P-NALU in first non-empty GOP: SIP P SIPPPSIPPSI
   const int modify_nalu_number = 4;
@@ -634,7 +634,7 @@ START_TEST(modify_one_p_nalu)
   }
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -643,8 +643,8 @@ START_TEST(modify_one_i_nalu)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
+  test_stream_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPPPSIPPSI");
 
   // Modify the I-NALU in second non-empty GOP: SIPPS I PPPSIPPSI
   const int modify_nalu_number = 6;
@@ -668,7 +668,7 @@ START_TEST(modify_one_i_nalu)
   }
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -685,13 +685,13 @@ START_TEST(remove_the_g_nalu)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSI");
+  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSI");
 
   // SEI of second non-empty GOP: SIPPSIPP S IPPSIPPSI.
   const int remove_nalu_number = 9;
   remove_item_then_check_and_free(list, remove_nalu_number, "S");
-  nalu_list_check_str(list, "SIPPSIPPIPPSIPPSI");
+  test_stream_check_types(list, "SIPPSIPPIPPSIPPSI");
 
   // SIPPSIPPIPPSIPPSI
   //
@@ -711,7 +711,7 @@ START_TEST(remove_the_g_nalu)
 
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -720,13 +720,13 @@ START_TEST(remove_the_i_nalu)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSI");
+  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSI");
 
   // I-NALU of third non-empty GOP: SIPPSIPPS I PPSIPPSI.
   const int remove_nalu_number = 10;
   remove_item_then_check_and_free(list, remove_nalu_number, "I");
-  nalu_list_check_str(list, "SIPPSIPPSPPSIPPSI");
+  test_stream_check_types(list, "SIPPSIPPSPPSIPPSI");
 
   // All NALUs but the last 'I' are validated and since one I-NALU has been removed the authenticity
   // is NOT OK.
@@ -759,7 +759,7 @@ START_TEST(remove_the_i_nalu)
   }
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -768,8 +768,8 @@ START_TEST(remove_the_gi_nalus)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSI");
+  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSI");
 
   // SEI of second non-empty GOP: SIPPSIPP S IPPSIPPSI.
   int remove_nalu_number = 9;
@@ -777,7 +777,7 @@ START_TEST(remove_the_gi_nalus)
   // Note that we have removed an item before this one, hence the I-NALU is now at place 9:
   // SIPPSIPP I PPSIPPS.
   remove_item_then_check_and_free(list, remove_nalu_number, "I");
-  nalu_list_check_str(list, "SIPPSIPPPPSIPPSI");
+  test_stream_check_types(list, "SIPPSIPPPPSIPPSI");
 
   // All NALUs but the last 'I' are validated and since one couple of SEI and I-NALU have been
   // removed the authenticity is NOT OK.
@@ -796,7 +796,7 @@ START_TEST(remove_the_gi_nalus)
       .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -809,18 +809,18 @@ START_TEST(sei_arrives_late)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPPSIPPPSIPPPSI");
+  test_stream_t *list = create_signed_nalus("IPPPIPPPIPPPI", settings[_i]);
+  test_stream_check_types(list, "SIPPPSIPPPSIPPPSI");
 
   // Remove the second SEI, that is, number 6 in the list: SIPPP (S) IPPPSIPPPSI.
-  nalu_list_item_t *sei = nalu_list_remove_item(list, 6);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_check_str(list, "SIPPPIPPPSIPPPSI");
+  test_stream_item_t *sei = test_stream_item_remove(list, 6);
+  test_stream_item_check_type(sei, "S");
+  test_stream_check_types(list, "SIPPPIPPPSIPPPSI");
 
   // Prepend the middle P of the next GOP: SIPPPIP (S)P PSIPPPSI. This is equivalent with appending
   // the first P of the same GOP, that is, number 7.
-  nalu_list_append_item(list, sei, 7);
-  nalu_list_check_str(list, "SIPPPIPSPPSIPPPSI");
+  test_stream_append_item(list, sei, 7);
+  test_stream_check_types(list, "SIPPPIPSPPSIPPPSI");
 
   // All NALUs but the last 'I' are validated as OK, which is pending.
   signed_video_accumulated_validation_t final_validation = {
@@ -831,43 +831,43 @@ START_TEST(sei_arrives_late)
       .valid_gops = 4, .pending_nalus = 5, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
 // TODO: Generalize this function.
 /* Helper function that generates a fixed list with delayed SEIs. */
-static nalu_list_t *
+static test_stream_t *
 generate_delayed_sei_list(struct sv_setting setting, bool extra_delay)
 {
   // Make first GOP one P-frame longer to trigger recurrence on second I-frame.
-  nalu_list_t *list = create_signed_nalus("IPPPPIPPPIPPPIPPPIP", setting);
-  nalu_list_check_str(list, "SIPPPPSIPPPSIPPPSIPPPSIP");
+  test_stream_t *list = create_signed_nalus("IPPPPIPPPIPPPIPPPIP", setting);
+  test_stream_check_types(list, "SIPPPPSIPPPSIPPPSIPPPSIP");
 
   // Remove each SEI in the list and append it 2 items later (which in practice becomes 1 item later
   // since we just removed the SEI).
   int extra_offset = extra_delay ? 5 : 0;
   int extra_correction = extra_delay ? 1 : 0;
-  nalu_list_item_t *sei = nalu_list_remove_item(list, 1);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_append_item(list, sei, 2 + extra_offset);
-  sei = nalu_list_remove_item(list, 7 - extra_correction);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_append_item(list, sei, 8 + extra_offset);
-  sei = nalu_list_remove_item(list, 12 - extra_correction);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_append_item(list, sei, 13 + extra_offset);
-  sei = nalu_list_remove_item(list, 17 - extra_correction);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_append_item(list, sei, 18 + extra_offset);
-  sei = nalu_list_remove_item(list, 22 - extra_correction);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_append_item(list, sei, 23);
+  test_stream_item_t *sei = test_stream_item_remove(list, 1);
+  test_stream_item_check_type(sei, "S");
+  test_stream_append_item(list, sei, 2 + extra_offset);
+  sei = test_stream_item_remove(list, 7 - extra_correction);
+  test_stream_item_check_type(sei, "S");
+  test_stream_append_item(list, sei, 8 + extra_offset);
+  sei = test_stream_item_remove(list, 12 - extra_correction);
+  test_stream_item_check_type(sei, "S");
+  test_stream_append_item(list, sei, 13 + extra_offset);
+  sei = test_stream_item_remove(list, 17 - extra_correction);
+  test_stream_item_check_type(sei, "S");
+  test_stream_append_item(list, sei, 18 + extra_offset);
+  sei = test_stream_item_remove(list, 22 - extra_correction);
+  test_stream_item_check_type(sei, "S");
+  test_stream_append_item(list, sei, 23);
 
   if (extra_delay) {
-    nalu_list_check_str(list, "IPPPPISPPPIPSPPIPSPPIPSS");
+    test_stream_check_types(list, "IPPPPISPPPIPSPPIPSPPIPSS");
   } else {
-    nalu_list_check_str(list, "IPSPPPIPSPPIPSPPIPSPPIPS");
+    test_stream_check_types(list, "IPSPPPIPSPPIPSPPIPSPPIPS");
   };
   return list;
 }
@@ -881,7 +881,7 @@ START_TEST(all_seis_arrive_late)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = generate_delayed_sei_list(settings[_i], true);
+  test_stream_t *list = generate_delayed_sei_list(settings[_i], true);
 
   // IPPPPISPPPIPSPPIPSPPIPSS
   //
@@ -901,7 +901,7 @@ START_TEST(all_seis_arrive_late)
       .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -910,28 +910,28 @@ START_TEST(all_seis_arrive_late_first_gop_scrapped)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = generate_delayed_sei_list(settings[_i], true);
+  test_stream_t *list = generate_delayed_sei_list(settings[_i], true);
 
-  nalu_list_item_t *item = nalu_list_pop_first_item(list);
-  nalu_list_item_check_str(item, "I");
-  nalu_list_check_str(list, "PPPPISPPPIPSPPIPSPPIPSS");
-  nalu_list_free_item(item);
-  item = nalu_list_pop_first_item(list);
-  nalu_list_item_check_str(item, "P");
-  nalu_list_check_str(list, "PPPISPPPIPSPPIPSPPIPSS");
-  nalu_list_free_item(item);
-  item = nalu_list_pop_first_item(list);
-  nalu_list_item_check_str(item, "P");
-  nalu_list_check_str(list, "PPISPPPIPSPPIPSPPIPSS");
-  nalu_list_free_item(item);
-  item = nalu_list_pop_first_item(list);
-  nalu_list_item_check_str(item, "P");
-  nalu_list_check_str(list, "PISPPPIPSPPIPSPPIPSS");
-  nalu_list_free_item(item);
-  item = nalu_list_pop_first_item(list);
-  nalu_list_item_check_str(item, "P");
-  nalu_list_check_str(list, "ISPPPIPSPPIPSPPIPSS");
-  nalu_list_free_item(item);
+  test_stream_item_t *item = test_stream_pop_first_item(list);
+  test_stream_item_check_type(item, "I");
+  test_stream_check_types(list, "PPPPISPPPIPSPPIPSPPIPSS");
+  test_stream_item_free(item);
+  item = test_stream_pop_first_item(list);
+  test_stream_item_check_type(item, "P");
+  test_stream_check_types(list, "PPPISPPPIPSPPIPSPPIPSS");
+  test_stream_item_free(item);
+  item = test_stream_pop_first_item(list);
+  test_stream_item_check_type(item, "P");
+  test_stream_check_types(list, "PPISPPPIPSPPIPSPPIPSS");
+  test_stream_item_free(item);
+  item = test_stream_pop_first_item(list);
+  test_stream_item_check_type(item, "P");
+  test_stream_check_types(list, "PISPPPIPSPPIPSPPIPSS");
+  test_stream_item_free(item);
+  item = test_stream_pop_first_item(list);
+  test_stream_item_check_type(item, "P");
+  test_stream_check_types(list, "ISPPPIPSPPIPSPPIPSS");
+  test_stream_item_free(item);
 
   // ISPPPIPSPPIPSPPIPSS
   //
@@ -949,7 +949,7 @@ START_TEST(all_seis_arrive_late_first_gop_scrapped)
       .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -962,23 +962,23 @@ START_TEST(lost_g_before_late_sei_arrival)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPPSIPPPSIPPPSIPPSI");
+  test_stream_t *list = create_signed_nalus("IPPPIPPPIPPPIPPI", settings[_i]);
+  test_stream_check_types(list, "SIPPPSIPPPSIPPPSIPPSI");
 
   // Remove the third SEI, that is, number 11 in the list: SIPPPSIPPP (S) IPPPSIPPSI.
-  nalu_list_item_t *sei = nalu_list_remove_item(list, 11);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_check_str(list, "SIPPPSIPPPIPPPSIPPSI");
+  test_stream_item_t *sei = test_stream_item_remove(list, 11);
+  test_stream_item_check_type(sei, "S");
+  test_stream_check_types(list, "SIPPPSIPPPIPPPSIPPSI");
 
   // Prepend the middle P of the next GOP: SIPPPSIPPPIP (S)P PSIPPSI. This is equivalent with
   // appending the first P of the same GOP, that is, number 12.
 
-  nalu_list_append_item(list, sei, 12);
-  nalu_list_check_str(list, "SIPPPSIPPPIPSPPSIPPSI");
+  test_stream_append_item(list, sei, 12);
+  test_stream_check_types(list, "SIPPPSIPPPIPSPPSIPPSI");
 
   // Remove the second SEI, i.e., number 6 in the list: SIPPP (S) IPPPIPSPPSIPPSI.
   remove_item_then_check_and_free(list, 6, "S");
-  nalu_list_check_str(list, "SIPPPIPPPIPSPPSIPPSI");
+  test_stream_check_types(list, "SIPPPIPPPIPSPPSIPPSI");
 
   // SI                   ->   (valid) -> .P           1 pending
   //  IPPPIPPPIPS         -> (invalid) -> NNNNN...PP.  2 pending (two GOPs in one validation)
@@ -994,7 +994,7 @@ START_TEST(lost_g_before_late_sei_arrival)
       .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -1010,38 +1010,38 @@ START_TEST(lost_g_and_gop_with_late_sei_arrival)
 
   if (TMP_FIX_TO_ALLOW_TWO_INVALID_SEIS_AT_STARTUP) return;
 
-  nalu_list_t *list = create_signed_nalus("IPIPPPIPPPIP", settings[_i]);
-  nalu_list_check_str(list, "SIPSIPPPSIPPPSIP");
+  test_stream_t *list = create_signed_nalus("IPIPPPIPPPIP", settings[_i]);
+  test_stream_check_types(list, "SIPSIPPPSIPPPSIP");
 
   // Get the first SEI, to be added back later.
-  nalu_list_item_t *sei = nalu_list_pop_first_item(list);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_check_str(list, "IPSIPPPSIPPPSIP");
+  test_stream_item_t *sei = test_stream_pop_first_item(list);
+  test_stream_item_check_type(sei, "S");
+  test_stream_check_types(list, "IPSIPPPSIPPPSIP");
 
   // Remove the first GOP to mimic the start of the validation side.
   remove_item_then_check_and_free(list, 1, "I");
-  nalu_list_check_str(list, "PSIPPPSIPPPSIP");
+  test_stream_check_types(list, "PSIPPPSIPPPSIP");
   remove_item_then_check_and_free(list, 1, "P");
-  nalu_list_check_str(list, "SIPPPSIPPPSIP");
+  test_stream_check_types(list, "SIPPPSIPPPSIP");
   remove_item_then_check_and_free(list, 1, "S");
-  nalu_list_check_str(list, "IPPPSIPPPSIP");
+  test_stream_check_types(list, "IPPPSIPPPSIP");
 
   // Inject the SEI into the second GOP.
-  nalu_list_append_item(list, sei, 2);
-  nalu_list_check_str(list, "IPSPPSIPPPSIP");
+  test_stream_append_item(list, sei, 2);
+  test_stream_check_types(list, "IPSPPSIPPPSIP");
 
   // Move the remaining SEIs.
-  sei = nalu_list_remove_item(list, 6);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_check_str(list, "IPSPPIPPPSIP");
-  nalu_list_append_item(list, sei, 7);
-  nalu_list_check_str(list, "IPSPPIPSPPSIP");
+  sei = test_stream_item_remove(list, 6);
+  test_stream_item_check_type(sei, "S");
+  test_stream_check_types(list, "IPSPPIPPPSIP");
+  test_stream_append_item(list, sei, 7);
+  test_stream_check_types(list, "IPSPPIPSPPSIP");
 
-  sei = nalu_list_remove_item(list, 11);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_check_str(list, "IPSPPIPSPPIP");
-  nalu_list_append_item(list, sei, 12);
-  nalu_list_check_str(list, "IPSPPIPSPPIPS");
+  sei = test_stream_item_remove(list, 11);
+  test_stream_item_check_type(sei, "S");
+  test_stream_check_types(list, "IPSPPIPSPPIP");
+  test_stream_append_item(list, sei, 12);
+  test_stream_check_types(list, "IPSPPIPSPPIPS");
 
   // IPS            -> (signature) -> PPU
   // IPSPPIPS*      ->     (valid) -> ..U..PP.
@@ -1055,7 +1055,7 @@ START_TEST(lost_g_and_gop_with_late_sei_arrival)
       .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -1066,15 +1066,15 @@ START_TEST(lost_all_nalus_between_two_seis)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPPSIPPPSIPPPSIPPSI");
+  test_stream_t *list = create_signed_nalus("IPPPIPPPIPPPIPPI", settings[_i]);
+  test_stream_check_types(list, "SIPPPSIPPPSIPPPSIPPSI");
 
   // Remove IPPP between the second and third S.
   remove_item_then_check_and_free(list, 7, "I");
   remove_item_then_check_and_free(list, 7, "P");
   remove_item_then_check_and_free(list, 7, "P");
   remove_item_then_check_and_free(list, 7, "P");
-  nalu_list_check_str(list, "SIPPPSSIPPPSIPPSI");
+  test_stream_check_types(list, "SIPPPSSIPPPSIPPSI");
 
   // All NALUs but the last 'I' are validated. Since all NALUs between two SEIs are lost the
   // authenticity is NOT OK.
@@ -1109,7 +1109,7 @@ START_TEST(lost_all_nalus_between_two_seis)
   }
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -1122,16 +1122,16 @@ START_TEST(add_one_sei_nalu_after_signing)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
+  test_stream_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPPPSIPPSI");
 
   const uint8_t id = 0;
-  nalu_list_item_t *sei = nalu_list_item_create_and_set_id('Z', id, settings[_i].codec);
+  test_stream_item_t *sei = test_stream_item_create_from_type('Z', id, settings[_i].codec);
 
   // Middle P-NALU in second non-empty GOP: SIPPSIP P(Z) PSIPPSI
   const int append_nalu_number = 8;
-  nalu_list_append_item(list, sei, append_nalu_number);
-  nalu_list_check_str(list, "SIPPSIPPZPSIPPSI");
+  test_stream_append_item(list, sei, append_nalu_number);
+  test_stream_check_types(list, "SIPPSIPPZPSIPPSI");
 
   // All NALUs but the last 'I' are validated as OK. The last one is pending.
   signed_video_accumulated_validation_t final_validation = {
@@ -1141,7 +1141,7 @@ START_TEST(add_one_sei_nalu_after_signing)
       .valid_gops = 4, .pending_nalus = 4, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -1160,15 +1160,15 @@ START_TEST(camera_reset_on_signing_side)
   // |settings|; See signed_video_helpers.h.
 
   // Generate 2 GOPs
-  nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPP");
+  test_stream_t *list = create_signed_nalus("IPPIPP", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPP");
 
   // Generate another GOP from scratch
-  nalu_list_t *list_after_reset = create_signed_nalus_int("IPPPI", settings[_i], true);
-  nalu_list_check_str(list_after_reset, "SIPPPSI");
+  test_stream_t *list_after_reset = create_signed_nalus_int("IPPPI", settings[_i], true);
+  test_stream_check_types(list_after_reset, "SIPPPSI");
 
-  nalu_list_append_and_free(list, list_after_reset);
-  nalu_list_check_str(list, "SIPPSIPPSIPPPSI");
+  test_stream_append(list, list_after_reset);
+  test_stream_check_types(list, "SIPPSIPPSIPPPSI");
 
   // Final validation is NOT OK and all received NALUs, but the last, are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -1186,7 +1186,7 @@ START_TEST(camera_reset_on_signing_side)
       .final_validation = &final_validation};
 
   validate_nalu_list(NULL, list, expected);
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -1198,16 +1198,16 @@ START_TEST(detect_change_of_public_key)
   // |settings|; See signed_video_helpers.h.
 
   // Generate 2 GOPs
-  nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPP");
+  test_stream_t *list = create_signed_nalus("IPPIPP", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPP");
 
   // Generate another GOP from scratch
   // This will generate a new private key, hence transmit a different public key.
-  nalu_list_t *list_with_new_public_key = create_signed_nalus_int("IPPPI", settings[_i], true);
-  nalu_list_check_str(list_with_new_public_key, "SIPPPSI");
+  test_stream_t *list_with_new_public_key = create_signed_nalus_int("IPPPI", settings[_i], true);
+  test_stream_check_types(list_with_new_public_key, "SIPPPSI");
 
-  nalu_list_append_and_free(list, list_with_new_public_key);
-  nalu_list_check_str(list, "SIPPSIPPSIPPPSI");
+  test_stream_append(list, list_with_new_public_key);
+  test_stream_check_types(list, "SIPPSIPPSIPPPSI");
 
   // Final validation is NOT OK and all received NALUs, but the last, are validated. The
   // |public_key_has_changed| flag has been set.
@@ -1230,7 +1230,7 @@ START_TEST(detect_change_of_public_key)
 
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -1248,18 +1248,18 @@ END_TEST
  * 4a. Reset the session, and validate.
  * 4b. Validate without a reset.
  */
-static nalu_list_t *
+static test_stream_t *
 mimic_au_fast_forward_and_get_list(signed_video_t *sv, struct sv_setting setting)
 {
-  nalu_list_t *list = create_signed_nalus("IPPPPIPPPIPPPIPPPIPPPI", setting);
-  nalu_list_check_str(list, "SIPPPPSIPPPSIPPPSIPPPSIPPPSI");
+  test_stream_t *list = create_signed_nalus("IPPPPIPPPIPPPIPPPIPPPI", setting);
+  test_stream_check_types(list, "SIPPPPSIPPPSIPPPSIPPPSIPPPSI");
 
   // Extract the first 9 NALUs from the list. This should be the empty GOP, a full GOP and in the
   // middle of the next GOP: SIPPPPSIP PPSIPPPSIPPPSI. These are the NALUs to be processed before
   // the fast forward.
-  nalu_list_t *pre_fast_forward = nalu_list_pop(list, 9);
-  nalu_list_check_str(pre_fast_forward, "SIPPPPSIP");
-  nalu_list_check_str(list, "PPSIPPPSIPPPSIPPPSI");
+  test_stream_t *pre_fast_forward = test_stream_pop(list, 9);
+  test_stream_check_types(pre_fast_forward, "SIPPPPSIP");
+  test_stream_check_types(list, "PPSIPPPSIPPPSIPPPSI");
 
   // Final validation of |pre_fast_forward| is OK and all received NALUs, but the last two, are
   // validated.
@@ -1274,17 +1274,17 @@ mimic_au_fast_forward_and_get_list(signed_video_t *sv, struct sv_setting setting
   struct validation_stats expected = {
       .valid_gops = 2, .pending_nalus = 2, .final_validation = &final_validation};
   validate_nalu_list(sv, pre_fast_forward, expected);
-  nalu_list_free(pre_fast_forward);
+  test_stream_free(pre_fast_forward);
 
   // Mimic fast forward by removing 7 NALUs ending up at the second next SEI: PSIPP SIPPSIPPSI.
   // A fast forward is always done to an I-NALU, and if we use the access unit (AU) format, also the
   // preceding SEI-NALU will be present.
   int remove_items = 7;
   while (remove_items--) {
-    nalu_list_item_t *item = nalu_list_pop_first_item(list);
-    nalu_list_free_item(item);
+    test_stream_item_t *item = test_stream_pop_first_item(list);
+    test_stream_item_free(item);
   }
-  nalu_list_check_str(list, "SIPPPSIPPPSI");
+  test_stream_check_types(list, "SIPPPSIPPPSI");
 
   return list;
 }
@@ -1298,7 +1298,7 @@ START_TEST(fast_forward_stream_with_reset)
   signed_video_t *sv = signed_video_create(settings[_i].codec);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
-  nalu_list_t *list = mimic_au_fast_forward_and_get_list(sv, settings[_i]);
+  test_stream_t *list = mimic_au_fast_forward_and_get_list(sv, settings[_i]);
   // Reset session before we start validating.
   ck_assert_int_eq(signed_video_reset(sv), SV_OK);
 
@@ -1320,7 +1320,7 @@ START_TEST(fast_forward_stream_with_reset)
   validate_nalu_list(sv, list, expected);
   // Free list and session.
   signed_video_free(sv);
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -1333,7 +1333,7 @@ START_TEST(fast_forward_stream_without_reset)
   signed_video_t *sv = signed_video_create(settings[_i].codec);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
-  nalu_list_t *list = mimic_au_fast_forward_and_get_list(sv, settings[_i]);
+  test_stream_t *list = mimic_au_fast_forward_and_get_list(sv, settings[_i]);
 
   // Final validation is NOT OK and all received NALUs, but the last one, are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -1354,23 +1354,23 @@ START_TEST(fast_forward_stream_without_reset)
   validate_nalu_list(sv, list, expected);
 
   // Free list and session.
-  nalu_list_free(list);
+  test_stream_free(list);
   signed_video_free(sv);
 }
 END_TEST
 
-static nalu_list_t *
+static test_stream_t *
 mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_setting setting)
 {
-  nalu_list_t *list = generate_delayed_sei_list(setting, false);
-  nalu_list_check_str(list, "IPSPPPIPSPPIPSPPIPSPPIPS");
+  test_stream_t *list = generate_delayed_sei_list(setting, false);
+  test_stream_check_types(list, "IPSPPPIPSPPIPSPPIPSPPIPS");
 
   // Extract the first 9 NALUs from the list. This should be the empty GOP, a full GOP and in the
   // middle of the next GOP: IPSPPPIPS PPIPSPPIPSPPIPS. These are the NALUs to be processed before
   // the fast forward.
-  nalu_list_t *pre_fast_forward = nalu_list_pop(list, 9);
-  nalu_list_check_str(pre_fast_forward, "IPSPPPIPS");
-  nalu_list_check_str(list, "PPIPSPPIPSPPIPS");
+  test_stream_t *pre_fast_forward = test_stream_pop(list, 9);
+  test_stream_check_types(pre_fast_forward, "IPSPPPIPS");
+  test_stream_check_types(list, "PPIPSPPIPSPPIPS");
 
   // Final validation of |pre_fast_forward| is OK and all received NALUs, but the last three, are
   // validated.
@@ -1385,17 +1385,17 @@ mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_se
   struct validation_stats expected = {
       .valid_gops = 2, .pending_nalus = 4, .final_validation = &final_validation};
   validate_nalu_list(sv, pre_fast_forward, expected);
-  nalu_list_free(pre_fast_forward);
+  test_stream_free(pre_fast_forward);
 
   // Mimic fast forward by removing 7 NALUs ending up at the start of a later GOP: PPIPSPP IPSPPIPS.
   // A fast forward is always done to an I-NALU. The first SEI showing up is associated with the now
   // removed NALUs.
   int remove_items = 7;
   while (remove_items--) {
-    nalu_list_item_t *item = nalu_list_pop_first_item(list);
-    nalu_list_free_item(item);
+    test_stream_item_t *item = test_stream_pop_first_item(list);
+    test_stream_item_free(item);
   }
-  nalu_list_check_str(list, "IPSPPIPS");
+  test_stream_check_types(list, "IPSPPIPS");
 
   return list;
 }
@@ -1409,7 +1409,7 @@ START_TEST(fast_forward_stream_with_delayed_seis)
   signed_video_t *sv = signed_video_create(settings[_i].codec);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
-  nalu_list_t *list = mimic_au_fast_forward_on_late_seis_and_get_list(sv, settings[_i]);
+  test_stream_t *list = mimic_au_fast_forward_on_late_seis_and_get_list(sv, settings[_i]);
   // Reset session before we start validating.
   ck_assert_int_eq(signed_video_reset(sv), SV_OK);
 
@@ -1430,7 +1430,7 @@ START_TEST(fast_forward_stream_with_delayed_seis)
   validate_nalu_list(sv, list, expected);
   // Free list and session.
   signed_video_free(sv);
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -1443,34 +1443,34 @@ END_TEST
  *
  * As an additional piece, the stream starts with a PPS/SPS/VPS NALU, which is moved to the
  * beginning of the "file" as well. That should not affect the validation. */
-static nalu_list_t *
+static test_stream_t *
 mimic_file_export(struct sv_setting setting, bool include_i_nalu_at_end, bool delayed_seis)
 {
-  nalu_list_t *pre_export = NULL;
-  nalu_list_t *list = create_signed_nalus("VIPPIPPIPPIPPIPPIPP", setting);
-  nalu_list_check_str(list, "VSIPPSIPPSIPPSIPPSIPPSIPP");
+  test_stream_t *pre_export = NULL;
+  test_stream_t *list = create_signed_nalus("VIPPIPPIPPIPPIPPIPP", setting);
+  test_stream_check_types(list, "VSIPPSIPPSIPPSIPPSIPPSIPP");
 
   // Remove the initial PPS/SPS/VPS NALU to add back later
-  nalu_list_item_t *ps = nalu_list_pop_first_item(list);
-  nalu_list_item_check_str(ps, "V");
+  test_stream_item_t *ps = test_stream_pop_first_item(list);
+  test_stream_item_check_type(ps, "V");
 
   if (delayed_seis) {
     int out[4] = {1, 4, 7, 10};
     for (int i = 0; i < 4; i++) {
-      nalu_list_item_t *sei = nalu_list_remove_item(list, out[i]);
-      nalu_list_item_check_str(sei, "S");
-      nalu_list_append_item(list, sei, 13);
+      test_stream_item_t *sei = test_stream_item_remove(list, out[i]);
+      test_stream_item_check_type(sei, "S");
+      test_stream_append_item(list, sei, 13);
     }
-    nalu_list_check_str(list, "IPPIPPIPPISSSSPPSIPPSIPP");
-    pre_export = nalu_list_pop(list, 6);
-    nalu_list_check_str(pre_export, "IPPIPP");
-    nalu_list_check_str(list, "IPPISSSSPPSIPPSIPP");
+    test_stream_check_types(list, "IPPIPPIPPISSSSPPSIPPSIPP");
+    pre_export = test_stream_pop(list, 6);
+    test_stream_check_types(pre_export, "IPPIPP");
+    test_stream_check_types(list, "IPPISSSSPPSIPPSIPP");
   } else {
     // Remove the first 4 NALUs from the list. This should be the first complete GOP: SIPP
     // SIPPSIPPSIPPSIPP. These are the NALUs to be processed before the fast forward.
-    pre_export = nalu_list_pop(list, 4);
-    nalu_list_check_str(pre_export, "SIPP");
-    nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPP");
+    pre_export = test_stream_pop(list, 4);
+    test_stream_check_types(pre_export, "SIPP");
+    test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPP");
   }
 
   // Mimic end of file export by removing items at the end of the list. Here we can take two
@@ -1479,18 +1479,19 @@ mimic_file_export(struct sv_setting setting, bool include_i_nalu_at_end, bool de
   // SIPPSIPPSIPP(SI).
   int remove_items = include_i_nalu_at_end ? 2 : 4;
   while (remove_items--) {
-    nalu_list_item_t *item = nalu_list_pop_last_item(list);
-    nalu_list_free_item(item);
+    test_stream_item_t *item = test_stream_pop_last_item(list);
+    test_stream_item_free(item);
   }
   // Prepend list with PPS/SPS/VPS NALU
-  nalu_list_prepend_first_item(list, ps);
+  test_stream_prepend_first_item(list, ps);
 
   if (delayed_seis) {
-    nalu_list_check_str(list, include_i_nalu_at_end ? "VIPPISSSSPPSIPPSI" : "VIPPISSSSPPSIPP");
+    test_stream_check_types(list, include_i_nalu_at_end ? "VIPPISSSSPPSIPPSI" : "VIPPISSSSPPSIPP");
   } else {
-    nalu_list_check_str(list, include_i_nalu_at_end ? "VSIPPSIPPSIPPSIPPSI" : "VSIPPSIPPSIPPSIPP");
+    test_stream_check_types(
+        list, include_i_nalu_at_end ? "VSIPPSIPPSIPPSIPPSI" : "VSIPPSIPPSIPPSIPP");
   }
-  nalu_list_free(pre_export);
+  test_stream_free(pre_export);
 
   return list;
 }
@@ -1500,7 +1501,7 @@ START_TEST(file_export_with_dangling_end)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = mimic_file_export(settings[_i], false, false);
+  test_stream_t *list = mimic_file_export(settings[_i], false, false);
 
   // Create a new session and validate the authenticity of the file.
   signed_video_t *sv = signed_video_create(settings[_i].codec);
@@ -1525,7 +1526,7 @@ START_TEST(file_export_with_dangling_end)
 
   // Free list and session.
   signed_video_free(sv);
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -1534,7 +1535,7 @@ START_TEST(file_export_without_dangling_end)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = mimic_file_export(settings[_i], true, false);
+  test_stream_t *list = mimic_file_export(settings[_i], true, false);
 
   // Create a new session and validate the authenticity of the file.
   signed_video_t *sv = signed_video_create(settings[_i].codec);
@@ -1558,7 +1559,7 @@ START_TEST(file_export_without_dangling_end)
   validate_nalu_list(sv, list, expected);
   // Free list and session.
   signed_video_free(sv);
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -1570,8 +1571,8 @@ START_TEST(no_signature)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = nalu_list_create("IPPIPPIPPIPPI", settings[_i].codec);
-  nalu_list_check_str(list, "IPPIPPIPPIPPI");
+  test_stream_t *list = test_stream_create("IPPIPPIPPIPPI", settings[_i].codec);
+  test_stream_check_types(list, "IPPIPPIPPIPPI");
 
   // Video is not signed, hence all NALUs are pending.
   signed_video_accumulated_validation_t final_validation = {
@@ -1594,7 +1595,7 @@ START_TEST(no_signature)
 
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -1603,8 +1604,8 @@ START_TEST(multislice_no_signature)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = nalu_list_create("IiPpPpIiPpPpIiPpPpIiPpPpIi", settings[_i].codec);
-  nalu_list_check_str(list, "IiPpPpIiPpPpIiPpPpIiPpPpIi");
+  test_stream_t *list = test_stream_create("IiPpPpIiPpPpIiPpPpIiPpPpIi", settings[_i].codec);
+  test_stream_check_types(list, "IiPpPpIiPpPpIiPpPpIiPpPpIi");
 
   // Video is not signed, hence all NALUs are pending.
   signed_video_accumulated_validation_t final_validation = {
@@ -1625,7 +1626,7 @@ START_TEST(multislice_no_signature)
 
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -1641,14 +1642,14 @@ END_TEST
  */
 START_TEST(late_public_key_and_no_sei_before_key_arrives)
 {
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
+  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
 
   ck_assert(list);
-  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
+  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
 
-  nalu_list_item_t *g_1 = nalu_list_remove_item(list, 5);
-  nalu_list_item_check_str(g_1, "S");
-  nalu_list_check_str(list, "SIPPIPPSIPPSIPPSIPPSIPPSI");
+  test_stream_item_t *g_1 = test_stream_item_remove(list, 5);
+  test_stream_item_check_type(g_1, "S");
+  test_stream_check_types(list, "SIPPIPPSIPPSIPPSIPPSIPPSI");
   // First public key now exist in item 8 if SV_RECURRENCE_EIGHT and SV_RECURRENCE_OFFSET_THREE
 
   // Final validation is NOT OK and all received NALUs, but the last one, are validated.
@@ -1661,8 +1662,8 @@ START_TEST(late_public_key_and_no_sei_before_key_arrives)
       .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free_item(g_1);
-  nalu_list_free(list);
+  test_stream_item_free(g_1);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -1690,8 +1691,8 @@ START_TEST(fallback_to_gop_level)
   ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * DEFAULT_HASH_SIZE), SVI_OK);
 
   // Create a list of NALUs given the input string.
-  nalu_list_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPI", false);
-  nalu_list_check_str(list, "SIPPSIPPPPPPPPPPPPPPPPPPPPPPPPSIPPSI");
+  test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPI", false);
+  test_stream_check_types(list, "SIPPSIPPPPPPPPPPPPPPPPPPPPPPPPSIPPSI");
 
   // Final validation is OK and all received NALUs, but the last one, are validated.
   signed_video_accumulated_validation_t final_validation = {
@@ -1701,7 +1702,7 @@ START_TEST(fallback_to_gop_level)
       .valid_gops = 4, .pending_nalus = 4, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
   signed_video_free(sv);
 }
 END_TEST
@@ -1717,8 +1718,8 @@ START_TEST(vendor_axis_communications_operation)
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
   SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
-  nalu_list_item_t *sei_item = NULL;
+  test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *sei_item = NULL;
   char *private_key = NULL;
   size_t private_key_size = 0;
   size_t sei_size = 0;
@@ -1757,7 +1758,7 @@ START_TEST(vendor_axis_communications_operation)
   uint8_t *sei = malloc(sei_size);
   sv_rc = signed_video_get_sei(sv, sei, &sei_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sei_item = nalu_list_create_item(sei, sei_size, codec);
+  sei_item = test_stream_item_create(sei, sei_size, codec);
   ck_assert(tag_is_present(sei_item, codec, VENDOR_AXIS_COMMUNICATIONS_TAG));
   sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -1800,8 +1801,8 @@ START_TEST(vendor_axis_communications_operation)
   }
 
   // Free nalu_list_item and session.
-  nalu_list_free_item(sei_item);
-  nalu_list_free_item(i_nalu);
+  test_stream_item_free(sei_item);
+  test_stream_item_free(i_nalu);
   signed_video_free(sv);
 }
 END_TEST
@@ -1810,12 +1811,12 @@ END_TEST
 static signed_video_t *
 generate_and_set_private_key_on_camera_side(struct sv_setting setting,
     bool add_public_key_to_sei,
-    nalu_list_item_t **sei_item)
+    test_stream_item_t **sei_item)
 {
   SignedVideoReturnCode sv_rc;
   char *private_key = NULL;
   size_t private_key_size = 0;
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, setting.codec);
+  test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, setting.codec);
   signed_video_t *sv = signed_video_create(setting.codec);
   ck_assert(sv);
   // Read and set content of private_key.
@@ -1840,21 +1841,21 @@ generate_and_set_private_key_on_camera_side(struct sv_setting setting,
   uint8_t *sei = malloc(sei_size);
   sv_rc = signed_video_get_sei(sv, sei, &sei_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  *sei_item = nalu_list_create_item(sei, sei_size, setting.codec);
+  *sei_item = test_stream_item_create(sei, sei_size, setting.codec);
   sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
 
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(sei_size == 0);
   ck_assert(tag_is_present(*sei_item, setting.codec, PUBLIC_KEY_TAG) == add_public_key_to_sei);
 
-  nalu_list_free_item(i_nalu);
+  test_stream_item_free(i_nalu);
   free(private_key);
   return sv;
 }
 
 static void
 validate_public_key_scenario(signed_video_t *sv,
-    nalu_list_item_t *sei,
+    test_stream_item_t *sei,
     bool wrong_key,
     pem_pkey_t *public_key)
 {
@@ -1866,7 +1867,7 @@ validate_public_key_scenario(signed_video_t *sv,
   signed_video_authenticity_t *auth_report = NULL;
   signed_video_latest_validation_t *latest = NULL;
 
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
+  test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
   sv_rc = signed_video_add_nalu_and_authenticate(sv, sei->data, sei->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(!auth_report);
@@ -1906,7 +1907,7 @@ validate_public_key_scenario(signed_video_t *sv,
     signed_video_authenticity_report_free(auth_report);
   }
   // Free nalu_list_item and session.
-  nalu_list_free_item(i_nalu);
+  test_stream_item_free(i_nalu);
 }
 
 /* Test description
@@ -1955,7 +1956,7 @@ START_TEST(test_public_key_scenarios)
   for (size_t j = 0; j < sizeof(pk_tests) / sizeof(*pk_tests); j++) {
     SignedVideoReturnCode sv_rc;
     SignedVideoCodec codec = settings[_i].codec;
-    nalu_list_item_t *sei = NULL;
+    test_stream_item_t *sei = NULL;
     signed_video_t *sv_camera = NULL;
     char *tmp_private_key = NULL;
     size_t tmp_private_key_size = 0;
@@ -1994,7 +1995,7 @@ START_TEST(test_public_key_scenarios)
     openssl_free_key(sign_data_wrong_key.key);
     free(sign_data_wrong_key.signature);
     free(wrong_public_key.key);
-    nalu_list_free_item(sei);
+    test_stream_item_free(sei);
   }
 }
 END_TEST
@@ -2007,8 +2008,8 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
 
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
-  nalu_list_item_t *sei = NULL;
+  test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *sei = NULL;
   signed_video_t *sv_camera = NULL;
   char *tmp_private_key = NULL;
   size_t tmp_private_key_size = 0;
@@ -2048,8 +2049,8 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
 
   signed_video_authenticity_report_free(auth_report);
   // Free nalu_list_item and session.
-  nalu_list_free_item(sei);
-  nalu_list_free_item(i_nalu);
+  test_stream_item_free(sei);
+  test_stream_item_free(i_nalu);
   signed_video_free(sv_vms);
   signed_video_free(sv_camera);
   free(tmp_private_key);
@@ -2071,8 +2072,8 @@ START_TEST(no_emulation_prevention_bytes)
   SignedVideoReturnCode sv_rc;
 
   // Create a video with a single I-frame, and a SEI (to be created later).
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
-  nalu_list_item_t *sei_item = NULL;
+  test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *sei_item = NULL;
 
   size_t sei_size;
   // Signing side
@@ -2129,7 +2130,7 @@ START_TEST(no_emulation_prevention_bytes)
   signed_video_nalu_data_free(sei);
 
   // Create a SEI NAL Unit.
-  sei_item = nalu_list_create_item(sei_with_epb, sei_with_epb_size, codec);
+  sei_item = test_stream_item_create(sei_with_epb, sei_with_epb_size, codec);
 
   sv_rc = signed_video_get_sei(sv, sei, &sei_size);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -2179,8 +2180,8 @@ START_TEST(no_emulation_prevention_bytes)
   }
 
   // End of validation, free memory.
-  nalu_list_free_item(sei_item);
-  nalu_list_free_item(i_nalu);
+  test_stream_item_free(sei_item);
+  test_stream_item_free(i_nalu);
   signed_video_free(sv);
   free(private_key);
 }
@@ -2204,27 +2205,27 @@ START_TEST(with_blocked_signing)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIP", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIP");
-  nalu_list_item_t *sei = nalu_list_remove_item(list, 21);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_append_item(list, sei, 21);
-  sei = nalu_list_remove_item(list, 17);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_append_item(list, sei, 17);
-  sei = nalu_list_remove_item(list, 13);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_append_item(list, sei, 15);
-  sei = nalu_list_remove_item(list, 9);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_append_item(list, sei, 13);
-  sei = nalu_list_remove_item(list, 5);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_append_item(list, sei, 11);
-  sei = nalu_list_remove_item(list, 1);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_append_item(list, sei, 1);
-  nalu_list_check_str(list, "ISPPIPPIPPISPSPSISPPISP");
+  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIP", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPPSIP");
+  test_stream_item_t *sei = test_stream_item_remove(list, 21);
+  test_stream_item_check_type(sei, "S");
+  test_stream_append_item(list, sei, 21);
+  sei = test_stream_item_remove(list, 17);
+  test_stream_item_check_type(sei, "S");
+  test_stream_append_item(list, sei, 17);
+  sei = test_stream_item_remove(list, 13);
+  test_stream_item_check_type(sei, "S");
+  test_stream_append_item(list, sei, 15);
+  sei = test_stream_item_remove(list, 9);
+  test_stream_item_check_type(sei, "S");
+  test_stream_append_item(list, sei, 13);
+  sei = test_stream_item_remove(list, 5);
+  test_stream_item_check_type(sei, "S");
+  test_stream_append_item(list, sei, 11);
+  sei = test_stream_item_remove(list, 1);
+  test_stream_item_check_type(sei, "S");
+  test_stream_append_item(list, sei, 1);
+  test_stream_check_types(list, "ISPPIPPIPPISPSPSISPPISP");
 
   // Expected validation result
   //   IS                      -> P.                     (1 pending)
@@ -2239,7 +2240,7 @@ START_TEST(with_blocked_signing)
   struct validation_stats expected = {.valid_gops = 6, .pending_nalus = 18};
   validate_nalu_list(NULL, list, expected);
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 

@@ -28,7 +28,7 @@
 #include "lib/src/includes/signed_video_openssl.h"  // sign_algo_t
 #include "lib/src/includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
 #include "lib/src/signed_video_defines.h"  // sv_tlv_tag_t
-#include "nalu_list.h"  // nalu_list_t
+#include "test_stream.h"  // test_stream_t
 
 #define HW_ID "hardware_id"
 #define FW_VER "firmware_version"
@@ -70,14 +70,14 @@ get_initialized_signed_video(SignedVideoCodec codec,
     bool new_private_key);
 
 /* See function create_signed_nalus_int */
-nalu_list_t *
+test_stream_t *
 create_signed_nalus(const char *str, struct sv_setting settings);
 
 /* See function create_signed_nalus_int, with the diffrence that each NALU is split in two parts. */
-nalu_list_t *
+test_stream_t *
 create_signed_splitted_nalus(const char *str, struct sv_setting settings);
 
-/* Creates a nalu_list_t with all the NALUs produced after signing. This mimic what leaves the
+/* Creates a test_stream_t with all the NALUs produced after signing. This mimic what leaves the
  * camera.
  *
  * The input is a string of characters representing the type of NALUs passed into the signing
@@ -97,7 +97,7 @@ create_signed_splitted_nalus(const char *str, struct sv_setting settings);
  * settings = the session setup for this test.
  * new_private_key = Generate a new private key or not.
  */
-nalu_list_t *
+test_stream_t *
 create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_private_key);
 
 /* Generates a signed video stream of NALUs for a user-owned signed_video_t session.
@@ -105,21 +105,21 @@ create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_pr
  * Takes a string of NALU characters ('I', 'i', 'P', 'p', 'S', 'X') as input and generates NALU
  * data for these. Then adds these NALUs to the input session. The generated sei-nalus are added to
  * the stream. */
-nalu_list_t *
+test_stream_t *
 create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalus);
 
 /* Removes the NALU list items with position |item_number| from the |list|. The item is, after a
  * check against the expected |str|, then freed. */
 void
-remove_item_then_check_and_free(nalu_list_t *list, int item_number, const char *str);
+remove_item_then_check_and_free(test_stream_t *list, int item_number, const char *str);
 
 /* Modifies the id of |item_number| by incrementing the value by one. Applies to both codecs in
  * |h26x_lists|. A sanity check on expected string of that item is done. */
 void
-modify_list_item(nalu_list_t *list, int item_number, const char *exp_str);
+modify_list_item(test_stream_t *list, int item_number, const char *exp_str);
 
 /* Checks if a particular TLV tag is present in the NALU. */
 bool
-tag_is_present(nalu_list_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t tag);
+tag_is_present(test_stream_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t tag);
 
 #endif  // __SIGNED_VIDEO_HELPERS_H__
