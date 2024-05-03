@@ -295,7 +295,6 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     reserved_byte |= self->is_start_stream << 6;
     *payload_ptr++ = reserved_byte;
     self->reserved_byte = &reserved_byte;
-    self->is_start_stream = false;
 
     size_t written_size =
         tlv_list_encode_or_get_size(self, document_encoders, num_doc_encoders, payload_ptr);

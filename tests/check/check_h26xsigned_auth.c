@@ -2105,9 +2105,7 @@ START_TEST(_is_start_of_stream_byte)
   uint8_t *sei = malloc(sei_size);
   sv_rc = signed_video_get_sei(sv, sei, &sei_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  ck_assert_int_eq(signed_video_is_start_of_stream_sei(sv, sei,
-                      sei_size),
-      false);
+  ck_assert_int_eq(signed_video_is_start_of_stream_sei(sv, sei, sei_size), false);
 
   signed_video_free(sv);
   nalu_list_free_item(i_1_nalu);
