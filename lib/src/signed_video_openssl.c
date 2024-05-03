@@ -45,21 +45,10 @@
 #include <unistd.h>  // access, unlink, F_OK, R_OK
 #endif
 
-#include "includes/signed_video_openssl.h"
+#include "includes/signed_video_openssl.h"  // pem_pkey_t
 #include "signed_video_defines.h"
 #include "signed_video_internal.h"  // svi_rc_to_signed_video_rc(), sv_rc_to_svi_rc()
 #include "signed_video_openssl_internal.h"
-
-/**
- * Object to keep the path structure used to create and read pem-files.
- */
-typedef struct {
-  // Null-terminated character string specifying the full path location to the private-key pem-file.
-  char *full_path_to_private_key;
-  // Buffer pointers to store the private key content.
-  char **private_key;
-  size_t *private_key_size;
-} key_paths_t;
 
 /**
  * Object to keep a message digest as both an EVP_MD type and on serialized OID form. This
@@ -83,15 +72,15 @@ typedef struct {
 } openssl_crypto_t;
 
 static svi_rc
-write_private_key_to_file(EVP_PKEY *pkey, const key_paths_t *key_paths);
+write_private_key_to_file(EVP_PKEY *pkey, const char *path_to_key);
 static svi_rc
-write_private_key_to_buffer(EVP_PKEY *pkey, const key_paths_t *key_paths);
+write_private_key_to_buffer(EVP_PKEY *pkey, pem_pkey_t *pem_key);
 static svi_rc
-create_rsa_private_key(const key_paths_t *key_paths);
+create_rsa_private_key(const char *path_to_key, pem_pkey_t *pem_key);
 static svi_rc
-create_ecdsa_private_key(const key_paths_t *key_paths);
+create_ecdsa_private_key(const char *path_to_key, pem_pkey_t *pem_key);
 static char *
-get_path_to_key(const char *path_to_key, const char *key_filename);
+get_path_to_key(const char *dir_to_key, const char *key_filename);
 
 #define PRIVATE_RSA_KEY_FILE "private_rsa_key.pem"
 #define PRIVATE_ECDSA_KEY_FILE "private_ecdsa_key.pem"
@@ -277,22 +266,22 @@ openssl_verify_hash(const signature_info_t *signature_info, int *verified_result
 
 /* Writes the content of |pkey| to a file in PEM format. */
 static svi_rc
-write_private_key_to_file(EVP_PKEY *pkey, const key_paths_t *key_paths)
+write_private_key_to_file(EVP_PKEY *pkey, const char *path_to_key)
 {
   FILE *f_private = NULL;
 
-  assert(key_paths && pkey);
-  if (!key_paths->full_path_to_private_key) return SVI_OK;
+  assert(pkey);
+  if (!path_to_key) return SVI_OK;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    f_private = fopen(key_paths->full_path_to_private_key, "wb");
+    f_private = fopen(path_to_key, "wb");
     SVI_THROW_IF(!f_private, SVI_FILE);
     SVI_THROW_IF(
         !PEM_write_PrivateKey(f_private, pkey, NULL, 0, 0, NULL, NULL), SVI_EXTERNAL_FAILURE);
   SVI_CATCH()
   {
-    if (f_private) unlink(key_paths->full_path_to_private_key);
+    if (f_private) unlink(path_to_key);
   }
   SVI_DONE(status)
 
@@ -303,14 +292,14 @@ write_private_key_to_file(EVP_PKEY *pkey, const key_paths_t *key_paths)
 
 /* Writes the content of |pkey| to a buffer in PEM format. */
 static svi_rc
-write_private_key_to_buffer(EVP_PKEY *pkey, const key_paths_t *key_paths)
+write_private_key_to_buffer(EVP_PKEY *pkey, pem_pkey_t *pem_key)
 {
   BIO *pkey_bio = NULL;
   char *private_key = NULL;
   long private_key_size = 0;
 
-  assert(key_paths && pkey);
-  if (!key_paths->private_key || !key_paths->private_key_size) return SVI_OK;
+  assert(pkey);
+  if (!pem_key) return SVI_OK;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
@@ -322,10 +311,10 @@ write_private_key_to_buffer(EVP_PKEY *pkey, const key_paths_t *key_paths)
     private_key_size = BIO_get_mem_data(pkey_bio, &private_key);
     SVI_THROW_IF(private_key_size == 0 || !private_key, SVI_EXTERNAL_FAILURE);
 
-    *(key_paths->private_key) = malloc(private_key_size);
-    SVI_THROW_IF(!*(key_paths->private_key), SVI_MEMORY);
-    memcpy(*(key_paths->private_key), private_key, private_key_size);
-    *(key_paths->private_key_size) = private_key_size;
+    pem_key->pkey = malloc(private_key_size);
+    SVI_THROW_IF(!pem_key->pkey, SVI_MEMORY);
+    memcpy(pem_key->pkey, private_key, private_key_size);
+    pem_key->pkey_size = private_key_size;
 
   SVI_CATCH()
   SVI_DONE(status)
@@ -338,10 +327,8 @@ write_private_key_to_buffer(EVP_PKEY *pkey, const key_paths_t *key_paths)
 /* Creates a RSA private key and stores it as a PEM file in the designated location. Existing key
  * will be overwritten. */
 static svi_rc
-create_rsa_private_key(const key_paths_t *key_paths)
+create_rsa_private_key(const char *path_to_key, pem_pkey_t *pem_key)
 {
-  if (!key_paths) return SVI_INVALID_PARAMETER;
-
   EVP_PKEY *pkey = NULL;
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
   BIGNUM *bn = NULL;
@@ -365,8 +352,8 @@ create_rsa_private_key(const key_paths_t *key_paths)
     // Set |pkey| to use the newly generated RSA key
     SVI_THROW_IF(!EVP_PKEY_assign_RSA(pkey, rsa), SVI_EXTERNAL_FAILURE);
 
-    SVI_THROW(write_private_key_to_file(pkey, key_paths));
-    SVI_THROW(write_private_key_to_buffer(pkey, key_paths));
+    SVI_THROW(write_private_key_to_file(pkey, path_to_key));
+    SVI_THROW(write_private_key_to_buffer(pkey, pem_key));
   SVI_CATCH()
   {
     if (rsa && !pkey) RSA_free(rsa);
@@ -380,8 +367,8 @@ create_rsa_private_key(const key_paths_t *key_paths)
     pkey = EVP_RSA_gen(2048);
     SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
 
-    SVI_THROW(write_private_key_to_file(pkey, key_paths));
-    SVI_THROW(write_private_key_to_buffer(pkey, key_paths));
+    SVI_THROW(write_private_key_to_file(pkey, path_to_key));
+    SVI_THROW(write_private_key_to_buffer(pkey, pem_key));
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -394,10 +381,8 @@ create_rsa_private_key(const key_paths_t *key_paths)
 /* Creates a ECDSA private key and stores it as a PEM file in the designated location. Existing key
  * will be overwritten. */
 static svi_rc
-create_ecdsa_private_key(const key_paths_t *key_paths)
+create_ecdsa_private_key(const char *path_to_key, pem_pkey_t *pem_key)
 {
-  if (!key_paths) return SVI_INVALID_PARAMETER;
-
   EVP_PKEY *pkey = NULL;
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
   EC_KEY *ec_key = NULL;
@@ -412,8 +397,8 @@ create_ecdsa_private_key(const key_paths_t *key_paths)
     SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
     SVI_THROW_IF(EVP_PKEY_assign_EC_KEY(pkey, ec_key) != 1, SVI_EXTERNAL_FAILURE);
 
-    SVI_THROW(write_private_key_to_file(pkey, key_paths));
-    SVI_THROW(write_private_key_to_buffer(pkey, key_paths));
+    SVI_THROW(write_private_key_to_file(pkey, path_to_key));
+    SVI_THROW(write_private_key_to_buffer(pkey, pem_key));
 
   SVI_CATCH()
   {
@@ -427,8 +412,8 @@ create_ecdsa_private_key(const key_paths_t *key_paths)
     pkey = EVP_EC_gen(OSSL_EC_curve_nid2name(NID_X9_62_prime256v1));
     SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
 
-    SVI_THROW(write_private_key_to_file(pkey, key_paths));
-    SVI_THROW(write_private_key_to_buffer(pkey, key_paths));
+    SVI_THROW(write_private_key_to_file(pkey, path_to_key));
+    SVI_THROW(write_private_key_to_buffer(pkey, pem_key));
   SVI_CATCH()
   SVI_DONE(status)
 #endif
@@ -438,18 +423,18 @@ create_ecdsa_private_key(const key_paths_t *key_paths)
   return status;
 }
 
-/* Joins a |key_filename| to |path_to_key| to create a full path. */
+/* Joins a |key_filename| to |dir_to_key| to create a full path. */
 static char *
-get_path_to_key(const char *path_to_key, const char *key_filename)
+get_path_to_key(const char *dir_to_key, const char *key_filename)
 {
-  size_t path_len = strlen(path_to_key);
+  size_t path_len = strlen(dir_to_key);
   const size_t str_len = path_len + strlen(key_filename) + 2;  // For '\0' and '/'
   char *str = calloc(1, str_len);
   if (!str) return NULL;
 
-  strcpy(str, path_to_key);
+  strcpy(str, dir_to_key);
   // Add '/' if not exists
-  if (path_to_key[path_len - 1] != '/') strcat(str, "/");
+  if (dir_to_key[path_len - 1] != '/') strcat(str, "/");
   strcat(str, key_filename);
 
   return str;
@@ -726,60 +711,70 @@ openssl_read_pubkey_from_private_key(signature_info_t *signature_info, pem_pkey_
 
 /* Helper function to generate a private key. Only applicable on Linux platforms. */
 SignedVideoReturnCode
-signed_video_generate_ecdsa_private_key(const char *path_to_key,
+signed_video_generate_ecdsa_private_key(const char *dir_to_key,
     char **private_key,
     size_t *private_key_size)
 {
-  if (!path_to_key && (!private_key || !private_key_size)) return SV_INVALID_PARAMETER;
+  if (!dir_to_key && (!private_key || !private_key_size)) return SV_INVALID_PARAMETER;
 
+  pem_pkey_t pem_key = {0};
   char *full_path_to_private_key = NULL;
-  if (path_to_key) {
-    full_path_to_private_key = get_path_to_key(path_to_key, PRIVATE_ECDSA_KEY_FILE);
+  if (dir_to_key) {
+    full_path_to_private_key = get_path_to_key(dir_to_key, PRIVATE_ECDSA_KEY_FILE);
   }
-  const key_paths_t key_paths = {.full_path_to_private_key = full_path_to_private_key,
-      .private_key = private_key,
-      .private_key_size = private_key_size};
 
-  svi_rc status = create_ecdsa_private_key(&key_paths);
+  svi_rc status = create_ecdsa_private_key(full_path_to_private_key, &pem_key);
   free(full_path_to_private_key);
+  if (private_key && private_key_size) {
+    *private_key = pem_key.pkey;
+    *private_key_size = pem_key.pkey_size;
+  } else {
+    // Free the key if it is not transferred to the user.
+    free(pem_key.pkey);
+  }
 
   return svi_rc_to_signed_video_rc(status);
 }
 
 SignedVideoReturnCode
-signed_video_generate_rsa_private_key(const char *path_to_key,
+signed_video_generate_rsa_private_key(const char *dir_to_key,
     char **private_key,
     size_t *private_key_size)
 {
-  if (!path_to_key && (!private_key || !private_key_size)) return SV_INVALID_PARAMETER;
+  if (!dir_to_key && (!private_key || !private_key_size)) return SV_INVALID_PARAMETER;
 
+  pem_pkey_t pem_key = {0};
   char *full_path_to_private_key = NULL;
-  if (path_to_key) {
-    full_path_to_private_key = get_path_to_key(path_to_key, PRIVATE_RSA_KEY_FILE);
+  if (dir_to_key) {
+    full_path_to_private_key = get_path_to_key(dir_to_key, PRIVATE_RSA_KEY_FILE);
   }
-  const key_paths_t key_paths = {.full_path_to_private_key = full_path_to_private_key,
-      .private_key = private_key,
-      .private_key_size = private_key_size};
 
-  svi_rc status = create_rsa_private_key(&key_paths);
+  svi_rc status = create_rsa_private_key(full_path_to_private_key, &pem_key);
   free(full_path_to_private_key);
+  if (private_key && private_key_size) {
+    *private_key = pem_key.pkey;
+    *private_key_size = pem_key.pkey_size;
+  } else {
+    // Free the key if it is not transferred to the user.
+    free(pem_key.pkey);
+  }
 
   return svi_rc_to_signed_video_rc(status);
 }
 
 SignedVideoReturnCode
 signed_video_generate_private_key(sign_algo_t algo,
-    const char *path_to_key,
+    const char *dir_to_key,
     char **private_key,
     size_t *private_key_size)
 {
-  if (!path_to_key && (!private_key || !private_key_size)) return SV_INVALID_PARAMETER;
+  if (!dir_to_key && (!private_key || !private_key_size)) return SV_INVALID_PARAMETER;
 
   switch (algo) {
     case SIGN_ALGO_RSA:
-      return signed_video_generate_rsa_private_key(path_to_key, private_key, private_key_size);
+      return signed_video_generate_rsa_private_key(dir_to_key, private_key, private_key_size);
     case SIGN_ALGO_ECDSA:
-      return signed_video_generate_ecdsa_private_key(path_to_key, private_key, private_key_size);
+      return signed_video_generate_ecdsa_private_key(dir_to_key, private_key, private_key_size);
     default:
       return SV_NOT_SUPPORTED;
   }
