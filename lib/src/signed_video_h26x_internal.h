@@ -143,7 +143,7 @@ struct _h26x_nalu_t {
   bool is_first_nalu_part;  // True if the |nalu_data| includes the first part
   bool is_last_nalu_part;  // True if the |nalu_data| includes the last part
   bool with_epb;  // Hashable data may include emulation prevention bytes
-  bool start_of_sei;
+  bool is_start_of_stream_sei;
 };
 
 /* Internal APIs for gop_state_t functions */

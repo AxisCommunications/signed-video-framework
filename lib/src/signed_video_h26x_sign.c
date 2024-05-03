@@ -290,6 +290,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     h26x_set_nal_uuid_type(self, &payload_ptr, UUID_TYPE_SIGNED_VIDEO);
 
     // Add reserved byte(s).
+    // reserved_byte = |sei_epb||is_start_stream||0||0||0||0||0||0|
     uint8_t reserved_byte = self->sei_epb << 7;
     reserved_byte |= self->is_start_stream << 6;
     *payload_ptr++ = reserved_byte;
@@ -776,15 +777,6 @@ signed_video_set_sei_epb(signed_video_t *self, bool sei_epb)
   if (!self) return SV_INVALID_PARAMETER;
 
   self->sei_epb = sei_epb;
-  return SV_OK;
-}
-
-SignedVideoReturnCode
-signed_video_set_is_start_stream(signed_video_t *self, bool is_start_stream)
-{
-  if (!self) return SV_INVALID_PARAMETER;
-
-  self->is_start_stream = is_start_stream;
   return SV_OK;
 }
 

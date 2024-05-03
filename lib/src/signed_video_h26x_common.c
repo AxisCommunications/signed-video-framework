@@ -583,10 +583,10 @@ remove_epb_from_sei_payload(h26x_nalu_t *nalu)
   nalu->tlv_start_in_nalu_data = nalu->payload + UUID_LEN;
   nalu->tlv_size = nalu->payload_size - UUID_LEN;
   nalu->reserved_byte = *nalu->tlv_start_in_nalu_data;
-  nalu->start_of_sei = ((nalu->reserved_byte & (1 << 6)) != 0);
   nalu->tlv_start_in_nalu_data++;  // Move past the |reserved_byte|.
   nalu->tlv_size -= 1;  // Exclude the |reserved_byte| from TLV size.
   nalu->with_epb = (nalu->reserved_byte & 0x80);  // Hash with emulation prevention bytes
+  nalu->is_start_of_stream_sei = (nalu->reserved_byte & 0x40);  // Parse flags from reserved byte
   nalu->tlv_data = nalu->tlv_start_in_nalu_data;
 
   if (nalu->emulation_prevention_bytes <= 0) return;
@@ -1315,13 +1315,8 @@ error:
 }
 
 bool
-signed_video_is_start_of_stream(uint8_t *sei, size_t sei_size, SignedVideoCodec codec)
+signed_video_is_start_of_stream_sei(signed_video_t *self, uint8_t *sei, size_t sei_size)
 {
-  h26x_nalu_t nalu = parse_nalu_info(sei, sei_size, codec, false, true);
-  if (nalu.nalu_type != NALU_TYPE_SEI) return false;
-  // If the NAL unit type Sei then  check if its golden sei
-  if (!nalu.start_of_sei) return false;
-  uint8_t reserved_byte = nalu.reserved_byte;
-  uint8_t mask = 1 << 6;
-  return ((reserved_byte & mask) != 0);
+  h26x_nalu_t nalu = parse_nalu_info(sei, sei_size, self->codec, false, true);
+  return nalu.is_start_of_stream_sei;
 };
