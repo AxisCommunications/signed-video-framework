@@ -1127,7 +1127,7 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
     self->pem_public_key.key = malloc(public_key_size);
     SVI_THROW_IF(!self->pem_public_key.key, SVI_MEMORY);
     memcpy(self->pem_public_key.key, public_key, public_key_size);
-    self->pem_public_key.pkey_size = public_key_size;
+    self->pem_public_key.key_size = public_key_size;
     // Turn the public key from PEM to EVP_PKEY form.
     SVI_THROW(openssl_public_key_malloc(self->signature_info, &self->pem_public_key));
     self->has_public_key = true;

@@ -156,7 +156,7 @@ openssl_public_key_malloc(signature_info_t *signature_info, pem_pkey_t *pem_publ
   EVP_PKEY_CTX *ctx = NULL;
   EVP_PKEY *verification_key = NULL;
   const void *buf = pem_public_key->key;
-  int buf_size = (int)(pem_public_key->pkey_size);
+  int buf_size = (int)(pem_public_key->key_size);
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
@@ -309,7 +309,7 @@ write_private_key_to_buffer(EVP_PKEY *pkey, pem_pkey_t *pem_key)
     pem_key->key = malloc(private_key_size);
     SVI_THROW_IF(!pem_key->key, SVI_MEMORY);
     memcpy(pem_key->key, private_key, private_key_size);
-    pem_key->pkey_size = private_key_size;
+    pem_key->key_size = private_key_size;
 
   SVI_CATCH()
   SVI_DONE(status)
@@ -699,7 +699,7 @@ openssl_read_pubkey_from_private_key(signature_info_t *signature_info, pem_pkey_
   // Transfer ownership to |pem_pkey|.
   free(pem_pkey->key);
   pem_pkey->key = public_key;
-  pem_pkey->pkey_size = public_key_size;
+  pem_pkey->key_size = public_key_size;
 
   return status;
 }
@@ -722,10 +722,10 @@ signed_video_generate_ecdsa_private_key(const char *dir_to_key,
   free(full_path_to_private_key);
   if (private_key && private_key_size) {
     *private_key = pem_key.key;
-    *private_key_size = pem_key.pkey_size;
+    *private_key_size = pem_key.key_size;
   } else {
     // Free the key if it is not transferred to the user.
-    free(pem_key.pkey);
+    free(pem_key.key);
   }
 
   return svi_rc_to_signed_video_rc(status);
@@ -748,10 +748,10 @@ signed_video_generate_rsa_private_key(const char *dir_to_key,
   free(full_path_to_private_key);
   if (private_key && private_key_size) {
     *private_key = pem_key.key;
-    *private_key_size = pem_key.pkey_size;
+    *private_key_size = pem_key.key_size;
   } else {
     // Free the key if it is not transferred to the user.
-    free(pem_key.pkey);
+    free(pem_key.key);
   }
 
   return svi_rc_to_signed_video_rc(status);

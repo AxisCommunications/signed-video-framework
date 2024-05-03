@@ -68,7 +68,7 @@ typedef struct _signature_info_t {
  */
 typedef struct _pem_pkey_t {
   void *key;  // The private/public key used for signing/verification in a pem file format.
-  size_t pkey_size;  // The size of the |key|.
+  size_t key_size;  // The size of the |key|.
 } pem_pkey_t;
 
 /**

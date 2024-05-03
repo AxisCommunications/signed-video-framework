@@ -1873,7 +1873,7 @@ validate_public_key_scenario(signed_video_t *sv,
 
   // Late public key
   if (public_key) {
-    sv_rc = signed_video_set_public_key(sv, public_key->key, public_key->pkey_size);
+    sv_rc = signed_video_set_public_key(sv, public_key->key, public_key->key_size);
     ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
     // Since setting a public key after the session start is not supported, there is no point in
     // adding the i_nalu and authenticate.
@@ -1980,7 +1980,7 @@ START_TEST(test_public_key_scenarios)
       public_key = &wrong_public_key;
     }
     if (pk_tests[j].set_pk_before_session_start) {
-      sv_rc = signed_video_set_public_key(sv_vms, public_key->key, public_key->pkey_size);
+      sv_rc = signed_video_set_public_key(sv_vms, public_key->key, public_key->key_size);
       ck_assert_int_eq(sv_rc, SV_OK);
     }
     if (!pk_tests[j].set_pk_after_session_start) {
@@ -2029,7 +2029,7 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   ck_assert_int_eq(sv_rc, SV_OK);
   openssl_read_pubkey_from_private_key(&sign_info, &wrong_public_key);
   // Set public key
-  sv_rc = signed_video_set_public_key(sv_vms, wrong_public_key.key, wrong_public_key.pkey_size);
+  sv_rc = signed_video_set_public_key(sv_vms, wrong_public_key.key, wrong_public_key.key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Validate this first GOP.

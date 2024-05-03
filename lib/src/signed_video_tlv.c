@@ -580,7 +580,7 @@ encode_public_key(signed_video_t *self, uint8_t *data)
   data_size += sizeof(version);
 
   // Size of pubkey
-  data_size += pem_public_key->pkey_size;
+  data_size += pem_public_key->key_size;
 
   if (!data) return data_size;
 
@@ -593,7 +593,7 @@ encode_public_key(signed_video_t *self, uint8_t *data)
   write_byte(last_two_bytes, &data_ptr, version, epb);
 
   // public_key; public_key_size bytes
-  for (size_t ii = 0; ii < pem_public_key->pkey_size; ++ii) {
+  for (size_t ii = 0; ii < pem_public_key->key_size; ++ii) {
     write_byte(last_two_bytes, &data_ptr, public_key[ii], epb);
   }
 
@@ -624,11 +624,11 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
     SVI_THROW_IF(pubkey_size == 0, SVI_DECODING_ERROR);
 
-    if (pem_public_key->pkey_size != pubkey_size) {
+    if (pem_public_key->key_size != pubkey_size) {
       free(pem_public_key->key);
       pem_public_key->key = calloc(1, pubkey_size);
       SVI_THROW_IF(!pem_public_key->key, SVI_MEMORY);
-      pem_public_key->pkey_size = pubkey_size;
+      pem_public_key->key_size = pubkey_size;
     }
 
     int key_diff = memcmp(data_ptr, pem_public_key->key, pubkey_size);
