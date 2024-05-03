@@ -874,8 +874,8 @@ sv_signing_plugin_init_new(void *user_data)
   if (!central.signature_info) goto catch_error;
 
   // Turn the PEM key into an EVP_PKEY and allocate memory for signatures.
-  if (openssl_private_key_malloc(central.signature_info, (const char *)pem_private_key->pkey,
-          pem_private_key->pkey_size) != SV_OK) {
+  if (openssl_private_key_malloc(central.signature_info, (const char *)pem_private_key->key,
+          pem_private_key->key_size) != SV_OK) {
     goto catch_error;
   }
 
