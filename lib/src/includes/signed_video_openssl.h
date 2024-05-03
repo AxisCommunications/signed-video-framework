@@ -31,6 +31,7 @@
 extern "C" {
 #endif
 
+/* TO BE DEPRECATED */
 /**
  * @brief Signing algorithm
  *
@@ -42,7 +43,7 @@ extern "C" {
  */
 typedef enum { SIGN_ALGO_RSA = 0, SIGN_ALGO_ECDSA = 1, SIGN_ALGO_NUM } sign_algo_t;
 
-/* NOTE: This struct is in a refactoring state, hence subject to changes. */
+/* TO BE DEPRECATED */
 /**
  * Struct for storing necessary information to generate and verify a signature
  *
@@ -64,6 +65,19 @@ typedef struct _signature_info_t {
 } signature_info_t;
 
 /**
+ * Struct for storing necessary information to sign a hash and generate a signature.
+ * It is used primarily by the signing plugins.
+ */
+typedef struct _signing_info_t {
+  uint8_t *hash;  // The hash to be signed.
+  size_t hash_size;  // The size of the |hash|.
+  void *private_key;  // The private key used for signing.
+  uint8_t *signature;  // The signature of the |hash|.
+  size_t signature_size;  // The size of the |signature|.
+  size_t max_signature_size;  // The allocated size of the |signature|.
+} signing_info_t;
+
+/**
  * Struct to store a private key in PEM format. Useful to bundle the data in a single object.
  */
 typedef struct _pem_pkey_t {
@@ -74,19 +88,19 @@ typedef struct _pem_pkey_t {
 /**
  * @brief Signs a hash
  *
- * The function generates a signature of the |hash| in |singature_info| and stores the result in
- * |signature| of |signature_info|.
+ * The function generates a signature of the |hash| in |signing_info| and stores the result in
+ * |signature| of |signing_info|.
  *
- * @param signature_info A pointer to the struct that holds all necessary information for signing.
+ * @param signing_info A pointer to the struct that holds all necessary information for signing.
  *
  * @returns SV_OK Successfully generated |signature|,
- *          SV_INVALID_PARAMETER Errors in |signature_info|,
+ *          SV_INVALID_PARAMETER Errors in |signing_info|,
  *          SV_NOT_SUPPORTED No private key present,
  *          SV_MEMORY Not enough memory allocated for the |signature|,
  *          SV_EXTERNAL_ERROR Failure in OpenSSL.
  */
 SignedVideoReturnCode
-openssl_sign_hash(signature_info_t *signature_info);
+openssl_sign_hash(signing_info_t *signing_info);
 
 /**
  * @brief Turns a private key on PEM form to EVP_PKEY form
@@ -106,7 +120,7 @@ openssl_sign_hash(signature_info_t *signature_info);
  *          SV_EXTERNAL_ERROR Failure in OpenSSL.
  */
 SignedVideoReturnCode
-openssl_private_key_malloc(signature_info_t *signature_info,
+openssl_private_key_malloc(signing_info_t *signing_info,
     const char *private_key,
     size_t private_key_size);
 
