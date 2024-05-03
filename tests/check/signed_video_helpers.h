@@ -109,14 +109,14 @@ test_stream_t *
 create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalus);
 
 /* Removes the NALU list items with position |item_number| from the |list|. The item is, after a
- * check against the expected |str|, then freed. */
+ * check against the expected |type|, then freed. */
 void
-remove_item_then_check_and_free(test_stream_t *list, int item_number, const char *str);
+remove_item_then_check_and_free(test_stream_t *list, int item_number, char type);
 
-/* Modifies the id of |item_number| by incrementing the value by one. Applies to both codecs in
- * |h26x_lists|. A sanity check on expected string of that item is done. */
+/* Modifies the id of |item_number| by incrementing the value by one. A sanity check on
+ * expected |type| of that item is done. The operation is codec agnostic. */
 void
-modify_list_item(test_stream_t *list, int item_number, const char *exp_str);
+modify_list_item(test_stream_t *list, int item_number, char type);
 
 /* Checks if a particular TLV tag is present in the NALU. */
 bool

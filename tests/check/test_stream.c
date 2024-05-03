@@ -319,10 +319,10 @@ test_stream_item_prepend(test_stream_item_t *list_item, test_stream_item_t *new_
 
 /* Checks the test stream |item| against the expected |type|. */
 void
-test_stream_item_check_type(const test_stream_item_t *item, const char *type)
+test_stream_item_check_type(const test_stream_item_t *item, char type)
 {
-  if (!item || !type) return;
-  ck_assert_int_eq(item->type, type[0]);
+  if (!item) return;
+  ck_assert_int_eq(item->type, type);
 }
 
 /* Helper function to print test_stream_item_t members. */

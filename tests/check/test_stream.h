@@ -166,9 +166,9 @@ test_stream_item_append(test_stream_item_t *list_item, test_stream_item_t *new_i
 void
 test_stream_item_prepend(test_stream_item_t *list_item, test_stream_item_t *new_item);
 
-/* Checks the test stream |item| against the expected |str|. */
+/* Checks the test stream |item| against the expected |type|. */
 void
-test_stream_item_check_type(const test_stream_item_t *item, const char *str);
+test_stream_item_check_type(const test_stream_item_t *item, char type);
 
 /* Prints the members of the item. */
 void

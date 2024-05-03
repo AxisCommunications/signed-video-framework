@@ -243,24 +243,26 @@ get_initialized_signed_video(SignedVideoCodec codec,
 }
 
 /* Removes the NALU list items with position |item_number| from the |list|. The item is, after a
- * check against the expected |str|, then freed. */
+ * check against the expected |type|, then freed. */
 void
-remove_item_then_check_and_free(test_stream_t *list, int item_number, const char *str)
+remove_item_then_check_and_free(test_stream_t *list, int item_number, char type)
 {
   if (!list) return;
+
   test_stream_item_t *item = test_stream_item_remove(list, item_number);
-  test_stream_item_check_type(item, str);
+  test_stream_item_check_type(item, type);
   test_stream_item_free(item);
 }
 
 /* Modifies the id of |item_number| in |list| by incrementing the value by one. A sanity check on
- * expected string of that item is done. */
+ * expected |type| of that item is done. */
 void
-modify_list_item(test_stream_t *list, int item_number, const char *exp_str)
+modify_list_item(test_stream_t *list, int item_number, char type)
 {
-  if (!list || !exp_str) return;
+  if (!list) return;
+
   test_stream_item_t *item = test_stream_item_get(list, item_number);
-  test_stream_item_check_type(item, exp_str);
+  test_stream_item_check_type(item, type);
   item->data[item->data_size - 2] += 1;  // Modifying id byte
 }
 
