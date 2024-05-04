@@ -90,15 +90,13 @@ openssl_free_key(void *key)
 }
 
 /* Reads the |private_key| which is expected to be on PEM form and creates an EVP_PKEY
- * object out of it and sets it in |signing_info|. Further, enough memory for the signature
+ * object out of it and sets it in |sign_info|. Further, enough memory for the signature
  * is allocated. */
 SignedVideoReturnCode
-openssl_private_key_malloc(signing_info_t *signing_info,
-    const char *private_key,
-    size_t private_key_size)
+openssl_private_key_malloc(sign_info_t *sign_info, const char *private_key, size_t private_key_size)
 {
   // Sanity check input
-  if (!signing_info || !private_key || private_key_size == 0) return SV_INVALID_PARAMETER;
+  if (!sign_info || !private_key || private_key_size == 0) return SV_INVALID_PARAMETER;
 
   EVP_PKEY_CTX *ctx = NULL;
   EVP_PKEY *signing_key = NULL;
@@ -114,8 +112,8 @@ openssl_private_key_malloc(signing_info_t *signing_info,
     // Read the maximum size of the signature that the |private_key| can generate
     size_t max_signature_size = EVP_PKEY_size(signing_key);
     SVI_THROW_IF(max_signature_size == 0, SVI_EXTERNAL_FAILURE);
-    signing_info->signature = malloc(max_signature_size);
-    SVI_THROW_IF(!signing_info->signature, SVI_MEMORY);
+    sign_info->signature = malloc(max_signature_size);
+    SVI_THROW_IF(!sign_info->signature, SVI_MEMORY);
     // Create a context from the |signing_key|
     ctx = EVP_PKEY_CTX_new(signing_key, NULL /* no engine */);
     SVI_THROW_IF(!ctx, SVI_EXTERNAL_FAILURE);
@@ -128,13 +126,13 @@ openssl_private_key_malloc(signing_info_t *signing_info,
       SVI_THROW_IF(EVP_PKEY_CTX_set_signature_md(ctx, EVP_sha256()) <= 0, SVI_EXTERNAL_FAILURE);
     }
 
-    // Set the content in |signing_info|
-    signing_info->max_signature_size = max_signature_size;
-    signing_info->private_key = ctx;
+    // Set the content in |sign_info|
+    sign_info->max_signature_size = max_signature_size;
+    sign_info->key = ctx;
   SVI_CATCH()
   {
-    free(signing_info->signature);
-    signing_info->signature = NULL;
+    free(sign_info->signature);
+    sign_info->signature = NULL;
     EVP_PKEY_CTX_free(ctx);
     ctx = NULL;
   }
@@ -196,20 +194,20 @@ openssl_public_key_malloc(signature_info_t *signature_info, pem_pkey_t *pem_publ
 
 /* Signs a hash. */
 SignedVideoReturnCode
-openssl_sign_hash(signing_info_t *signing_info)
+openssl_sign_hash(sign_info_t *sign_info)
 {
   // Sanity check input
-  if (!signing_info) return SV_INVALID_PARAMETER;
+  if (!sign_info) return SV_INVALID_PARAMETER;
 
-  unsigned char *signature = signing_info->signature;
-  const size_t max_signature_size = signing_info->max_signature_size;
+  unsigned char *signature = sign_info->signature;
+  const size_t max_signature_size = sign_info->max_signature_size;
   // Return if no memory has been allocated for the signature.
   if (!signature || max_signature_size == 0) return SV_INVALID_PARAMETER;
 
-  EVP_PKEY_CTX *ctx = (EVP_PKEY_CTX *)signing_info->private_key;
+  EVP_PKEY_CTX *ctx = (EVP_PKEY_CTX *)sign_info->key;
   size_t siglen = 0;
-  const uint8_t *hash_to_sign = signing_info->hash;
-  size_t hash_size = signing_info->hash_size;
+  const uint8_t *hash_to_sign = sign_info->hash;
+  size_t hash_size = sign_info->hash_size;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
@@ -224,7 +222,7 @@ openssl_sign_hash(signing_info_t *signing_info)
         EVP_PKEY_sign(ctx, signature, &siglen, hash_to_sign, hash_size) <= 0, SVI_EXTERNAL_FAILURE);
     // Set the actually written size of the signature. Depending on signing algorithm a shorter
     // signature may have been written.
-    signing_info->signature_size = siglen;
+    sign_info->signature_size = siglen;
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -661,7 +659,7 @@ openssl_get_hash_size(void *handle)
 
 /* Reads the public key from the private key. */
 svi_rc
-openssl_read_pubkey_from_private_key(signing_info_t *signing_info, pem_pkey_t *pem_pkey)
+openssl_read_pubkey_from_private_key(sign_info_t *sign_info, pem_pkey_t *pem_pkey)
 {
   EVP_PKEY_CTX *ctx = NULL;
   EVP_PKEY *pkey = NULL;
@@ -669,11 +667,11 @@ openssl_read_pubkey_from_private_key(signing_info_t *signing_info, pem_pkey_t *p
   char *public_key = NULL;
   long public_key_size = 0;
 
-  if (!signing_info) return SVI_INVALID_PARAMETER;
+  if (!sign_info) return SVI_INVALID_PARAMETER;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    ctx = (EVP_PKEY_CTX *)signing_info->private_key;
+    ctx = (EVP_PKEY_CTX *)sign_info->key;
     SVI_THROW_IF(!ctx, SVI_INVALID_PARAMETER);
     // Borrow the EVP_PKEY |pkey| from |ctx|.
     pkey = EVP_PKEY_CTX_get0_pkey(ctx);

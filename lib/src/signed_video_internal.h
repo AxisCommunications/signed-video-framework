@@ -170,7 +170,7 @@ struct _signed_video_t {
 
   // For signing plugin
   void *plugin_handle;
-  signing_info_t *signing_info;  // Pointer to all necessary information to sign in a plugin.
+  sign_info_t *sign_info;  // Pointer to all necessary information to sign in a plugin.
   signature_info_t
       *signature_info;  // Pointer to all necessary information to sign in a plugin. DEPRECATED
   pem_pkey_t pem_public_key;  // Public key in PEM form for writing/reading to/from SEIs

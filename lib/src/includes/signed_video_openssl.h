@@ -68,14 +68,14 @@ typedef struct _signature_info_t {
  * Struct for storing necessary information to sign a hash and generate a signature.
  * It is used primarily by the signing plugins.
  */
-typedef struct _signing_info_t {
+typedef struct _sign_info_t {
   uint8_t *hash;  // The hash to be signed.
   size_t hash_size;  // The size of the |hash|.
-  void *private_key;  // The private key used for signing.
+  void *key;  // The private key used for signing.
   uint8_t *signature;  // The signature of the |hash|.
   size_t signature_size;  // The size of the |signature|.
   size_t max_signature_size;  // The allocated size of the |signature|.
-} signing_info_t;
+} sign_info_t;
 
 /**
  * Struct to store a private key in PEM format. Useful to bundle the data in a single object.
@@ -88,19 +88,19 @@ typedef struct _pem_pkey_t {
 /**
  * @brief Signs a hash
  *
- * The function generates a signature of the |hash| in |signing_info| and stores the result in
- * |signature| of |signing_info|.
+ * The function generates a signature of the |hash| in |sign_info| and stores the result in
+ * |signature| of |sign_info|.
  *
- * @param signing_info A pointer to the struct that holds all necessary information for signing.
+ * @param sign_info A pointer to the struct that holds all necessary information for signing.
  *
  * @returns SV_OK Successfully generated |signature|,
- *          SV_INVALID_PARAMETER Errors in |signing_info|,
+ *          SV_INVALID_PARAMETER Errors in |sign_info|,
  *          SV_NOT_SUPPORTED No private key present,
  *          SV_MEMORY Not enough memory allocated for the |signature|,
  *          SV_EXTERNAL_ERROR Failure in OpenSSL.
  */
 SignedVideoReturnCode
-openssl_sign_hash(signing_info_t *signing_info);
+openssl_sign_hash(sign_info_t *sign_info);
 
 /**
  * @brief Turns a private key on PEM form to EVP_PKEY form
@@ -120,7 +120,7 @@ openssl_sign_hash(signing_info_t *signing_info);
  *          SV_EXTERNAL_ERROR Failure in OpenSSL.
  */
 SignedVideoReturnCode
-openssl_private_key_malloc(signing_info_t *signing_info,
+openssl_private_key_malloc(sign_info_t *sign_info,
     const char *private_key,
     size_t private_key_size);
 
