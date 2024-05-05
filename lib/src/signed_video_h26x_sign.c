@@ -542,8 +542,6 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
 #ifdef SIGNED_VIDEO_DEBUG
         // TODO: This might not work for blocked signatures, that is if the hash in
         // |signature_info| does not correspond to the copied |signature|.
-        // Convert the public key to EVP_PKEY for verification. Normally done upon validation.
-        SVI_THROW(openssl_public_key_malloc(signature_info, &self->pem_public_key));
         // Borrow hash, signature and public key from signature_info to verify it.
         sign_or_verify_data_t verify_data = {
             .hash = signature_info->hash,
@@ -553,10 +551,13 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
             .signature_size = signature_info->signature_size,
             .max_signature_size = signature_info->max_signature_size,
         };
+        // Convert the public key to EVP_PKEY for verification. Normally done upon validation.
+        SVI_THROW(openssl_public_key_malloc(&verify_data, &self->pem_public_key));
         // Verify the just signed hash.
         int verified = -1;
         SVI_THROW_WITH_MSG(
             openssl_verify_hash(&verify_data, &verified), "Verification test had errors");
+        openssl_free_key(verify_data.key);
         SVI_THROW_IF_WITH_MSG(verified != 1, SVI_EXTERNAL_FAILURE, "Verification test failed");
 #endif
         SVI_THROW(complete_sei_nalu_and_add_to_prepend(self));
