@@ -25,7 +25,7 @@
 #include "axis-communications/sv_vendor_axis_communications_internal.h"
 #endif
 #include "includes/signed_video_auth.h"
-#include "includes/signed_video_openssl.h"  // pem_pkey_t, signature_info_t
+#include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t, signature_info_t
 #include "signed_video_authenticity.h"  // create_local_authenticity_report_if_needed()
 #include "signed_video_defines.h"  // svi_rc
 #include "signed_video_h26x_internal.h"  // gop_state_*(), update_gop_hash(), update_validation_flags()
@@ -766,7 +766,17 @@ prepare_for_validation(signed_video_t *self)
 
     // If we have received a SEI there is a signature to use for verification.
     if (self->gop_state.has_gop_sei) {
-      SVI_THROW(openssl_verify_hash(signature_info, &self->gop_info->verified_signature_hash));
+      // TODO: Remove this temporary solution when signature_info has been replaced with
+      // a verify_data struct instead.
+      sign_or_verify_data_t verify_data = {
+          .hash = signature_info->hash,
+          .hash_size = signature_info->hash_size,
+          .key = signature_info->public_key,
+          .signature = signature_info->signature,
+          .signature_size = signature_info->signature_size,
+          .max_signature_size = signature_info->max_signature_size,
+      };
+      SVI_THROW(openssl_verify_hash(&verify_data, &self->gop_info->verified_signature_hash));
     }
 
   SVI_CATCH()
