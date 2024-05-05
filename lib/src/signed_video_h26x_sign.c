@@ -702,20 +702,20 @@ signed_video_set_private_key_new(signed_video_t *self,
   SVI_TRY()
     // Temporally turn the PEM |private_key| into an EVP_PKEY and allocate memory for signatures.
     SVI_THROW(sv_rc_to_svi_rc(
-        openssl_private_key_malloc(self->sign_info, private_key, private_key_size)));
-    SVI_THROW(openssl_read_pubkey_from_private_key(self->sign_info, &self->pem_public_key));
+        openssl_private_key_malloc(self->sign_data, private_key, private_key_size)));
+    SVI_THROW(openssl_read_pubkey_from_private_key(self->sign_data, &self->pem_public_key));
 
     self->plugin_handle = sv_signing_plugin_session_setup(private_key, private_key_size);
     SVI_THROW_IF(!self->plugin_handle, SVI_EXTERNAL_FAILURE);
     // TODO: Temporarily allocating memory for the seignature in signature_info. It will be removed.
-    self->signature_info->signature = calloc(1, self->sign_info->max_signature_size);
-    self->signature_info->max_signature_size = self->sign_info->max_signature_size;
+    self->signature_info->signature = calloc(1, self->sign_data->max_signature_size);
+    self->signature_info->max_signature_size = self->sign_data->max_signature_size;
   SVI_CATCH()
   SVI_DONE(status)
 
   // Free the EVP_PKEY since it is no longer needed. It is handled by the signing plugin.
-  openssl_free_key(self->sign_info->key);
-  self->sign_info->key = NULL;
+  openssl_free_key(self->sign_data->key);
+  self->sign_data->key = NULL;
 
   return svi_rc_to_signed_video_rc(status);
 }

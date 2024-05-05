@@ -39,7 +39,7 @@
 // Plugin handle to store the signature, etc.
 typedef struct _sv_unthreaded_plugin_t {
   bool signature_generated;
-  sign_info_t sign_info;
+  sign_or_verify_data_t sign_data;
 } sv_unthreaded_plugin_t;
 
 static SignedVideoReturnCode
@@ -50,12 +50,12 @@ unthreaded_openssl_sign_hash(sv_unthreaded_plugin_t *self, const uint8_t *hash, 
   if (self->signature_generated) return SV_NOT_SUPPORTED;
 
   SignedVideoReturnCode status = SV_UNKNOWN_FAILURE;
-  // Borrow the |hash| by passing the pointer to |sign_info| for signing.
-  self->sign_info.hash = (uint8_t *)hash;
-  self->sign_info.hash_size = hash_size;
+  // Borrow the |hash| by passing the pointer to |sign_data| for signing.
+  self->sign_data.hash = (uint8_t *)hash;
+  self->sign_data.hash_size = hash_size;
 
-  status = openssl_sign_hash(&self->sign_info);
-  self->signature_generated = (status == SV_OK) && (self->sign_info.signature_size > 0);
+  status = openssl_sign_hash(&self->sign_data);
+  self->signature_generated = (status == SV_OK) && (self->sign_data.signature_size > 0);
 
   return status;
 }
@@ -83,7 +83,7 @@ sv_signing_plugin_sign(void *handle, const uint8_t *hash, size_t hash_size)
   return unthreaded_openssl_sign_hash(self, hash, hash_size);
 }
 
-/* The |signature| is copied from the local |sign_info| if the |signature_generated|
+/* The |signature| is copied from the local |sign_data| if the |signature_generated|
  * flag is set. */
 bool
 sv_signing_plugin_get_signature(void *handle,
@@ -99,11 +99,11 @@ sv_signing_plugin_get_signature(void *handle,
   bool has_signature = unthreaded_openssl_has_signature(self);
   if (has_signature) {
     // Copy signature if there is room for it.
-    if (max_signature_size < self->sign_info.signature_size) {
+    if (max_signature_size < self->sign_data.signature_size) {
       *written_signature_size = 0;
     } else {
-      memcpy(signature, self->sign_info.signature, self->sign_info.signature_size);
-      *written_signature_size = self->sign_info.signature_size;
+      memcpy(signature, self->sign_data.signature, self->sign_data.signature_size);
+      *written_signature_size = self->sign_data.signature_size;
     }
   }
   if (error) *error = SV_OK;
@@ -120,7 +120,7 @@ sv_signing_plugin_session_setup(const void *private_key, size_t private_key_size
   if (!self) return NULL;
 
   // Turn the PEM |private_key| into an EVP_PKEY and allocate memory for signatures.
-  if (openssl_private_key_malloc(&self->sign_info, private_key, private_key_size) != SV_OK) {
+  if (openssl_private_key_malloc(&self->sign_data, private_key, private_key_size) != SV_OK) {
     sv_signing_plugin_session_teardown((void *)self);
     self = NULL;
   }
@@ -134,8 +134,8 @@ sv_signing_plugin_session_teardown(void *handle)
   sv_unthreaded_plugin_t *self = (sv_unthreaded_plugin_t *)handle;
   if (!self) return;
 
-  openssl_free_key(self->sign_info.key);
-  free(self->sign_info.signature);
+  openssl_free_key(self->sign_data.key);
+  free(self->sign_data.signature);
   free(self);
 }
 

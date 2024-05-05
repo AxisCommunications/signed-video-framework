@@ -1967,13 +1967,13 @@ START_TEST(test_public_key_scenarios)
     // On validation side
     signed_video_t *sv_vms = signed_video_create(codec);
 
-    sign_info_t sign_info_wrong_key = {0};
+    sign_or_verify_data_t sign_data_wrong_key = {0};
     // Generate a new private key in order to extract a bad private key (a key not compatible with
     // the one generated on the camera side)
     settings[_i].generate_key(NULL, &tmp_private_key, &tmp_private_key_size);
-    sv_rc = openssl_private_key_malloc(&sign_info_wrong_key, tmp_private_key, tmp_private_key_size);
+    sv_rc = openssl_private_key_malloc(&sign_data_wrong_key, tmp_private_key, tmp_private_key_size);
     ck_assert_int_eq(sv_rc, SV_OK);
-    openssl_read_pubkey_from_private_key(&sign_info_wrong_key, &wrong_public_key);
+    openssl_read_pubkey_from_private_key(&sign_data_wrong_key, &wrong_public_key);
 
     pem_pkey_t *public_key = &sv_camera->pem_public_key;
     if (pk_tests[j].use_wrong_pk) {
@@ -1991,8 +1991,8 @@ START_TEST(test_public_key_scenarios)
     signed_video_free(sv_camera);
     signed_video_free(sv_vms);
     free(tmp_private_key);
-    openssl_free_key(sign_info_wrong_key.key);
-    free(sign_info_wrong_key.signature);
+    openssl_free_key(sign_data_wrong_key.key);
+    free(sign_data_wrong_key.signature);
     free(wrong_public_key.key);
     nalu_list_free_item(sei);
   }
@@ -2022,11 +2022,11 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
 
   // Generate a new private key in order to extract a bad private key (a key not compatible with the
   // one generated on the camera side)
-  sign_info_t sign_info = {0};
+  sign_or_verify_data_t sign_data = {0};
   settings[_i].generate_key(NULL, &tmp_private_key, &tmp_private_key_size);
-  sv_rc = openssl_private_key_malloc(&sign_info, tmp_private_key, tmp_private_key_size);
+  sv_rc = openssl_private_key_malloc(&sign_data, tmp_private_key, tmp_private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  openssl_read_pubkey_from_private_key(&sign_info, &wrong_public_key);
+  openssl_read_pubkey_from_private_key(&sign_data, &wrong_public_key);
   // Set public key
   sv_rc = signed_video_set_public_key(sv_vms, wrong_public_key.key, wrong_public_key.key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -2053,8 +2053,8 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   signed_video_free(sv_vms);
   signed_video_free(sv_camera);
   free(tmp_private_key);
-  openssl_free_key(sign_info.key);
-  free(sign_info.signature);
+  openssl_free_key(sign_data.key);
+  free(sign_data.signature);
   free(wrong_public_key.key);
 }
 END_TEST

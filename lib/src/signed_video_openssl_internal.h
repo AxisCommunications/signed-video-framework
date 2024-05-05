@@ -198,16 +198,16 @@ openssl_verify_hash(const signature_info_t *signature_info, int *verified_result
  * This function extracts the public key from the |private_key| and writes it to |pem_pkey|. The
  * |private_key| is assumed to be on EVP_PKEY form.
  *
- * @param sign_info A pointer to the object holding the |private_key|.
+ * @param sign_data A pointer to the object holding the |private_key|.
  * @param pem_pkey A pointer to the object where the public key, on PEM format, will be written.
  *
  * @returns SVI_OK Successfully written |key| to |pem_pkey|,
- *          SVI_INVALID_PARAMETER Errors in |sign_info|, or no private key present,
+ *          SVI_INVALID_PARAMETER Errors in |sign_data|, or no private key present,
  *          SVI_MEMORY Could not allocate memory for |key|,
  *          SVI_EXTERNAL_FAILURE Failure in OpenSSL.
  */
 svi_rc
-openssl_read_pubkey_from_private_key(sign_info_t *sign_info, pem_pkey_t *pem_pkey);
+openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_t *pem_pkey);
 
 /**
  * @brief Turns a public key on PEM form to EVP_PKEY form

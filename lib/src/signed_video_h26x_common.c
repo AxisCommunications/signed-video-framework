@@ -207,15 +207,15 @@ signature_free(signature_info_t *self)
   free(self);
 }
 
-static sign_info_t *
+static sign_or_verify_data_t *
 signing_info_create()
 {
-  sign_info_t *self = (sign_info_t *)calloc(1, sizeof(sign_info_t));
+  sign_or_verify_data_t *self = (sign_or_verify_data_t *)calloc(1, sizeof(sign_or_verify_data_t));
   return self;
 }
 
 static void
-signing_info_free(sign_info_t *self)
+signing_info_free(sign_or_verify_data_t *self)
 {
   if (!self) return;
 
@@ -1177,7 +1177,7 @@ signed_video_create(SignedVideoCodec codec)
 
     // Allocate memory for the signature_info struct.
     self->signature_info = signature_create();
-    self->sign_info = signing_info_create();
+    self->sign_data = signing_info_create();
 
     self->product_info = product_info_create();
     SVI_THROW_IF_WITH_MSG(!self->product_info, SVI_MEMORY, "Could not allocate product_info");
@@ -1294,7 +1294,7 @@ signed_video_free(signed_video_t *self)
   product_info_free(self->product_info);
   gop_info_free(self->gop_info);
   signature_free(self->signature_info);
-  signing_info_free(self->sign_info);
+  signing_info_free(self->sign_data);
   free(self->pem_public_key.key);
 
   free(self);
