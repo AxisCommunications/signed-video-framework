@@ -27,7 +27,7 @@
 
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
 #include "includes/signed_video_common.h"  // signed_video_t
-#include "includes/signed_video_openssl.h"  // pem_pkey_t, signature_info_t
+#include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t, signature_info_t
 #include "includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
 #include "signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
 

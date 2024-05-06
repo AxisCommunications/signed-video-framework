@@ -25,7 +25,7 @@
 #include <stdint.h>  // uint8_t
 #include <string.h>  // size_t
 
-#include "includes/signed_video_openssl.h"  // pem_pkey_t, signature_info_t
+#include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t signature_info_t
 #include "signed_video_defines.h"  // svi_rc
 
 /**
@@ -179,18 +179,18 @@ openssl_finalize_hash(void *handle, uint8_t *hash);
 /**
  * @brief Verifies a signature against a hash
  *
- * The |hash| is verified against the |signature| using the |public_key|, all being
- * members of the input parameter |signature_info|.
+ * The |hash| is verified against the |signature| using the public |key|, all being
+ * members of the input parameter |verify_data|.
  *
- * @param signature_info Pointer to the signature_info_t object in use.
+ * @param verify_data Pointer to the sign_or_verify_data_t object in use.
  * @param verified_result Poiniter to the place where the verification result is written. The
  *   |verified_result| can either be 1 (success), 0 (failure), or < 0 (error).
  *
  * @returns SVI_OK Successfully generated |signature|,
- *          SVI_INVALID_PARAMETER Errors in |signature_info|, or null pointer inputs,
+ *          SVI_INVALID_PARAMETER Errors in |verify_data|, or null pointer inputs,
  */
 svi_rc
-openssl_verify_hash(const signature_info_t *signature_info, int *verified_result);
+openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_result);
 
 /**
  * @brief Reads the public key from the private key

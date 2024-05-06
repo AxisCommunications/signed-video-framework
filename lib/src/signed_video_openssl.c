@@ -40,7 +40,7 @@
 #include <unistd.h>  // unlink
 #endif
 
-#include "includes/signed_video_openssl.h"  // pem_pkey_t, signature_info_t
+#include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t, signature_info_t
 #include "signed_video_defines.h"
 #include "signed_video_internal.h"  // svi_rc_to_signed_video_rc(), sv_rc_to_svi_rc()
 #include "signed_video_openssl_internal.h"
@@ -233,21 +233,21 @@ openssl_sign_hash(sign_or_verify_data_t *sign_data)
 
 /* Verifies the |signature|. */
 svi_rc
-openssl_verify_hash(const signature_info_t *signature_info, int *verified_result)
+openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_result)
 {
-  if (!signature_info || !verified_result) return SVI_INVALID_PARAMETER;
+  if (!verify_data || !verified_result) return SVI_INVALID_PARAMETER;
 
   int verified_hash = -1;  // Initialize to 'error'.
 
-  const unsigned char *signature = signature_info->signature;
-  const size_t signature_size = signature_info->signature_size;
-  const uint8_t *hash_to_verify = signature_info->hash;
-  size_t hash_size = signature_info->hash_size;
+  const unsigned char *signature = verify_data->signature;
+  const size_t signature_size = verify_data->signature_size;
+  const uint8_t *hash_to_verify = verify_data->hash;
+  size_t hash_size = verify_data->hash_size;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     SVI_THROW_IF(!signature || signature_size == 0 || !hash_to_verify, SVI_INVALID_PARAMETER);
-    EVP_PKEY_CTX *ctx = (EVP_PKEY_CTX *)signature_info->public_key;
+    EVP_PKEY_CTX *ctx = (EVP_PKEY_CTX *)verify_data->key;
     SVI_THROW_IF(!ctx, SVI_INVALID_PARAMETER);
     // EVP_PKEY_verify returns 1 upon success, 0 upon failure and < 0 upon error.
     verified_hash = EVP_PKEY_verify(ctx, signature, signature_size, hash_to_verify, hash_size);
