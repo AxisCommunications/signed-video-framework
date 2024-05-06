@@ -27,7 +27,7 @@
 
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
 #include "includes/signed_video_common.h"  // signed_video_t
-#include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t, signature_info_t
+#include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
 #include "signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
 
@@ -171,9 +171,10 @@ struct _signed_video_t {
   // For signing plugin
   void *plugin_handle;
   sign_or_verify_data_t *sign_data;  // Pointer to all necessary information to sign in a plugin.
-  signature_info_t
-      *signature_info;  // Pointer to all necessary information to sign in a plugin. DEPRECATED
   pem_pkey_t pem_public_key;  // Public key in PEM form for writing/reading to/from SEIs
+
+  // For signature verification
+  sign_or_verify_data_t *verify_data;  // All necessary information to verify a signature.
 
   // Arbitrary data
   uint8_t *arbitrary_data;  // Enables the user to transmit user specific data and is automatically

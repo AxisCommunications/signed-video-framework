@@ -25,7 +25,7 @@
 #include "axis-communications/sv_vendor_axis_communications_internal.h"
 #endif
 #include "includes/signed_video_auth.h"
-#include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t, signature_info_t
+#include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "signed_video_authenticity.h"  // create_local_authenticity_report_if_needed()
 #include "signed_video_defines.h"  // svi_rc
 #include "signed_video_h26x_internal.h"  // gop_state_*(), update_gop_hash(), update_validation_flags()
@@ -132,7 +132,7 @@ verify_hashes_with_hash_list(signed_video_t *self, int *num_expected_nalus, int 
 {
   assert(self);
 
-  const size_t hash_size = self->signature_info->hash_size;
+  const size_t hash_size = self->verify_data->hash_size;
   assert(hash_size > 0);
   // Expected hashes.
   uint8_t *expected_hashes = self->gop_info->hash_list;
@@ -623,7 +623,7 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
   if (!(sei && sei->has_been_decoded)) return SVI_INVALID_PARAMETER;
   if (!nalu_list) return SVI_NULL_PTR;
 
-  const size_t hash_size = self->signature_info->hash_size;
+  const size_t hash_size = self->verify_data->hash_size;
   h26x_nalu_list_item_t *item = NULL;
   gop_info_t *gop_info = self->gop_info;
   uint8_t *nalu_hash = gop_info->nalu_hash;
@@ -707,8 +707,8 @@ prepare_for_validation(signed_video_t *self)
 
   validation_flags_t *validation_flags = &(self->validation_flags);
   h26x_nalu_list_t *nalu_list = self->nalu_list;
-  signature_info_t *signature_info = self->signature_info;
-  const size_t hash_size = signature_info->hash_size;
+  sign_or_verify_data_t *verify_data = self->verify_data;
+  const size_t hash_size = verify_data->hash_size;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
@@ -721,7 +721,7 @@ prepare_for_validation(signed_video_t *self)
       SVI_THROW(decode_sei_data(self, tlv_data, tlv_size));
       sei->has_been_decoded = true;
       if (self->gop_info->signature_hash_type == DOCUMENT_HASH) {
-        memcpy(signature_info->hash, sei->hash, hash_size);
+        memcpy(verify_data->hash, sei->hash, hash_size);
       }
     }
     // Check if we should compute the gop_hash.
@@ -729,7 +729,7 @@ prepare_for_validation(signed_video_t *self)
         self->gop_info->signature_hash_type == GOP_HASH) {
       SVI_THROW(compute_gop_hash(self, sei));
       // TODO: Is it possible to avoid a memcpy by using a pointer strategy?
-      memcpy(signature_info->hash, self->gop_info->gop_hash, hash_size);
+      memcpy(verify_data->hash, self->gop_info->gop_hash, hash_size);
     }
 
     SVI_THROW_IF_WITH_MSG(validation_flags->signing_present && !self->has_public_key,
@@ -766,17 +766,7 @@ prepare_for_validation(signed_video_t *self)
 
     // If we have received a SEI there is a signature to use for verification.
     if (self->gop_state.has_gop_sei) {
-      // TODO: Remove this temporary solution when signature_info has been replaced with
-      // a verify_data struct instead.
-      sign_or_verify_data_t verify_data = {
-          .hash = signature_info->hash,
-          .hash_size = signature_info->hash_size,
-          .key = signature_info->public_key,
-          .signature = signature_info->signature,
-          .signature_size = signature_info->signature_size,
-          .max_signature_size = signature_info->max_signature_size,
-      };
-      SVI_THROW(openssl_verify_hash(&verify_data, &self->gop_info->verified_signature_hash));
+      SVI_THROW(openssl_verify_hash(verify_data, &self->gop_info->verified_signature_hash));
     }
 
   SVI_CATCH()
@@ -1138,13 +1128,8 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
     SVI_THROW_IF(!self->pem_public_key.key, SVI_MEMORY);
     memcpy(self->pem_public_key.key, public_key, public_key_size);
     self->pem_public_key.key_size = public_key_size;
-    // TODO: Remove this temporary solution when signature_info has been replaced with
-    // a verify_data struct instead. Borrow the public key from signature_info.
-    sign_or_verify_data_t verify_data = {.key = self->signature_info->public_key};
     // Turn the public key from PEM to EVP_PKEY form.
-    SVI_THROW(openssl_public_key_malloc(&verify_data, &self->pem_public_key));
-    // Hand the key back.
-    self->signature_info->public_key = verify_data.key;
+    SVI_THROW(openssl_public_key_malloc(self->verify_data, &self->pem_public_key));
     self->has_public_key = true;
 
   SVI_CATCH()

@@ -29,7 +29,7 @@
 #include "axis-communications/sv_vendor_axis_communications_internal.h"
 #endif
 #include "includes/signed_video_common.h"
-#include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t, signature_info_t
+#include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "includes/signed_video_signing_plugin.h"
 #include "signed_video_authenticity.h"  // latest_validation_init()
 #include "signed_video_h26x_internal.h"  // h26x_nalu_list_item_t
@@ -185,36 +185,8 @@ sv_rc_to_svi_rc(SignedVideoReturnCode status)
 const uint8_t kUuidSignedVideo[UUID_LEN] = {
     0x53, 0x69, 0x67, 0x6e, 0x65, 0x64, 0x20, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x2e, 0x2e, 0x30};
 
-static signature_info_t *
-signature_create()
-{
-  signature_info_t *self = (signature_info_t *)calloc(1, sizeof(signature_info_t));
-  if (self) {
-    self->hash = calloc(1, MAX_HASH_SIZE);
-    if (!self->hash) {
-      free(self);
-      self = NULL;
-    } else {
-      self->hash_size = DEFAULT_HASH_SIZE;
-    }
-  }
-  return self;
-}
-
-static void
-signature_free(signature_info_t *self)
-{
-  if (!self) return;
-
-  openssl_free_key(self->private_key);
-  openssl_free_key(self->public_key);
-  free(self->hash);
-  free(self->signature);
-  free(self);
-}
-
 static sign_or_verify_data_t *
-sign_data_create()
+sign_or_verify_data_create()
 {
   sign_or_verify_data_t *self = (sign_or_verify_data_t *)calloc(1, sizeof(sign_or_verify_data_t));
   if (self) {
@@ -230,10 +202,11 @@ sign_data_create()
 }
 
 static void
-sign_data_free(sign_or_verify_data_t *self)
+sign_or_verify_data_free(sign_or_verify_data_t *self)
 {
   if (!self) return;
 
+  openssl_free_key(self->key);
   free(self->hash);
   free(self->signature);
   free(self);
@@ -1143,7 +1116,7 @@ hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
   uint8_t *nalu_hash = NULL;
   nalu_hash = item->hash;
   assert(nalu_hash);
-  size_t hash_size = self->signature_info->hash_size;
+  size_t hash_size = self->verify_data->hash_size;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
@@ -1195,9 +1168,9 @@ signed_video_create(SignedVideoCodec codec)
     // Mark the last NALU as complete, hence, no ongoing hashing is present.
     self->last_nalu->is_last_nalu_part = true;
 
-    // Allocate memory for the signature_info struct.
-    self->signature_info = signature_create();
-    self->sign_data = sign_data_create();
+    // Allocate memory for the sign or verify data
+    self->sign_data = sign_or_verify_data_create();
+    self->verify_data = sign_or_verify_data_create();
 
     self->product_info = product_info_create();
     SVI_THROW_IF_WITH_MSG(!self->product_info, SVI_MEMORY, "Could not allocate product_info");
@@ -1230,8 +1203,8 @@ signed_video_create(SignedVideoCodec codec)
     // Setup crypto handle.
     self->crypto_handle = openssl_create_handle();
     SVI_THROW_IF(!self->crypto_handle, SVI_EXTERNAL_FAILURE);
-    self->signature_info->hash_size = openssl_get_hash_size(self->crypto_handle);
     self->sign_data->hash_size = openssl_get_hash_size(self->crypto_handle);
+    self->verify_data->hash_size = openssl_get_hash_size(self->crypto_handle);
     // Make sure the hash size matches the default hash size.
     SVI_THROW_IF(self->sign_data->hash_size != DEFAULT_HASH_SIZE, SVI_EXTERNAL_FAILURE);
     SVI_THROW_WITH_MSG(reset_gop_hash(self), "Couldn't reset gop_hash");
@@ -1314,8 +1287,8 @@ signed_video_free(signed_video_t *self)
   signed_video_authenticity_report_free(self->authenticity);
   product_info_free(self->product_info);
   gop_info_free(self->gop_info);
-  signature_free(self->signature_info);
-  sign_data_free(self->sign_data);
+  sign_or_verify_data_free(self->sign_data);
+  sign_or_verify_data_free(self->verify_data);
   free(self->pem_public_key.key);
 
   free(self);
