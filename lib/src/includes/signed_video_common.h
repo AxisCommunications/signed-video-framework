@@ -24,6 +24,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -130,7 +131,8 @@ signed_video_compare_versions(const char* version1, const char* version2);
  * @brief Checks the NALU if its a golden SEI
  *
  * Golden SEI is the NALU that is generated at the start of the stream. This SEI is self-signed,
- * hence not bound to a stream and it includes only the TLV tags which are only needed once.
+ * hence not bound to a stream, and it only includes information needed once, such as the Public
+ * key.
  *
  * @param sei SEI payload
  * @param sei_size Size of the SEI NALU
