@@ -123,7 +123,7 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   // If the signature could not be generated |signature_size| equals zero. Free the started SEI and
   // move on. This is a valid operation. What will happen is that the video will have an unsigned
   // GOP.
-  if (self->signature_info->signature_size == 0) {
+  if (self->sign_data->signature_size == 0) {
     signed_video_nalu_data_free(payload);
     status = SVI_OK;
     goto done;
@@ -182,8 +182,8 @@ shift_sei_buffer_at_index(signed_video_t *self, int index)
 static svi_rc
 generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_signature_ptr)
 {
-  signature_info_t *signature_info = self->signature_info;
-  const size_t hash_size = signature_info->hash_size;
+  sign_or_verify_data_t *sign_data = self->sign_data;
+  const size_t hash_size = sign_data->hash_size;
 
   // Metadata + hash_list forming a document.
   const sv_tlv_tag_t document_encoders[] = {
@@ -332,9 +332,9 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
     gop_info_t *gop_info = self->gop_info;
     if (gop_info->signature_hash_type == DOCUMENT_HASH) {
-      memcpy(signature_info->hash, gop_info->document_hash, hash_size);
+      memcpy(sign_data->hash, gop_info->document_hash, hash_size);
     } else {
-      memcpy(signature_info->hash, gop_info->gop_hash, hash_size);
+      memcpy(sign_data->hash, gop_info->gop_hash, hash_size);
     }
 
     // Reset the gop_hash since we start a new GOP.
@@ -347,8 +347,8 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     // Reset the timestamp to avoid including a duplicate in the next SEI.
     gop_info->has_timestamp = false;
 
-    SVI_THROW(sv_rc_to_svi_rc(sv_signing_plugin_sign(
-        self->plugin_handle, signature_info->hash, signature_info->hash_size)));
+    SVI_THROW(sv_rc_to_svi_rc(
+        sv_signing_plugin_sign(self->plugin_handle, sign_data->hash, sign_data->hash_size)));
 
   SVI_CATCH()
   {
@@ -486,7 +486,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     nalu.hashable_data_size = nalu_data_size;
   }
 
-  signature_info_t *signature_info = self->signature_info;
+  sign_or_verify_data_t *sign_data = self->sign_data;
   int signing_present = self->signing_present;
 
   svi_rc status = SVI_UNKNOWN;
@@ -534,22 +534,22 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     // Only add a SEI if the current NALU is the primary picture NALU and of course if signing is
     // completed.
     if ((nalu.nalu_type == NALU_TYPE_I || nalu.nalu_type == NALU_TYPE_P) && nalu.is_primary_slice &&
-        signature_info->signature) {
+        sign_data->signature) {
       SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
-      while (sv_signing_plugin_get_signature(self->plugin_handle, signature_info->signature,
-          signature_info->max_signature_size, &signature_info->signature_size, &signature_error)) {
+      while (sv_signing_plugin_get_signature(self->plugin_handle, sign_data->signature,
+          sign_data->max_signature_size, &sign_data->signature_size, &signature_error)) {
         SVI_THROW(sv_rc_to_svi_rc(signature_error));
 #ifdef SIGNED_VIDEO_DEBUG
         // TODO: This might not work for blocked signatures, that is if the hash in
-        // |signature_info| does not correspond to the copied |signature|.
-        // Borrow hash, signature and public key from signature_info to verify it.
+        // |sign_data| does not correspond to the copied |signature|.
+        // Borrow hash and signature from |sign_data|.
         sign_or_verify_data_t verify_data = {
-            .hash = signature_info->hash,
-            .hash_size = signature_info->hash_size,
-            .key = signature_info->public_key,
-            .signature = signature_info->signature,
-            .signature_size = signature_info->signature_size,
-            .max_signature_size = signature_info->max_signature_size,
+            .hash = sign_data->hash,
+            .hash_size = sign_data->hash_size,
+            .key = NULL,
+            .signature = sign_data->signature,
+            .signature_size = sign_data->signature_size,
+            .max_signature_size = sign_data->max_signature_size,
         };
         // Convert the public key to EVP_PKEY for verification. Normally done upon validation.
         SVI_THROW(openssl_public_key_malloc(&verify_data, &self->pem_public_key));
@@ -659,10 +659,10 @@ signed_video_set_end_of_stream(signed_video_t *self)
     SVI_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
     add_payload_to_buffer(self, payload, payload_signature_ptr);
     // Fetch the signature. If it is not ready we exit without generating the SEI.
-    signature_info_t *signature_info = self->signature_info;
+    sign_or_verify_data_t *sign_data = self->sign_data;
     SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
-    while (sv_signing_plugin_get_signature(self->plugin_handle, signature_info->signature,
-        signature_info->max_signature_size, &signature_info->signature_size, &signature_error)) {
+    while (sv_signing_plugin_get_signature(self->plugin_handle, sign_data->signature,
+        sign_data->max_signature_size, &sign_data->signature_size, &signature_error)) {
       SVI_THROW(sv_rc_to_svi_rc(signature_error));
       SVI_THROW(complete_sei_nalu_and_add_to_prepend(self));
     }
@@ -717,9 +717,6 @@ signed_video_set_private_key_new(signed_video_t *self,
 
     self->plugin_handle = sv_signing_plugin_session_setup(private_key, private_key_size);
     SVI_THROW_IF(!self->plugin_handle, SVI_EXTERNAL_FAILURE);
-    // TODO: Temporarily allocating memory for the seignature in signature_info. It will be removed.
-    self->signature_info->signature = calloc(1, self->sign_data->max_signature_size);
-    self->signature_info->max_signature_size = self->sign_data->max_signature_size;
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -811,7 +808,7 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid)
     hash_size = openssl_get_hash_size(self->crypto_handle);
     SVI_THROW_IF(hash_size == 0 || hash_size > MAX_HASH_SIZE, SVI_NOT_SUPPORTED);
 
-    self->signature_info->hash_size = hash_size;
+    self->sign_data->hash_size = hash_size;
     // Point |nalu_hash| to the correct location in the |hashes| buffer.
     self->gop_info->nalu_hash = self->gop_info->hashes + hash_size;
   SVI_CATCH()

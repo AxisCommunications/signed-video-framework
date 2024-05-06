@@ -1092,7 +1092,7 @@ hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
   gop_info_t *gop_info = self->gop_info;
   uint8_t *nalu_hash = gop_info->nalu_hash;
   assert(nalu_hash);
-  size_t hash_size = self->signature_info->hash_size;
+  size_t hash_size = self->sign_data->hash_size;
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()

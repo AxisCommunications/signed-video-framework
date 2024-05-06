@@ -742,7 +742,7 @@ static size_t
 encode_signature(signed_video_t *self, uint8_t *data)
 {
   gop_info_t *gop_info = self->gop_info;
-  signature_info_t *signature_info = self->signature_info;
+  sign_or_verify_data_t *sign_data = self->sign_data;
   size_t data_size = 0;
   const uint8_t version = 1;  // Increment when the change breaks the format
 
@@ -766,14 +766,14 @@ encode_signature(signed_video_t *self, uint8_t *data)
   data_size += sizeof(gop_info->encoding_status);  // Info field
   data_size += 1;  // hash type
   data_size += 2;  // 2 bytes to store the actual size of the signature.
-  data_size += signature_info->max_signature_size;  // Allocated size of the signature
+  data_size += sign_data->max_signature_size;  // Allocated size of the signature
 
   if (!data) return data_size;
 
   uint8_t *data_ptr = data;
   uint16_t *last_two_bytes = &self->last_two_bytes;
   bool epb = self->sei_epb;
-  uint16_t signature_size = (uint16_t)signature_info->signature_size;
+  uint16_t signature_size = (uint16_t)sign_data->signature_size;
   // Write version
   write_byte(last_two_bytes, &data_ptr, version, epb);
   // Write info field
@@ -785,10 +785,10 @@ encode_signature(signed_video_t *self, uint8_t *data)
   write_byte(last_two_bytes, &data_ptr, (uint8_t)((signature_size)&0x00ff), epb);
   // Write signature
   size_t i = 0;
-  for (; i < signature_info->signature_size; i++) {
-    write_byte(last_two_bytes, &data_ptr, signature_info->signature[i], epb);
+  for (; i < signature_size; i++) {
+    write_byte(last_two_bytes, &data_ptr, sign_data->signature[i], epb);
   }
-  for (; i < signature_info->max_signature_size; i++) {
+  for (; i < sign_data->max_signature_size; i++) {
     // Write 1's in the unused bytes to avoid emulation prevention bytes.
     write_byte(last_two_bytes, &data_ptr, 1, epb);
   }
