@@ -21,6 +21,7 @@
 
 #ifndef __SIGNED_VIDEO_COMMON_H__
 #define __SIGNED_VIDEO_COMMON_H__
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -122,6 +123,20 @@ signed_video_get_version();
  */
 int
 signed_video_compare_versions(const char* version1, const char* version2);
+
+/**
+ * @brief Checks the NALU if its a golden SEI
+ *
+ * Golden SEI is the NALU that is generated at the start of the stream. This SEI includes only
+ * the TLV tags which are only needed once.
+ *
+ * @param sei SEI payload
+ * @param sei_size Size of the SEI NALU
+ *
+ * @returns True if NALU is a golden SEI
+ */
+bool
+signed_video_is_golden_sei(signed_video_t* self, uint8_t* sei, unsigned long sei_size);
 
 #ifdef __cplusplus
 }

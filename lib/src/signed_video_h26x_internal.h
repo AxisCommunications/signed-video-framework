@@ -143,7 +143,7 @@ struct _h26x_nalu_t {
   bool is_first_nalu_part;  // True if the |nalu_data| includes the first part
   bool is_last_nalu_part;  // True if the |nalu_data| includes the last part
   bool with_epb;  // Hashable data may include emulation prevention bytes
-  bool is_start_of_stream_sei;
+  bool is_golden_sei;
 };
 
 /* Internal APIs for gop_state_t functions */
@@ -198,6 +198,4 @@ copy_nalu_except_pointers(h26x_nalu_t *dst_nalu, const h26x_nalu_t *src_nalu);
 void
 update_hashable_data(h26x_nalu_t *nalu);
 
-bool
-signed_video_is_start_of_stream(uint8_t *sei, size_t sei_size, SignedVideoCodec codec);
 #endif  // __SIGNED_VIDEO_H26X_INTERNAL__

@@ -290,11 +290,11 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     h26x_set_nal_uuid_type(self, &payload_ptr, UUID_TYPE_SIGNED_VIDEO);
 
     // Add reserved byte(s).
-    // reserved_byte = |sei_epb||is_start_stream||0||0||0||0||0||0|
+    // The bit stream is illustrated below.
+    // reserved_byte = |epb|golden sei|0|0|0|0|0|0|
     uint8_t reserved_byte = self->sei_epb << 7;
-    reserved_byte |= self->is_start_stream << 6;
+    reserved_byte |= self->is_golden_sei << 6;
     *payload_ptr++ = reserved_byte;
-    self->reserved_byte = &reserved_byte;
 
     size_t written_size =
         tlv_list_encode_or_get_size(self, document_encoders, num_doc_encoders, payload_ptr);

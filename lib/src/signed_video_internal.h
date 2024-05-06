@@ -123,8 +123,7 @@ struct _signed_video_t {
   SignedVideoAuthenticityLevel authenticity_level;
   bool add_public_key_to_sei;
   bool sei_epb;  // Flag that tells whether to generate SEI frames w/wo emulation prevention bytes
-  bool is_start_stream;  // Flag that tells whether to generate SEI frames w/wo start_stream_sei
-  uint8_t *reserved_byte;
+  bool is_golden_sei;  // Flag that tells whether to generate SEI frames w/wo start_stream_sei
   size_t max_sei_payload_size;  // Default 0 = unlimited
   bool signing_started;
 
