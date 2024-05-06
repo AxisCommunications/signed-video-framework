@@ -1315,7 +1315,7 @@ error:
 }
 
 bool
-signed_video_is_golden_sei(signed_video_t *self, uint8_t *sei, unsigned long sei_size)
+signed_video_is_golden_sei(signed_video_t *self, const uint8_t *sei, size_t sei_size)
 {
   h26x_nalu_t nalu = parse_nalu_info(sei, sei_size, self->codec, false, true);
   return nalu.is_golden_sei;
