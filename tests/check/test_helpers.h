@@ -28,7 +28,7 @@
 #include "lib/src/includes/signed_video_common.h"  // signed_video_t, SignedVideoCodec
 #include "lib/src/includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
 #include "lib/src/signed_video_defines.h"  // sv_tlv_tag_t
-#include "test_stream.h"  // test_stream_t
+#include "test_stream.h"  // test_stream_t, test_stream_item_t
 
 #define HW_ID "hardware_id"
 #define FW_VER "firmware_version"
@@ -121,6 +121,6 @@ modify_list_item(test_stream_t *list, int item_number, char type);
 
 /* Checks if a particular TLV tag is present in the NAL Unit |item|. */
 bool
-tag_is_present(test_stream_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t tag);
+tag_is_present(const test_stream_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t tag);
 
 #endif  // __TEST_HELPERS_H__
