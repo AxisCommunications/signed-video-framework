@@ -1138,8 +1138,13 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
     SVI_THROW_IF(!self->pem_public_key.key, SVI_MEMORY);
     memcpy(self->pem_public_key.key, public_key, public_key_size);
     self->pem_public_key.key_size = public_key_size;
+    // TODO: Remove this temporary solution when signature_info has been replaced with
+    // a verify_data struct instead. Borrow the public key from signature_info.
+    sign_or_verify_data_t verify_data = {.key = self->signature_info->public_key};
     // Turn the public key from PEM to EVP_PKEY form.
-    SVI_THROW(openssl_public_key_malloc(self->signature_info, &self->pem_public_key));
+    SVI_THROW(openssl_public_key_malloc(&verify_data, &self->pem_public_key));
+    // Hand the key back.
+    self->signature_info->public_key = verify_data.key;
     self->has_public_key = true;
 
   SVI_CATCH()

@@ -40,7 +40,7 @@
 #include <unistd.h>  // unlink
 #endif
 
-#include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t, signature_info_t
+#include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "signed_video_defines.h"
 #include "signed_video_internal.h"  // svi_rc_to_signed_video_rc(), sv_rc_to_svi_rc()
 #include "signed_video_openssl_internal.h"
@@ -146,12 +146,12 @@ openssl_private_key_malloc(sign_or_verify_data_t *sign_data,
 }
 
 /* Reads the |pem_public_key| which is expected to be on PEM form and creates an EVP_PKEY
- * object out of it and sets it in |signature_info|. */
+ * object out of it and sets it in |verify_data|. */
 svi_rc
-openssl_public_key_malloc(signature_info_t *signature_info, pem_pkey_t *pem_public_key)
+openssl_public_key_malloc(sign_or_verify_data_t *verify_data, pem_pkey_t *pem_public_key)
 {
   // Sanity check input
-  if (!signature_info || !pem_public_key) return SVI_INVALID_PARAMETER;
+  if (!verify_data || !pem_public_key) return SVI_INVALID_PARAMETER;
 
   EVP_PKEY_CTX *ctx = NULL;
   EVP_PKEY *verification_key = NULL;
@@ -179,9 +179,9 @@ openssl_public_key_malloc(signature_info_t *signature_info, pem_pkey_t *pem_publ
     }
 
     // Free any existing key
-    EVP_PKEY_CTX_free(signature_info->public_key);
-    // Set the content in |signature_info|
-    signature_info->public_key = ctx;
+    EVP_PKEY_CTX_free(verify_data->key);
+    // Set the content in |verify_data|
+    verify_data->key = ctx;
   SVI_CATCH()
   {
     EVP_PKEY_CTX_free(ctx);

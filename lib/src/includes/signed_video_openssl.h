@@ -110,7 +110,7 @@ openssl_sign_hash(sign_or_verify_data_t *sign_data);
  * The function allocates enough memory for a signature given the |private_key|.
  * Use openssl_free_key() to free the key context.
  *
- * @param signature_info A pointer to the struct that holds all necessary information for signing.
+ * @param sign_data A pointer to the struct that holds all necessary information for signing.
  * @param private_key The content of the private key PEM file.
  * @param private_key_size The size of the |private_key|.
  *

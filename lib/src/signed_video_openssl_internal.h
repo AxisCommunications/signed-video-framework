@@ -25,7 +25,7 @@
 #include <stdint.h>  // uint8_t
 #include <string.h>  // size_t
 
-#include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t signature_info_t
+#include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "signed_video_defines.h"  // svi_rc
 
 /**
@@ -213,10 +213,10 @@ openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_
  * @brief Turns a public key on PEM form to EVP_PKEY form
  *
  * The function takes the public key as a pem_pkey_t and stores it as |public_key| in
- * |signature_info| on the EVP_PKEY form.
+ * |verify_data| on the EVP_PKEY form.
  * Use openssl_free_key() to free the key context.
  *
- * @param signature_info A pointer to the struct that holds all necessary information for signing.
+ * @param verify_data A pointer to the struct that holds all necessary information for signing.
  * @param pem_public_key A pointer to the PEM format struct.
  *
  * @returns SVI_OK Successfully stored |public_key|,
@@ -224,6 +224,6 @@ openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_
  *          SVI_EXTERNAL_FAILURE Failure in OpenSSL.
  */
 svi_rc
-openssl_public_key_malloc(signature_info_t *signature_info, pem_pkey_t *pem_public_key);
+openssl_public_key_malloc(sign_or_verify_data_t *verify_data, pem_pkey_t *pem_public_key);
 
 #endif  // __SIGNED_VIDEO_OPENSSL_INTERNAL__

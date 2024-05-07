@@ -639,8 +639,13 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     self->has_public_key = true;
     data_ptr += pubkey_size;
 
+    // TODO: Remove this temporary solution when signature_info has been replaced with
+    // a verify_data struct instead. Borrow the public key from signature_info.
+    sign_or_verify_data_t verify_data = {.key = self->signature_info->public_key};
     // Convert to EVP_PKEY
-    SVI_THROW(openssl_public_key_malloc(self->signature_info, &self->pem_public_key));
+    SVI_THROW(openssl_public_key_malloc(&verify_data, &self->pem_public_key));
+    // Hand the key back.
+    self->signature_info->public_key = verify_data.key;
 
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // If "Axis Communications AB" can be identified from the |product_info|, set |public_key| to
