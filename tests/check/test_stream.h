@@ -26,23 +26,6 @@
 
 #include "lib/src/includes/signed_video_common.h"  // SignedVideoCodec
 
-#define DUMMY_NALU_SIZE (5)
-#define DUMMY_SEI_SIZE (22)
-
-extern const uint8_t invalid_nalu[DUMMY_NALU_SIZE];
-extern const uint8_t I_nalu_h264[DUMMY_NALU_SIZE];
-extern const uint8_t P_nalu_h264[DUMMY_NALU_SIZE];
-extern const uint8_t i_nalu_h264[DUMMY_NALU_SIZE];
-extern const uint8_t p_nalu_h264[DUMMY_NALU_SIZE];
-extern const uint8_t pps_nalu_h264[DUMMY_NALU_SIZE];
-extern const uint8_t sei_nalu_h264[DUMMY_SEI_SIZE];
-extern const uint8_t I_nalu_h265[DUMMY_NALU_SIZE];
-extern const uint8_t P_nalu_h265[DUMMY_NALU_SIZE];
-extern const uint8_t i_nalu_h265[DUMMY_NALU_SIZE];
-extern const uint8_t p_nalu_h265[DUMMY_NALU_SIZE];
-extern const uint8_t pps_nalu_h265[DUMMY_NALU_SIZE];
-extern const uint8_t sei_nalu_h265[DUMMY_SEI_SIZE];
-
 /* A struct representing a NAL Unit in a test stream, the test stream being represented as
  * a linked list. Each object holds the data as well as pointers to the previous and next
  * item in the list.
