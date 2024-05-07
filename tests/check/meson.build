@@ -11,7 +11,7 @@ tests = [
         'test_stream.c',
         'test_helpers.h',
         'test_helpers.c',
-        'check_h26xsigned_sign.c'
+        'check_signed_video_sign.c'
       ]
     ],
 ]
@@ -25,7 +25,7 @@ if (get_option('signingplugin') != 'threaded_unless_check_dep')
           'test_stream.c',
           'test_helpers.h',
           'test_helpers.c',
-          'check_h26xsigned_auth.c' 
+          'check_signed_video_auth.c'
         ] 
       ] 
   ]
