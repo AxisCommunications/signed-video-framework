@@ -96,6 +96,7 @@ pull_nalus(signed_video_t *sv, nalu_list_item_t *item)
     uint8_t *sei = malloc(sei_size);
     sv_rc = signed_video_get_sei(sv, sei, &sei_size);
     ck_assert_int_eq(sv_rc, SV_OK);
+    ck_assert(!signed_video_is_golden_sei(sv, sei, sei_size));
     // Generate a new nalu_list_item with this SEI.
     nalu_list_item_t *new_item = nalu_list_create_item(sei, sei_size, sv->codec);
     // Prepend the nalu_list_item with this new item.
@@ -124,6 +125,7 @@ create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalu
 
   // Loop through the NALUs and add for signing.
   while (item) {
+    ck_assert(!signed_video_is_golden_sei(sv, item->data, item->data_size));
     if (split_nalus) {
       // Split the NALU into 2 parts, where the last part inlcudes the ID and the stop bit.
       rc = signed_video_add_nalu_part_for_signing_with_timestamp(
@@ -134,8 +136,6 @@ create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalu
     } else {
       rc = signed_video_add_nalu_part_for_signing_with_timestamp(
           sv, item->data, item->data_size, &g_testTimestamp, true);
-      // The check is only performed for the complete NALU.
-      ck_assert(!signed_video_is_golden_sei(sv, item->data, item->data_size));
     }
     ck_assert_int_eq(rc, SV_OK);
     // Pull NALUs to prepend or append and inject into the NALU list.

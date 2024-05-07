@@ -134,13 +134,13 @@ signed_video_compare_versions(const char* version1, const char* version2);
  * hence not bound to a stream, and it only includes information needed once, such as the Public
  * key.
  *
- * @param sei SEI payload
- * @param sei_size Size of the SEI NALU
+ * @param nalu NALU payload
+ * @param nalu_size Size of the NALU
  *
  * @returns True if NALU is a golden SEI
  */
 bool
-signed_video_is_golden_sei(signed_video_t* self, const uint8_t* sei, size_t sei_size);
+signed_video_is_golden_sei(signed_video_t* self, const uint8_t* nalu, size_t nalu_size);
 
 #ifdef __cplusplus
 }
