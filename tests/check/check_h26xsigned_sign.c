@@ -31,7 +31,7 @@
 #include "lib/src/signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
 #include "lib/src/signed_video_h26x_internal.h"  // h26x_nalu_t
 #include "lib/src/signed_video_internal.h"  // set_hash_list_size()
-#include "signed_video_helpers.h"
+#include "test_helpers.h"
 #include "test_stream.h"
 
 static void
