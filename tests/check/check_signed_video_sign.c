@@ -19,16 +19,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 #include <check.h>
-#include <stdlib.h>  // abs()
-#include <string.h>
+#include <stdint.h>  // uint8_t
+#include <stdlib.h>  // EXIT_SUCCESS, EXIT_FAILURE, size_t, abs()
 
 #include "lib/src/includes/signed_video_common.h"
-#include "lib/src/includes/signed_video_openssl.h"
+#include "lib/src/includes/signed_video_openssl.h"  // sign_algo_t
 #include "lib/src/includes/signed_video_sign.h"
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "lib/src/includes/sv_vendor_axis_communications.h"
 #endif
-#include "lib/src/signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
 #include "lib/src/signed_video_h26x_internal.h"  // h26x_nalu_t
 #include "lib/src/signed_video_internal.h"  // set_hash_list_size()
 #include "test_helpers.h"
@@ -44,35 +43,37 @@ teardown()
 {
 }
 
-/* Pull NALUs to prepend from the global signed_video_t session (sv). If num_nalus_to_pull < 0,
- * all NALUs are pulled. If nalus_pulled is not a NULL pointer the number of NALUs that were
- * pulled will be reported back.
- */
+/* Get SEIs from the session |sv|. If |num_seis_to_get| < 0, all available SEIs are
+ * fetched. If |num_seis_gotten| is not a NULL pointer the number of SEIs that were
+ * successfully fetched will be reported back.
+ * Note that the SEIs are never stored. They are freed at once. */
 static SignedVideoReturnCode
-pull_nalus(signed_video_t *sv, int num_nalus_to_pull, int *nalus_pulled)
+get_seis(signed_video_t *sv, int num_seis_to_get, int *num_seis_gotten)
 {
   SignedVideoReturnCode sv_rc = SV_OK;
+  int num_pulled_nalus = 0;
+
   size_t sei_size = 0;
   sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
-  int num_pulled_nalus = 0;
-  while (sv_rc == SV_OK && sei_size > 0) {
+  while (num_seis_to_get != 0 && sv_rc == SV_OK && sei_size > 0) {
     uint8_t *sei = malloc(sei_size);
     ck_assert(sei);
     sv_rc = signed_video_get_sei(sv, sei, &sei_size);
-    free(sei);  // Sizes can vary between SEIs, so it's better to free and reallocate a new SEI
+    ck_assert_int_eq(sv_rc, SV_OK);
+    // Sizes can vary between SEIs, so it is better to free and allocate new memory for each SEI
+    free(sei);
     num_pulled_nalus++;
-    num_nalus_to_pull--;
-    if (num_nalus_to_pull == 0) break;
+    num_seis_to_get--;
     sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
   }
 
-  if (nalus_pulled) *nalus_pulled = num_pulled_nalus;
+  if (num_seis_gotten) *num_seis_gotten = num_pulled_nalus;
   return sv_rc;
 }
 
 /* Test description
  * All public APIs are checked for invalid parameters, and valid NULL pointer inputs. This is done
- * for both H264 and H265.
+ * for both H.264 and H.265.
  */
 START_TEST(api_inputs)
 {
@@ -184,7 +185,7 @@ START_TEST(api_inputs)
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, 0);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  // An invalid NALU should return silently.
+  // An invalid NAL Unit should return silently.
   sv_rc = signed_video_add_nalu_for_signing(sv, invalid->data, invalid->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
@@ -198,7 +199,7 @@ START_TEST(api_inputs)
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(sv, p_nalu->data, 0, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  // An invalid NALU should return silently.
+  // An invalid NAL Unit should return silently.
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
       sv, invalid->data, invalid->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -265,11 +266,11 @@ END_TEST
  * If the user does not follow the correct operation SV_NOT_SUPPORTED should be returned.
  * The operation is as follows:
  * 1. Create a signed_video_t session
- * 2. Set the path to the openssl keys
+ * 2. Set the private key
  * 3. Repeat
- *   i) Add NALU for signing
- *  ii) Get all NALUs to prepend
- * 4. Repeat for both H264 and H265
+ *   i) Add NAL Unit for signing
+ *  ii) Get all SEIs
+ * 4. Repeat for both H.264 and H.265
  */
 START_TEST(incorrect_operation)
 {
@@ -296,26 +297,26 @@ START_TEST(incorrect_operation)
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  // signed_video_get_nalu_to_prepend(...) should be called after each
-  // signed_video_add_nalu_for_signing(...). After a P-nalu this is still OK, since we have no
-  // NALUs to prepend, but otherwise we should.
+  // signed_video_get_sei(...) should be called after each signed_video_add_nalu_for_signing(...).
+  // After a P-nalu it is in principle OK, since there are no SEIs to get, due to an unthreaded
+  // signing plugin.
 
   sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
-  // This is the first NALU of the stream. We should have 1 NALU to prepend. Pulling only one
-  // should not be enough.
+  // This is the first NAL Unit of the stream. We should have 1 NAL Unit to prepend. Pulling only
+  // one should not be enough.
 
-  sv_rc = pull_nalus(sv, 1, NULL);
+  sv_rc = get_seis(sv, 1, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  // Adding another P-nalu without pulling NALUs is fine.
+  // Adding another P-nalu without getting SEIs is fine.
   sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  // Pull all nalus.
-  sv_rc = pull_nalus(sv, -1, NULL);
+  // Pull all SEIs.
+  sv_rc = get_seis(sv, -1, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
-  // Free nalu_list_item and session.
+  // Free test stream items, session and private key.
   test_stream_item_free(p_nalu);
   test_stream_item_free(i_nalu);
   signed_video_free(sv);
@@ -389,7 +390,7 @@ START_TEST(vendor_axis_communications_operation)
   sv_rc = signed_video_set_authenticity_level(sv, auth_level);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  // Add an I-NALU to trigger a SEI.
+  // Add an I-NAL Unit to trigger a SEI.
   sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
@@ -415,13 +416,13 @@ END_TEST
 #endif
 
 /* Test description
- * In this test we check for number of NALUs to prepend during two GOPs.
+ * In this test we check for number of NAL Units to prepend during two GOPs.
  * Add
  *   IPPIPP
  * followed by signed_video_set_end_of_stream(...)
  * Then we should get
  *   SIPPSIPP(S)
- * where S = SEI-NALU, I = I-NALU and P = P-NALU.
+ * where S = SEI, I = I-NALU and P = P-NALU.
  */
 // TODO: Enabled when we have better support and knowledge about EOS.
 #if 0
@@ -457,7 +458,7 @@ END_TEST
  *   SIiPpPpSIiPpPp(S)
  * where
  * S = SEI-NALU,
- * I = I-NALU (Primary I slice or first slice in the current NALU),
+ * I = I-NALU (Primary I slice or first slice in the current NAL Unit),
  * i = i-NALU (Non-primary I slices)
  * P = P-NALU (Primary P slice)
  * p = p-NALU (Non-primary P slice)
@@ -492,12 +493,12 @@ END_TEST
  *   IPPIPPPPPI
  * Then we should get
  *   SIPPSIPPPPPSI
- * When the gop length increase, the size of the generated SEI NALU also increases for
+ * When the gop length increase, the size of the generated SEI also increases for
  * SV_AUTHENTICITY_LEVEL_FRAME, but for SV_AUTHENTICITY_LEVEL_GOP it is independent of
  * the gop length.
  *
- * In this test we generate a stream with three SEI NALUs, each corresponding to an
- * increased gop length. We then fetch the SEIs (S's) and compare their sizes.
+ * In this test we generate a test stream with three SEIs, each corresponding to an
+ * increased gop length. Then the SEIs (S's) are fetched and their sizes are compared.
  */
 START_TEST(sei_increase_with_gop_length)
 {
@@ -535,7 +536,7 @@ START_TEST(sei_increase_with_gop_length)
 END_TEST
 
 /* Test description
- * Add some NALUs to a stream, where the last one is super long. Too long for
+ * Add some NAL Units to a test stream, where the last one is super long. Too long for
  * SV_AUTHENTICITY_LEVEL_FRAME to handle it. Note that in tests we run with a shorter max hash list
  * size, namely 10; See meson file.
  *
@@ -562,7 +563,7 @@ START_TEST(fallback_to_gop_level)
   // If the true hash size is different from the default one, the test should still pass.
   ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * DEFAULT_HASH_SIZE), SVI_OK);
 
-  // Create a list of NALUs given the input string.
+  // Create a test stream given the input string.
   test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPI", false);
   test_stream_check_types(list, "SIPPSIPPPPPPPPPPPPPPPPPPPPPPPPSI");
   test_stream_item_t *sei_3 = test_stream_item_remove(list, 31);
@@ -572,7 +573,7 @@ START_TEST(fallback_to_gop_level)
   test_stream_item_t *sei_1 = test_stream_item_remove(list, 1);
   test_stream_item_check_type(sei_1, 'S');
 
-  // Verify that the HASH_LIST_TAG is present (or not) in the SEI.
+  // Verify that the HASH_LIST_TAG is present in the SEI when it should.
   ck_assert(tag_is_present(sei_1, settings[_i].codec, HASH_LIST_TAG));
   ck_assert(tag_is_present(sei_2, settings[_i].codec, HASH_LIST_TAG));
   ck_assert(!tag_is_present(sei_3, settings[_i].codec, HASH_LIST_TAG));
@@ -586,7 +587,7 @@ START_TEST(fallback_to_gop_level)
 END_TEST
 
 /* Test description
- * In this test we check if an undefined NALU is passed through silently.
+ * In this test we check if an undefined NAL Unit is passed through silently.
  * Add
  *   IPXPIPP
  * Then we should get
@@ -604,12 +605,12 @@ START_TEST(undefined_nalu_in_sequence)
 END_TEST
 
 /* Test description
- * Verify that after 2 completed SEIs created and will be emitted in correct order
+ * Verify that after 2 completed SEIs have been created, they are emitted in correct order.
  * The operation is as follows:
  * 1. Setup a signed_video_t session
- * 2. Add 2 I NALU for signing that will trigger 2 SEI NALU
- * 3. Get the SEI NALUs to prepend
- * 4. Check that SEI NALUs were emitted in correct order
+ * 2. Add 2 I NAL Units for signing that will trigger 2 SEIs
+ * 3. Get the SEIs
+ * 4. Check that the SEIs were emitted in correct order
  */
 START_TEST(two_completed_seis_pending)
 {
@@ -622,9 +623,11 @@ START_TEST(two_completed_seis_pending)
   size_t sei_size_2 = 0;
   size_t sei_size_3 = 0;
   signed_video_t *sv = signed_video_create(codec);
+  ck_assert(sv);
+
   // Enable testing mode to add multiple SEIs.
   sv->sv_test_on = true;
-  ck_assert(sv);
+
   char *private_key = NULL;
   size_t private_key_size = 0;
   test_stream_item_t *i_nalu_1 = test_stream_item_create_from_type('I', 0, codec);
@@ -642,24 +645,28 @@ START_TEST(two_completed_seis_pending)
   sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_2->data, i_nalu_2->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  // After 2 seis are created, SEIs can be copied
+  // Now 2 SEIs should be available. Get the first one.
   sv_rc = signed_video_get_sei(sv, NULL, &sei_size_1);
+  ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(sei_size_1 != 0);
   uint8_t *sei_1 = malloc(sei_size_1);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_get_sei(sv, sei_1, &sei_size_1);
   ck_assert_int_eq(sv_rc, SV_OK);
+  // Now get the second one.
   sv_rc = signed_video_get_sei(sv, NULL, &sei_size_2);
+  ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(sei_size_2 != 0);
   uint8_t *sei_2 = malloc(sei_size_2);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_get_sei(sv, sei_2, &sei_size_2);
   ck_assert_int_eq(sv_rc, SV_OK);
+  // There should not be a third one.
   sv_rc = signed_video_get_sei(sv, NULL, &sei_size_3);
   ck_assert_int_eq(sv_rc, SV_OK);
-  // Check if there are no more SEIs remaining in the buffer
   ck_assert_int_eq(sei_size_3, 0);
-  // Verify the transfer order of NALUs
+
+  // Verify the transfer order of NAL Units
   // Expect |sei_size_1| to be less than |sei_size_2| because the second SEI includes one
   // additional hash compared to the first, affecting their respective sizes.
   ck_assert(sei_size_1 < sei_size_2);
@@ -674,12 +681,12 @@ START_TEST(two_completed_seis_pending)
 END_TEST
 
 /* Test description
- * Verify that after 2 completed SEIs created ,they will be emitted in correct order
+ * Verify that after 2 completed SEIs have been created, they are emitted in correct order.
  * The operation is as follows:
  * 1. Setup a signed_video_t session
- * 2. Add 2 I NALU for signing that will trigger 2 SEI NALU
- * 3. Get the SEI NALUs to prepend
- * 4. Check that SEI NALUs were emitted in correct order
+ * 2. Add 2 I NAL Units for signing that will trigger 2 SEIs
+ * 3. Get the SEIs using the legacy API
+ * 4. Check that the SEIs were emitted in correct order
  */
 START_TEST(two_completed_seis_pending_legacy)
 {
@@ -693,8 +700,10 @@ START_TEST(two_completed_seis_pending_legacy)
   signed_video_nalu_to_prepend_t nalu_to_prepend_3 = {0};
 
   signed_video_t *sv = signed_video_create(codec);
-  sv->sv_test_on = true;
   ck_assert(sv);
+
+  sv->sv_test_on = true;
+
   char *private_key = NULL;
   size_t private_key_size = 0;
   test_stream_item_t *i_nalu_1 = test_stream_item_create_from_type('I', 0, codec);
@@ -720,7 +729,7 @@ START_TEST(two_completed_seis_pending_legacy)
   sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend_3);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(nalu_to_prepend_3.prepend_instruction, SIGNED_VIDEO_PREPEND_NOTHING);
-  // Verify the transfer order of NALUs
+  // Verify the transfer order of NAL Units
   // Expect |nalu_to_prepend_2.nalu_data_size| to be less than |nalu_to_prepend_1.nalu_data_size|
   // because the first SEI includes one additional hash compared to the second, affecting their
   // respective sizes.
@@ -736,12 +745,12 @@ START_TEST(two_completed_seis_pending_legacy)
 END_TEST
 
 /* Test description
- * Verify that the new API for adding a timestamp with the NALU for signing doesn't change the
- * result when the timestamp is not present (NULL) compared to the old API.
+ * Verify that the new API for adding a timestamp with the NAL Unit for signing does not
+ * change the result when the timestamp is not present (NULL) compared to the old API.
  * The operation is as follows:
  * 1. Setup two signed_video_t sessions
- * 2. Add NALU for signing with the new and old API supporting timestamp
- * 3. Get the NALU to prepend
+ * 2. Add a NAL Unit for signing with the new and old API supporting timestamp
+ * 3. Get the SEI
  * 4. Check that the sizes and contents of hashable data are identical
  */
 START_TEST(correct_timestamp)
@@ -826,7 +835,7 @@ START_TEST(correct_timestamp)
 END_TEST
 
 /* Test description
- * Same as correct_nalu_sequence_without_eos, but with splitted NALU data.
+ * Same as correct_nalu_sequence_without_eos, but with splitted NAL Unit data.
  */
 START_TEST(correct_signing_nalus_in_parts)
 {
@@ -924,7 +933,8 @@ START_TEST(limited_sei_payload_size)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  // No need to run this with GOP level authentication.
+  // No need to run this with GOP level authentication, since only frame level
+  // authentication can dynamically affect the payload size.
   if (settings[_i].auth_level != SV_AUTHENTICITY_LEVEL_FRAME) return;
 
   // Select an upper payload limit which is less then the size of the last SEI.
