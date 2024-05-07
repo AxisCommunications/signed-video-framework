@@ -73,7 +73,7 @@ get_initialized_signed_video(SignedVideoCodec codec,
 test_stream_t *
 create_signed_nalus(const char *str, struct sv_setting settings);
 
-/* See function create_signed_nalus_int, with the diffrence that each NAL Unit is split in
+/* See function create_signed_nalus_int, with the difference that each NAL Unit is split in
  * two parts. */
 test_stream_t *
 create_signed_splitted_nalus(const char *str, struct sv_setting settings);
