@@ -1320,5 +1320,6 @@ signed_video_is_golden_sei(signed_video_t *self, const uint8_t *nalu, size_t nal
   if (!self || !nalu || (nalu_size == 0)) return false;
 
   h26x_nalu_t parsed_nalu = parse_nalu_info(nalu, nalu_size, self->codec, false, true);
+  free(parsed_nalu.nalu_data_wo_epb);
   return parsed_nalu.is_golden_sei;
 };
