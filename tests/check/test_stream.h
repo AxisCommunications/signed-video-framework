@@ -97,26 +97,22 @@ test_stream_append_item(test_stream_t *list,
     test_stream_item_t *new_item,
     int item_number_to_append);
 
-/* Appends the last_item of a list with a |new_item|. */
-void
-test_stream_append_last_item(test_stream_t *list, test_stream_item_t *new_item);
-
 /* Prepends the first_item of a list with a |new_item|. */
 void
 test_stream_prepend_first_item(test_stream_t *list, test_stream_item_t *new_item);
 
-/* Makes a refresh on the list. This means restoring all struct members. Helpful if the
- * list is out of sync. Rewinds the first_item to the beginning and loops through all
- * items to get the size, the last_item and the types. Note that the first_item has to be
- * represented in the list. */
+/* Makes a refresh on the |list|. This means restoring all struct members. Helpful if the
+ * |list| is out of sync. Rewinds the |first_item| to the beginning and loops through all
+ * items to get the size, the |last_item| and the |types|. Note that the |first_item| has
+ * to be represented in the |list|. */
 void
 test_stream_refresh(test_stream_t *list);
 
-/* Checks the sequence of NAL Unis of |list| against the expected |str| of types. */
+/* Checks the sequence of NAL Units of |list| against the expected |types|. */
 void
-test_stream_check_types(const test_stream_t *list, const char *str);
+test_stream_check_types(const test_stream_t *list, const char *types);
 
-/* Prints the members of the list. */
+/* Prints the members of the |list|. */
 void
 test_stream_print(test_stream_t *list);
 
@@ -157,10 +153,6 @@ test_stream_pop_first_item(test_stream_t *list);
  * is responsible to free the memory. */
 test_stream_item_t *
 test_stream_pop_last_item(test_stream_t *list);
-
-/* Appends a |list_item| with a new item. Assumes |list_item| exists. */
-void
-test_stream_item_append(test_stream_item_t *list_item, test_stream_item_t *new_item);
 
 /* Prepends a |list_item| with a |new_item|. Assumes |list_item| exists. */
 void
