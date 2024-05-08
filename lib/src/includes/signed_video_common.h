@@ -128,16 +128,20 @@ int
 signed_video_compare_versions(const char* version1, const char* version2);
 
 /**
- * @brief Checks the NALU if its a golden SEI
+ * @brief Checks if a NALU is a golden SEI
  *
- * Golden SEI is the NALU that is generated at the start of the stream. This SEI is self-signed,
- * hence not bound to a stream, and it only includes information needed once, such as the Public
- * key.
+ * A golden SEI is a self-signed SEI that includes all information only needed once
+ * such as the Public key. Usually a golden SEI is sent only once in the beginning of
+ * a stream.
+ * With this function the validation side can detect these to store them for later use,
+ * e.g., at file export.
+ * For the signing side it can help out to verify that a pre-generated golden SEI
+ * actually is a golden SEI before adding it to the stream
  *
- * @param nalu NALU data
- * @param nalu_size Size of the NALU
+ * @param nalu A pointer to the NALU data
+ * @param nalu_size Size of the |nalu|
  *
- * @returns True if NALU is a golden SEI
+ * @returns True if |nalu| is a golden SEI
  */
 bool
 signed_video_is_golden_sei(signed_video_t* self, const uint8_t* nalu, size_t nalu_size);
