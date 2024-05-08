@@ -590,8 +590,10 @@ remove_epb_from_sei_payload(h26x_nalu_t *nalu)
   nalu->reserved_byte = *nalu->tlv_start_in_nalu_data;
   nalu->tlv_start_in_nalu_data++;  // Move past the |reserved_byte|.
   nalu->tlv_size -= 1;  // Exclude the |reserved_byte| from TLV size.
-  nalu->with_epb = (nalu->reserved_byte & 0x80);  // Hash with emulation prevention bytes
   nalu->tlv_data = nalu->tlv_start_in_nalu_data;
+  // Read flags from |reserved_byte|
+  nalu->with_epb = (nalu->reserved_byte & 0x80);  // Hash with emulation prevention bytes
+  nalu->is_golden_sei = (nalu->reserved_byte & 0x40);  // The NALU is a golden SEI.
 
   if (nalu->emulation_prevention_bytes <= 0) return;
 
@@ -1324,3 +1326,13 @@ signed_video_compare_versions(const char *version1, const char *version2)
 error:
   return status;
 }
+
+bool
+signed_video_is_golden_sei(signed_video_t *self, const uint8_t *nalu, size_t nalu_size)
+{
+  if (!self || !nalu || (nalu_size == 0)) return false;
+
+  h26x_nalu_t parsed_nalu = parse_nalu_info(nalu, nalu_size, self->codec, false, true);
+  free(parsed_nalu.nalu_data_wo_epb);
+  return parsed_nalu.is_golden_sei;
+};

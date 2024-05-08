@@ -19,6 +19,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 #include <check.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 #include "lib/src/includes/signed_video_common.h"
@@ -42,7 +43,8 @@ START_TEST(invalid_api_inputs)
   SignedVideoCodec codec = _i;
 
   signed_video_t *sv = NULL;
-
+  uint8_t nalu_data[3] = {0, 1, 2};
+  size_t nalu_data_size = 3;
   // Check invalid codecs
   sv = signed_video_create(-1);
   ck_assert(!sv);
@@ -60,6 +62,10 @@ START_TEST(invalid_api_inputs)
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   sv_rc = signed_video_reset(sv);
   ck_assert_int_eq(sv_rc, SV_OK);
+
+  ck_assert(!signed_video_is_golden_sei(NULL, nalu_data, nalu_data_size));
+  ck_assert(!signed_video_is_golden_sei(sv, NULL, nalu_data_size));
+  ck_assert(!signed_video_is_golden_sei(sv, nalu_data, 0));
 
   signed_video_free(sv);
 }
