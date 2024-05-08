@@ -26,7 +26,7 @@
 #include "axis-communications/sv_vendor_axis_communications_internal.h"
 #endif
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
-#include "includes/signed_video_openssl.h"  // pem_pkey_t, signature_info_t
+#include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "signed_video_authenticity.h"  // transfer_product_info()
 #include "signed_video_openssl_internal.h"  // openssl_public_key_malloc()
 
@@ -639,13 +639,8 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     self->has_public_key = true;
     data_ptr += pubkey_size;
 
-    // TODO: Remove this temporary solution when signature_info has been replaced with
-    // a verify_data struct instead. Borrow the public key from signature_info.
-    sign_or_verify_data_t verify_data = {.key = self->signature_info->public_key};
     // Convert to EVP_PKEY
-    SVI_THROW(openssl_public_key_malloc(&verify_data, &self->pem_public_key));
-    // Hand the key back.
-    self->signature_info->public_key = verify_data.key;
+    SVI_THROW(openssl_public_key_malloc(self->verify_data, &self->pem_public_key));
 
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // If "Axis Communications AB" can be identified from the |product_info|, set |public_key| to
@@ -653,8 +648,8 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     if (self->product_info->manufacturer &&
         strcmp(self->product_info->manufacturer, "Axis Communications AB") == 0) {
       // Set public key.
-      SVI_THROW(set_axis_communications_public_key(self->vendor_handle,
-          self->signature_info->public_key, self->latest_validation->public_key_has_changed));
+      SVI_THROW(set_axis_communications_public_key(self->vendor_handle, self->verify_data->key,
+          self->latest_validation->public_key_has_changed));
     }
 #endif
 
@@ -805,8 +800,8 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
   const uint8_t *data_ptr = data;
   gop_info_t *gop_info = self->gop_info;
-  signature_info_t *signature_info = self->signature_info;
-  uint8_t **signature_ptr = &signature_info->signature;
+  sign_or_verify_data_t *verify_data = self->verify_data;
+  uint8_t **signature_ptr = &verify_data->signature;
   uint8_t version = *data_ptr++;
   uint8_t encoding_status = *data_ptr++;
   hash_type_t hash_type = *data_ptr++;
@@ -825,20 +820,20 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
     SVI_THROW_IF(hash_type < 0 || hash_type >= NUM_HASH_TYPES, SVI_DECODING_ERROR);
     SVI_THROW_IF(max_signature_size < signature_size, SVI_DECODING_ERROR);
     if (!*signature_ptr) {
-      signature_info->max_signature_size = 0;
-      signature_info->signature_size = 0;
+      verify_data->max_signature_size = 0;
+      verify_data->signature_size = 0;
       // Allocate enough space for future signatures as well, that is, max_signature_size.
       *signature_ptr = malloc(max_signature_size);
       SVI_THROW_IF(!*signature_ptr, SVI_MEMORY);
       // Set memory size.
-      signature_info->max_signature_size = max_signature_size;
+      verify_data->max_signature_size = max_signature_size;
     }
-    SVI_THROW_IF(signature_info->max_signature_size != max_signature_size, SVI_MEMORY);
+    SVI_THROW_IF(verify_data->max_signature_size != max_signature_size, SVI_MEMORY);
     memcpy(*signature_ptr, data_ptr, max_signature_size);
     data_ptr += max_signature_size;
 
     // Set true signature size.
-    signature_info->signature_size = signature_size;
+    verify_data->signature_size = signature_size;
     gop_info->encoding_status = encoding_status;
     gop_info->signature_hash_type = hash_type;
     SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
@@ -912,7 +907,7 @@ decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
     SVI_THROW(openssl_set_hash_algo_by_encoded_oid(
         self->crypto_handle, hash_algo_encoded_oid, hash_algo_encoded_oid_size));
     self->validation_flags.hash_algo_known = true;
-    self->signature_info->hash_size = openssl_get_hash_size(self->crypto_handle);
+    self->verify_data->hash_size = openssl_get_hash_size(self->crypto_handle);
     data_ptr += hash_algo_encoded_oid_size;
 
     SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
