@@ -18,7 +18,7 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#include "nalu_list.h"
+#include "test_stream.h"
 
 #include <check.h>  // ck_assert
 #include <stdio.h>  // printf
@@ -55,8 +55,8 @@ const uint8_t i_nalu_h264[DUMMY_NALU_SIZE] = {0x65, 0x00, 0xff, 0x00, 0x80};
 const uint8_t P_nalu_h264[DUMMY_NALU_SIZE] = {0x01, 0x80, 0xff, 0x00, 0x80};
 const uint8_t p_nalu_h264[DUMMY_NALU_SIZE] = {0x01, 0x00, 0xff, 0x00, 0x80};
 const uint8_t pps_nalu_h264[DUMMY_NALU_SIZE] = {0x28, 0x00, 0xff, 0x00, 0x80};
-const uint8_t sei_nalu_h264[DUMMY_SEI_NALU_SIZE] = {0x06, 0x05, 0x12, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa,
-    0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, 0x80};
+const uint8_t sei_nalu_h264[DUMMY_SEI_SIZE] = {0x06, 0x05, 0x12, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa,
+    0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, 0x80};
 /* The H265 pattern is as follows:
  *
  *  non-SEI
@@ -73,8 +73,8 @@ const uint8_t i_nalu_h265[DUMMY_NALU_SIZE] = {0x26, 0x01, 0x00, 0x00, 0x80};
 const uint8_t P_nalu_h265[DUMMY_NALU_SIZE] = {0x02, 0x01, 0x80, 0x00, 0x80};
 const uint8_t p_nalu_h265[DUMMY_NALU_SIZE] = {0x02, 0x01, 0x00, 0x00, 0x80};
 const uint8_t pps_nalu_h265[DUMMY_NALU_SIZE] = {0x44, 0x01, 0x00, 0x00, 0x80};
-const uint8_t sei_nalu_h265[DUMMY_SEI_NALU_SIZE] = {0x4e, 0x01, 0x05, 0x11, 0xaa, 0xaa, 0xaa, 0xaa,
-    0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x80};
+const uint8_t sei_nalu_h265[DUMMY_SEI_SIZE] = {0x4e, 0x01, 0x05, 0x11, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa,
+    0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x80};
 
 /* Helper that parses information from the NALU and returns a one character string (+ null
  * termination) representing the NALU type.
@@ -142,12 +142,12 @@ generate_nalu(bool valid_start_code,
 }
 
 /**
- * nalu_list_item_t functions.
+ * test_stream_item_t functions.
  */
 
-/* Creates a nalu_list_item_t from a |str| and |codec|. Then sets the |id|. */
-nalu_list_item_t *
-nalu_list_item_create_and_set_id(char str, uint8_t id, SignedVideoCodec codec)
+/* Creates a test_stream_item_t from a |str| and |codec|. Then sets the |id|. */
+test_stream_item_t *
+test_stream_item_create_from_type(char str, uint8_t id, SignedVideoCodec codec)
 {
   uint8_t *nalu = NULL;  // Final NALU with start code and id.
   const uint8_t *nalu_data = NULL;
@@ -170,7 +170,7 @@ nalu_list_item_create_and_set_id(char str, uint8_t id, SignedVideoCodec codec)
       break;
     case 'Z':
       nalu_data = codec == SV_CODEC_H264 ? sei_nalu_h264 : sei_nalu_h265;
-      nalu_data_size = DUMMY_SEI_NALU_SIZE;
+      nalu_data_size = DUMMY_SEI_SIZE;
       break;
     case 'V':
       nalu_data = codec == SV_CODEC_H264 ? pps_nalu_h264 : pps_nalu_h265;
@@ -187,30 +187,30 @@ nalu_list_item_create_and_set_id(char str, uint8_t id, SignedVideoCodec codec)
   ck_assert(nalu);
   ck_assert(nalu_size > 0);
   ck_assert_int_eq(nalu[nalu_size - 2], id);  // Check id.
-  return nalu_list_create_item(nalu, nalu_size, codec);
+  return test_stream_item_create(nalu, nalu_size, codec);
 }
 
 /* Creates a new NALU list item. Takes pointers to the NALU data, the nalu data size and whether
  * the ownership is transfered to the item.
  */
-nalu_list_item_t *
-nalu_list_create_item(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
+test_stream_item_t *
+test_stream_item_create(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
 {
   // Sanity check on input parameters.
   if (!data || data_size <= 0) return NULL;
 
-  nalu_list_item_t *item = (nalu_list_item_t *)calloc(1, sizeof(nalu_list_item_t));
+  test_stream_item_t *item = (test_stream_item_t *)calloc(1, sizeof(test_stream_item_t));
   ck_assert(item);
 
   item->data = (uint8_t *)data;
   item->data_size = data_size;
-  item->str_code = get_str_code(data, data_size, codec);
+  item->type = get_str_code(data, data_size, codec);
 
   return item;
 }
 
 void
-nalu_list_free_item(nalu_list_item_t *item)
+test_stream_item_free(test_stream_item_t *item)
 {
   if (!item) return;
   signed_video_nalu_data_free(item->data);
@@ -220,7 +220,7 @@ nalu_list_free_item(nalu_list_item_t *item)
 
 /* This function detaches an item, that is, removes the links to all neighboring items. */
 static void
-nalu_list_detach_item(nalu_list_item_t *item)
+nalu_list_detach_item(test_stream_item_t *item)
 {
   if (!item) return;
   item->prev = NULL;
@@ -229,8 +229,8 @@ nalu_list_detach_item(nalu_list_item_t *item)
 
 /* Get the item with position item_number in the list. The item is not removed from the list, so if
  * any action is taken on the item, the list has to be refreshed. */
-nalu_list_item_t *
-nalu_list_get_item(nalu_list_t *list, int item_number)
+test_stream_item_t *
+test_stream_item_get(test_stream_t *list, int item_number)
 {
   // Sanity check on input parameters.
   if (!list || item_number <= 0) return NULL;
@@ -239,7 +239,7 @@ nalu_list_get_item(nalu_list_t *list, int item_number)
   if (list->num_items < item_number) return NULL;
   if (list->first_item == NULL || list->num_items == 0) return NULL;
 
-  nalu_list_item_t *item_to_get = list->first_item;
+  test_stream_item_t *item_to_get = list->first_item;
   // Find the correct item.
   while (--item_number) item_to_get = item_to_get->next;
 
@@ -250,22 +250,22 @@ nalu_list_get_item(nalu_list_t *list, int item_number)
  * the item and is responsible to free the memory. The item is no longer part of the list after
  * this operation.
  */
-nalu_list_item_t *
-nalu_list_remove_item(nalu_list_t *list, int item_number)
+test_stream_item_t *
+test_stream_item_remove(test_stream_t *list, int item_number)
 {
   if (!list || item_number <= 0) return NULL;
-  nalu_list_item_t *item_to_remove = nalu_list_get_item(list, item_number);
+  test_stream_item_t *item_to_remove = test_stream_item_get(list, item_number);
   if (!item_to_remove) return NULL;
 
   // Connect the previous and next items in the list.
   if (item_to_remove->prev) item_to_remove->prev->next = item_to_remove->next;
   if (item_to_remove->next) item_to_remove->next->prev = item_to_remove->prev;
 
-  // Fix the broken list. To use nalu_list_refresh(), first_item needs to be part of the list. If
+  // Fix the broken list. To use test_stream_refresh(), first_item needs to be part of the list. If
   // item_to_get was that first_item, we need to set a new one.
   if (list->first_item == item_to_remove) list->first_item = item_to_remove->next;
   if (list->last_item == item_to_remove) list->last_item = item_to_remove->prev;
-  nalu_list_refresh(list);
+  test_stream_refresh(list);
 
   nalu_list_detach_item(item_to_remove);
   return item_to_remove;
@@ -274,29 +274,29 @@ nalu_list_remove_item(nalu_list_t *list, int item_number)
 /* Returns the first item in the list. This item is no longer part of the list and the user is
  * responsible to free the memory.
  */
-nalu_list_item_t *
-nalu_list_pop_first_item(nalu_list_t *list)
+test_stream_item_t *
+test_stream_pop_first_item(test_stream_t *list)
 {
   if (!list) return NULL;
-  return nalu_list_remove_item(list, 1);
+  return test_stream_item_remove(list, 1);
 }
 
 /* Returns the last item in the list. This item is no longer part of the list and the user is
  * responsible to free the memory.
  */
-nalu_list_item_t *
-nalu_list_pop_last_item(nalu_list_t *list)
+test_stream_item_t *
+test_stream_pop_last_item(test_stream_t *list)
 {
   if (!list) return NULL;
-  return nalu_list_remove_item(list, list->num_items);
+  return test_stream_item_remove(list, list->num_items);
 }
 
 /* Appends a list item with a new item. Assumes list_item exists. */
 void
-nalu_list_item_append_item(nalu_list_item_t *list_item, nalu_list_item_t *new_item)
+test_stream_item_append(test_stream_item_t *list_item, test_stream_item_t *new_item)
 {
   if (!list_item || !new_item) return;
-  nalu_list_item_t *next_item = list_item->next;
+  test_stream_item_t *next_item = list_item->next;
 
   if (next_item != NULL) {
     next_item->prev = new_item;
@@ -308,10 +308,10 @@ nalu_list_item_append_item(nalu_list_item_t *list_item, nalu_list_item_t *new_it
 
 /* Prepends a list item with a new item. Assumes list_item exists. */
 void
-nalu_list_item_prepend_item(nalu_list_item_t *list_item, nalu_list_item_t *new_item)
+test_stream_item_prepend(test_stream_item_t *list_item, test_stream_item_t *new_item)
 {
   if (!list_item || !new_item) return;
-  nalu_list_item_t *prev_item = list_item->prev;
+  test_stream_item_t *prev_item = list_item->prev;
 
   if (prev_item != NULL) {
     prev_item->next = new_item;
@@ -323,22 +323,22 @@ nalu_list_item_prepend_item(nalu_list_item_t *list_item, nalu_list_item_t *new_i
 
 /* Checks the NALU |item| against the expected |str|. */
 void
-nalu_list_item_check_str(const nalu_list_item_t *item, const char *str)
+test_stream_item_check_type(const test_stream_item_t *item, const char *str)
 {
   if (!item || !str) return;
-  ck_assert_int_eq(item->str_code, str[0]);
+  ck_assert_int_eq(item->type, str[0]);
 }
 
-/* Helper function to print nalu_list_item_t members. */
+/* Helper function to print test_stream_item_t members. */
 void
-nalu_list_print_item(nalu_list_item_t *item)
+test_stream_item_print(test_stream_item_t *item)
 {
   printf("\n-- PRINT LIST ITEM: %p --\n", item);
   if (item) {
-    char str[2] = {item->str_code, '\0'};
+    char str[2] = {item->type, '\0'};
     printf("  data = %p\n", item->data);
     printf("  data_size = %zu\n", item->data_size);
-    printf("  str_code = %s\n", str);
+    printf("  type = %s\n", str);
     printf("  prev = %p\n", item->prev);
     printf("  next = %p\n", item->next);
   }
@@ -346,28 +346,28 @@ nalu_list_print_item(nalu_list_item_t *item)
 }
 
 /**
- * nalu_list_t functions
+ * test_stream_t functions
  */
 
 /* Creates a nalu_list with nalu_list_items based on the input string. The string is converted to
  * NALU list items.
  */
-nalu_list_t *
-nalu_list_create(const char *str, SignedVideoCodec codec)
+test_stream_t *
+test_stream_create(const char *str, SignedVideoCodec codec)
 {
-  nalu_list_t *list = (nalu_list_t *)calloc(1, sizeof(nalu_list_t));
+  test_stream_t *list = (test_stream_t *)calloc(1, sizeof(test_stream_t));
   ck_assert(list);
   list->codec = codec;
   uint8_t i = 0;
 
   while (str[i]) {
-    nalu_list_item_t *new_item = nalu_list_item_create_and_set_id(str[i], i, codec);
+    test_stream_item_t *new_item = test_stream_item_create_from_type(str[i], i, codec);
     if (!new_item) {
       // No character could be identified. Continue without adding.
       i++;
       continue;
     }
-    nalu_list_append_last_item(list, new_item);
+    test_stream_append_last_item(list, new_item);
     i++;
   }
 
@@ -376,39 +376,39 @@ nalu_list_create(const char *str, SignedVideoCodec codec)
 
 /* Frees all the items in the list and the list itself. */
 void
-nalu_list_free(nalu_list_t *list)
+test_stream_free(test_stream_t *list)
 {
   if (!list) return;
   // Pop all items and free them.
-  nalu_list_item_t *item = nalu_list_pop_first_item(list);
+  test_stream_item_t *item = test_stream_pop_first_item(list);
   while (item) {
-    nalu_list_free_item(item);
-    item = nalu_list_pop_first_item(list);
+    test_stream_item_free(item);
+    item = test_stream_pop_first_item(list);
   }
   free(list);
 }
 
 /* Makes a refresh on the list. This means restoring all struct members. Helpful if the list is
  * out of sync. Rewinds the first_item to the beginning and loop through all items to get the size,
- * the last_item and the str_code. Note that the first_item has to be represented in the list.
+ * the last_item and the type. Note that the first_item has to be represented in the list.
  */
 void
-nalu_list_refresh(nalu_list_t *list)
+test_stream_refresh(test_stream_t *list)
 {
   if (!list) return;
 
-  // Start from scratch, that is, reset num_items and str_code.
+  // Start from scratch, that is, reset num_items and types.
   list->num_items = 0;
-  memset(list->str_code, 0, sizeof(list->str_code));
+  memset(list->types, 0, sizeof(list->types));
   // Rewind first_item to get the true first list item.
   while (list->first_item && (list->first_item)->prev) {
     list->first_item = (list->first_item)->prev;
   }
-  // Start from the first_item and count as well as updating the str_code.
-  nalu_list_item_t *item = list->first_item;
+  // Start from the first_item and count as well as updating the types.
+  test_stream_item_t *item = list->first_item;
   while (item) {
-    // memcpy(&list->str_code[list->num_items], item->str_code, sizeof(char));
-    list->str_code[list->num_items] = item->str_code;
+    // memcpy(&list->types[list->num_items], item->types, sizeof(char));
+    list->types[list->num_items] = item->type;
     list->num_items++;
 
     if (!item->next) break;
@@ -419,18 +419,18 @@ nalu_list_refresh(nalu_list_t *list)
 
 /* Pops |number_of_items| from a |list| and returns a new list with these items. If there is not
  * at least number_of_items in the list NULL is returned. */
-nalu_list_t *
-nalu_list_pop(nalu_list_t *list, int number_of_items)
+test_stream_t *
+test_stream_pop(test_stream_t *list, int number_of_items)
 {
   if (!list || number_of_items > list->num_items) return NULL;
 
   // Create an empty list.
-  nalu_list_t *new_list = nalu_list_create("", list->codec);
+  test_stream_t *new_list = test_stream_create("", list->codec);
   ck_assert(new_list);
   // Pop items from list and append to the new_list.
   while (number_of_items--) {
-    nalu_list_item_t *item = nalu_list_pop_first_item(list);
-    nalu_list_append_last_item(new_list, item);
+    test_stream_item_t *item = test_stream_pop_first_item(list);
+    test_stream_append_last_item(new_list, item);
   }
 
   return new_list;
@@ -439,81 +439,81 @@ nalu_list_pop(nalu_list_t *list, int number_of_items)
 /* Appends a list to a list. The list_to_append is freed after the operation.
  */
 void
-nalu_list_append_and_free(nalu_list_t *list, nalu_list_t *list_to_append)
+test_stream_append(test_stream_t *list, test_stream_t *list_to_append)
 {
   if (!list || !list_to_append) return;
 
   // Link the last and the first items together.
   list->last_item->next = list_to_append->first_item;
   list_to_append->first_item->prev = list->last_item;
-  // Update the str_code.
-  memcpy(&list->str_code[list->num_items], list_to_append->str_code,
+  // Update the types.
+  memcpy(&list->types[list->num_items], list_to_append->types,
       sizeof(char) * list_to_append->num_items);
   // Update the number of items.
   list->num_items += list_to_append->num_items;
   // Detach the first_ & last_item from the list_to_append.
   list_to_append->first_item = NULL;
   list_to_append->last_item = NULL;
-  nalu_list_free(list_to_append);
+  test_stream_free(list_to_append);
 }
 
 /* Appends the list item with position item_number with a new item.
  */
 void
-nalu_list_append_item(nalu_list_t *list, nalu_list_item_t *new_item, int item_number)
+test_stream_append_item(test_stream_t *list, test_stream_item_t *new_item, int item_number)
 {
   if (!list || !new_item) return;
-  nalu_list_item_t *item_to_append = nalu_list_get_item(list, item_number);
+  test_stream_item_t *item_to_append = test_stream_item_get(list, item_number);
   if (!item_to_append) return;
 
-  nalu_list_item_append_item(item_to_append, new_item);
-  nalu_list_refresh(list);
+  test_stream_item_append(item_to_append, new_item);
+  test_stream_refresh(list);
 }
 
 /* Appends the last_item of a list with a new_item.
  */
 void
-nalu_list_append_last_item(nalu_list_t *list, nalu_list_item_t *new_item)
+test_stream_append_last_item(test_stream_t *list, test_stream_item_t *new_item)
 {
   if (!list || !new_item) return;
   // List is empty. Set new_item as first_item.
   if (!list->first_item) list->first_item = new_item;
-  if (list->last_item) nalu_list_item_append_item(list->last_item, new_item);
+  if (list->last_item) test_stream_item_append(list->last_item, new_item);
 
-  nalu_list_refresh(list);
+  test_stream_refresh(list);
 }
 
 /* Prepends the first_item of a list with a new_item. */
 void
-nalu_list_prepend_first_item(nalu_list_t *list, nalu_list_item_t *new_item)
+test_stream_prepend_first_item(test_stream_t *list, test_stream_item_t *new_item)
 {
   if (!list || !new_item) return;
   if (list->first_item)
-    nalu_list_item_prepend_item(list->first_item, new_item);
+    test_stream_item_prepend(list->first_item, new_item);
   else
     list->first_item = new_item;
 
-  nalu_list_refresh(list);
+  test_stream_refresh(list);
 }
 
 /* Checks the sequence of NALUs of |list| against the expected |str|. */
 void
-nalu_list_check_str(const nalu_list_t *list, const char *str)
+test_stream_check_types(const test_stream_t *list, const char *str)
 {
   if (!list) return;
-  ck_assert_int_eq(strcmp(list->str_code, str), 0);
+  ck_assert_int_eq(strcmp(list->types, str), 0);
 }
 
-/* Helper function to print nalu_list_t members. */
+/* Helper function to print test_stream_t members. */
 void
-nalu_list_print(nalu_list_t *list)
+test_stream_print(test_stream_t *list)
 {
   printf("\nPRINT LIST: %p\n", list);
   if (list) {
     printf("  first_item = %p\n", list->first_item);
     printf("  last_item = %p\n", list->last_item);
     printf("  num_items = %d\n", list->num_items);
-    printf("  str_code = %s\n", list->str_code);
+    printf("  types = %s\n", list->types);
     printf("  codec = %s\n", list->codec == SV_CODEC_H264 ? "H264" : "H265");
     printf("END PRINT LIST\n");
   }

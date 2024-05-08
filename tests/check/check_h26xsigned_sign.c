@@ -31,8 +31,8 @@
 #include "lib/src/signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
 #include "lib/src/signed_video_h26x_internal.h"  // h26x_nalu_t
 #include "lib/src/signed_video_internal.h"  // set_hash_list_size()
-#include "nalu_list.h"
 #include "signed_video_helpers.h"
+#include "test_stream.h"
 
 static void
 setup()
@@ -81,8 +81,8 @@ START_TEST(api_inputs)
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
   sign_algo_t algo = SIGN_ALGO_ECDSA;
-  nalu_list_item_t *p_nalu = nalu_list_item_create_and_set_id('P', 0, codec);
-  nalu_list_item_t *invalid = nalu_list_item_create_and_set_id('X', 0, codec);
+  test_stream_item_t *p_nalu = test_stream_item_create_from_type('P', 0, codec);
+  test_stream_item_t *invalid = test_stream_item_create_from_type('X', 0, codec);
   char *private_key = NULL;
   size_t private_key_size = 0;
   size_t sei_size = 0;
@@ -253,8 +253,8 @@ START_TEST(api_inputs)
   sv_rc = signed_video_set_hash_algo(sv, "sha512");
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
   // Free nalu_list_item and session.
-  nalu_list_free_item(p_nalu);
-  nalu_list_free_item(invalid);
+  test_stream_item_free(p_nalu);
+  test_stream_item_free(invalid);
   signed_video_free(sv);
   free(private_key);
   free(sei);
@@ -282,8 +282,8 @@ START_TEST(incorrect_operation)
   ck_assert(sv);
   char *private_key = NULL;
   size_t private_key_size = 0;
-  nalu_list_item_t *p_nalu = nalu_list_item_create_and_set_id('P', 0, codec);
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
+  test_stream_item_t *p_nalu = test_stream_item_create_from_type('P', 0, codec);
+  test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
   // The path to openssl keys has to be set before start of signing.
   SignedVideoReturnCode sv_rc =
       signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
@@ -316,8 +316,8 @@ START_TEST(incorrect_operation)
   sv_rc = pull_nalus(sv, -1, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Free nalu_list_item and session.
-  nalu_list_free_item(p_nalu);
-  nalu_list_free_item(i_nalu);
+  test_stream_item_free(p_nalu);
+  test_stream_item_free(i_nalu);
   signed_video_free(sv);
   free(private_key);
 }
@@ -335,8 +335,8 @@ START_TEST(vendor_axis_communications_operation)
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
   SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
-  nalu_list_item_t *sei_item = NULL;
+  test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *sei_item = NULL;
   char *private_key = NULL;
   size_t private_key_size = 0;
   size_t sei_size = 0;
@@ -398,7 +398,7 @@ START_TEST(vendor_axis_communications_operation)
   uint8_t *sei = malloc(sei_size);
   sv_rc = signed_video_get_sei(sv, sei, &sei_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sei_item = nalu_list_create_item(sei, sei_size, codec);
+  sei_item = test_stream_item_create(sei, sei_size, codec);
   ck_assert(tag_is_present(sei_item, codec, VENDOR_AXIS_COMMUNICATIONS_TAG));
   // Ownership of |sei| has been transferred. Do not free memory.
   sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
@@ -406,8 +406,8 @@ START_TEST(vendor_axis_communications_operation)
   ck_assert(sei_size == 0);
 
   // Free nalu_list_item and session.
-  nalu_list_free_item(sei_item);
-  nalu_list_free_item(i_nalu);
+  test_stream_item_free(sei_item);
+  test_stream_item_free(i_nalu);
   signed_video_free(sv);
   free(private_key);
 }
@@ -430,9 +430,9 @@ START_TEST(correct_nalu_sequence_with_eos)
   /* This test runs in a loop with loop index _i, corresponding to struct sv_setting _i
    * in |settings|; See signed_video_helpers.h. */
 
-  nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPS");
-  nalu_list_free(list);
+  test_stream_t *list = create_signed_nalus("IPPIPP", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPPS");
+  test_stream_free(list);
 }
 END_TEST
 #endif
@@ -442,9 +442,9 @@ START_TEST(correct_nalu_sequence_without_eos)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPP", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIPP");
-  nalu_list_free(list);
+  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPP", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPPSIPP");
+  test_stream_free(list);
 }
 END_TEST
 
@@ -469,9 +469,9 @@ START_TEST(correct_multislice_sequence_with_eos)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i
   // in |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i]);
-  nalu_list_check_str(list, "SIiPpPpSIiPpPpS");
-  nalu_list_free(list);
+  test_stream_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i]);
+  test_stream_check_types(list, "SIiPpPpSIiPpPpS");
+  test_stream_free(list);
 }
 END_TEST
 #endif
@@ -481,9 +481,9 @@ START_TEST(correct_multislice_nalu_sequence_without_eos)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i]);
-  nalu_list_check_str(list, "SIiPpPpSIiPpPp");
-  nalu_list_free(list);
+  test_stream_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i]);
+  test_stream_check_types(list, "SIiPpPpSIiPpPp");
+  test_stream_free(list);
 }
 END_TEST
 
@@ -506,14 +506,14 @@ START_TEST(sei_increase_with_gop_length)
 
   SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPPPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPPPPSI");
-  nalu_list_item_t *sei_3 = nalu_list_remove_item(list, 12);
-  nalu_list_item_check_str(sei_3, "S");
-  nalu_list_item_t *sei_2 = nalu_list_remove_item(list, 5);
-  nalu_list_item_check_str(sei_2, "S");
-  nalu_list_item_t *sei_1 = nalu_list_remove_item(list, 1);
-  nalu_list_item_check_str(sei_1, "S");
+  test_stream_t *list = create_signed_nalus("IPPIPPPPPI", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPPPPPSI");
+  test_stream_item_t *sei_3 = test_stream_item_remove(list, 12);
+  test_stream_item_check_type(sei_3, "S");
+  test_stream_item_t *sei_2 = test_stream_item_remove(list, 5);
+  test_stream_item_check_type(sei_2, "S");
+  test_stream_item_t *sei_1 = test_stream_item_remove(list, 1);
+  test_stream_item_check_type(sei_1, "S");
   if (auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
     // Verify constant size. Note that the size differs if more emulation prevention bytes have
     // been added in one SEI compared to the other. Allow for one extra byte.
@@ -527,10 +527,10 @@ START_TEST(sei_increase_with_gop_length)
     // We should not end up here.
     ck_assert(false);
   }
-  nalu_list_free_item(sei_1);
-  nalu_list_free_item(sei_2);
-  nalu_list_free_item(sei_3);
-  nalu_list_free(list);
+  test_stream_item_free(sei_1);
+  test_stream_item_free(sei_2);
+  test_stream_item_free(sei_3);
+  test_stream_free(list);
 }
 END_TEST
 
@@ -563,24 +563,24 @@ START_TEST(fallback_to_gop_level)
   ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * DEFAULT_HASH_SIZE), SVI_OK);
 
   // Create a list of NALUs given the input string.
-  nalu_list_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPI", false);
-  nalu_list_check_str(list, "SIPPSIPPPPPPPPPPPPPPPPPPPPPPPPSI");
-  nalu_list_item_t *sei_3 = nalu_list_remove_item(list, 31);
-  nalu_list_item_check_str(sei_3, "S");
-  nalu_list_item_t *sei_2 = nalu_list_remove_item(list, 5);
-  nalu_list_item_check_str(sei_2, "S");
-  nalu_list_item_t *sei_1 = nalu_list_remove_item(list, 1);
-  nalu_list_item_check_str(sei_1, "S");
+  test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPI", false);
+  test_stream_check_types(list, "SIPPSIPPPPPPPPPPPPPPPPPPPPPPPPSI");
+  test_stream_item_t *sei_3 = test_stream_item_remove(list, 31);
+  test_stream_item_check_type(sei_3, "S");
+  test_stream_item_t *sei_2 = test_stream_item_remove(list, 5);
+  test_stream_item_check_type(sei_2, "S");
+  test_stream_item_t *sei_1 = test_stream_item_remove(list, 1);
+  test_stream_item_check_type(sei_1, "S");
 
   // Verify that the HASH_LIST_TAG is present (or not) in the SEI.
   ck_assert(tag_is_present(sei_1, settings[_i].codec, HASH_LIST_TAG));
   ck_assert(tag_is_present(sei_2, settings[_i].codec, HASH_LIST_TAG));
   ck_assert(!tag_is_present(sei_3, settings[_i].codec, HASH_LIST_TAG));
 
-  nalu_list_free_item(sei_1);
-  nalu_list_free_item(sei_2);
-  nalu_list_free_item(sei_3);
-  nalu_list_free(list);
+  test_stream_item_free(sei_1);
+  test_stream_item_free(sei_2);
+  test_stream_item_free(sei_3);
+  test_stream_free(list);
   signed_video_free(sv);
 }
 END_TEST
@@ -597,9 +597,9 @@ START_TEST(undefined_nalu_in_sequence)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPXPSIPPSI");
-  nalu_list_free(list);
+  test_stream_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
+  test_stream_check_types(list, "SIPXPSIPPSI");
+  test_stream_free(list);
 }
 END_TEST
 
@@ -627,8 +627,8 @@ START_TEST(two_completed_seis_pending)
   ck_assert(sv);
   char *private_key = NULL;
   size_t private_key_size = 0;
-  nalu_list_item_t *i_nalu_1 = nalu_list_item_create_and_set_id('I', 0, codec);
-  nalu_list_item_t *i_nalu_2 = nalu_list_item_create_and_set_id('I', 1, codec);
+  test_stream_item_t *i_nalu_1 = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 1, codec);
   // Setup the key
   sv_rc = settings[_i].generate_key(NULL, &private_key, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -664,8 +664,8 @@ START_TEST(two_completed_seis_pending)
   // additional hash compared to the first, affecting their respective sizes.
   ck_assert(sei_size_1 < sei_size_2);
 
-  nalu_list_free_item(i_nalu_1);
-  nalu_list_free_item(i_nalu_2);
+  test_stream_item_free(i_nalu_1);
+  test_stream_item_free(i_nalu_2);
   signed_video_free(sv);
   free(private_key);
   free(sei_1);
@@ -697,8 +697,8 @@ START_TEST(two_completed_seis_pending_legacy)
   ck_assert(sv);
   char *private_key = NULL;
   size_t private_key_size = 0;
-  nalu_list_item_t *i_nalu_1 = nalu_list_item_create_and_set_id('I', 0, codec);
-  nalu_list_item_t *i_nalu_2 = nalu_list_item_create_and_set_id('I', 1, codec);
+  test_stream_item_t *i_nalu_1 = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 1, codec);
   // Setup the key
   sv_rc = settings[_i].generate_key(NULL, &private_key, &private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -726,8 +726,8 @@ START_TEST(two_completed_seis_pending_legacy)
   // respective sizes.
   ck_assert(nalu_to_prepend_1.nalu_data_size > nalu_to_prepend_2.nalu_data_size);
 
-  nalu_list_free_item(i_nalu_1);
-  nalu_list_free_item(i_nalu_2);
+  test_stream_item_free(i_nalu_1);
+  test_stream_item_free(i_nalu_2);
   signed_video_free(sv);
   free(private_key);
   free(nalu_to_prepend_1.nalu_data);
@@ -758,7 +758,7 @@ START_TEST(correct_timestamp)
   ck_assert(sv_ts);
   char *private_key = NULL;
   size_t private_key_size = 0;
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
+  test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
   size_t sei_size = 0;
   size_t sei_size_ts = 0;
   // Setup the key
@@ -816,7 +816,7 @@ START_TEST(correct_timestamp)
 
   free(nalu.nalu_data_wo_epb);
   free(nalu_ts.nalu_data_wo_epb);
-  nalu_list_free_item(i_nalu);
+  test_stream_item_free(i_nalu);
   signed_video_free(sv);
   signed_video_free(sv_ts);
   free(private_key);
@@ -833,9 +833,9 @@ START_TEST(correct_signing_nalus_in_parts)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_splitted_nalus("IPPIPP", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPP");
-  nalu_list_free(list);
+  test_stream_t *list = create_signed_splitted_nalus("IPPIPP", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPP");
+  test_stream_free(list);
 }
 END_TEST
 
@@ -857,7 +857,7 @@ START_TEST(w_wo_emulation_prevention_bytes)
   bool with_emulation_prevention[NUM_EPB_CASES] = {true, false};
   char *private_key = NULL;
   size_t private_key_size = 0;
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
+  test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
   size_t sei_size = 0;
 
   // Generate a Private key.
@@ -912,7 +912,7 @@ START_TEST(w_wo_emulation_prevention_bytes)
     free(nalus[ii].nalu_data_wo_epb);
     free(seis[ii]);
   }
-  nalu_list_free_item(i_nalu);
+  test_stream_item_free(i_nalu);
   free(private_key);
 }
 END_TEST
@@ -930,20 +930,20 @@ START_TEST(limited_sei_payload_size)
   // Select an upper payload limit which is less then the size of the last SEI.
   const size_t max_sei_payload_size = 1000;
   settings[_i].max_sei_payload_size = max_sei_payload_size;
-  nalu_list_t *list = create_signed_nalus("IPPIPPPPPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPPPPPSI");
+  test_stream_t *list = create_signed_nalus("IPPIPPPPPPI", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPPPPPPSI");
 
   // Extract the SEIs and check their sizes, which should be smaller than |max_sei_payload_size|.
   int sei_idx[3] = {13, 5, 1};
   for (int ii = 0; ii < 3; ii++) {
-    nalu_list_item_t *sei = nalu_list_remove_item(list, sei_idx[ii]);
-    ck_assert_int_eq(sei->str_code, 'S');
+    test_stream_item_t *sei = test_stream_item_remove(list, sei_idx[ii]);
+    ck_assert_int_eq(sei->type, 'S');
     ck_assert_uint_le(sei->data_size, max_sei_payload_size);
-    nalu_list_free_item(sei);
+    test_stream_item_free(sei);
     sei = NULL;
   }
 
-  nalu_list_free(list);
+  test_stream_free(list);
 }
 END_TEST
 

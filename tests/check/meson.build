@@ -7,8 +7,8 @@ tests = [
     ],
     ['unittest_sign',
       [
-        'nalu_list.h',
-        'nalu_list.c',
+        'test_stream.h',
+        'test_stream.c',
         'signed_video_helpers.h',
         'signed_video_helpers.c',
         'check_h26xsigned_sign.c'
@@ -21,8 +21,8 @@ if (get_option('signingplugin') != 'threaded_unless_check_dep')
   tests += [
       ['unittest_auth',
         [ 
-          'nalu_list.h',
-          'nalu_list.c',
+          'test_stream.h',
+          'test_stream.c',
           'signed_video_helpers.h',
           'signed_video_helpers.c',
           'check_h26xsigned_auth.c' 
