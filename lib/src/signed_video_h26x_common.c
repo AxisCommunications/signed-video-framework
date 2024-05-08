@@ -585,9 +585,10 @@ remove_epb_from_sei_payload(h26x_nalu_t *nalu)
   nalu->reserved_byte = *nalu->tlv_start_in_nalu_data;
   nalu->tlv_start_in_nalu_data++;  // Move past the |reserved_byte|.
   nalu->tlv_size -= 1;  // Exclude the |reserved_byte| from TLV size.
+  nalu->tlv_data = nalu->tlv_start_in_nalu_data;
+  // Read flags from |reserved_byte|
   nalu->with_epb = (nalu->reserved_byte & 0x80);  // Hash with emulation prevention bytes
   nalu->is_golden_sei = (nalu->reserved_byte & 0x40);  // The NALU is a golden SEI.
-  nalu->tlv_data = nalu->tlv_start_in_nalu_data;
 
   if (nalu->emulation_prevention_bytes <= 0) return;
 
