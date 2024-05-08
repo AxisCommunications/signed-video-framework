@@ -401,7 +401,7 @@ START_TEST(intact_stream_with_pps_bytestream)
 
   // Pop the PPS NALU and inject it before the I-NALU.
   test_stream_item_t *item = test_stream_pop_first_item(list);
-  test_stream_item_check_type(item, "V");
+  test_stream_item_check_type(item, 'V');
   test_stream_check_types(list, "SIPPSIPPSI");
   test_stream_append_item(list, item, 1);
   test_stream_check_types(list, "SVIPPSIPPSI");
@@ -453,7 +453,7 @@ START_TEST(intact_ms_stream_with_pps_bytestream)
 
   // Pop the PPS NALU and inject it before the I-NALU.
   test_stream_item_t *item = test_stream_pop_first_item(list);
-  test_stream_item_check_type(item, "V");
+  test_stream_item_check_type(item, 'V');
   test_stream_check_types(list, "SIiPpPpSIiPpPpSIi");
   test_stream_append_item(list, item, 1);
   test_stream_check_types(list, "SVIiPpPpSIiPpPpSIi");
@@ -534,7 +534,7 @@ START_TEST(remove_one_p_nalu)
 
   // Item counting starts at 1.  Middle P-NALU in second non-empty GOP: SIPPSIP P PSIPPSI
   const int remove_nalu_number = 8;
-  remove_item_then_check_and_free(list, remove_nalu_number, "P");
+  remove_item_then_check_and_free(list, remove_nalu_number, 'P');
   test_stream_check_types(list, "SIPPSIPPSIPPSI");
 
   // All NALUs but the last 'I' are validated and since one NALU has been removed the authenticity
@@ -574,7 +574,7 @@ START_TEST(interchange_two_p_nalus)
   // Item counting starts at 1.  Middle P-NALU in second non-empty GOP: SIPPSIP P PSIPPSI
   const int nalu_number = 8;
   test_stream_item_t *item = test_stream_item_remove(list, nalu_number);
-  test_stream_item_check_type(item, "P");
+  test_stream_item_check_type(item, 'P');
 
   // Inject the item again, but at position nalu_number + 1, that is, append the list item at
   // position nalu_number.
@@ -616,7 +616,7 @@ START_TEST(modify_one_p_nalu)
 
   // Second P-NALU in first non-empty GOP: SIP P SIPPPSIPPSI
   const int modify_nalu_number = 4;
-  modify_list_item(list, modify_nalu_number, "P");
+  modify_list_item(list, modify_nalu_number, 'P');
 
   // All NALUs but the last 'I' are validated and since one NALU has been modified the authenticity
   // is NOT OK.
@@ -648,7 +648,7 @@ START_TEST(modify_one_i_nalu)
 
   // Modify the I-NALU in second non-empty GOP: SIPPS I PPPSIPPSI
   const int modify_nalu_number = 6;
-  modify_list_item(list, modify_nalu_number, "I");
+  modify_list_item(list, modify_nalu_number, 'I');
 
   // All NALUs but the last 'I' are validated and since one I-NALU has been modified the
   // authenticity is NOT OK.
@@ -690,7 +690,7 @@ START_TEST(remove_the_g_nalu)
 
   // SEI of second non-empty GOP: SIPPSIPP S IPPSIPPSI.
   const int remove_nalu_number = 9;
-  remove_item_then_check_and_free(list, remove_nalu_number, "S");
+  remove_item_then_check_and_free(list, remove_nalu_number, 'S');
   test_stream_check_types(list, "SIPPSIPPIPPSIPPSI");
 
   // SIPPSIPPIPPSIPPSI
@@ -725,7 +725,7 @@ START_TEST(remove_the_i_nalu)
 
   // I-NALU of third non-empty GOP: SIPPSIPPS I PPSIPPSI.
   const int remove_nalu_number = 10;
-  remove_item_then_check_and_free(list, remove_nalu_number, "I");
+  remove_item_then_check_and_free(list, remove_nalu_number, 'I');
   test_stream_check_types(list, "SIPPSIPPSPPSIPPSI");
 
   // All NALUs but the last 'I' are validated and since one I-NALU has been removed the authenticity
@@ -773,10 +773,10 @@ START_TEST(remove_the_gi_nalus)
 
   // SEI of second non-empty GOP: SIPPSIPP S IPPSIPPSI.
   int remove_nalu_number = 9;
-  remove_item_then_check_and_free(list, remove_nalu_number, "S");
+  remove_item_then_check_and_free(list, remove_nalu_number, 'S');
   // Note that we have removed an item before this one, hence the I-NALU is now at place 9:
   // SIPPSIPP I PPSIPPS.
-  remove_item_then_check_and_free(list, remove_nalu_number, "I");
+  remove_item_then_check_and_free(list, remove_nalu_number, 'I');
   test_stream_check_types(list, "SIPPSIPPPPSIPPSI");
 
   // All NALUs but the last 'I' are validated and since one couple of SEI and I-NALU have been
@@ -814,7 +814,7 @@ START_TEST(sei_arrives_late)
 
   // Remove the second SEI, that is, number 6 in the list: SIPPP (S) IPPPSIPPPSI.
   test_stream_item_t *sei = test_stream_item_remove(list, 6);
-  test_stream_item_check_type(sei, "S");
+  test_stream_item_check_type(sei, 'S');
   test_stream_check_types(list, "SIPPPIPPPSIPPPSI");
 
   // Prepend the middle P of the next GOP: SIPPPIP (S)P PSIPPPSI. This is equivalent with appending
@@ -849,19 +849,19 @@ generate_delayed_sei_list(struct sv_setting setting, bool extra_delay)
   int extra_offset = extra_delay ? 5 : 0;
   int extra_correction = extra_delay ? 1 : 0;
   test_stream_item_t *sei = test_stream_item_remove(list, 1);
-  test_stream_item_check_type(sei, "S");
+  test_stream_item_check_type(sei, 'S');
   test_stream_append_item(list, sei, 2 + extra_offset);
   sei = test_stream_item_remove(list, 7 - extra_correction);
-  test_stream_item_check_type(sei, "S");
+  test_stream_item_check_type(sei, 'S');
   test_stream_append_item(list, sei, 8 + extra_offset);
   sei = test_stream_item_remove(list, 12 - extra_correction);
-  test_stream_item_check_type(sei, "S");
+  test_stream_item_check_type(sei, 'S');
   test_stream_append_item(list, sei, 13 + extra_offset);
   sei = test_stream_item_remove(list, 17 - extra_correction);
-  test_stream_item_check_type(sei, "S");
+  test_stream_item_check_type(sei, 'S');
   test_stream_append_item(list, sei, 18 + extra_offset);
   sei = test_stream_item_remove(list, 22 - extra_correction);
-  test_stream_item_check_type(sei, "S");
+  test_stream_item_check_type(sei, 'S');
   test_stream_append_item(list, sei, 23);
 
   if (extra_delay) {
@@ -913,23 +913,23 @@ START_TEST(all_seis_arrive_late_first_gop_scrapped)
   test_stream_t *list = generate_delayed_sei_list(settings[_i], true);
 
   test_stream_item_t *item = test_stream_pop_first_item(list);
-  test_stream_item_check_type(item, "I");
+  test_stream_item_check_type(item, 'I');
   test_stream_check_types(list, "PPPPISPPPIPSPPIPSPPIPSS");
   test_stream_item_free(item);
   item = test_stream_pop_first_item(list);
-  test_stream_item_check_type(item, "P");
+  test_stream_item_check_type(item, 'P');
   test_stream_check_types(list, "PPPISPPPIPSPPIPSPPIPSS");
   test_stream_item_free(item);
   item = test_stream_pop_first_item(list);
-  test_stream_item_check_type(item, "P");
+  test_stream_item_check_type(item, 'P');
   test_stream_check_types(list, "PPISPPPIPSPPIPSPPIPSS");
   test_stream_item_free(item);
   item = test_stream_pop_first_item(list);
-  test_stream_item_check_type(item, "P");
+  test_stream_item_check_type(item, 'P');
   test_stream_check_types(list, "PISPPPIPSPPIPSPPIPSS");
   test_stream_item_free(item);
   item = test_stream_pop_first_item(list);
-  test_stream_item_check_type(item, "P");
+  test_stream_item_check_type(item, 'P');
   test_stream_check_types(list, "ISPPPIPSPPIPSPPIPSS");
   test_stream_item_free(item);
 
@@ -967,7 +967,7 @@ START_TEST(lost_g_before_late_sei_arrival)
 
   // Remove the third SEI, that is, number 11 in the list: SIPPPSIPPP (S) IPPPSIPPSI.
   test_stream_item_t *sei = test_stream_item_remove(list, 11);
-  test_stream_item_check_type(sei, "S");
+  test_stream_item_check_type(sei, 'S');
   test_stream_check_types(list, "SIPPPSIPPPIPPPSIPPSI");
 
   // Prepend the middle P of the next GOP: SIPPPSIPPPIP (S)P PSIPPSI. This is equivalent with
@@ -977,7 +977,7 @@ START_TEST(lost_g_before_late_sei_arrival)
   test_stream_check_types(list, "SIPPPSIPPPIPSPPSIPPSI");
 
   // Remove the second SEI, i.e., number 6 in the list: SIPPP (S) IPPPIPSPPSIPPSI.
-  remove_item_then_check_and_free(list, 6, "S");
+  remove_item_then_check_and_free(list, 6, 'S');
   test_stream_check_types(list, "SIPPPIPPPIPSPPSIPPSI");
 
   // SI                   ->   (valid) -> .P           1 pending
@@ -1015,15 +1015,15 @@ START_TEST(lost_g_and_gop_with_late_sei_arrival)
 
   // Get the first SEI, to be added back later.
   test_stream_item_t *sei = test_stream_pop_first_item(list);
-  test_stream_item_check_type(sei, "S");
+  test_stream_item_check_type(sei, 'S');
   test_stream_check_types(list, "IPSIPPPSIPPPSIP");
 
   // Remove the first GOP to mimic the start of the validation side.
-  remove_item_then_check_and_free(list, 1, "I");
+  remove_item_then_check_and_free(list, 1, 'I');
   test_stream_check_types(list, "PSIPPPSIPPPSIP");
-  remove_item_then_check_and_free(list, 1, "P");
+  remove_item_then_check_and_free(list, 1, 'P');
   test_stream_check_types(list, "SIPPPSIPPPSIP");
-  remove_item_then_check_and_free(list, 1, "S");
+  remove_item_then_check_and_free(list, 1, 'S');
   test_stream_check_types(list, "IPPPSIPPPSIP");
 
   // Inject the SEI into the second GOP.
@@ -1032,13 +1032,13 @@ START_TEST(lost_g_and_gop_with_late_sei_arrival)
 
   // Move the remaining SEIs.
   sei = test_stream_item_remove(list, 6);
-  test_stream_item_check_type(sei, "S");
+  test_stream_item_check_type(sei, 'S');
   test_stream_check_types(list, "IPSPPIPPPSIP");
   test_stream_append_item(list, sei, 7);
   test_stream_check_types(list, "IPSPPIPSPPSIP");
 
   sei = test_stream_item_remove(list, 11);
-  test_stream_item_check_type(sei, "S");
+  test_stream_item_check_type(sei, 'S');
   test_stream_check_types(list, "IPSPPIPSPPIP");
   test_stream_append_item(list, sei, 12);
   test_stream_check_types(list, "IPSPPIPSPPIPS");
@@ -1070,10 +1070,10 @@ START_TEST(lost_all_nalus_between_two_seis)
   test_stream_check_types(list, "SIPPPSIPPPSIPPPSIPPSI");
 
   // Remove IPPP between the second and third S.
-  remove_item_then_check_and_free(list, 7, "I");
-  remove_item_then_check_and_free(list, 7, "P");
-  remove_item_then_check_and_free(list, 7, "P");
-  remove_item_then_check_and_free(list, 7, "P");
+  remove_item_then_check_and_free(list, 7, 'I');
+  remove_item_then_check_and_free(list, 7, 'P');
+  remove_item_then_check_and_free(list, 7, 'P');
+  remove_item_then_check_and_free(list, 7, 'P');
   test_stream_check_types(list, "SIPPPSSIPPPSIPPSI");
 
   // All NALUs but the last 'I' are validated. Since all NALUs between two SEIs are lost the
@@ -1452,13 +1452,13 @@ mimic_file_export(struct sv_setting setting, bool include_i_nalu_at_end, bool de
 
   // Remove the initial PPS/SPS/VPS NALU to add back later
   test_stream_item_t *ps = test_stream_pop_first_item(list);
-  test_stream_item_check_type(ps, "V");
+  test_stream_item_check_type(ps, 'V');
 
   if (delayed_seis) {
     int out[4] = {1, 4, 7, 10};
     for (int i = 0; i < 4; i++) {
       test_stream_item_t *sei = test_stream_item_remove(list, out[i]);
-      test_stream_item_check_type(sei, "S");
+      test_stream_item_check_type(sei, 'S');
       test_stream_append_item(list, sei, 13);
     }
     test_stream_check_types(list, "IPPIPPIPPISSSSPPSIPPSIPP");
@@ -1648,7 +1648,7 @@ START_TEST(late_public_key_and_no_sei_before_key_arrives)
   test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
 
   test_stream_item_t *g_1 = test_stream_item_remove(list, 5);
-  test_stream_item_check_type(g_1, "S");
+  test_stream_item_check_type(g_1, 'S');
   test_stream_check_types(list, "SIPPIPPSIPPSIPPSIPPSIPPSI");
   // First public key now exist in item 8 if SV_RECURRENCE_EIGHT and SV_RECURRENCE_OFFSET_THREE
 
@@ -1675,7 +1675,7 @@ END_TEST
  * With
  *   IPPIPPPPPPPPPPPPPPPPPPPPPPPPI
  *
- * we automatically fall back on SV_AUTHENTICITY_LEVEL_GOP in at the third "I".
+ * we automatically fall back on SV_AUTHENTICITY_LEVEL_GOP in at the third 'I'.
  */
 START_TEST(fallback_to_gop_level)
 {
@@ -2208,22 +2208,22 @@ START_TEST(with_blocked_signing)
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPPSIP");
   test_stream_item_t *sei = test_stream_item_remove(list, 21);
-  test_stream_item_check_type(sei, "S");
+  test_stream_item_check_type(sei, 'S');
   test_stream_append_item(list, sei, 21);
   sei = test_stream_item_remove(list, 17);
-  test_stream_item_check_type(sei, "S");
+  test_stream_item_check_type(sei, 'S');
   test_stream_append_item(list, sei, 17);
   sei = test_stream_item_remove(list, 13);
-  test_stream_item_check_type(sei, "S");
+  test_stream_item_check_type(sei, 'S');
   test_stream_append_item(list, sei, 15);
   sei = test_stream_item_remove(list, 9);
-  test_stream_item_check_type(sei, "S");
+  test_stream_item_check_type(sei, 'S');
   test_stream_append_item(list, sei, 13);
   sei = test_stream_item_remove(list, 5);
-  test_stream_item_check_type(sei, "S");
+  test_stream_item_check_type(sei, 'S');
   test_stream_append_item(list, sei, 11);
   sei = test_stream_item_remove(list, 1);
-  test_stream_item_check_type(sei, "S");
+  test_stream_item_check_type(sei, 'S');
   test_stream_append_item(list, sei, 1);
   test_stream_check_types(list, "ISPPIPPIPPISPSPSISPPISP");
 

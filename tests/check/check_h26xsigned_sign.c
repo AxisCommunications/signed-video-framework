@@ -509,11 +509,11 @@ START_TEST(sei_increase_with_gop_length)
   test_stream_t *list = create_signed_nalus("IPPIPPPPPI", settings[_i]);
   test_stream_check_types(list, "SIPPSIPPPPPSI");
   test_stream_item_t *sei_3 = test_stream_item_remove(list, 12);
-  test_stream_item_check_type(sei_3, "S");
+  test_stream_item_check_type(sei_3, 'S');
   test_stream_item_t *sei_2 = test_stream_item_remove(list, 5);
-  test_stream_item_check_type(sei_2, "S");
+  test_stream_item_check_type(sei_2, 'S');
   test_stream_item_t *sei_1 = test_stream_item_remove(list, 1);
-  test_stream_item_check_type(sei_1, "S");
+  test_stream_item_check_type(sei_1, 'S');
   if (auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
     // Verify constant size. Note that the size differs if more emulation prevention bytes have
     // been added in one SEI compared to the other. Allow for one extra byte.
@@ -566,11 +566,11 @@ START_TEST(fallback_to_gop_level)
   test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPI", false);
   test_stream_check_types(list, "SIPPSIPPPPPPPPPPPPPPPPPPPPPPPPSI");
   test_stream_item_t *sei_3 = test_stream_item_remove(list, 31);
-  test_stream_item_check_type(sei_3, "S");
+  test_stream_item_check_type(sei_3, 'S');
   test_stream_item_t *sei_2 = test_stream_item_remove(list, 5);
-  test_stream_item_check_type(sei_2, "S");
+  test_stream_item_check_type(sei_2, 'S');
   test_stream_item_t *sei_1 = test_stream_item_remove(list, 1);
-  test_stream_item_check_type(sei_1, "S");
+  test_stream_item_check_type(sei_1, 'S');
 
   // Verify that the HASH_LIST_TAG is present (or not) in the SEI.
   ck_assert(tag_is_present(sei_1, settings[_i].codec, HASH_LIST_TAG));
