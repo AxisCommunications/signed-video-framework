@@ -134,7 +134,7 @@ signed_video_compare_versions(const char* version1, const char* version2);
  * hence not bound to a stream, and it only includes information needed once, such as the Public
  * key.
  *
- * @param nalu NALU payload
+ * @param nalu NALU data
  * @param nalu_size Size of the NALU
  *
  * @returns True if NALU is a golden SEI
