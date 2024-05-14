@@ -12,32 +12,32 @@ echo ""
 echo "=== Runs check tests with default (unthreaded) signing plugin ==="
 echo ""
 
-meson -Dbuildtype=debug . build
+meson setup -Dbuildtype=debug . build
 ninja -C build test
 
 echo "=== Run check tests without any vendors ==="
 echo ""
 
-meson -Dbuildtype=debug -Dvendors= --reconfigure . build
+meson setup -Dbuildtype=debug -Dvendors= --reconfigure . build
 ninja -C build test
 
 echo ""
 echo "=== Run check tests with all vendors and SIGNED_VIDEO_DEBUG ==="
 echo ""
 
-meson -Ddebugprints=true -Dbuildtype=debug -Dvendors=all --reconfigure . build
+meson setup -Ddebugprints=true -Dbuildtype=debug -Dvendors=all --reconfigure . build
 ninja -C build test
 
 echo ""
 echo "=== Now Runs check tests with threaded_unless_check_dep ==="
 echo ""
 
-meson -Ddebugprints=false -Dbuildtype=debug -Dsigningplugin=threaded_unless_check_dep --reconfigure . build
+meson setup -Ddebugprints=false -Dbuildtype=debug -Dsigningplugin=threaded_unless_check_dep --reconfigure . build
 ninja -C build test
 
 echo ""
 echo "=== Run with threaded signing plugin (should not do anything) ==="
 echo ""
 
-meson -Dbuildtype=debug -Dsigningplugin=threaded --reconfigure . build
+meson setup -Dbuildtype=debug -Dsigningplugin=threaded --reconfigure . build
 ninja -C build test
