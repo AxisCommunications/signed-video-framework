@@ -23,7 +23,6 @@
 #include <assert.h>
 #include <openssl/bio.h>  // BIO_*
 #include <openssl/evp.h>  // EVP_*
-#include <openssl/opensslv.h>  // OPENSSL_VERSION_*
 #include <openssl/pem.h>  // PEM_*
 #include <openssl/sha.h>  // SHA256
 #include <openssl/x509.h>  // X509_*
@@ -389,14 +388,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     // Convert |public_key| to uncompressed Weierstrass form which will be part of |signed_data|.
     pkey = (EVP_PKEY *)self->public_key;
     SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-    //   public_key (EVP_PKEY) -> EC_KEY -> EC_KEY_key2buf
-    const EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
-    public_key_uncompressed_size =
-        EC_KEY_key2buf(ec_key, POINT_CONVERSION_UNCOMPRESSED, &public_key_uncompressed, NULL);
-#else
     public_key_uncompressed_size = EVP_PKEY_get1_encoded_public_key(pkey, &public_key_uncompressed);
-#endif
     // Check size and prefix of |public_key| after conversion.
     SVI_THROW_IF(public_key_uncompressed_size != PUBLIC_KEY_UNCOMPRESSED_SIZE, SVI_VENDOR);
     SVI_THROW_IF(public_key_uncompressed[0] != PUBLIC_KEY_UNCOMPRESSED_PREFIX, SVI_VENDOR);
@@ -695,19 +687,11 @@ set_axis_communications_public_key(void *handle,
     if (EVP_PKEY_base_id(pkey) != EVP_PKEY_EC) {
       public_key_validation = 0;
     } else {
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-      const EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
-      SVI_THROW_IF(!ec_key, SVI_EXTERNAL_FAILURE);
-      const EC_GROUP *ec_group = EC_KEY_get0_group(ec_key);
-      SVI_THROW_IF(!ec_group, SVI_EXTERNAL_FAILURE);
-      SVI_THROW_IF(EC_GROUP_get_curve_name(ec_group) != NID_X9_62_prime256v1, SVI_VENDOR);
-#else
       SVI_THROW_IF(EVP_PKEY_get_base_id(pkey) != EVP_PKEY_EC, SVI_VENDOR);
       char group_name[100];
       SVI_THROW_IF(EVP_PKEY_get_group_name(pkey, group_name, sizeof(group_name), NULL) != 1,
           SVI_EXTERNAL_FAILURE);
       SVI_THROW_IF(strcmp(group_name, SN_X9_62_prime256v1) != 0, SVI_VENDOR);
-#endif
     }
 
     // The Public key is of correct type and size.

@@ -26,7 +26,6 @@
 #include <openssl/ec.h>  // EC_*
 #include <openssl/evp.h>  // EVP_*
 #include <openssl/objects.h>  // OBJ_*
-#include <openssl/opensslv.h>  // OPENSSL_VERSION_*
 #include <openssl/pem.h>  // PEM_*
 #include <openssl/rsa.h>  // RSA_*
 #include <stdio.h>  // FILE, fopen, fclose
@@ -596,38 +595,7 @@ static svi_rc
 create_rsa_private_key(const char *path_to_key, pem_pkey_t *pem_key)
 {
   EVP_PKEY *pkey = NULL;
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-  BIGNUM *bn = NULL;
-  RSA *rsa = NULL;
 
-  svi_rc status = SVI_UNKNOWN;
-  SVI_TRY()
-    // Init RSA context, evp key and big number
-    rsa = RSA_new();
-    SVI_THROW_IF(!rsa, SVI_EXTERNAL_FAILURE);
-    pkey = EVP_PKEY_new();
-    SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
-    bn = BN_new();
-    SVI_THROW_IF(!bn, SVI_EXTERNAL_FAILURE);
-
-    // Set exponent to 65537
-    BN_set_word(bn, RSA_F4);
-
-    SVI_THROW_IF(!RSA_generate_key_ex(rsa, 2048, bn, NULL), SVI_EXTERNAL_FAILURE);
-
-    // Set |pkey| to use the newly generated RSA key
-    SVI_THROW_IF(!EVP_PKEY_assign_RSA(pkey, rsa), SVI_EXTERNAL_FAILURE);
-
-    SVI_THROW(write_private_key_to_file(pkey, path_to_key));
-    SVI_THROW(write_private_key_to_buffer(pkey, pem_key));
-  SVI_CATCH()
-  {
-    if (rsa && !pkey) RSA_free(rsa);
-  }
-  SVI_DONE(status)
-
-  BN_free(bn);
-#else
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     pkey = EVP_RSA_gen(2048);
@@ -638,7 +606,6 @@ create_rsa_private_key(const char *path_to_key, pem_pkey_t *pem_key)
   SVI_CATCH()
   SVI_DONE(status)
 
-#endif
   EVP_PKEY_free(pkey);  // Free |pkey|, |rsa| struct will be freed automatically as well
 
   return status;
@@ -650,28 +617,6 @@ static svi_rc
 create_ecdsa_private_key(const char *path_to_key, pem_pkey_t *pem_key)
 {
   EVP_PKEY *pkey = NULL;
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-  EC_KEY *ec_key = NULL;
-
-  svi_rc status = SVI_UNKNOWN;
-  SVI_TRY()
-    ec_key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
-    SVI_THROW_IF(!ec_key, SVI_EXTERNAL_FAILURE);
-    SVI_THROW_IF(EC_KEY_generate_key(ec_key) != 1, SVI_EXTERNAL_FAILURE);
-
-    pkey = EVP_PKEY_new();
-    SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
-    SVI_THROW_IF(EVP_PKEY_assign_EC_KEY(pkey, ec_key) != 1, SVI_EXTERNAL_FAILURE);
-
-    SVI_THROW(write_private_key_to_file(pkey, path_to_key));
-    SVI_THROW(write_private_key_to_buffer(pkey, pem_key));
-
-  SVI_CATCH()
-  {
-    if (ec_key && !pkey) EC_KEY_free(ec_key);
-  }
-  SVI_DONE(status)
-#else
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
@@ -682,7 +627,6 @@ create_ecdsa_private_key(const char *path_to_key, pem_pkey_t *pem_key)
     SVI_THROW(write_private_key_to_buffer(pkey, pem_key));
   SVI_CATCH()
   SVI_DONE(status)
-#endif
 
   if (pkey) EVP_PKEY_free(pkey);
 
