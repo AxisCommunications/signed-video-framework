@@ -73,9 +73,8 @@ struct sv_setting settings[NUM_SETTINGS] = {
     // Special cases
     {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, signed_video_generate_rsa_private_key, 0, NULL},
     {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, signed_video_generate_rsa_private_key, 0, NULL},
-    // TODO: Fix sha512 for OpenSSL 3.x
     {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, signed_video_generate_ecdsa_private_key, 0,
-        "sha256"},
+        "sha512"},
 };
 
 /* Pull NALUs to prepend from the signed_video_t session (sv) and prepend, or append, them to the
