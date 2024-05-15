@@ -33,7 +33,7 @@
 #include "lib/src/signed_video_internal.h"  // set_hash_list_size()
 #include "lib/src/signed_video_openssl_internal.h"  // openssl_read_pubkey_from_private_key()
 #include "lib/src/signed_video_tlv.h"  // write_byte_many()
-#include "signed_video_helpers.h"  // sv_setting, create_signed_nalus()
+#include "test_helpers.h"  // sv_setting, create_signed_nalus()
 #include "test_stream.h"  // test_stream_create()
 
 #define TMP_FIX_TO_ALLOW_TWO_INVALID_SEIS_AT_STARTUP true

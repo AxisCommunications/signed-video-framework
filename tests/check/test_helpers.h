@@ -18,8 +18,8 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#ifndef __SIGNED_VIDEO_HELPERS_H__
-#define __SIGNED_VIDEO_HELPERS_H__
+#ifndef __TEST_HELPERS_H__
+#define __TEST_HELPERS_H__
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -123,4 +123,4 @@ modify_list_item(test_stream_t *list, int item_number, char type);
 bool
 tag_is_present(test_stream_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t tag);
 
-#endif  // __SIGNED_VIDEO_HELPERS_H__
+#endif  // __TEST_HELPERS_H__
