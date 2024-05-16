@@ -76,16 +76,10 @@ static size_t private_key_size_rsa;
 static char private_key_ecdsa[ECDSA_PRIVATE_KEY_ALLOC_BYTES];
 static size_t private_key_size_ecdsa;
 
-/* Pull NAL Units to prepend from the signed_video_t session (sv) and prepend, or append,
- * them to the input nalu_list_item.
- *
- * If num_nalus_to_pull < 0, all NAL Units are pulled. If nalus_pulled is not a NULL
- * pointer the number of NAL Units that were pulled will be reported back.
- */
+/* Pull SEIs from the signed_video_t session |sv| and prepend them to the test stream |item|. */
 static void
-pull_nalus(signed_video_t *sv, test_stream_item_t *item)
+pull_seis(signed_video_t *sv, test_stream_item_t *item)
 {
-  test_stream_item_t *cur_item = item;
   size_t sei_size = 0;
   SignedVideoReturnCode sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -95,30 +89,29 @@ pull_nalus(signed_video_t *sv, test_stream_item_t *item)
     sv_rc = signed_video_get_sei(sv, sei, &sei_size);
     ck_assert_int_eq(sv_rc, SV_OK);
     ck_assert(!signed_video_is_golden_sei(sv, sei, sei_size));
-    // Generate a new nalu_list_item with this SEI.
+    // Generate a new test stream item with this SEI.
     test_stream_item_t *new_item = test_stream_item_create(sei, sei_size, sv->codec);
-    // Prepend the nalu_list_item with this new item.
-    test_stream_item_prepend(cur_item, new_item);
-    // Move to next completed SEI.
+    // Prepend the |item| with this |new_item|.
+    test_stream_item_prepend(item, new_item);
+    // Ask for next completed SEI.
     sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
     ck_assert_int_eq(sv_rc, SV_OK);
   }
 }
 
-/* Generates a signed video stream of NAL Units for a user-owned signed_video_t session.
+/* Generates a signed video test stream for a user-owned signed_video_t session.
  *
  * Takes a string of NAL Unit characters ('I', 'i', 'P', 'p', 'S', 'X') as input and
  * generates NAL Unit data for these. Then adds these NAL Units to the input session. The
- * generated sei-nalus are added to the stream. */
+ * generated SEIs are added to the stream. */
 test_stream_t *
 create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalus)
 {
-  SignedVideoReturnCode rc = SV_OK;
+  SignedVideoReturnCode rc = SV_UNKNOWN_FAILURE;
   ck_assert(sv);
-  SignedVideoCodec codec = sv->codec;
 
-  // Create a list of NAL Units given the input string.
-  test_stream_t *list = test_stream_create(str, codec);
+  // Create a test stream given the input string.
+  test_stream_t *list = test_stream_create(str, sv->codec);
   test_stream_item_t *item = list->first_item;
 
   // Loop through the NAL Units and add for signing.
@@ -136,36 +129,36 @@ create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalu
           sv, item->data, item->data_size, &g_testTimestamp, true);
     }
     ck_assert_int_eq(rc, SV_OK);
-    // Pull NAL Units to prepend or append and inject into the NAL Unit list.
-    pull_nalus(sv, item);
+    // Pull all SEIs and add them into the test stream.
+    pull_seis(sv, item);
 
     if (item->next == NULL) break;
     item = item->next;
   }
 
   // Since we have prepended individual items in the list, we have lost the list state and
-  // need tp update it.
+  // need to update it.
   test_stream_refresh(list);
 
   return list;
 }
 
-/* See function create_signed_nalus_int */
+/* See function create_signed_nalus_int() */
 test_stream_t *
 create_signed_nalus(const char *str, struct sv_setting settings)
 {
   return create_signed_nalus_int(str, settings, false);
 }
 
-/* Generates a signed video stream for the selected setting. The stream is returned as a
- * test_stream_t.
+/* Generates a signed video test stream for the selected setting. The stream is returned
+ * as a test_stream_t.
  *
  * Takes a string of NAL Unit characters ('I', 'i', 'P', 'p', 'S', 'X') as input and
  * generates NAL Unit data for these. Then a signed_video_t session is created given the
  * input |settings|. The generated NAL Units are then passed through the signing process
- * and corresponding generated sei-nalus are added to the stream. If |new_private_key| is
+ * and corresponding generated SEIs are added to the test stream. If |new_private_key| is
  * 'true' then a new private key is generated else an already generated private key is
- * used. */
+ * used. If the NAL Unit data should be split into parts, mark the |split_nalu| flag. */
 static test_stream_t *
 create_signed_splitted_nalus_int(const char *str,
     struct sv_setting settings,
@@ -173,6 +166,7 @@ create_signed_splitted_nalus_int(const char *str,
     bool split_nalus)
 {
   if (!str) return NULL;
+
   signed_video_t *sv =
       get_initialized_signed_video(settings.codec, settings.generate_key, new_private_key);
   ck_assert(sv);
@@ -180,7 +174,7 @@ create_signed_splitted_nalus_int(const char *str,
   ck_assert_int_eq(signed_video_set_max_sei_payload_size(sv, settings.max_sei_payload_size), SV_OK);
   ck_assert_int_eq(signed_video_set_hash_algo(sv, settings.hash_algo_name), SV_OK);
 
-  // Create a list of NAL Units given the input string.
+  // Create a test stream of NAL Units given the input string.
   test_stream_t *list = create_signed_nalus_with_sv(sv, str, split_nalus);
   signed_video_free(sv);
 
@@ -222,8 +216,9 @@ get_initialized_signed_video(SignedVideoCodec codec,
     return NULL;
   }
 
-  // Generating private keys takes long time. In unit_tests a new private key is only generated if
-  // it's really needed. One RSA key and one ECDSA key is stored globally to handle the scenario.
+  // Generating private keys takes some time. In unit tests a new private key is only
+  // generated if it is really needed. One RSA key and one ECDSA key is stored globally to
+  // handle the scenario.
   if (private_key_size == 0 || new_private_key) {
     char *tmp_key = NULL;
     size_t tmp_key_size = 0;
@@ -243,8 +238,8 @@ get_initialized_signed_video(SignedVideoCodec codec,
   return sv;
 }
 
-/* Removes the NAL Unit list items with position |item_number| from the |list|. The item
- * is, after a check against the expected |type|, then freed. */
+/* Removes the item with position |item_number| from the test stream |list|. The item is
+ * freed after a check against the expected |type|. */
 void
 remove_item_then_check_and_free(test_stream_t *list, int item_number, char type)
 {
@@ -255,8 +250,8 @@ remove_item_then_check_and_free(test_stream_t *list, int item_number, char type)
   test_stream_item_free(item);
 }
 
-/* Modifies the id of |item_number| in |list| by incrementing the value by one. A sanity check on
- * expected |type| of that item is done. */
+/* Modifies the id of |item_number| in test stream |list| by incrementing the value by
+ * one. Makes a sanity check on expected |type| of that item before modification. */
 void
 modify_list_item(test_stream_t *list, int item_number, char type)
 {
@@ -264,12 +259,12 @@ modify_list_item(test_stream_t *list, int item_number, char type)
 
   test_stream_item_t *item = test_stream_item_get(list, item_number);
   test_stream_item_check_type(item, type);
-  item->data[item->data_size - 2] += 1;  // Modifying id byte
+  item->data[item->data_size - 2] += 1;  // Modify id byte
 }
 
 /* Checks if a particular TLV tag is present in the NAL Unit. */
 bool
-tag_is_present(test_stream_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t tag)
+tag_is_present(const test_stream_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t tag)
 {
   ck_assert(item);
 
@@ -279,7 +274,7 @@ tag_is_present(test_stream_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t ta
 
   void *tag_ptr = (void *)tlv_find_tag(nalu.tlv_data, nalu.tlv_size, tag, false);
   found_tag = (tag_ptr != NULL);
-  // Free tempory data slot used if emulation prevention bytes are present.
+  // Free temporary data slot used if emulation prevention bytes are present.
   free(nalu.nalu_data_wo_epb);
 
   return found_tag;
