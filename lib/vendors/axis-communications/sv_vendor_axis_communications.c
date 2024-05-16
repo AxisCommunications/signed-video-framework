@@ -152,23 +152,23 @@ verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificat
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     trust_store = X509_STORE_new();
-    SVI_THROW_IF(!trust_store, SV_EXTERNAL_ERROR);
+    SV_THROW_IF(!trust_store, SV_EXTERNAL_ERROR);
     // Load trusted CA certificate
-    SVI_THROW_IF(X509_STORE_add_cert(trust_store, trusted_ca) != 1, SV_EXTERNAL_ERROR);
+    SV_THROW_IF(X509_STORE_add_cert(trust_store, trusted_ca) != 1, SV_EXTERNAL_ERROR);
 
     // Start a new context for certificate verification.
     ctx = X509_STORE_CTX_new();
-    SVI_THROW_IF(!ctx, SV_EXTERNAL_ERROR);
+    SV_THROW_IF(!ctx, SV_EXTERNAL_ERROR);
 
     // The |attestation_certificate| is the first certificate in the stack, which is the final
     // certificate to verify.
     X509 *attestation_certificate = sk_X509_value(untrusted_certificates, 0);
     // Initialize the context with trusted CA, the final certificate to verify and the chain of
     // certificates.
-    SVI_THROW_IF(
+    SV_THROW_IF(
         X509_STORE_CTX_init(ctx, trust_store, attestation_certificate, untrusted_certificates) != 1,
         SV_EXTERNAL_ERROR);
-    SVI_THROW_IF(X509_verify_cert(ctx) != 1, SV_VENDOR_ERROR);
+    SV_THROW_IF(X509_verify_cert(ctx) != 1, SV_VENDOR_ERROR);
 
   SV_CATCH()
   SV_DONE(status)
@@ -208,11 +208,11 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
   SV_TRY()
     // Create an empty stack of X509 certificates.
     untrusted_certificates = sk_X509_new_null();
-    SVI_THROW_IF(!untrusted_certificates, SV_EXTERNAL_ERROR);
+    SV_THROW_IF(!untrusted_certificates, SV_EXTERNAL_ERROR);
     sk_X509_zero(untrusted_certificates);
     // Put |certificate_chain| in a BIO.
     stackbio = BIO_new_mem_buf(self->certificate_chain, (int)strlen(self->certificate_chain));
-    SVI_THROW_IF(!stackbio, SV_EXTERNAL_ERROR);
+    SV_THROW_IF(!stackbio, SV_EXTERNAL_ERROR);
 
     // Turn |certificate_chain| into stack of X509, by looping through |certificate_chain| and
     // pushing them to |untrusted_certificates|. A hard coded maximum number of certificates
@@ -227,37 +227,37 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
       // Get the next certificate.
       certificate = PEM_read_bio_X509(stackbio, NULL, NULL, NULL);
     }
-    SVI_THROW_IF(num_certificates > NUM_UNTRUSTED_CERTIFICATES, SV_VENDOR_ERROR);
+    SV_THROW_IF(num_certificates > NUM_UNTRUSTED_CERTIFICATES, SV_VENDOR_ERROR);
 
     SVI_THROW(verify_certificate_chain(self->trusted_ca, untrusted_certificates));
 
     // Extract |chip_id| from the |attestation_certificate|.
     X509_NAME *subject = X509_get_subject_name(attestation_certificate);
     int common_name_index = X509_NAME_get_index_by_NID(subject, NID_commonName, -1);
-    SVI_THROW_IF(common_name_index < 0, SV_VENDOR_ERROR);
+    SV_THROW_IF(common_name_index < 0, SV_VENDOR_ERROR);
     // Found CN in certificate. Read that entry and convert to UTF8.
     entry_data = X509_NAME_ENTRY_get_data(X509_NAME_get_entry(subject, common_name_index));
-    SVI_THROW_IF(ASN1_STRING_to_UTF8(&common_name_str, entry_data) <= 0, SV_EXTERNAL_ERROR);
+    SV_THROW_IF(ASN1_STRING_to_UTF8(&common_name_str, entry_data) <= 0, SV_EXTERNAL_ERROR);
     // Find the Chip ID string, which shows up right after "Axis Edge Vault Attestation ".
     char *chip_id_str = strstr((char *)common_name_str, AXIS_EDGE_VAULT_ATTESTATION_STR);
-    SVI_THROW_IF(!chip_id_str, SV_VENDOR_ERROR);
+    SV_THROW_IF(!chip_id_str, SV_VENDOR_ERROR);
     char *pos = chip_id_str + strlen(AXIS_EDGE_VAULT_ATTESTATION_STR);
     size_t chip_id_size = strlen(pos);
     // Note that chip id is displayed in hexadecimal form in the certificate, hence each byte
     // corresponds to two characters.
-    SVI_THROW_IF(chip_id_size != CHIP_ID_SIZE * 2, SV_VENDOR_ERROR);
+    SV_THROW_IF(chip_id_size != CHIP_ID_SIZE * 2, SV_VENDOR_ERROR);
     for (int idx = 0; idx < CHIP_ID_SIZE; idx++, pos += 2) {
       sscanf(pos, "%2hhx", &self->chip_id[idx]);
     }
     // Check that the chip ID has correct prefix.
-    SVI_THROW_IF(memcmp(self->chip_id, kChipIDPrefix, CHIP_ID_PREFIX_SIZE) != 0, SV_VENDOR_ERROR);
+    SV_THROW_IF(memcmp(self->chip_id, kChipIDPrefix, CHIP_ID_PREFIX_SIZE) != 0, SV_VENDOR_ERROR);
 
     // Extract |serial_number| from the |attestation_certificate|.
     int ser_no_index = X509_NAME_get_index_by_NID(subject, NID_serialNumber, -1);
-    SVI_THROW_IF(ser_no_index < 0, SV_VENDOR_ERROR);
+    SV_THROW_IF(ser_no_index < 0, SV_VENDOR_ERROR);
     // Found serial number in certificate. Read that entry and convert to UTF8.
     entry_data = X509_NAME_ENTRY_get_data(X509_NAME_get_entry(subject, ser_no_index));
-    SVI_THROW_IF(ASN1_STRING_to_UTF8(&serial_number_str, entry_data) <= 0, SV_EXTERNAL_ERROR);
+    SV_THROW_IF(ASN1_STRING_to_UTF8(&serial_number_str, entry_data) <= 0, SV_EXTERNAL_ERROR);
     // Copy only if necessary.
     if (strcmp(self->supplemental_authenticity.serial_number, (char *)serial_number_str)) {
       memset(self->supplemental_authenticity.serial_number, 0, SV_VENDOR_AXIS_SER_NO_MAX_LENGTH);
@@ -266,13 +266,13 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
 
     // Get the public key from |attestation_certificate| and verify it.
     EVP_PKEY *attestation_pubkey = X509_get0_pubkey(attestation_certificate);
-    SVI_THROW_IF(!attestation_pubkey, SV_EXTERNAL_ERROR);
-    SVI_THROW_IF(EVP_PKEY_base_id(attestation_pubkey) != EVP_PKEY_EC, SV_VENDOR_ERROR);
+    SV_THROW_IF(!attestation_pubkey, SV_EXTERNAL_ERROR);
+    SV_THROW_IF(EVP_PKEY_base_id(attestation_pubkey) != EVP_PKEY_EC, SV_VENDOR_ERROR);
     // Create a new message digest context and initiate it. This context will later be used to
     // verify the public key used when validating the video.
     md_ctx = EVP_MD_CTX_new();
-    SVI_THROW_IF(!md_ctx, SV_EXTERNAL_ERROR);
-    SVI_THROW_IF(EVP_DigestVerifyInit(md_ctx, NULL, EVP_sha256(), NULL, attestation_pubkey) < 1,
+    SV_THROW_IF(!md_ctx, SV_EXTERNAL_ERROR);
+    SV_THROW_IF(EVP_DigestVerifyInit(md_ctx, NULL, EVP_sha256(), NULL, attestation_pubkey) < 1,
         SV_EXTERNAL_ERROR);
 
   SV_CATCH()
@@ -383,15 +383,15 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // If no message digest context exists, the |public_key| cannot be validated.
-    SVI_THROW_IF(!self->md_ctx, SV_VENDOR_ERROR);
-    SVI_THROW_IF(!self->public_key, SV_NOT_SUPPORTED);
+    SV_THROW_IF(!self->md_ctx, SV_VENDOR_ERROR);
+    SV_THROW_IF(!self->public_key, SV_NOT_SUPPORTED);
     // Convert |public_key| to uncompressed Weierstrass form which will be part of |signed_data|.
     pkey = (EVP_PKEY *)self->public_key;
-    SVI_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
+    SV_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
     public_key_uncompressed_size = EVP_PKEY_get1_encoded_public_key(pkey, &public_key_uncompressed);
     // Check size and prefix of |public_key| after conversion.
-    SVI_THROW_IF(public_key_uncompressed_size != PUBLIC_KEY_UNCOMPRESSED_SIZE, SV_VENDOR_ERROR);
-    SVI_THROW_IF(public_key_uncompressed[0] != PUBLIC_KEY_UNCOMPRESSED_PREFIX, SV_VENDOR_ERROR);
+    SV_THROW_IF(public_key_uncompressed_size != PUBLIC_KEY_UNCOMPRESSED_SIZE, SV_VENDOR_ERROR);
+    SV_THROW_IF(public_key_uncompressed[0] != PUBLIC_KEY_UNCOMPRESSED_PREFIX, SV_VENDOR_ERROR);
 
     // Construct the binary raw data which will be part of |signed_data|.
     uint8_t binary_raw_data[BINARY_RAW_DATA_SIZE] = {0x80, 0x22, 0x00, 0x00, 0x00, 0x00, 0x21, 0x41,
@@ -456,7 +456,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     verified_signature = EVP_DigestVerify(self->md_ctx,
         self->attestation_report.attestation_list.signature,
         self->attestation_report.attestation_list.signature_size, signed_data, SIGNED_DATA_SIZE);
-    SVI_THROW_IF(verified_signature < 0, SV_EXTERNAL_ERROR);
+    SV_THROW_IF(verified_signature < 0, SV_EXTERNAL_ERROR);
 
     // If verification fails (is 0) the result should never be overwritten with success (1) later.
     self->supplemental_authenticity.public_key_validation &= verified_signature;
@@ -612,22 +612,22 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SVI_THROW_IF(version != 1, SV_INCOMPATIBLE_VERSION);
+    SV_THROW_IF(version != 1, SV_INCOMPATIBLE_VERSION);
     // Read |attestation_size|.
     attestation_size = *data_ptr++;
-    SVI_THROW_IF(attestation_size == 0, SV_NOT_SUPPORTED);
+    SV_THROW_IF(attestation_size == 0, SV_NOT_SUPPORTED);
     // Allocate memory for |attestation|.
     if (!self->attestation) {
       self->attestation = malloc(attestation_size);
-      SVI_THROW_IF(!self->attestation, SV_MEMORY);
+      SV_THROW_IF(!self->attestation, SV_MEMORY);
       // Read |attestation|.
       memcpy(self->attestation, data_ptr, attestation_size);
       self->attestation_size = attestation_size;
     }
     // Check if the received |attestation| differ from the present one. If so, return
     // SV_NOT_SUPPORTED, since a change in attestation is not allowed.
-    SVI_THROW_IF(attestation_size != self->attestation_size, SV_NOT_SUPPORTED);
-    SVI_THROW_IF(memcmp(data_ptr, self->attestation, attestation_size), SV_NOT_SUPPORTED);
+    SV_THROW_IF(attestation_size != self->attestation_size, SV_NOT_SUPPORTED);
+    SV_THROW_IF(memcmp(data_ptr, self->attestation, attestation_size), SV_NOT_SUPPORTED);
     // Move pointer past |attestation|.
     data_ptr += attestation_size;
 
@@ -635,21 +635,21 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
     //  - 1 byte for version
     //  - 1 bytes for |attestation_size|
     //  - |attestation_size| bytes for |attestation|
-    SVI_THROW_IF(data_size <= (size_t)attestation_size + 2, SV_AUTHENTICATION_ERROR);
+    SV_THROW_IF(data_size <= (size_t)attestation_size + 2, SV_AUTHENTICATION_ERROR);
     cert_size = data_size - attestation_size - 2;
 
     // Allocate memory for |certificate_chain| including null-terminated character.
     if (!self->certificate_chain) {
       self->certificate_chain = calloc(1, cert_size + 1);
-      SVI_THROW_IF(!self->certificate_chain, SV_MEMORY);
+      SV_THROW_IF(!self->certificate_chain, SV_MEMORY);
       memcpy(self->certificate_chain, data_ptr, cert_size);
     }
     // Compare incoming certificate chain against present and throw an error if they differ.
-    SVI_THROW_IF(memcmp(data_ptr, self->certificate_chain, cert_size), SV_NOT_SUPPORTED);
+    SV_THROW_IF(memcmp(data_ptr, self->certificate_chain, cert_size), SV_NOT_SUPPORTED);
     // Move pointer past |certificate_chain|.
     data_ptr += cert_size;
 
-    SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
+    SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
   SV_CATCH()
   SV_DONE(status)
 
@@ -682,16 +682,16 @@ set_axis_communications_public_key(void *handle,
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Validate that the public key is of correct type and size.
-    SVI_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
+    SV_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
     // Ensure it is a NIST P-256 key with correct curve.
     if (EVP_PKEY_base_id(pkey) != EVP_PKEY_EC) {
       public_key_validation = 0;
     } else {
-      SVI_THROW_IF(EVP_PKEY_get_base_id(pkey) != EVP_PKEY_EC, SV_VENDOR_ERROR);
+      SV_THROW_IF(EVP_PKEY_get_base_id(pkey) != EVP_PKEY_EC, SV_VENDOR_ERROR);
       char group_name[100];
-      SVI_THROW_IF(EVP_PKEY_get_group_name(pkey, group_name, sizeof(group_name), NULL) != 1,
+      SV_THROW_IF(EVP_PKEY_get_group_name(pkey, group_name, sizeof(group_name), NULL) != 1,
           SV_EXTERNAL_ERROR);
-      SVI_THROW_IF(strcmp(group_name, SN_X9_62_prime256v1) != 0, SV_VENDOR_ERROR);
+      SV_THROW_IF(strcmp(group_name, SN_X9_62_prime256v1) != 0, SV_VENDOR_ERROR);
     }
 
     // The Public key is of correct type and size.

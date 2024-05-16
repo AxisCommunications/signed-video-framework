@@ -327,18 +327,18 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list, bool hash_algo_known)
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SVI_THROW_IF(!item->nalu, SV_UNKNOWN_FAILURE);
+    SV_THROW_IF(!item->nalu, SV_UNKNOWN_FAILURE);
     copied_nalu = (h26x_nalu_t *)malloc(sizeof(h26x_nalu_t));
-    SVI_THROW_IF(!copied_nalu, SV_MEMORY);
+    SV_THROW_IF(!copied_nalu, SV_MEMORY);
     if (item->nalu->tlv_data) {
       nalu_data_wo_epb = malloc(item->nalu->tlv_size);
-      SVI_THROW_IF(!nalu_data_wo_epb, SV_MEMORY);
+      SV_THROW_IF(!nalu_data_wo_epb, SV_MEMORY);
       memcpy(nalu_data_wo_epb, item->nalu->tlv_data, item->nalu->tlv_size);
     }
     // If the library does not know which hash algo to use, store the |hashable_data| for later.
     if (!hash_algo_known && item->nalu->is_hashable) {
       hashable_data = malloc(item->nalu->hashable_data_size);
-      SVI_THROW_IF(!hashable_data, SV_MEMORY);
+      SV_THROW_IF(!hashable_data, SV_MEMORY);
       memcpy(hashable_data, item->nalu->hashable_data, item->nalu->hashable_data_size);
     }
     copy_nalu_except_pointers(copied_nalu, item->nalu);
@@ -382,7 +382,7 @@ h26x_nalu_list_add_missing(h26x_nalu_list_t *list,
   SV_TRY()
     for (added_items = 0; added_items < num_missing; added_items++) {
       h26x_nalu_list_item_t *missing_nalu = h26x_nalu_list_item_create(NULL);
-      SVI_THROW_IF(!missing_nalu, SV_MEMORY);
+      SV_THROW_IF(!missing_nalu, SV_MEMORY);
 
       missing_nalu->validation_status = 'M';
       if (append) {

@@ -312,7 +312,7 @@ signed_video_get_authenticity_report(signed_video_t *self)
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SVI_THROW_IF(!authenticity_report, SV_MEMORY);
+    SV_THROW_IF(!authenticity_report, SV_MEMORY);
     // Update |number_of_pending_nalus| since that may have changed since |latest_validation|.
     signed_video_accumulated_validation_t *accumulated = self->accumulated_validation;
     if (accumulated->authenticity == SV_AUTH_RESULT_NOT_SIGNED) {
@@ -355,7 +355,7 @@ create_local_authenticity_report_if_needed(signed_video_t *self)
   SV_TRY()
     // Create a new one.
     signed_video_authenticity_t *auth_report = signed_video_authenticity_report_create();
-    SVI_THROW_IF(auth_report == NULL, SV_MEMORY);
+    SV_THROW_IF(auth_report == NULL, SV_MEMORY);
     // Transfer |product_info| from |self|.
     SVI_THROW(transfer_product_info(&auth_report->product_info, self->product_info));
 
