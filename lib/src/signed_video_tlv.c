@@ -971,7 +971,7 @@ decode_axis_communications(signed_video_t ATTR_UNUSED *self,
     size_t ATTR_UNUSED data_size)
 {
   // Vendor Axis Communications not selected.
-  return SVI_NOT_SUPPORTED;
+  return SV_NOT_SUPPORTED;
 #endif
 }
 

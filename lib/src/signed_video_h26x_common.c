@@ -136,7 +136,7 @@ svi_rc_to_signed_video_rc(svi_rc status)
       return SV_OK;
     case SVI_MEMORY:
       return SV_MEMORY;
-    case SVI_NOT_SUPPORTED:
+    case SV_NOT_SUPPORTED:
       return SV_NOT_SUPPORTED;
     case SV_INVALID_PARAMETER:
       return SV_INVALID_PARAMETER;
@@ -162,7 +162,7 @@ sv_rc_to_svi_rc(SignedVideoReturnCode status)
     case SV_MEMORY:
       return SVI_MEMORY;
     case SV_NOT_SUPPORTED:
-      return SVI_NOT_SUPPORTED;
+      return SV_NOT_SUPPORTED;
     case SV_INVALID_PARAMETER:
       return SV_INVALID_PARAMETER;
     case SV_INCOMPATIBLE_VERSION:
@@ -307,7 +307,7 @@ svi_rc
 set_hash_list_size(gop_info_t *gop_info, size_t hash_list_size)
 {
   if (!gop_info) return SV_INVALID_PARAMETER;
-  if (hash_list_size > HASH_LIST_SIZE) return SVI_NOT_SUPPORTED;
+  if (hash_list_size > HASH_LIST_SIZE) return SV_NOT_SUPPORTED;
 
   gop_info->hash_list_size = hash_list_size;
   return SVI_OK;

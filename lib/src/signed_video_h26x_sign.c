@@ -109,7 +109,7 @@ static svi_rc
 complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
 {
   assert(self);
-  if (self->sei_data_buffer_idx < 1) return SVI_NOT_SUPPORTED;
+  if (self->sei_data_buffer_idx < 1) return SV_NOT_SUPPORTED;
 
   // Get the oldest sei data
   assert(self->sei_data_buffer_idx <= MAX_NALUS_TO_PREPEND);
@@ -208,7 +208,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
   if (self->sei_data_buffer_idx >= MAX_NALUS_TO_PREPEND) {
     // Not enough space for this payload.
-    return SVI_NOT_SUPPORTED;
+    return SV_NOT_SUPPORTED;
   }
 
   // Reset |signature_hash_type| to |GOP_HASH|. If the |hash_list| is successfully added,
@@ -423,7 +423,7 @@ prepare_for_nalus_to_prepend(signed_video_t *self)
     // Without a private key we cannot sign, which is equivalent with the existence of a signin
     // plugin.
     SVI_THROW_IF_WITH_MSG(
-        !self->plugin_handle, SVI_NOT_SUPPORTED, "The private key has not been set");
+        !self->plugin_handle, SV_NOT_SUPPORTED, "The private key has not been set");
     // Mark the start of signing when the first NAL Unit is passed in and a signing key
     // has been set.
     self->signing_started = true;
@@ -433,7 +433,7 @@ prepare_for_nalus_to_prepend(signed_video_t *self)
     // (SV_NOT_SUPPORTED).
     if (!self->sv_test_on) {
       SVI_THROW_IF_WITH_MSG(
-          self->num_of_completed_seis > 0, SVI_NOT_SUPPORTED, "There are remaining SEIs.");
+          self->num_of_completed_seis > 0, SV_NOT_SUPPORTED, "There are remaining SEIs.");
     }
   SVI_CATCH()
   SVI_DONE(status)
@@ -800,8 +800,8 @@ signed_video_set_authenticity_level(signed_video_t *self,
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
-    SVI_THROW_IF(authenticity_level >= SV_AUTHENTICITY_LEVEL_NUM, SVI_NOT_SUPPORTED);
-    SVI_THROW_IF(authenticity_level < SV_AUTHENTICITY_LEVEL_GOP, SVI_NOT_SUPPORTED);
+    SVI_THROW_IF(authenticity_level >= SV_AUTHENTICITY_LEVEL_NUM, SV_NOT_SUPPORTED);
+    SVI_THROW_IF(authenticity_level < SV_AUTHENTICITY_LEVEL_GOP, SV_NOT_SUPPORTED);
 
     self->authenticity_level = authenticity_level;
 
@@ -851,7 +851,7 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid)
   SVI_TRY()
     SVI_THROW(openssl_set_hash_algo(self->crypto_handle, name_or_oid));
     hash_size = openssl_get_hash_size(self->crypto_handle);
-    SVI_THROW_IF(hash_size == 0 || hash_size > MAX_HASH_SIZE, SVI_NOT_SUPPORTED);
+    SVI_THROW_IF(hash_size == 0 || hash_size > MAX_HASH_SIZE, SV_NOT_SUPPORTED);
 
     self->sign_data->hash_size = hash_size;
     // Point |nalu_hash| to the correct location in the |hashes| buffer.

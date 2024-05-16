@@ -384,7 +384,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
   SVI_TRY()
     // If no message digest context exists, the |public_key| cannot be validated.
     SVI_THROW_IF(!self->md_ctx, SV_VENDOR_ERROR);
-    SVI_THROW_IF(!self->public_key, SVI_NOT_SUPPORTED);
+    SVI_THROW_IF(!self->public_key, SV_NOT_SUPPORTED);
     // Convert |public_key| to uncompressed Weierstrass form which will be part of |signed_data|.
     pkey = (EVP_PKEY *)self->public_key;
     SVI_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
@@ -615,7 +615,7 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
     SVI_THROW_IF(version != 1, SV_INCOMPATIBLE_VERSION);
     // Read |attestation_size|.
     attestation_size = *data_ptr++;
-    SVI_THROW_IF(attestation_size == 0, SVI_NOT_SUPPORTED);
+    SVI_THROW_IF(attestation_size == 0, SV_NOT_SUPPORTED);
     // Allocate memory for |attestation|.
     if (!self->attestation) {
       self->attestation = malloc(attestation_size);
@@ -625,9 +625,9 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
       self->attestation_size = attestation_size;
     }
     // Check if the received |attestation| differ from the present one. If so, return
-    // SVI_NOT_SUPPORTED, since a change in attestation is not allowed.
-    SVI_THROW_IF(attestation_size != self->attestation_size, SVI_NOT_SUPPORTED);
-    SVI_THROW_IF(memcmp(data_ptr, self->attestation, attestation_size), SVI_NOT_SUPPORTED);
+    // SV_NOT_SUPPORTED, since a change in attestation is not allowed.
+    SVI_THROW_IF(attestation_size != self->attestation_size, SV_NOT_SUPPORTED);
+    SVI_THROW_IF(memcmp(data_ptr, self->attestation, attestation_size), SV_NOT_SUPPORTED);
     // Move pointer past |attestation|.
     data_ptr += attestation_size;
 
@@ -645,7 +645,7 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
       memcpy(self->certificate_chain, data_ptr, cert_size);
     }
     // Compare incoming certificate chain against present and throw an error if they differ.
-    SVI_THROW_IF(memcmp(data_ptr, self->certificate_chain, cert_size), SVI_NOT_SUPPORTED);
+    SVI_THROW_IF(memcmp(data_ptr, self->certificate_chain, cert_size), SV_NOT_SUPPORTED);
     // Move pointer past |certificate_chain|.
     data_ptr += cert_size;
 
