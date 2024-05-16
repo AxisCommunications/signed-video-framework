@@ -23,6 +23,10 @@
 
 #include <stdbool.h>  // bool
 
+#include "includes/signed_video_common.h"  // SignedVideoReturnCode
+
+typedef SignedVideoReturnCode svi_rc;
+
 // Semicolon needed after, ex. DEBUG_LOG("my debug: %d", 42);
 #ifdef SIGNED_VIDEO_DEBUG
 #include <stdio.h>
@@ -140,18 +144,6 @@
     status_set_ = true; \
     SVI_MAYBE_GOTO_CATCH_ERROR_WITH_MSG(fail_msg, ##__VA_ARGS__) \
   } while (0)
-
-typedef enum {
-  SV_OK = 0,
-  SV_MEMORY = 1,
-  SV_NOT_SUPPORTED = 9,
-  SV_INVALID_PARAMETER = 10,
-  SV_INCOMPATIBLE_VERSION = 12,
-  SV_AUTHENTICATION_ERROR = 13,
-  SV_EXTERNAL_ERROR = 20,
-  SV_VENDOR_ERROR = 21,
-  SV_UNKNOWN_FAILURE = 100,
-} svi_rc;  // Signed Video Internal Return Code
 
 /**
  * Definition of available TLV tags.
