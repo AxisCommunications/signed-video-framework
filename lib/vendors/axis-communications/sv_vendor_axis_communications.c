@@ -152,13 +152,13 @@ verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificat
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     trust_store = X509_STORE_new();
-    SVI_THROW_IF(!trust_store, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!trust_store, SV_EXTERNAL_ERROR);
     // Load trusted CA certificate
-    SVI_THROW_IF(X509_STORE_add_cert(trust_store, trusted_ca) != 1, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(X509_STORE_add_cert(trust_store, trusted_ca) != 1, SV_EXTERNAL_ERROR);
 
     // Start a new context for certificate verification.
     ctx = X509_STORE_CTX_new();
-    SVI_THROW_IF(!ctx, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!ctx, SV_EXTERNAL_ERROR);
 
     // The |attestation_certificate| is the first certificate in the stack, which is the final
     // certificate to verify.
@@ -167,7 +167,7 @@ verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificat
     // certificates.
     SVI_THROW_IF(
         X509_STORE_CTX_init(ctx, trust_store, attestation_certificate, untrusted_certificates) != 1,
-        SVI_EXTERNAL_FAILURE);
+        SV_EXTERNAL_ERROR);
     SVI_THROW_IF(X509_verify_cert(ctx) != 1, SVI_VENDOR);
 
   SVI_CATCH()
@@ -208,11 +208,11 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
   SVI_TRY()
     // Create an empty stack of X509 certificates.
     untrusted_certificates = sk_X509_new_null();
-    SVI_THROW_IF(!untrusted_certificates, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!untrusted_certificates, SV_EXTERNAL_ERROR);
     sk_X509_zero(untrusted_certificates);
     // Put |certificate_chain| in a BIO.
     stackbio = BIO_new_mem_buf(self->certificate_chain, (int)strlen(self->certificate_chain));
-    SVI_THROW_IF(!stackbio, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!stackbio, SV_EXTERNAL_ERROR);
 
     // Turn |certificate_chain| into stack of X509, by looping through |certificate_chain| and
     // pushing them to |untrusted_certificates|. A hard coded maximum number of certificates
@@ -237,7 +237,7 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
     SVI_THROW_IF(common_name_index < 0, SVI_VENDOR);
     // Found CN in certificate. Read that entry and convert to UTF8.
     entry_data = X509_NAME_ENTRY_get_data(X509_NAME_get_entry(subject, common_name_index));
-    SVI_THROW_IF(ASN1_STRING_to_UTF8(&common_name_str, entry_data) <= 0, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(ASN1_STRING_to_UTF8(&common_name_str, entry_data) <= 0, SV_EXTERNAL_ERROR);
     // Find the Chip ID string, which shows up right after "Axis Edge Vault Attestation ".
     char *chip_id_str = strstr((char *)common_name_str, AXIS_EDGE_VAULT_ATTESTATION_STR);
     SVI_THROW_IF(!chip_id_str, SVI_VENDOR);
@@ -257,7 +257,7 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
     SVI_THROW_IF(ser_no_index < 0, SVI_VENDOR);
     // Found serial number in certificate. Read that entry and convert to UTF8.
     entry_data = X509_NAME_ENTRY_get_data(X509_NAME_get_entry(subject, ser_no_index));
-    SVI_THROW_IF(ASN1_STRING_to_UTF8(&serial_number_str, entry_data) <= 0, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(ASN1_STRING_to_UTF8(&serial_number_str, entry_data) <= 0, SV_EXTERNAL_ERROR);
     // Copy only if necessary.
     if (strcmp(self->supplemental_authenticity.serial_number, (char *)serial_number_str)) {
       memset(self->supplemental_authenticity.serial_number, 0, SV_VENDOR_AXIS_SER_NO_MAX_LENGTH);
@@ -266,14 +266,14 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
 
     // Get the public key from |attestation_certificate| and verify it.
     EVP_PKEY *attestation_pubkey = X509_get0_pubkey(attestation_certificate);
-    SVI_THROW_IF(!attestation_pubkey, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!attestation_pubkey, SV_EXTERNAL_ERROR);
     SVI_THROW_IF(EVP_PKEY_base_id(attestation_pubkey) != EVP_PKEY_EC, SVI_VENDOR);
     // Create a new message digest context and initiate it. This context will later be used to
     // verify the public key used when validating the video.
     md_ctx = EVP_MD_CTX_new();
-    SVI_THROW_IF(!md_ctx, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!md_ctx, SV_EXTERNAL_ERROR);
     SVI_THROW_IF(EVP_DigestVerifyInit(md_ctx, NULL, EVP_sha256(), NULL, attestation_pubkey) < 1,
-        SVI_EXTERNAL_FAILURE);
+        SV_EXTERNAL_ERROR);
 
   SVI_CATCH()
   {
@@ -387,7 +387,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     SVI_THROW_IF(!self->public_key, SVI_NOT_SUPPORTED);
     // Convert |public_key| to uncompressed Weierstrass form which will be part of |signed_data|.
     pkey = (EVP_PKEY *)self->public_key;
-    SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
     public_key_uncompressed_size = EVP_PKEY_get1_encoded_public_key(pkey, &public_key_uncompressed);
     // Check size and prefix of |public_key| after conversion.
     SVI_THROW_IF(public_key_uncompressed_size != PUBLIC_KEY_UNCOMPRESSED_SIZE, SVI_VENDOR);
@@ -456,7 +456,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     verified_signature = EVP_DigestVerify(self->md_ctx,
         self->attestation_report.attestation_list.signature,
         self->attestation_report.attestation_list.signature_size, signed_data, SIGNED_DATA_SIZE);
-    SVI_THROW_IF(verified_signature < 0, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(verified_signature < 0, SV_EXTERNAL_ERROR);
 
     // If verification fails (is 0) the result should never be overwritten with success (1) later.
     self->supplemental_authenticity.public_key_validation &= verified_signature;
@@ -682,7 +682,7 @@ set_axis_communications_public_key(void *handle,
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     // Validate that the public key is of correct type and size.
-    SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
     // Ensure it is a NIST P-256 key with correct curve.
     if (EVP_PKEY_base_id(pkey) != EVP_PKEY_EC) {
       public_key_validation = 0;
@@ -690,7 +690,7 @@ set_axis_communications_public_key(void *handle,
       SVI_THROW_IF(EVP_PKEY_get_base_id(pkey) != EVP_PKEY_EC, SVI_VENDOR);
       char group_name[100];
       SVI_THROW_IF(EVP_PKEY_get_group_name(pkey, group_name, sizeof(group_name), NULL) != 1,
-          SVI_EXTERNAL_FAILURE);
+          SV_EXTERNAL_ERROR);
       SVI_THROW_IF(strcmp(group_name, SN_X9_62_prime256v1) != 0, SVI_VENDOR);
     }
 

@@ -124,7 +124,7 @@ openssl_get_hash_size(void *handle);
  *
  * @returns SVI_OK Successfully hashed |data|,
  *          SVI_INVALID_PARAMETER Null pointer inputs, or invalid |data_size|,
- *          SVI_EXTERNAL_FAILURE Failed to hash.
+ *          SV_EXTERNAL_ERROR Failed to hash.
  */
 svi_rc
 openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *hash);
@@ -138,7 +138,7 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
  *
  * @returns SVI_OK Successfully initialized EVP_MD_CTX object in |handle|,
  *          SVI_INVALID_PARAMETER Null pointer input,
- *          SVI_EXTERNAL_FAILURE Failed to initialize.
+ *          SV_EXTERNAL_ERROR Failed to initialize.
  */
 svi_rc
 openssl_init_hash(void *handle);
@@ -155,7 +155,7 @@ openssl_init_hash(void *handle);
  *
  * @returns SVI_OK Successfully updated EVP_MD_CTX object in |handle|,
  *          SVI_INVALID_PARAMETER Null pointer inputs, or invalid |data_size|,
- *          SVI_EXTERNAL_FAILURE Failed to update.
+ *          SV_EXTERNAL_ERROR Failed to update.
  */
 svi_rc
 openssl_update_hash(void *handle, const uint8_t *data, size_t data_size);
@@ -171,7 +171,7 @@ openssl_update_hash(void *handle, const uint8_t *data, size_t data_size);
  *
  * @returns SVI_OK Successfully wrote the final result of EVP_MD_CTX object in |handle| to |hash|,
  *          SVI_INVALID_PARAMETER Null pointer inputs,
- *          SVI_EXTERNAL_FAILURE Failed to finalize.
+ *          SV_EXTERNAL_ERROR Failed to finalize.
  */
 svi_rc
 openssl_finalize_hash(void *handle, uint8_t *hash);
@@ -204,7 +204,7 @@ openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_resu
  * @returns SVI_OK Successfully written |key| to |pem_pkey|,
  *          SVI_INVALID_PARAMETER Errors in |sign_data|, or no private key present,
  *          SVI_MEMORY Could not allocate memory for |key|,
- *          SVI_EXTERNAL_FAILURE Failure in OpenSSL.
+ *          SV_EXTERNAL_ERROR Failure in OpenSSL.
  */
 svi_rc
 openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_t *pem_pkey);
@@ -221,7 +221,7 @@ openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_
  *
  * @returns SVI_OK Successfully stored |public_key|,
  *          SVI_INVALID_PARAMETER Missing inputs,
- *          SVI_EXTERNAL_FAILURE Failure in OpenSSL.
+ *          SV_EXTERNAL_ERROR Failure in OpenSSL.
  */
 svi_rc
 openssl_public_key_malloc(sign_or_verify_data_t *verify_data, pem_pkey_t *pem_public_key);

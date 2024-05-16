@@ -144,7 +144,7 @@ svi_rc_to_signed_video_rc(svi_rc status)
       return SV_INCOMPATIBLE_VERSION;
     case SV_AUTHENTICATION_ERROR:
       return SV_AUTHENTICATION_ERROR;
-    case SVI_EXTERNAL_FAILURE:
+    case SV_EXTERNAL_ERROR:
       return SV_EXTERNAL_ERROR;
     case SVI_VENDOR:
       return SV_VENDOR_ERROR;
@@ -170,7 +170,7 @@ sv_rc_to_svi_rc(SignedVideoReturnCode status)
     case SV_AUTHENTICATION_ERROR:
       return SV_AUTHENTICATION_ERROR;
     case SV_EXTERNAL_ERROR:
-      return SVI_EXTERNAL_FAILURE;
+      return SV_EXTERNAL_ERROR;
     case SV_VENDOR_ERROR:
       return SVI_VENDOR;
     case SV_UNKNOWN_FAILURE:
@@ -1202,11 +1202,11 @@ signed_video_create(SignedVideoCodec codec)
 
     // Setup crypto handle.
     self->crypto_handle = openssl_create_handle();
-    SVI_THROW_IF(!self->crypto_handle, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!self->crypto_handle, SV_EXTERNAL_ERROR);
     self->sign_data->hash_size = openssl_get_hash_size(self->crypto_handle);
     self->verify_data->hash_size = openssl_get_hash_size(self->crypto_handle);
     // Make sure the hash size matches the default hash size.
-    SVI_THROW_IF(self->sign_data->hash_size != DEFAULT_HASH_SIZE, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(self->sign_data->hash_size != DEFAULT_HASH_SIZE, SV_EXTERNAL_ERROR);
     SVI_THROW_WITH_MSG(reset_gop_hash(self), "Couldn't reset gop_hash");
 
     // Signing plugin is setup when the private key is set.

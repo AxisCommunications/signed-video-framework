@@ -108,23 +108,23 @@ openssl_private_key_malloc(sign_or_verify_data_t *sign_data,
     BIO *bp = BIO_new_mem_buf(private_key, private_key_size);
     signing_key = PEM_read_bio_PrivateKey(bp, NULL, NULL, NULL);
     BIO_free(bp);
-    SVI_THROW_IF(!signing_key, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!signing_key, SV_EXTERNAL_ERROR);
 
     // Read the maximum size of the signature that the |private_key| can generate
     size_t max_signature_size = EVP_PKEY_size(signing_key);
-    SVI_THROW_IF(max_signature_size == 0, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(max_signature_size == 0, SV_EXTERNAL_ERROR);
     sign_data->signature = malloc(max_signature_size);
     SVI_THROW_IF(!sign_data->signature, SVI_MEMORY);
     // Create a context from the |signing_key|
     ctx = EVP_PKEY_CTX_new(signing_key, NULL /* no engine */);
-    SVI_THROW_IF(!ctx, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!ctx, SV_EXTERNAL_ERROR);
     // Initialize key
-    SVI_THROW_IF(EVP_PKEY_sign_init(ctx) <= 0, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(EVP_PKEY_sign_init(ctx) <= 0, SV_EXTERNAL_ERROR);
 
     if (EVP_PKEY_base_id(signing_key) == EVP_PKEY_RSA) {
-      SVI_THROW_IF(EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0, SVI_EXTERNAL_FAILURE);
+      SVI_THROW_IF(EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0, SV_EXTERNAL_ERROR);
       // Set message digest type to sha256
-      SVI_THROW_IF(EVP_PKEY_CTX_set_signature_md(ctx, EVP_sha256()) <= 0, SVI_EXTERNAL_FAILURE);
+      SVI_THROW_IF(EVP_PKEY_CTX_set_signature_md(ctx, EVP_sha256()) <= 0, SV_EXTERNAL_ERROR);
     }
 
     // Set the content in |sign_data|
@@ -166,15 +166,15 @@ openssl_public_key_malloc(sign_or_verify_data_t *verify_data, pem_pkey_t *pem_pu
     BIO *bp = BIO_new_mem_buf(buf, buf_size);
     verification_key = PEM_read_bio_PUBKEY(bp, NULL, NULL, NULL);
     BIO_free(bp);
-    SVI_THROW_IF(!verification_key, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!verification_key, SV_EXTERNAL_ERROR);
 
     // Create an EVP context
     ctx = EVP_PKEY_CTX_new(verification_key, NULL /* No engine */);
-    SVI_THROW_IF(!ctx, SVI_EXTERNAL_FAILURE);
-    SVI_THROW_IF(EVP_PKEY_verify_init(ctx) <= 0, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!ctx, SV_EXTERNAL_ERROR);
+    SVI_THROW_IF(EVP_PKEY_verify_init(ctx) <= 0, SV_EXTERNAL_ERROR);
     if (EVP_PKEY_base_id(verification_key) == EVP_PKEY_RSA) {
-      SVI_THROW_IF(EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0, SVI_EXTERNAL_FAILURE);
-      SVI_THROW_IF(EVP_PKEY_CTX_set_signature_md(ctx, EVP_sha256()) <= 0, SVI_EXTERNAL_FAILURE);
+      SVI_THROW_IF(EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0, SV_EXTERNAL_ERROR);
+      SVI_THROW_IF(EVP_PKEY_CTX_set_signature_md(ctx, EVP_sha256()) <= 0, SV_EXTERNAL_ERROR);
     }
 
     // Free any existing key
@@ -211,16 +211,16 @@ openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_
     SVI_THROW_IF(!ctx, SVI_INVALID_PARAMETER);
     // Borrow the EVP_PKEY |pkey| from |ctx|.
     pkey = EVP_PKEY_CTX_get0_pkey(ctx);
-    SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
     // Write public key to BIO.
     pub_bio = BIO_new(BIO_s_mem());
-    SVI_THROW_IF(!pub_bio, SVI_EXTERNAL_FAILURE);
-    SVI_THROW_IF(!PEM_write_bio_PUBKEY(pub_bio, pkey), SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!pub_bio, SV_EXTERNAL_ERROR);
+    SVI_THROW_IF(!PEM_write_bio_PUBKEY(pub_bio, pkey), SV_EXTERNAL_ERROR);
 
     // Copy public key from BIO to |public_key|.
     char *buf_pos = NULL;
     public_key_size = BIO_get_mem_data(pub_bio, &buf_pos);
-    SVI_THROW_IF(public_key_size <= 0, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(public_key_size <= 0, SV_EXTERNAL_ERROR);
     public_key = malloc(public_key_size);
     SVI_THROW_IF(!public_key, SVI_MEMORY);
     memcpy(public_key, buf_pos, public_key_size);
@@ -260,12 +260,12 @@ openssl_sign_hash(sign_or_verify_data_t *sign_data)
     SVI_THROW_IF(!ctx, SVI_INVALID_PARAMETER);
     // Determine required buffer length of the signature
     SVI_THROW_IF(
-        EVP_PKEY_sign(ctx, NULL, &siglen, hash_to_sign, hash_size) <= 0, SVI_EXTERNAL_FAILURE);
+        EVP_PKEY_sign(ctx, NULL, &siglen, hash_to_sign, hash_size) <= 0, SV_EXTERNAL_ERROR);
     // Check allocated space for signature
     SVI_THROW_IF(siglen > max_signature_size, SVI_MEMORY);
     // Finally sign hash with context
     SVI_THROW_IF(
-        EVP_PKEY_sign(ctx, signature, &siglen, hash_to_sign, hash_size) <= 0, SVI_EXTERNAL_FAILURE);
+        EVP_PKEY_sign(ctx, signature, &siglen, hash_to_sign, hash_size) <= 0, SV_EXTERNAL_ERROR);
     // Set the actually written size of the signature. Depending on signing algorithm a shorter
     // signature may have been written.
     sign_data->signature_size = siglen;
@@ -314,8 +314,8 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
 
   unsigned int hash_size = 0;
   int ret = EVP_Digest(data, data_size, hash, &hash_size, self->hash_algo.type, NULL);
-  svi_rc status = hash_size == self->hash_algo.size ? SVI_OK : SVI_EXTERNAL_FAILURE;
-  return ret == 1 ? status : SVI_EXTERNAL_FAILURE;
+  svi_rc status = hash_size == self->hash_algo.size ? SVI_OK : SV_EXTERNAL_ERROR;
+  return ret == 1 ? status : SV_EXTERNAL_ERROR;
 }
 
 /* Initializes EVP_MD_CTX in |handle| with |hash_algo.type|. */
@@ -333,12 +333,12 @@ openssl_init_hash(void *handle)
     if (!self->hash_algo.type) return SVI_INVALID_PARAMETER;
     // Create a new context and set message digest type.
     self->ctx = EVP_MD_CTX_new();
-    if (!self->ctx) return SVI_EXTERNAL_FAILURE;
+    if (!self->ctx) return SV_EXTERNAL_ERROR;
     // Set a message digest type and initialize the hashing function.
     ret = EVP_DigestInit_ex(self->ctx, self->hash_algo.type, NULL);
   }
 
-  return ret == 1 ? SVI_OK : SVI_EXTERNAL_FAILURE;
+  return ret == 1 ? SVI_OK : SV_EXTERNAL_ERROR;
 }
 
 /* Updates EVP_MD_CTX in |handle| with |data|. */
@@ -348,8 +348,8 @@ openssl_update_hash(void *handle, const uint8_t *data, size_t data_size)
   if (!data || data_size == 0 || !handle) return SVI_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   // Update the "ongoing" hash with new data.
-  if (!self->ctx) return SVI_EXTERNAL_FAILURE;
-  return EVP_DigestUpdate(self->ctx, data, data_size) == 1 ? SVI_OK : SVI_EXTERNAL_FAILURE;
+  if (!self->ctx) return SV_EXTERNAL_ERROR;
+  return EVP_DigestUpdate(self->ctx, data, data_size) == 1 ? SVI_OK : SV_EXTERNAL_ERROR;
 }
 
 /* Finalizes EVP_MD_CTX in |handle| and writes result to |hash|. */
@@ -359,12 +359,12 @@ openssl_finalize_hash(void *handle, uint8_t *hash)
   if (!hash || !handle) return SVI_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   // Finalize and write the |hash| to output.
-  if (!self->ctx) return SVI_EXTERNAL_FAILURE;
+  if (!self->ctx) return SV_EXTERNAL_ERROR;
   unsigned int hash_size = 0;
   if (EVP_DigestFinal_ex(self->ctx, hash, &hash_size) == 1) {
-    return hash_size <= MAX_HASH_SIZE ? SVI_OK : SVI_EXTERNAL_FAILURE;
+    return hash_size <= MAX_HASH_SIZE ? SVI_OK : SV_EXTERNAL_ERROR;
   } else {
-    return SVI_EXTERNAL_FAILURE;
+    return SV_EXTERNAL_ERROR;
   }
 }
 
@@ -381,7 +381,7 @@ oid_to_type(message_digest_t *self)
     // Point to the first byte of the OID. The |oid_ptr| will increment while decoding.
     encoded_oid_ptr = self->encoded_oid;
     SVI_THROW_IF(
-        !d2i_ASN1_OBJECT(&obj, &encoded_oid_ptr, self->encoded_oid_size), SVI_EXTERNAL_FAILURE);
+        !d2i_ASN1_OBJECT(&obj, &encoded_oid_ptr, self->encoded_oid_size), SV_EXTERNAL_ERROR);
     self->type = EVP_get_digestbyobj(obj);
     self->size = EVP_MD_size(self->type);
   SVI_CATCH()
@@ -405,10 +405,10 @@ obj_to_oid_and_type(message_digest_t *self, const ASN1_OBJECT *obj)
   SVI_TRY()
     SVI_THROW_IF(!obj, SVI_INVALID_PARAMETER);
     type = EVP_get_digestbyobj(obj);
-    SVI_THROW_IF(!type, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!type, SV_EXTERNAL_ERROR);
     // Encode the OID into ASN1/DER format. Memory is allocated and transferred.
     encoded_oid_size = i2d_ASN1_OBJECT(obj, &encoded_oid_ptr);
-    SVI_THROW_IF(encoded_oid_size == 0 || !encoded_oid_ptr, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(encoded_oid_size == 0 || !encoded_oid_ptr, SV_EXTERNAL_ERROR);
 
     self->type = type;
     free(self->encoded_oid);
@@ -541,9 +541,8 @@ write_private_key_to_file(EVP_PKEY *pkey, const char *path_to_key)
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     f_private = fopen(path_to_key, "wb");
-    SVI_THROW_IF(!f_private, SVI_EXTERNAL_FAILURE);
-    SVI_THROW_IF(
-        !PEM_write_PrivateKey(f_private, pkey, NULL, 0, 0, NULL, NULL), SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!f_private, SV_EXTERNAL_ERROR);
+    SVI_THROW_IF(!PEM_write_PrivateKey(f_private, pkey, NULL, 0, 0, NULL, NULL), SV_EXTERNAL_ERROR);
   SVI_CATCH()
   {
     if (f_private) unlink(path_to_key);
@@ -569,12 +568,12 @@ write_private_key_to_buffer(EVP_PKEY *pkey, pem_pkey_t *pem_key)
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     pkey_bio = BIO_new(BIO_s_mem());
-    SVI_THROW_IF(!pkey_bio, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!pkey_bio, SV_EXTERNAL_ERROR);
     SVI_THROW_IF(
-        !PEM_write_bio_PrivateKey(pkey_bio, pkey, NULL, 0, 0, NULL, NULL), SVI_EXTERNAL_FAILURE);
+        !PEM_write_bio_PrivateKey(pkey_bio, pkey, NULL, 0, 0, NULL, NULL), SV_EXTERNAL_ERROR);
 
     private_key_size = BIO_get_mem_data(pkey_bio, &private_key);
-    SVI_THROW_IF(private_key_size == 0 || !private_key, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(private_key_size == 0 || !private_key, SV_EXTERNAL_ERROR);
 
     pem_key->key = malloc(private_key_size);
     SVI_THROW_IF(!pem_key->key, SVI_MEMORY);
@@ -599,7 +598,7 @@ create_rsa_private_key(const char *path_to_key, pem_pkey_t *pem_key)
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     pkey = EVP_RSA_gen(2048);
-    SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
 
     SVI_THROW(write_private_key_to_file(pkey, path_to_key));
     SVI_THROW(write_private_key_to_buffer(pkey, pem_key));
@@ -621,7 +620,7 @@ create_ecdsa_private_key(const char *path_to_key, pem_pkey_t *pem_key)
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     pkey = EVP_EC_gen(OSSL_EC_curve_nid2name(NID_X9_62_prime256v1));
-    SVI_THROW_IF(!pkey, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
 
     SVI_THROW(write_private_key_to_file(pkey, path_to_key));
     SVI_THROW(write_private_key_to_buffer(pkey, pem_key));

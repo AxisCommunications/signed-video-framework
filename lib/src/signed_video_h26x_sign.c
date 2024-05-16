@@ -567,7 +567,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
         SVI_THROW_WITH_MSG(
             openssl_verify_hash(&verify_data, &verified), "Verification test had errors");
         openssl_free_key(verify_data.key);
-        SVI_THROW_IF_WITH_MSG(verified != 1, SVI_EXTERNAL_FAILURE, "Verification test failed");
+        SVI_THROW_IF_WITH_MSG(verified != 1, SV_EXTERNAL_ERROR, "Verification test failed");
 #endif
         SVI_THROW(complete_sei_nalu_and_add_to_prepend(self));
         signing_present = 1;  // At least one SEI NALU present.
@@ -761,7 +761,7 @@ signed_video_set_private_key_new(signed_video_t *self,
     SVI_THROW(openssl_read_pubkey_from_private_key(self->sign_data, &self->pem_public_key));
 
     self->plugin_handle = sv_signing_plugin_session_setup(private_key, private_key_size);
-    SVI_THROW_IF(!self->plugin_handle, SVI_EXTERNAL_FAILURE);
+    SVI_THROW_IF(!self->plugin_handle, SV_EXTERNAL_ERROR);
   SVI_CATCH()
   SVI_DONE(status)
 
