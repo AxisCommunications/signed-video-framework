@@ -190,7 +190,7 @@ verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificat
 static svi_rc
 verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
 {
-  if (!self || !self->certificate_chain) return SVI_INVALID_PARAMETER;
+  if (!self || !self->certificate_chain) return SV_INVALID_PARAMETER;
 
   EVP_MD_CTX *md_ctx = NULL;
   BIO *stackbio = NULL;
@@ -602,7 +602,7 @@ encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, bool e
 svi_rc
 decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data_size)
 {
-  if (!handle) return SVI_INVALID_PARAMETER;
+  if (!handle) return SV_INVALID_PARAMETER;
 
   sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
   const uint8_t *data_ptr = data;
@@ -661,7 +661,7 @@ set_axis_communications_public_key(void *handle,
     const void *public_key,
     bool public_key_has_changed)
 {
-  if (!handle || !public_key) return SVI_INVALID_PARAMETER;
+  if (!handle || !public_key) return SV_INVALID_PARAMETER;
 
   sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
   EVP_PKEY *pkey = (EVP_PKEY *)public_key;
@@ -712,7 +712,7 @@ svi_rc
 get_axis_communications_supplemental_authenticity(void *handle,
     sv_vendor_axis_supplemental_authenticity_t **supplemental_authenticity)
 {
-  if (!handle || !supplemental_authenticity) return SVI_INVALID_PARAMETER;
+  if (!handle || !supplemental_authenticity) return SV_INVALID_PARAMETER;
 
   sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
 

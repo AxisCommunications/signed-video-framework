@@ -57,7 +57,7 @@ signed_video_authenticity_report_create();
 svi_rc
 allocate_memory_and_copy_string(char **dst_str, const char *src_str)
 {
-  if (!dst_str) return SVI_INVALID_PARAMETER;
+  if (!dst_str) return SV_INVALID_PARAMETER;
   // If the |src_str| is a NULL pointer make sure to copy an empty string.
   if (!src_str) src_str = "";
 
@@ -346,7 +346,7 @@ signed_video_get_authenticity_report(signed_video_t *self)
 svi_rc
 create_local_authenticity_report_if_needed(signed_video_t *self)
 {
-  if (!self) return SVI_INVALID_PARAMETER;
+  if (!self) return SV_INVALID_PARAMETER;
 
   // Already exists, return SVI_OK.
   if (self->authenticity) return SVI_OK;

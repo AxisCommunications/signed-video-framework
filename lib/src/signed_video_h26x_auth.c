@@ -620,8 +620,8 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
   h26x_nalu_list_t *nalu_list = self->nalu_list;
 
   // We expect a valid SEI and that it has been decoded.
-  if (!(sei && sei->has_been_decoded)) return SVI_INVALID_PARAMETER;
-  if (!nalu_list) return SVI_INVALID_PARAMETER;
+  if (!(sei && sei->has_been_decoded)) return SV_INVALID_PARAMETER;
+  if (!nalu_list) return SV_INVALID_PARAMETER;
 
   const size_t hash_size = self->verify_data->hash_size;
   h26x_nalu_list_item_t *item = NULL;
@@ -1036,7 +1036,7 @@ reregister_nalus(signed_video_t *self)
 static svi_rc
 signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_t nalu_data_size)
 {
-  if (!self || !nalu_data || (nalu_data_size == 0)) return SVI_INVALID_PARAMETER;
+  if (!self || !nalu_data || (nalu_data_size == 0)) return SV_INVALID_PARAMETER;
 
   h26x_nalu_list_t *nalu_list = self->nalu_list;
   h26x_nalu_t nalu = parse_nalu_info(nalu_data, nalu_data_size, self->codec, true, true);

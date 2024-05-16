@@ -76,7 +76,7 @@
  * svi_rc
  * example_function(my_struct_t **output_parameter)
  * {
- *   if (!output_parameter) return SVI_INVALID_PARAMETER;
+ *   if (!output_parameter) return SV_INVALID_PARAMETER;
  *
  *   my_struct_t *a = NULL;
  *   svi_rc status = SV_UNKNOWN_FAILURE;  // Initiate to something that fails
@@ -145,7 +145,7 @@ typedef enum {
   SVI_OK = 0,
   SVI_MEMORY = 1,
   SVI_NOT_SUPPORTED = 9,
-  SVI_INVALID_PARAMETER = 10,
+  SV_INVALID_PARAMETER = 10,
   SV_INCOMPATIBLE_VERSION = 12,
   SV_AUTHENTICATION_ERROR = 13,
   SV_EXTERNAL_ERROR = 20,

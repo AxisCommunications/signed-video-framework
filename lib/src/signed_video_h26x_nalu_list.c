@@ -296,7 +296,7 @@ h26x_nalu_list_free_items(h26x_nalu_list_t *list)
 svi_rc
 h26x_nalu_list_append(h26x_nalu_list_t *list, const h26x_nalu_t *nalu)
 {
-  if (!list || !nalu) return SVI_INVALID_PARAMETER;
+  if (!list || !nalu) return SV_INVALID_PARAMETER;
 
   h26x_nalu_list_item_t *new_item = h26x_nalu_list_item_create(nalu);
   if (!new_item) return SVI_MEMORY;
@@ -318,7 +318,7 @@ h26x_nalu_list_append(h26x_nalu_list_t *list, const h26x_nalu_t *nalu)
 svi_rc
 h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list, bool hash_algo_known)
 {
-  if (!list) return SVI_INVALID_PARAMETER;
+  if (!list) return SV_INVALID_PARAMETER;
 
   h26x_nalu_t *copied_nalu = NULL;
   uint8_t *hashable_data = NULL;
@@ -373,7 +373,7 @@ h26x_nalu_list_add_missing(h26x_nalu_list_t *list,
     bool append,
     h26x_nalu_list_item_t *item)
 {
-  if (!list || !item || !is_in_list(list, item) || num_missing < 0) return SVI_INVALID_PARAMETER;
+  if (!list || !item || !is_in_list(list, item) || num_missing < 0) return SV_INVALID_PARAMETER;
   if (num_missing == 0) return SVI_OK;
 
   int added_items = 0;

@@ -418,7 +418,7 @@ prepare_for_nalus_to_prepend(signed_video_t *self)
 {
   svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
-    SVI_THROW_IF(!self, SVI_INVALID_PARAMETER);
+    SVI_THROW_IF(!self, SV_INVALID_PARAMETER);
 
     // Without a private key we cannot sign, which is equivalent with the existence of a signin
     // plugin.
@@ -502,7 +502,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
   SVI_TRY()
     SVI_THROW(prepare_for_nalus_to_prepend(self));
 
-    SVI_THROW_IF(nalu.is_valid < 0, SVI_INVALID_PARAMETER);
+    SVI_THROW_IF(nalu.is_valid < 0, SV_INVALID_PARAMETER);
 
     // Note that |recurrence| is counted in frames and not in NALUs, hence we only increment the
     // counter for primary slices.
@@ -587,7 +587,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
 static svi_rc
 get_latest_sei(signed_video_t *self, uint8_t *sei, size_t *sei_size)
 {
-  if (!self || !sei_size) return SVI_INVALID_PARAMETER;
+  if (!self || !sei_size) return SV_INVALID_PARAMETER;
   *sei_size = 0;
   if (self->num_of_completed_seis < 1) {
     DEBUG_LOG("There are no completed seis.");

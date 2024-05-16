@@ -283,7 +283,7 @@ encode_general(signed_video_t *self, uint8_t *data)
 static svi_rc
 decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
-  if (!self || !data) return SVI_INVALID_PARAMETER;
+  if (!self || !data) return SV_INVALID_PARAMETER;
 
   const uint8_t *data_ptr = data;
   gop_info_t *gop_info = self->gop_info;
@@ -469,7 +469,7 @@ decode_product_info(signed_video_t *self, const uint8_t *data, size_t data_size)
   uint8_t version = *data_ptr++;
   svi_rc status = SV_UNKNOWN_FAILURE;
 
-  if (!self || !self->product_info) return SVI_INVALID_PARAMETER;
+  if (!self || !self->product_info) return SV_INVALID_PARAMETER;
 
   SVI_TRY()
     SVI_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
@@ -1030,7 +1030,7 @@ tlv_list_encode_or_get_size(signed_video_t *self,
     size_t num_tags,
     uint8_t *data)
 {
-  if (!self || !tags || !num_tags) return SVI_INVALID_PARAMETER;
+  if (!self || !tags || !num_tags) return SV_INVALID_PARAMETER;
 
   size_t tlv_list_size = 0;
   uint8_t *data_ptr = data;
@@ -1057,7 +1057,7 @@ static svi_rc
 decode_tlv_header(const uint8_t *data, size_t *read_data_bytes, sv_tlv_tag_t *tag, size_t *length)
 {
   // Sanity checks on input parameters.
-  if (!data || !read_data_bytes || !tag || !length) return SVI_INVALID_PARAMETER;
+  if (!data || !read_data_bytes || !tag || !length) return SV_INVALID_PARAMETER;
 
   const uint8_t *data_ptr = data;
   sv_tlv_tag_t tag_from_data = (sv_tlv_tag_t)(*data_ptr++);
@@ -1065,7 +1065,7 @@ decode_tlv_header(const uint8_t *data, size_t *read_data_bytes, sv_tlv_tag_t *ta
   sv_tlv_tuple_t tlv = get_tlv_tuple(tag_from_data);
   if (tlv.tag != tag_from_data) {
     DEBUG_LOG("Parsed an invalid tag (%d) in the data", tag_from_data);
-    return SVI_INVALID_PARAMETER;
+    return SV_INVALID_PARAMETER;
   }
   *tag = tag_from_data;
 
@@ -1083,10 +1083,10 @@ decode_tlv_header(const uint8_t *data, size_t *read_data_bytes, sv_tlv_tag_t *ta
 svi_rc
 tlv_decode(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
-  svi_rc status = SVI_INVALID_PARAMETER;
+  svi_rc status = SV_INVALID_PARAMETER;
   const uint8_t *data_ptr = data;
 
-  if (!self || !data || data_size == 0) return SVI_INVALID_PARAMETER;
+  if (!self || !data || data_size == 0) return SV_INVALID_PARAMETER;
 
   while (data_ptr < data + data_size) {
     sv_tlv_tag_t tag = 0;

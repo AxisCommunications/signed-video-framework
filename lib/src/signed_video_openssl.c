@@ -150,7 +150,7 @@ svi_rc
 openssl_public_key_malloc(sign_or_verify_data_t *verify_data, pem_pkey_t *pem_public_key)
 {
   // Sanity check input
-  if (!verify_data || !pem_public_key) return SVI_INVALID_PARAMETER;
+  if (!verify_data || !pem_public_key) return SV_INVALID_PARAMETER;
 
   EVP_PKEY_CTX *ctx = NULL;
   EVP_PKEY *verification_key = NULL;
@@ -160,8 +160,8 @@ openssl_public_key_malloc(sign_or_verify_data_t *verify_data, pem_pkey_t *pem_pu
   svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     // Read public key
-    SVI_THROW_IF(!buf, SVI_INVALID_PARAMETER);
-    SVI_THROW_IF(buf_size == 0, SVI_INVALID_PARAMETER);
+    SVI_THROW_IF(!buf, SV_INVALID_PARAMETER);
+    SVI_THROW_IF(buf_size == 0, SV_INVALID_PARAMETER);
 
     BIO *bp = BIO_new_mem_buf(buf, buf_size);
     verification_key = PEM_read_bio_PUBKEY(bp, NULL, NULL, NULL);
@@ -203,12 +203,12 @@ openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_
   char *public_key = NULL;
   long public_key_size = 0;
 
-  if (!sign_data) return SVI_INVALID_PARAMETER;
+  if (!sign_data) return SV_INVALID_PARAMETER;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     ctx = (EVP_PKEY_CTX *)sign_data->key;
-    SVI_THROW_IF(!ctx, SVI_INVALID_PARAMETER);
+    SVI_THROW_IF(!ctx, SV_INVALID_PARAMETER);
     // Borrow the EVP_PKEY |pkey| from |ctx|.
     pkey = EVP_PKEY_CTX_get0_pkey(ctx);
     SVI_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
@@ -257,7 +257,7 @@ openssl_sign_hash(sign_or_verify_data_t *sign_data)
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
-    SVI_THROW_IF(!ctx, SVI_INVALID_PARAMETER);
+    SVI_THROW_IF(!ctx, SV_INVALID_PARAMETER);
     // Determine required buffer length of the signature
     SVI_THROW_IF(
         EVP_PKEY_sign(ctx, NULL, &siglen, hash_to_sign, hash_size) <= 0, SV_EXTERNAL_ERROR);
@@ -279,7 +279,7 @@ openssl_sign_hash(sign_or_verify_data_t *sign_data)
 svi_rc
 openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_result)
 {
-  if (!verify_data || !verified_result) return SVI_INVALID_PARAMETER;
+  if (!verify_data || !verified_result) return SV_INVALID_PARAMETER;
 
   int verified_hash = -1;  // Initialize to 'error'.
 
@@ -290,9 +290,9 @@ openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_resu
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
-    SVI_THROW_IF(!signature || signature_size == 0 || !hash_to_verify, SVI_INVALID_PARAMETER);
+    SVI_THROW_IF(!signature || signature_size == 0 || !hash_to_verify, SV_INVALID_PARAMETER);
     EVP_PKEY_CTX *ctx = (EVP_PKEY_CTX *)verify_data->key;
-    SVI_THROW_IF(!ctx, SVI_INVALID_PARAMETER);
+    SVI_THROW_IF(!ctx, SV_INVALID_PARAMETER);
     // EVP_PKEY_verify returns 1 upon success, 0 upon failure and < 0 upon error.
     verified_hash = EVP_PKEY_verify(ctx, signature, signature_size, hash_to_verify, hash_size);
   SVI_CATCH()
@@ -309,8 +309,8 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
 {
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
 
-  if (!data || data_size == 0 || !hash) return SVI_INVALID_PARAMETER;
-  if (!self->hash_algo.type) return SVI_INVALID_PARAMETER;
+  if (!data || data_size == 0 || !hash) return SV_INVALID_PARAMETER;
+  if (!self->hash_algo.type) return SV_INVALID_PARAMETER;
 
   unsigned int hash_size = 0;
   int ret = EVP_Digest(data, data_size, hash, &hash_size, self->hash_algo.type, NULL);
@@ -322,7 +322,7 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
 svi_rc
 openssl_init_hash(void *handle)
 {
-  if (!handle) return SVI_INVALID_PARAMETER;
+  if (!handle) return SV_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   int ret = 0;
 
@@ -330,7 +330,7 @@ openssl_init_hash(void *handle)
     // Message digest type already set in context. Initialize the hashing function.
     ret = EVP_DigestInit_ex(self->ctx, NULL, NULL);
   } else {
-    if (!self->hash_algo.type) return SVI_INVALID_PARAMETER;
+    if (!self->hash_algo.type) return SV_INVALID_PARAMETER;
     // Create a new context and set message digest type.
     self->ctx = EVP_MD_CTX_new();
     if (!self->ctx) return SV_EXTERNAL_ERROR;
@@ -345,7 +345,7 @@ openssl_init_hash(void *handle)
 svi_rc
 openssl_update_hash(void *handle, const uint8_t *data, size_t data_size)
 {
-  if (!data || data_size == 0 || !handle) return SVI_INVALID_PARAMETER;
+  if (!data || data_size == 0 || !handle) return SV_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   // Update the "ongoing" hash with new data.
   if (!self->ctx) return SV_EXTERNAL_ERROR;
@@ -356,7 +356,7 @@ openssl_update_hash(void *handle, const uint8_t *data, size_t data_size)
 svi_rc
 openssl_finalize_hash(void *handle, uint8_t *hash)
 {
-  if (!hash || !handle) return SVI_INVALID_PARAMETER;
+  if (!hash || !handle) return SV_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   // Finalize and write the |hash| to output.
   if (!self->ctx) return SV_EXTERNAL_ERROR;
@@ -403,7 +403,7 @@ obj_to_oid_and_type(message_digest_t *self, const ASN1_OBJECT *obj)
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
-    SVI_THROW_IF(!obj, SVI_INVALID_PARAMETER);
+    SVI_THROW_IF(!obj, SV_INVALID_PARAMETER);
     type = EVP_get_digestbyobj(obj);
     SVI_THROW_IF(!type, SV_EXTERNAL_ERROR);
     // Encode the OID into ASN1/DER format. Memory is allocated and transferred.
@@ -425,7 +425,7 @@ svi_rc
 openssl_set_hash_algo(void *handle, const char *name_or_oid)
 {
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
-  if (!self) return SVI_INVALID_PARAMETER;
+  if (!self) return SV_INVALID_PARAMETER;
   // NULL pointer as input means default setting.
   if (!name_or_oid) {
     name_or_oid = DEFAULT_HASH_ALGO;
@@ -434,7 +434,7 @@ openssl_set_hash_algo(void *handle, const char *name_or_oid)
   svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     ASN1_OBJECT *hash_algo_obj = OBJ_txt2obj(name_or_oid, 0 /* Accept both name and OID */);
-    SVI_THROW_IF_WITH_MSG(!hash_algo_obj, SVI_INVALID_PARAMETER,
+    SVI_THROW_IF_WITH_MSG(!hash_algo_obj, SV_INVALID_PARAMETER,
         "Could not identify hashing algorithm: %s", name_or_oid);
     SVI_THROW(obj_to_oid_and_type(&self->hash_algo, hash_algo_obj));
     // Free the context to be able to assign a new message digest type to it.
@@ -456,7 +456,7 @@ openssl_set_hash_algo_by_encoded_oid(void *handle,
     size_t encoded_oid_size)
 {
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
-  if (!self || !encoded_oid || encoded_oid_size == 0) return SVI_INVALID_PARAMETER;
+  if (!self || !encoded_oid || encoded_oid_size == 0) return SV_INVALID_PARAMETER;
 
   // If the |encoded_oid| has not changed do nothing.
   if (encoded_oid_size == self->hash_algo.encoded_oid_size &&
