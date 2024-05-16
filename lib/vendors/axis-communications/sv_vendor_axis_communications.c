@@ -612,7 +612,7 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
-    SVI_THROW_IF(version != 1, SVI_INCOMPATIBLE_VERSION);
+    SVI_THROW_IF(version != 1, SV_INCOMPATIBLE_VERSION);
     // Read |attestation_size|.
     attestation_size = *data_ptr++;
     SVI_THROW_IF(attestation_size == 0, SVI_NOT_SUPPORTED);

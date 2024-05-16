@@ -291,7 +291,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
   svi_rc status = SV_UNKNOWN_FAILURE;
 
   SVI_TRY()
-    SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
+    SVI_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
 
     data_ptr += read_32bits(data_ptr, &gop_info->global_gop_counter);
     DEBUG_LOG("Found GOP counter = %u", gop_info->global_gop_counter);
@@ -472,7 +472,7 @@ decode_product_info(signed_video_t *self, const uint8_t *data, size_t data_size)
   if (!self || !self->product_info) return SVI_INVALID_PARAMETER;
 
   SVI_TRY()
-    SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
+    SVI_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
 
     signed_video_product_info_t *product_info = self->product_info;
 
@@ -554,7 +554,7 @@ decode_arbitrary_data(signed_video_t *self, const uint8_t *data, size_t data_siz
   svi_rc status = SV_UNKNOWN_FAILURE;
 
   SVI_TRY()
-    SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
+    SVI_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
     SVI_THROW_IF(arbdata_size == 0, SV_AUTHENTICATION_ERROR);
     uint8_t *arbdata = realloc(self->arbitrary_data, arbdata_size);
     SVI_THROW_IF(!arbdata, SVI_MEMORY);
@@ -640,7 +640,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
-    SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
+    SVI_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
     SVI_THROW_IF(pubkey_size == 0, SV_AUTHENTICATION_ERROR);
 
     if (pem_public_key->key_size != pubkey_size) {
@@ -732,7 +732,7 @@ decode_hash_list(signed_video_t *self, const uint8_t *data, size_t data_size)
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
-    SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
+    SVI_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
     SVI_THROW_IF_WITH_MSG(
         hash_list_size > HASH_LIST_SIZE, SVI_MEMORY, "Found more hashes than fit in hash_list");
     memcpy(self->gop_info->hash_list, data_ptr, hash_list_size);
@@ -835,7 +835,7 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
   svi_rc status = SV_UNKNOWN_FAILURE;
 
   SVI_TRY()
-    SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
+    SVI_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
     SVI_THROW_IF(hash_type < 0 || hash_type >= NUM_HASH_TYPES, SV_AUTHENTICATION_ERROR);
     SVI_THROW_IF(max_signature_size < signature_size, SV_AUTHENTICATION_ERROR);
     if (!*signature_ptr) {
@@ -921,7 +921,7 @@ decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
-    SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
+    SVI_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
     SVI_THROW_IF(hash_algo_encoded_oid_size == 0, SV_AUTHENTICATION_ERROR);
     SVI_THROW(openssl_set_hash_algo_by_encoded_oid(
         self->crypto_handle, hash_algo_encoded_oid, hash_algo_encoded_oid_size));
