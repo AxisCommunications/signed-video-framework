@@ -149,7 +149,7 @@ verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificat
   X509_STORE *trust_store = NULL;
   X509_STORE_CTX *ctx = NULL;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     trust_store = X509_STORE_new();
     SVI_THROW_IF(!trust_store, SV_EXTERNAL_ERROR);
@@ -204,7 +204,7 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
   // Remove the old message digest context.
   EVP_MD_CTX_free(self->md_ctx);
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     // Create an empty stack of X509 certificates.
     untrusted_certificates = sk_X509_new_null();
@@ -380,7 +380,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
   // Initiate verification to not feasible/error.
   int verified_signature = -1;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     // If no message digest context exists, the |public_key| cannot be validated.
     SVI_THROW_IF(!self->md_ctx, SV_VENDOR_ERROR);
@@ -610,7 +610,7 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
   uint8_t attestation_size = 0;
   size_t cert_size = 0;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     SVI_THROW_IF(version != 1, SVI_INCOMPATIBLE_VERSION);
     // Read |attestation_size|.
@@ -679,7 +679,7 @@ set_axis_communications_public_key(void *handle,
   }
 
   int public_key_validation = self->supplemental_authenticity.public_key_validation;
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     // Validate that the public key is of correct type and size.
     SVI_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
@@ -717,7 +717,7 @@ get_axis_communications_supplemental_authenticity(void *handle,
   sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
 
   // TODO: Fill in the skeleton below step by step.
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     SVI_THROW(verify_and_parse_certificate_chain(self));
     SVI_THROW(deserialize_attestation(self));

@@ -288,7 +288,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
   const uint8_t *data_ptr = data;
   gop_info_t *gop_info = self->gop_info;
   uint8_t version = *data_ptr++;
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
 
   SVI_TRY()
     SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
@@ -467,7 +467,7 @@ decode_product_info(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
   const uint8_t *data_ptr = data;
   uint8_t version = *data_ptr++;
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
 
   if (!self || !self->product_info) return SVI_INVALID_PARAMETER;
 
@@ -551,7 +551,7 @@ decode_arbitrary_data(signed_video_t *self, const uint8_t *data, size_t data_siz
   const uint8_t *data_ptr = data;
   uint8_t version = *data_ptr++;
   uint16_t arbdata_size = (uint16_t)(data_size - 1);
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
 
   SVI_TRY()
     SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
@@ -638,7 +638,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     pubkey_size -= 1;
   }
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
     SVI_THROW_IF(pubkey_size == 0, SV_AUTHENTICATION_ERROR);
@@ -730,7 +730,7 @@ decode_hash_list(signed_video_t *self, const uint8_t *data, size_t data_size)
   uint8_t version = *data_ptr++;
   size_t hash_list_size = data_size - (data_ptr - data);
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
     SVI_THROW_IF_WITH_MSG(
@@ -832,7 +832,7 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
   // The rest should now be the allocated size for the signature.
   max_signature_size = data_size - (data_ptr - data);
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
 
   SVI_TRY()
     SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
@@ -919,7 +919,7 @@ decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
   size_t hash_algo_encoded_oid_size = *data_ptr++;
   const unsigned char *hash_algo_encoded_oid = (const unsigned char *)data_ptr;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
     SVI_THROW_IF(hash_algo_encoded_oid_size == 0, SV_AUTHENTICATION_ERROR);
@@ -1152,7 +1152,7 @@ tlv_find_and_decode_recurrent_tags(signed_video_t *self,
 
   if (!self || !tlv_data || tlv_data_size == 0) return false;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   bool recurrent_tags_decoded = false;
   while (tlv_data_ptr < tlv_data + tlv_data_size) {
     size_t tlv_header_size = 0;

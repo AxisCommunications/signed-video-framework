@@ -113,7 +113,7 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
 
   // Get the oldest sei data
   assert(self->sei_data_buffer_idx <= MAX_NALUS_TO_PREPEND);
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   sei_data_t *sei_data = &(self->sei_data_buffer[self->num_of_completed_seis]);
   // Transfer oldest pointer in |payload_buffer| to local |payload|
   uint8_t *payload = sei_data->sei;
@@ -137,7 +137,7 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   sei_data->completed_sei_size =
       get_sign_and_complete_sei_nalu(self, &payload, payload_signature_ptr);
   if (!sei_data->completed_sei_size) {
-    status = SVI_UNKNOWN;
+    status = SV_UNKNOWN_FAILURE;
     goto done;
   }
   self->num_of_completed_seis++;
@@ -215,7 +215,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
   // |signature_hash_type| is changed to |DOCUMENT_HASH|.
   self->gop_info->signature_hash_type = GOP_HASH;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     // Get the total payload size of all TLVs. Then compute the total size of the SEI NALU to be
     // generated. Add extra space for potential emulation prevention bytes.
@@ -416,7 +416,7 @@ get_sign_and_complete_sei_nalu(signed_video_t *self,
 static svi_rc
 prepare_for_nalus_to_prepend(signed_video_t *self)
 {
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     SVI_THROW_IF(!self, SVI_INVALID_PARAMETER);
 
@@ -498,7 +498,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
   sign_or_verify_data_t *sign_data = self->sign_data;
   int signing_present = self->signing_present;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     SVI_THROW(prepare_for_nalus_to_prepend(self));
 
@@ -662,7 +662,7 @@ signed_video_set_end_of_stream(signed_video_t *self)
 
   uint8_t *payload = NULL;
   uint8_t *payload_signature_ptr = NULL;
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     SVI_THROW(prepare_for_nalus_to_prepend(self));
     SVI_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
@@ -694,7 +694,7 @@ signed_video_generate_golden_sei(signed_video_t *self)
   self->is_golden_sei = true;
   self->has_recurrent_data = true;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     SVI_THROW(prepare_for_nalus_to_prepend(self));
     SVI_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
@@ -730,7 +730,7 @@ signed_video_set_product_info(signed_video_t *self,
 
   signed_video_product_info_t *product_info = self->product_info;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     SVI_THROW(allocate_memory_and_copy_string(&product_info->hardware_id, hardware_id));
     SVI_THROW(allocate_memory_and_copy_string(&product_info->firmware_version, firmware_version));
@@ -753,7 +753,7 @@ signed_video_set_private_key_new(signed_video_t *self,
 {
   if (!self || !private_key || private_key_size == 0) return SV_INVALID_PARAMETER;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     // Temporally turn the PEM |private_key| into an EVP_PKEY and allocate memory for signatures.
     SVI_THROW(sv_rc_to_svi_rc(
@@ -798,7 +798,7 @@ signed_video_set_authenticity_level(signed_video_t *self,
 {
   if (!self) return SV_INVALID_PARAMETER;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     SVI_THROW_IF(authenticity_level >= SV_AUTHENTICITY_LEVEL_NUM, SVI_NOT_SUPPORTED);
     SVI_THROW_IF(authenticity_level < SV_AUTHENTICITY_LEVEL_GOP, SVI_NOT_SUPPORTED);
@@ -847,7 +847,7 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid)
   if (self->signing_started) return SV_NOT_SUPPORTED;
 
   size_t hash_size = 0;
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     SVI_THROW(openssl_set_hash_algo(self->crypto_handle, name_or_oid));
     hash_size = openssl_get_hash_size(self->crypto_handle);

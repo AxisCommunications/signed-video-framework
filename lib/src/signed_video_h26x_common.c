@@ -175,7 +175,7 @@ sv_rc_to_svi_rc(SignedVideoReturnCode status)
       return SV_VENDOR_ERROR;
     case SV_UNKNOWN_FAILURE:
     default:
-      return SVI_UNKNOWN;
+      return SV_UNKNOWN_FAILURE;
   }
 }
 
@@ -867,7 +867,7 @@ update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
   if (!gop_info) return SVI_INVALID_PARAMETER;
 
   size_t hash_size = openssl_get_hash_size(crypto_handle);
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     // Update the gop_hash, that is, hash the memory (both hashes) in hashes = [gop_hash, latest
     // nalu_hash] and replace the gop_hash part with the new hash.
@@ -997,7 +997,7 @@ hash_and_copy_to_ref(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *has
   // First hash in |hash_buddies| is the |reference_hash|.
   uint8_t *reference_hash = &gop_info->hash_buddies[0];
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     if (nalu->is_first_nalu_in_gop && !nalu->is_first_nalu_part && gop_info->tmp_hash_ptr) {
       // If the NALU is split in parts and a hash has already been computed and stored in
@@ -1039,7 +1039,7 @@ hash_with_reference(signed_video_t *self,
   // Second hash in |hash_buddies| is the |nalu_hash|.
   uint8_t *nalu_hash = &gop_info->hash_buddies[hash_size];
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     // Hash NALU data and store as |nalu_hash|.
     SVI_THROW(simply_hash(self, nalu, nalu_hash, hash_size));
@@ -1067,7 +1067,7 @@ hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
   assert(nalu_hash);
   size_t hash_size = self->sign_data->hash_size;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     if (nalu->is_first_nalu_part && !nalu->is_last_nalu_part) {
       // If this is the first part of a non-complete NALU, initialize the |crypto_handle| to enable
@@ -1118,7 +1118,7 @@ hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
   assert(nalu_hash);
   size_t hash_size = self->verify_data->hash_size;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     // Select hash wrapper, hash the NALU and store as |nalu_hash|.
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
@@ -1151,7 +1151,7 @@ signed_video_t *
 signed_video_create(SignedVideoCodec codec)
 {
   signed_video_t *self = NULL;
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
 
   DEBUG_LOG("Creating signed-video from code version %s", SIGNED_VIDEO_VERSION);
 
@@ -1231,7 +1231,7 @@ signed_video_create(SignedVideoCodec codec)
 SignedVideoReturnCode
 signed_video_reset(signed_video_t *self)
 {
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
 
   SVI_TRY()
     SVI_THROW_IF(!self, SVI_INVALID_PARAMETER);

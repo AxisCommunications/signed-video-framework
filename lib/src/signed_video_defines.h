@@ -79,7 +79,7 @@
  *   if (!output_parameter) return SVI_INVALID_PARAMETER;
  *
  *   my_struct_t *a = NULL;
- *   svi_rc status = SVI_UNKNOWN;  // Initiate to something that fails
+ *   svi_rc status = SV_UNKNOWN_FAILURE;  // Initiate to something that fails
  *   SVI_TRY()
  *     a = malloc(sizeof(my_struct_t));
  *     SVI_THROW_IF(!a, SVI_MEMORY);  // Throw without message
@@ -150,7 +150,7 @@ typedef enum {
   SV_AUTHENTICATION_ERROR = 13,
   SV_EXTERNAL_ERROR = 20,
   SV_VENDOR_ERROR = 21,
-  SVI_UNKNOWN = 100,
+  SV_UNKNOWN_FAILURE = 100,
 } svi_rc;  // Signed Video Internal Return Code
 
 /**

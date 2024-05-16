@@ -325,9 +325,9 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list, bool hash_algo_known)
   uint8_t *nalu_data_wo_epb = NULL;
   h26x_nalu_list_item_t *item = list->last_item;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
-    SVI_THROW_IF(!item->nalu, SVI_UNKNOWN);
+    SVI_THROW_IF(!item->nalu, SV_UNKNOWN_FAILURE);
     copied_nalu = (h26x_nalu_t *)malloc(sizeof(h26x_nalu_t));
     SVI_THROW_IF(!copied_nalu, SVI_MEMORY);
     if (item->nalu->tlv_data) {
@@ -378,7 +378,7 @@ h26x_nalu_list_add_missing(h26x_nalu_list_t *list,
 
   int added_items = 0;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     for (added_items = 0; added_items < num_missing; added_items++) {
       h26x_nalu_list_item_t *missing_nalu = h26x_nalu_list_item_create(NULL);
