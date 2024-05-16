@@ -82,7 +82,7 @@
  *   svi_rc status = SV_UNKNOWN_FAILURE;  // Initiate to something that fails
  *   SVI_TRY()
  *     a = malloc(sizeof(my_struct_t));
- *     SVI_THROW_IF(!a, SVI_MEMORY);  // Throw without message
+ *     SVI_THROW_IF(!a, SV_MEMORY);  // Throw without message
  *
  *     int b = -1;
  *     // get_b_value() returns svi_rc
@@ -143,7 +143,7 @@
 
 typedef enum {
   SVI_OK = 0,
-  SVI_MEMORY = 1,
+  SV_MEMORY = 1,
   SV_NOT_SUPPORTED = 9,
   SV_INVALID_PARAMETER = 10,
   SV_INCOMPATIBLE_VERSION = 12,

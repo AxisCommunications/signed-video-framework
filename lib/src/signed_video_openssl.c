@@ -114,7 +114,7 @@ openssl_private_key_malloc(sign_or_verify_data_t *sign_data,
     size_t max_signature_size = EVP_PKEY_size(signing_key);
     SVI_THROW_IF(max_signature_size == 0, SV_EXTERNAL_ERROR);
     sign_data->signature = malloc(max_signature_size);
-    SVI_THROW_IF(!sign_data->signature, SVI_MEMORY);
+    SVI_THROW_IF(!sign_data->signature, SV_MEMORY);
     // Create a context from the |signing_key|
     ctx = EVP_PKEY_CTX_new(signing_key, NULL /* no engine */);
     SVI_THROW_IF(!ctx, SV_EXTERNAL_ERROR);
@@ -222,7 +222,7 @@ openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_
     public_key_size = BIO_get_mem_data(pub_bio, &buf_pos);
     SVI_THROW_IF(public_key_size <= 0, SV_EXTERNAL_ERROR);
     public_key = malloc(public_key_size);
-    SVI_THROW_IF(!public_key, SVI_MEMORY);
+    SVI_THROW_IF(!public_key, SV_MEMORY);
     memcpy(public_key, buf_pos, public_key_size);
 
   SVI_CATCH()
@@ -262,7 +262,7 @@ openssl_sign_hash(sign_or_verify_data_t *sign_data)
     SVI_THROW_IF(
         EVP_PKEY_sign(ctx, NULL, &siglen, hash_to_sign, hash_size) <= 0, SV_EXTERNAL_ERROR);
     // Check allocated space for signature
-    SVI_THROW_IF(siglen > max_signature_size, SVI_MEMORY);
+    SVI_THROW_IF(siglen > max_signature_size, SV_MEMORY);
     // Finally sign hash with context
     SVI_THROW_IF(
         EVP_PKEY_sign(ctx, signature, &siglen, hash_to_sign, hash_size) <= 0, SV_EXTERNAL_ERROR);
@@ -472,7 +472,7 @@ openssl_set_hash_algo_by_encoded_oid(void *handle,
   svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     self->hash_algo.encoded_oid = malloc(encoded_oid_size);
-    SVI_THROW_IF(!self->hash_algo.encoded_oid, SVI_MEMORY);
+    SVI_THROW_IF(!self->hash_algo.encoded_oid, SV_MEMORY);
     memcpy(self->hash_algo.encoded_oid, encoded_oid, encoded_oid_size);
     self->hash_algo.encoded_oid_size = encoded_oid_size;
 
@@ -576,7 +576,7 @@ write_private_key_to_buffer(EVP_PKEY *pkey, pem_pkey_t *pem_key)
     SVI_THROW_IF(private_key_size == 0 || !private_key, SV_EXTERNAL_ERROR);
 
     pem_key->key = malloc(private_key_size);
-    SVI_THROW_IF(!pem_key->key, SVI_MEMORY);
+    SVI_THROW_IF(!pem_key->key, SV_MEMORY);
     memcpy(pem_key->key, private_key, private_key_size);
     pem_key->key_size = private_key_size;
 

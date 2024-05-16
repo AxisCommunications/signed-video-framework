@@ -557,7 +557,7 @@ decode_arbitrary_data(signed_video_t *self, const uint8_t *data, size_t data_siz
     SVI_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
     SVI_THROW_IF(arbdata_size == 0, SV_AUTHENTICATION_ERROR);
     uint8_t *arbdata = realloc(self->arbitrary_data, arbdata_size);
-    SVI_THROW_IF(!arbdata, SVI_MEMORY);
+    SVI_THROW_IF(!arbdata, SV_MEMORY);
     memcpy(arbdata, data_ptr, arbdata_size);
     self->arbitrary_data = arbdata;
     self->arbitrary_data_size = arbdata_size;
@@ -646,7 +646,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     if (pem_public_key->key_size != pubkey_size) {
       free(pem_public_key->key);
       pem_public_key->key = calloc(1, pubkey_size);
-      SVI_THROW_IF(!pem_public_key->key, SVI_MEMORY);
+      SVI_THROW_IF(!pem_public_key->key, SV_MEMORY);
       pem_public_key->key_size = pubkey_size;
     }
 
@@ -734,7 +734,7 @@ decode_hash_list(signed_video_t *self, const uint8_t *data, size_t data_size)
   SVI_TRY()
     SVI_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
     SVI_THROW_IF_WITH_MSG(
-        hash_list_size > HASH_LIST_SIZE, SVI_MEMORY, "Found more hashes than fit in hash_list");
+        hash_list_size > HASH_LIST_SIZE, SV_MEMORY, "Found more hashes than fit in hash_list");
     memcpy(self->gop_info->hash_list, data_ptr, hash_list_size);
     self->gop_info->list_idx = (int)hash_list_size;
 
@@ -843,11 +843,11 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
       verify_data->signature_size = 0;
       // Allocate enough space for future signatures as well, that is, max_signature_size.
       *signature_ptr = malloc(max_signature_size);
-      SVI_THROW_IF(!*signature_ptr, SVI_MEMORY);
+      SVI_THROW_IF(!*signature_ptr, SV_MEMORY);
       // Set memory size.
       verify_data->max_signature_size = max_signature_size;
     }
-    SVI_THROW_IF(verify_data->max_signature_size != max_signature_size, SVI_MEMORY);
+    SVI_THROW_IF(verify_data->max_signature_size != max_signature_size, SV_MEMORY);
     memcpy(*signature_ptr, data_ptr, max_signature_size);
     data_ptr += max_signature_size;
 

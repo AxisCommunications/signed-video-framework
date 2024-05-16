@@ -203,7 +203,7 @@ openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_resu
  *
  * @returns SVI_OK Successfully written |key| to |pem_pkey|,
  *          SV_INVALID_PARAMETER Errors in |sign_data|, or no private key present,
- *          SVI_MEMORY Could not allocate memory for |key|,
+ *          SV_MEMORY Could not allocate memory for |key|,
  *          SV_EXTERNAL_ERROR Failure in OpenSSL.
  */
 svi_rc

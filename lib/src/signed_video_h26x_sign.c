@@ -252,7 +252,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
     // Allocate memory for payload + SEI header to return
     *payload = (uint8_t *)malloc(sei_buffer_size);
-    SVI_THROW_IF(!(*payload), SVI_MEMORY);
+    SVI_THROW_IF(!(*payload), SV_MEMORY);
 
     // Track the payload position with |payload_ptr|.
     uint8_t *payload_ptr = *payload;
@@ -298,19 +298,19 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
     size_t written_size =
         tlv_list_encode_or_get_size(self, optional_tags, num_optional_tags, payload_ptr);
-    SVI_THROW_IF(written_size == 0, SVI_MEMORY);
+    SVI_THROW_IF(written_size == 0, SV_MEMORY);
     payload_ptr += written_size;
     if (mandatory_tags_size > 0) {
       written_size =
           tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, payload_ptr);
       payload_ptr += written_size;
-      SVI_THROW_IF(written_size == 0, SVI_MEMORY);
+      SVI_THROW_IF(written_size == 0, SV_MEMORY);
     }
 
     if (vendor_size > 0) {
       written_size = tlv_list_encode_or_get_size(
           self, self->vendor_encoders, self->num_vendor_encoders, payload_ptr);
-      SVI_THROW_IF(written_size == 0, SVI_MEMORY);
+      SVI_THROW_IF(written_size == 0, SV_MEMORY);
       payload_ptr += written_size;
     }
 

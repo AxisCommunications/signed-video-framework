@@ -1049,7 +1049,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
   SVI_TRY()
     // If there is no |nalu_list| we failed allocating memory for it.
     SVI_THROW_IF_WITH_MSG(
-        !nalu_list, SVI_MEMORY, "No existing nalu_list. Cannot validate authenticity");
+        !nalu_list, SV_MEMORY, "No existing nalu_list. Cannot validate authenticity");
     // Append the |nalu_list| with a new item holding a pointer to |nalu|. The |validation_status|
     // is set accordingly.
     SVI_THROW(h26x_nalu_list_append(nalu_list, &nalu));
@@ -1125,7 +1125,7 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
   SVI_TRY()
     // Allocate memory and copy |public_key|.
     self->pem_public_key.key = malloc(public_key_size);
-    SVI_THROW_IF(!self->pem_public_key.key, SVI_MEMORY);
+    SVI_THROW_IF(!self->pem_public_key.key, SV_MEMORY);
     memcpy(self->pem_public_key.key, public_key, public_key_size);
     self->pem_public_key.key_size = public_key_size;
     // Turn the public key from PEM to EVP_PKEY form.

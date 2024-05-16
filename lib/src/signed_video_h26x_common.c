@@ -134,7 +134,7 @@ svi_rc_to_signed_video_rc(svi_rc status)
   switch (status) {
     case SVI_OK:
       return SV_OK;
-    case SVI_MEMORY:
+    case SV_MEMORY:
       return SV_MEMORY;
     case SV_NOT_SUPPORTED:
       return SV_NOT_SUPPORTED;
@@ -160,7 +160,7 @@ sv_rc_to_svi_rc(SignedVideoReturnCode status)
     case SV_OK:
       return SVI_OK;
     case SV_MEMORY:
-      return SVI_MEMORY;
+      return SV_MEMORY;
     case SV_NOT_SUPPORTED:
       return SV_NOT_SUPPORTED;
     case SV_INVALID_PARAMETER:
@@ -363,7 +363,7 @@ struct_member_memory_allocated_and_copy(void **member_ptr,
   if (*member_size_ptr != new_data_size) {
     DEBUG_LOG("Member size diff, re-allocating");
     *member_ptr = realloc(*member_ptr, new_data_size);
-    if (*member_ptr == NULL) return SVI_MEMORY;
+    if (*member_ptr == NULL) return SV_MEMORY;
   }
   memcpy(*member_ptr, new_data_ptr, new_data_size);
   *member_size_ptr = new_data_size;
@@ -1136,7 +1136,7 @@ hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
       hash_wrapper = get_hash_wrapper(self, nalu);
       free(item->second_hash);
       item->second_hash = malloc(MAX_HASH_SIZE);
-      SVI_THROW_IF(!item->second_hash, SVI_MEMORY);
+      SVI_THROW_IF(!item->second_hash, SV_MEMORY);
       SVI_THROW(hash_wrapper(self, nalu, item->second_hash, hash_size));
     }
 
@@ -1159,12 +1159,12 @@ signed_video_create(SignedVideoCodec codec)
     SVI_THROW_IF((codec < 0) || (codec >= SV_CODEC_NUM), SV_INVALID_PARAMETER);
 
     self = (signed_video_t *)calloc(1, sizeof(signed_video_t));
-    SVI_THROW_IF(!self, SVI_MEMORY);
+    SVI_THROW_IF(!self, SV_MEMORY);
 
     version_str_to_bytes(self->code_version, SIGNED_VIDEO_VERSION);
     self->codec = codec;
     self->last_nalu = (h26x_nalu_t *)calloc(1, sizeof(h26x_nalu_t));
-    SVI_THROW_IF(!self->last_nalu, SVI_MEMORY);
+    SVI_THROW_IF(!self->last_nalu, SV_MEMORY);
     // Mark the last NALU as complete, hence, no ongoing hashing is present.
     self->last_nalu->is_last_nalu_part = true;
 
@@ -1173,10 +1173,10 @@ signed_video_create(SignedVideoCodec codec)
     self->verify_data = sign_or_verify_data_create();
 
     self->product_info = product_info_create();
-    SVI_THROW_IF_WITH_MSG(!self->product_info, SVI_MEMORY, "Could not allocate product_info");
+    SVI_THROW_IF_WITH_MSG(!self->product_info, SV_MEMORY, "Could not allocate product_info");
 
     self->gop_info = gop_info_create();
-    SVI_THROW_IF_WITH_MSG(!self->gop_info, SVI_MEMORY, "Couldn't allocate gop_info");
+    SVI_THROW_IF_WITH_MSG(!self->gop_info, SV_MEMORY, "Couldn't allocate gop_info");
 
     self->authenticity_level = DEFAULT_AUTHENTICITY_LEVEL;
 
@@ -1214,7 +1214,7 @@ signed_video_create(SignedVideoCodec codec)
     // Setup vendor handle.
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     self->vendor_handle = sv_vendor_axis_communications_setup();
-    SVI_THROW_IF(!self->vendor_handle, SVI_MEMORY);
+    SVI_THROW_IF(!self->vendor_handle, SV_MEMORY);
 #endif
 
   SVI_CATCH()

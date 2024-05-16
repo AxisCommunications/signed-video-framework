@@ -619,7 +619,7 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
     // Allocate memory for |attestation|.
     if (!self->attestation) {
       self->attestation = malloc(attestation_size);
-      SVI_THROW_IF(!self->attestation, SVI_MEMORY);
+      SVI_THROW_IF(!self->attestation, SV_MEMORY);
       // Read |attestation|.
       memcpy(self->attestation, data_ptr, attestation_size);
       self->attestation_size = attestation_size;
@@ -641,7 +641,7 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
     // Allocate memory for |certificate_chain| including null-terminated character.
     if (!self->certificate_chain) {
       self->certificate_chain = calloc(1, cert_size + 1);
-      SVI_THROW_IF(!self->certificate_chain, SVI_MEMORY);
+      SVI_THROW_IF(!self->certificate_chain, SV_MEMORY);
       memcpy(self->certificate_chain, data_ptr, cert_size);
     }
     // Compare incoming certificate chain against present and throw an error if they differ.
