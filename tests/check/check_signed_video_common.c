@@ -20,7 +20,7 @@
  */
 #include <check.h>
 #include <stdint.h>
-#include <stdlib.h>
+#include <stdlib.h>  // EXIT_SUCCESS, EXIT_FAILURE
 
 #include "lib/src/includes/signed_video_common.h"
 
@@ -48,13 +48,13 @@ START_TEST(invalid_api_inputs)
   // Check invalid codecs
   sv = signed_video_create(-1);
   ck_assert(!sv);
-  // Check that SV_CODEC_NUM is the highest invalid codec in the enum
+  // Check that SV_CODEC_NUM is the first invalid codec in the enum
   sv = signed_video_create(SV_CODEC_NUM);
   ck_assert(!sv);
+  // Check that a value not part of the enum fails
   sv = signed_video_create(SV_CODEC_NUM + 1);
   ck_assert(!sv);
 
-  // signed_video_create()
   sv = signed_video_create(codec);
   ck_assert(sv);
 
