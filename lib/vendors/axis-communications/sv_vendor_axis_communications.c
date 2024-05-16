@@ -168,7 +168,7 @@ verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificat
     SVI_THROW_IF(
         X509_STORE_CTX_init(ctx, trust_store, attestation_certificate, untrusted_certificates) != 1,
         SV_EXTERNAL_ERROR);
-    SVI_THROW_IF(X509_verify_cert(ctx) != 1, SVI_VENDOR);
+    SVI_THROW_IF(X509_verify_cert(ctx) != 1, SV_VENDOR_ERROR);
 
   SVI_CATCH()
   SVI_DONE(status)
@@ -185,7 +185,7 @@ verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificat
  * |md_ctx| is created and initiated.
  *
  * If all goes well, ownership of |md_ctx| is transfered to |self|. Anything that does not follow
- * the expected format will return SVI_VENDOR.
+ * the expected format will return SV_VENDOR_ERROR.
  */
 static svi_rc
 verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
@@ -227,34 +227,34 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
       // Get the next certificate.
       certificate = PEM_read_bio_X509(stackbio, NULL, NULL, NULL);
     }
-    SVI_THROW_IF(num_certificates > NUM_UNTRUSTED_CERTIFICATES, SVI_VENDOR);
+    SVI_THROW_IF(num_certificates > NUM_UNTRUSTED_CERTIFICATES, SV_VENDOR_ERROR);
 
     SVI_THROW(verify_certificate_chain(self->trusted_ca, untrusted_certificates));
 
     // Extract |chip_id| from the |attestation_certificate|.
     X509_NAME *subject = X509_get_subject_name(attestation_certificate);
     int common_name_index = X509_NAME_get_index_by_NID(subject, NID_commonName, -1);
-    SVI_THROW_IF(common_name_index < 0, SVI_VENDOR);
+    SVI_THROW_IF(common_name_index < 0, SV_VENDOR_ERROR);
     // Found CN in certificate. Read that entry and convert to UTF8.
     entry_data = X509_NAME_ENTRY_get_data(X509_NAME_get_entry(subject, common_name_index));
     SVI_THROW_IF(ASN1_STRING_to_UTF8(&common_name_str, entry_data) <= 0, SV_EXTERNAL_ERROR);
     // Find the Chip ID string, which shows up right after "Axis Edge Vault Attestation ".
     char *chip_id_str = strstr((char *)common_name_str, AXIS_EDGE_VAULT_ATTESTATION_STR);
-    SVI_THROW_IF(!chip_id_str, SVI_VENDOR);
+    SVI_THROW_IF(!chip_id_str, SV_VENDOR_ERROR);
     char *pos = chip_id_str + strlen(AXIS_EDGE_VAULT_ATTESTATION_STR);
     size_t chip_id_size = strlen(pos);
     // Note that chip id is displayed in hexadecimal form in the certificate, hence each byte
     // corresponds to two characters.
-    SVI_THROW_IF(chip_id_size != CHIP_ID_SIZE * 2, SVI_VENDOR);
+    SVI_THROW_IF(chip_id_size != CHIP_ID_SIZE * 2, SV_VENDOR_ERROR);
     for (int idx = 0; idx < CHIP_ID_SIZE; idx++, pos += 2) {
       sscanf(pos, "%2hhx", &self->chip_id[idx]);
     }
     // Check that the chip ID has correct prefix.
-    SVI_THROW_IF(memcmp(self->chip_id, kChipIDPrefix, CHIP_ID_PREFIX_SIZE) != 0, SVI_VENDOR);
+    SVI_THROW_IF(memcmp(self->chip_id, kChipIDPrefix, CHIP_ID_PREFIX_SIZE) != 0, SV_VENDOR_ERROR);
 
     // Extract |serial_number| from the |attestation_certificate|.
     int ser_no_index = X509_NAME_get_index_by_NID(subject, NID_serialNumber, -1);
-    SVI_THROW_IF(ser_no_index < 0, SVI_VENDOR);
+    SVI_THROW_IF(ser_no_index < 0, SV_VENDOR_ERROR);
     // Found serial number in certificate. Read that entry and convert to UTF8.
     entry_data = X509_NAME_ENTRY_get_data(X509_NAME_get_entry(subject, ser_no_index));
     SVI_THROW_IF(ASN1_STRING_to_UTF8(&serial_number_str, entry_data) <= 0, SV_EXTERNAL_ERROR);
@@ -267,7 +267,7 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
     // Get the public key from |attestation_certificate| and verify it.
     EVP_PKEY *attestation_pubkey = X509_get0_pubkey(attestation_certificate);
     SVI_THROW_IF(!attestation_pubkey, SV_EXTERNAL_ERROR);
-    SVI_THROW_IF(EVP_PKEY_base_id(attestation_pubkey) != EVP_PKEY_EC, SVI_VENDOR);
+    SVI_THROW_IF(EVP_PKEY_base_id(attestation_pubkey) != EVP_PKEY_EC, SV_VENDOR_ERROR);
     // Create a new message digest context and initiate it. This context will later be used to
     // verify the public key used when validating the video.
     md_ctx = EVP_MD_CTX_new();
@@ -312,9 +312,9 @@ deserialize_attestation(sv_vendor_axis_communications_t *self)
 {
   assert(self);
 
-  if (!self->attestation) return SVI_VENDOR;
+  if (!self->attestation) return SV_VENDOR_ERROR;
   // The |attestation_size| has to be at least 23 bytes to be deserializable.
-  if (self->attestation_size < 24) return SVI_VENDOR;
+  if (self->attestation_size < 24) return SV_VENDOR_ERROR;
 
   uint8_t *attestation_ptr = (uint8_t *)self->attestation;
   size_t signature_size = 0;
@@ -322,7 +322,7 @@ deserialize_attestation(sv_vendor_axis_communications_t *self)
   // Check if |attestation_list_length| != 1 before deserializing.
   if (*(attestation_ptr + 8) != 1) {
     DEBUG_LOG("Attestation has more than 1 item in attestation list.");
-    return SVI_VENDOR;
+    return SV_VENDOR_ERROR;
   }
   // Copy header (2 bytes)
   memcpy(self->attestation_report.header, attestation_ptr, 2);
@@ -345,7 +345,7 @@ deserialize_attestation(sv_vendor_axis_communications_t *self)
   // Make sure that there is no more data present after the signature.
   uint8_t *attestation_end = (uint8_t *)self->attestation + (size_t)self->attestation_size;
   if (attestation_ptr + signature_size != attestation_end) {
-    return SVI_VENDOR;
+    return SV_VENDOR_ERROR;
   }
   self->attestation_report.attestation_list.signature_size = signature_size;
   // Copy signature (|signature_size| byte)
@@ -383,15 +383,15 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     // If no message digest context exists, the |public_key| cannot be validated.
-    SVI_THROW_IF(!self->md_ctx, SVI_VENDOR);
+    SVI_THROW_IF(!self->md_ctx, SV_VENDOR_ERROR);
     SVI_THROW_IF(!self->public_key, SVI_NOT_SUPPORTED);
     // Convert |public_key| to uncompressed Weierstrass form which will be part of |signed_data|.
     pkey = (EVP_PKEY *)self->public_key;
     SVI_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
     public_key_uncompressed_size = EVP_PKEY_get1_encoded_public_key(pkey, &public_key_uncompressed);
     // Check size and prefix of |public_key| after conversion.
-    SVI_THROW_IF(public_key_uncompressed_size != PUBLIC_KEY_UNCOMPRESSED_SIZE, SVI_VENDOR);
-    SVI_THROW_IF(public_key_uncompressed[0] != PUBLIC_KEY_UNCOMPRESSED_PREFIX, SVI_VENDOR);
+    SVI_THROW_IF(public_key_uncompressed_size != PUBLIC_KEY_UNCOMPRESSED_SIZE, SV_VENDOR_ERROR);
+    SVI_THROW_IF(public_key_uncompressed[0] != PUBLIC_KEY_UNCOMPRESSED_PREFIX, SV_VENDOR_ERROR);
 
     // Construct the binary raw data which will be part of |signed_data|.
     uint8_t binary_raw_data[BINARY_RAW_DATA_SIZE] = {0x80, 0x22, 0x00, 0x00, 0x00, 0x00, 0x21, 0x41,
@@ -687,11 +687,11 @@ set_axis_communications_public_key(void *handle,
     if (EVP_PKEY_base_id(pkey) != EVP_PKEY_EC) {
       public_key_validation = 0;
     } else {
-      SVI_THROW_IF(EVP_PKEY_get_base_id(pkey) != EVP_PKEY_EC, SVI_VENDOR);
+      SVI_THROW_IF(EVP_PKEY_get_base_id(pkey) != EVP_PKEY_EC, SV_VENDOR_ERROR);
       char group_name[100];
       SVI_THROW_IF(EVP_PKEY_get_group_name(pkey, group_name, sizeof(group_name), NULL) != 1,
           SV_EXTERNAL_ERROR);
-      SVI_THROW_IF(strcmp(group_name, SN_X9_62_prime256v1) != 0, SVI_VENDOR);
+      SVI_THROW_IF(strcmp(group_name, SN_X9_62_prime256v1) != 0, SV_VENDOR_ERROR);
     }
 
     // The Public key is of correct type and size.
@@ -727,9 +727,9 @@ get_axis_communications_supplemental_authenticity(void *handle,
   SVI_CATCH()
   SVI_DONE(status)
 
-  // If anything did not fulfill the verification requirements a SVI_VENDOR error is thrown. Set the
-  // |supplemental_authenticity| and change status to SVI_OK, since it is a valid behavior.
-  if (status == SVI_VENDOR) {
+  // If anything did not fulfill the verification requirements a SV_VENDOR_ERROR error is thrown.
+  // Set the |supplemental_authenticity| and change status to SVI_OK, since it is a valid behavior.
+  if (status == SV_VENDOR_ERROR) {
     self->supplemental_authenticity.public_key_validation = 0;
     memset(self->supplemental_authenticity.serial_number, 0, SV_VENDOR_AXIS_SER_NO_MAX_LENGTH);
     strcpy(self->supplemental_authenticity.serial_number, "Unknown");

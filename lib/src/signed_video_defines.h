@@ -149,7 +149,7 @@ typedef enum {
   SVI_INCOMPATIBLE_VERSION = 12,
   SV_AUTHENTICATION_ERROR = 13,
   SV_EXTERNAL_ERROR = 20,
-  SVI_VENDOR = 21,
+  SV_VENDOR_ERROR = 21,
   SVI_UNKNOWN = 100,
 } svi_rc;  // Signed Video Internal Return Code
 

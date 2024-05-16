@@ -146,7 +146,7 @@ svi_rc_to_signed_video_rc(svi_rc status)
       return SV_AUTHENTICATION_ERROR;
     case SV_EXTERNAL_ERROR:
       return SV_EXTERNAL_ERROR;
-    case SVI_VENDOR:
+    case SV_VENDOR_ERROR:
       return SV_VENDOR_ERROR;
     default:
       return SV_UNKNOWN_FAILURE;
@@ -172,7 +172,7 @@ sv_rc_to_svi_rc(SignedVideoReturnCode status)
     case SV_EXTERNAL_ERROR:
       return SV_EXTERNAL_ERROR;
     case SV_VENDOR_ERROR:
-      return SVI_VENDOR;
+      return SV_VENDOR_ERROR;
     case SV_UNKNOWN_FAILURE:
     default:
       return SVI_UNKNOWN;
