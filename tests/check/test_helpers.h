@@ -23,7 +23,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <string.h>  // size_t
+#include <stdlib.h>  // size_t
 
 #include "lib/src/includes/signed_video_common.h"  // signed_video_t, SignedVideoCodec
 #include "lib/src/includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
