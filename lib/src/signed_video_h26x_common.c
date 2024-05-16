@@ -148,7 +148,6 @@ svi_rc_to_signed_video_rc(svi_rc status)
       return SV_EXTERNAL_ERROR;
     case SVI_VENDOR:
       return SV_VENDOR_ERROR;
-    case SVI_FILE:
     default:
       return SV_UNKNOWN_FAILURE;
   }

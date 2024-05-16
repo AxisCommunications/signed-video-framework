@@ -541,7 +541,7 @@ write_private_key_to_file(EVP_PKEY *pkey, const char *path_to_key)
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     f_private = fopen(path_to_key, "wb");
-    SVI_THROW_IF(!f_private, SVI_FILE);
+    SVI_THROW_IF(!f_private, SVI_EXTERNAL_FAILURE);
     SVI_THROW_IF(
         !PEM_write_PrivateKey(f_private, pkey, NULL, 0, 0, NULL, NULL), SVI_EXTERNAL_FAILURE);
   SVI_CATCH()
