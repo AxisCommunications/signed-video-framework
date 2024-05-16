@@ -871,8 +871,7 @@ update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
   SV_TRY()
     // Update the gop_hash, that is, hash the memory (both hashes) in hashes = [gop_hash, latest
     // nalu_hash] and replace the gop_hash part with the new hash.
-    SVI_THROW(
-        openssl_hash_data(crypto_handle, gop_info->hashes, 2 * hash_size, gop_info->gop_hash));
+    SV_THROW(openssl_hash_data(crypto_handle, gop_info->hashes, 2 * hash_size, gop_info->gop_hash));
 
 #ifdef SIGNED_VIDEO_DEBUG
     printf("Latest NALU hash ");
@@ -1005,7 +1004,7 @@ hash_and_copy_to_ref(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *has
       memcpy(hash, gop_info->tmp_hash_ptr, hash_size);
     } else {
       // Hash NALU data and store as |nalu_hash|.
-      SVI_THROW(simply_hash(self, nalu, hash, hash_size));
+      SV_THROW(simply_hash(self, nalu, hash, hash_size));
     }
     // Copy the |nalu_hash| to |reference_hash| to be used in hash_with_reference().
     memcpy(reference_hash, hash, hash_size);
@@ -1042,9 +1041,9 @@ hash_with_reference(signed_video_t *self,
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Hash NALU data and store as |nalu_hash|.
-    SVI_THROW(simply_hash(self, nalu, nalu_hash, hash_size));
+    SV_THROW(simply_hash(self, nalu, nalu_hash, hash_size));
     // Hash reference hash together with the |nalu_hash| and store in |buddy_hash|.
-    SVI_THROW(
+    SV_THROW(
         openssl_hash_data(self->crypto_handle, gop_info->hash_buddies, hash_size * 2, buddy_hash));
   SV_CATCH()
   SV_DONE(status)
@@ -1072,15 +1071,15 @@ hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
     if (nalu->is_first_nalu_part && !nalu->is_last_nalu_part) {
       // If this is the first part of a non-complete NALU, initialize the |crypto_handle| to enable
       // sequentially updating the hash with more parts.
-      SVI_THROW(openssl_init_hash(self->crypto_handle));
+      SV_THROW(openssl_init_hash(self->crypto_handle));
     }
     // Select hash function, hash the NALU and store as 'latest hash'
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
-    SVI_THROW(hash_wrapper(self, nalu, nalu_hash, hash_size));
+    SV_THROW(hash_wrapper(self, nalu, nalu_hash, hash_size));
     if (nalu->is_last_nalu_part) {
       // The end of the NALU has been reached. Update hash list and GOP hash.
       check_and_copy_hash_to_hash_list(self, nalu_hash, hash_size);
-      SVI_THROW(update_gop_hash(self->crypto_handle, gop_info));
+      SV_THROW(update_gop_hash(self->crypto_handle, gop_info));
       update_num_nalus_in_gop_hash(self, nalu);
     }
   SV_CATCH()
@@ -1122,7 +1121,7 @@ hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
   SV_TRY()
     // Select hash wrapper, hash the NALU and store as |nalu_hash|.
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
-    SVI_THROW(hash_wrapper(self, nalu, nalu_hash, hash_size));
+    SV_THROW(hash_wrapper(self, nalu, nalu_hash, hash_size));
     // Check if we have a potential transition to a new GOP. This happens if the current NALU
     // |is_first_nalu_in_gop|. If we have lost the first NALU of a GOP we can still make a guess by
     // checking if |has_gop_sei| flag is set. It is set if the previous hashable NALU was SEI.
@@ -1137,7 +1136,7 @@ hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
       free(item->second_hash);
       item->second_hash = malloc(MAX_HASH_SIZE);
       SV_THROW_IF(!item->second_hash, SV_MEMORY);
-      SVI_THROW(hash_wrapper(self, nalu, item->second_hash, hash_size));
+      SV_THROW(hash_wrapper(self, nalu, item->second_hash, hash_size));
     }
 
   SV_CATCH()
@@ -1254,9 +1253,9 @@ signed_video_reset(signed_video_t *self)
 
     memset(self->last_nalu, 0, sizeof(h26x_nalu_t));
     self->last_nalu->is_last_nalu_part = true;
-    SVI_THROW(openssl_init_hash(self->crypto_handle));
+    SV_THROW(openssl_init_hash(self->crypto_handle));
 
-    SVI_THROW(reset_gop_hash(self));
+    SV_THROW(reset_gop_hash(self));
   SV_CATCH()
   SV_DONE(status)
 

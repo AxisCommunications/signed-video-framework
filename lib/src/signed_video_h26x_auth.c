@@ -633,7 +633,7 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Initialize the gop_hash by resetting it.
-    SVI_THROW(reset_gop_hash(self));
+    SV_THROW(reset_gop_hash(self));
     // In general we do not know when the SEI, associated with a GOP, arrives. If it is delayed we
     // should collect all NALUs of the GOP, that is, stop adding hashes when we find a new GOP. If
     // the SEI is not delayed we need also the NALU right after the SEI to complete the operation.
@@ -669,7 +669,7 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
       hash_to_add = item->need_second_verification ? item->second_hash : item->hash;
       // Copy to the |nalu_hash| slot in the memory and update the gop_hash.
       memcpy(nalu_hash, hash_to_add, hash_size);
-      SVI_THROW(update_gop_hash(self->crypto_handle, gop_info));
+      SV_THROW(update_gop_hash(self->crypto_handle, gop_info));
 
       // Mark the item and move to next.
       item->used_in_gop_hash = true;
@@ -678,7 +678,7 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
 
     // Complete the gop_hash with the hash of the SEI.
     memcpy(nalu_hash, sei->hash, hash_size);
-    SVI_THROW(update_gop_hash(self->crypto_handle, gop_info));
+    SV_THROW(update_gop_hash(self->crypto_handle, gop_info));
     sei->used_in_gop_hash = true;
 
   SV_CATCH()
@@ -718,7 +718,7 @@ prepare_for_validation(signed_video_t *self)
       const uint8_t *tlv_data = sei->nalu->tlv_data;
       size_t tlv_size = sei->nalu->tlv_size;
 
-      SVI_THROW(decode_sei_data(self, tlv_data, tlv_size));
+      SV_THROW(decode_sei_data(self, tlv_data, tlv_size));
       sei->has_been_decoded = true;
       if (self->gop_info->signature_hash_type == DOCUMENT_HASH) {
         memcpy(verify_data->hash, sei->hash, hash_size);
@@ -727,7 +727,7 @@ prepare_for_validation(signed_video_t *self)
     // Check if we should compute the gop_hash.
     if (sei && sei->has_been_decoded && !sei->used_in_gop_hash &&
         self->gop_info->signature_hash_type == GOP_HASH) {
-      SVI_THROW(compute_gop_hash(self, sei));
+      SV_THROW(compute_gop_hash(self, sei));
       // TODO: Is it possible to avoid a memcpy by using a pointer strategy?
       memcpy(verify_data->hash, self->gop_info->gop_hash, hash_size);
     }
@@ -742,7 +742,7 @@ prepare_for_validation(signed_video_t *self)
         strcmp(self->product_info->manufacturer, "Axis Communications AB") == 0) {
 
       sv_vendor_axis_supplemental_authenticity_t *supplemental_authenticity = NULL;
-      SVI_THROW(get_axis_communications_supplemental_authenticity(
+      SV_THROW(get_axis_communications_supplemental_authenticity(
           self->vendor_handle, &supplemental_authenticity));
       if (strcmp(self->product_info->serial_number, supplemental_authenticity->serial_number)) {
         self->latest_validation->public_key_validation = SV_PUBKEY_VALIDATION_NOT_OK;
@@ -766,7 +766,7 @@ prepare_for_validation(signed_video_t *self)
 
     // If we have received a SEI there is a signature to use for verification.
     if (self->gop_state.has_gop_sei) {
-      SVI_THROW(openssl_verify_hash(verify_data, &self->gop_info->verified_signature_hash));
+      SV_THROW(openssl_verify_hash(verify_data, &self->gop_info->verified_signature_hash));
     }
 
   SV_CATCH()
@@ -922,7 +922,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
       latest->number_of_pending_picture_nalus = -1;
       latest->public_key_has_changed = false;
 
-      SVI_THROW(prepare_for_validation(self));
+      SV_THROW(prepare_for_validation(self));
 
       if (!validation_flags->signing_present) {
         latest->authenticity = SV_AUTH_RESULT_NOT_SIGNED;
@@ -1052,10 +1052,10 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
         !nalu_list, SV_MEMORY, "No existing nalu_list. Cannot validate authenticity");
     // Append the |nalu_list| with a new item holding a pointer to |nalu|. The |validation_status|
     // is set accordingly.
-    SVI_THROW(h26x_nalu_list_append(nalu_list, &nalu));
+    SV_THROW(h26x_nalu_list_append(nalu_list, &nalu));
     SV_THROW_IF(nalu.is_valid < 0, SV_UNKNOWN_FAILURE);
     update_validation_flags(&self->validation_flags, &nalu);
-    SVI_THROW(register_nalu(self, nalu_list->last_item));
+    SV_THROW(register_nalu(self, nalu_list->last_item));
     // As soon as the first Signed Video SEI arrives (|signing_present| is true) and the
     // crypto TLV tag has been decoded it is feasible to hash the temporarily stored NAL
     // Units.
@@ -1065,9 +1065,9 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
         DEBUG_LOG("No cryptographic information found in SEI. Using default hash algo");
         self->validation_flags.hash_algo_known = true;
       }
-      SVI_THROW(reregister_nalus(self));
+      SV_THROW(reregister_nalus(self));
     }
-    SVI_THROW(maybe_validate_gop(self, &nalu));
+    SV_THROW(maybe_validate_gop(self, &nalu));
   SV_CATCH()
   SV_DONE(status)
 
@@ -1098,9 +1098,9 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SVI_THROW(create_local_authenticity_report_if_needed(self));
+    SV_THROW(create_local_authenticity_report_if_needed(self));
 
-    SVI_THROW(signed_video_add_h26x_nalu(self, nalu_data, nalu_data_size));
+    SV_THROW(signed_video_add_h26x_nalu(self, nalu_data, nalu_data_size));
     if (self->validation_flags.has_auth_result) {
       update_authenticity_report(self);
       if (authenticity) *authenticity = signed_video_get_authenticity_report(self);
@@ -1129,7 +1129,7 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
     memcpy(self->pem_public_key.key, public_key, public_key_size);
     self->pem_public_key.key_size = public_key_size;
     // Turn the public key from PEM to EVP_PKEY form.
-    SVI_THROW(openssl_public_key_malloc(self->verify_data, &self->pem_public_key));
+    SV_THROW(openssl_public_key_malloc(self->verify_data, &self->pem_public_key));
     self->has_public_key = true;
 
   SV_CATCH()

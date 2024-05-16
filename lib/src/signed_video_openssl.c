@@ -435,12 +435,12 @@ openssl_set_hash_algo(void *handle, const char *name_or_oid)
     ASN1_OBJECT *hash_algo_obj = OBJ_txt2obj(name_or_oid, 0 /* Accept both name and OID */);
     SVI_THROW_IF_WITH_MSG(!hash_algo_obj, SV_INVALID_PARAMETER,
         "Could not identify hashing algorithm: %s", name_or_oid);
-    SVI_THROW(obj_to_oid_and_type(&self->hash_algo, hash_algo_obj));
+    SV_THROW(obj_to_oid_and_type(&self->hash_algo, hash_algo_obj));
     // Free the context to be able to assign a new message digest type to it.
     EVP_MD_CTX_free(self->ctx);
     self->ctx = NULL;
 
-    SVI_THROW(openssl_init_hash(self));
+    SV_THROW(openssl_init_hash(self));
     DEBUG_LOG("Setting hash algo %s that has ASN.1/DER coded OID length %zu", name_or_oid,
         self->hash_algo.encoded_oid_size);
   SV_CATCH()
@@ -475,7 +475,7 @@ openssl_set_hash_algo_by_encoded_oid(void *handle,
     memcpy(self->hash_algo.encoded_oid, encoded_oid, encoded_oid_size);
     self->hash_algo.encoded_oid_size = encoded_oid_size;
 
-    SVI_THROW(oid_to_type(&self->hash_algo));
+    SV_THROW(oid_to_type(&self->hash_algo));
   SV_CATCH()
   SV_DONE(status)
 
@@ -599,8 +599,8 @@ create_rsa_private_key(const char *path_to_key, pem_pkey_t *pem_key)
     pkey = EVP_RSA_gen(2048);
     SV_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
 
-    SVI_THROW(write_private_key_to_file(pkey, path_to_key));
-    SVI_THROW(write_private_key_to_buffer(pkey, pem_key));
+    SV_THROW(write_private_key_to_file(pkey, path_to_key));
+    SV_THROW(write_private_key_to_buffer(pkey, pem_key));
   SV_CATCH()
   SV_DONE(status)
 
@@ -621,8 +621,8 @@ create_ecdsa_private_key(const char *path_to_key, pem_pkey_t *pem_key)
     pkey = EVP_EC_gen(OSSL_EC_curve_nid2name(NID_X9_62_prime256v1));
     SV_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
 
-    SVI_THROW(write_private_key_to_file(pkey, path_to_key));
-    SVI_THROW(write_private_key_to_buffer(pkey, pem_key));
+    SV_THROW(write_private_key_to_file(pkey, path_to_key));
+    SV_THROW(write_private_key_to_buffer(pkey, pem_key));
   SV_CATCH()
   SV_DONE(status)
 
