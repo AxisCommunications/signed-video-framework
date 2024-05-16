@@ -108,7 +108,7 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
       self->gop_state.gop_transition_is_lost = true;
     }
 
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return status;
@@ -681,7 +681,7 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
     SVI_THROW(update_gop_hash(self->crypto_handle, gop_info));
     sei->used_in_gop_hash = true;
 
-  SVI_CATCH()
+  SV_CATCH()
   {
     // Failed computing the gop_hash. Remove all used_in_gop_hash markers.
     remove_used_in_gop_hash(nalu_list);
@@ -769,7 +769,7 @@ prepare_for_validation(signed_video_t *self)
       SVI_THROW(openssl_verify_hash(verify_data, &self->gop_info->verified_signature_hash));
     }
 
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return status;
@@ -961,7 +961,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
       DEBUG_LOG("Number of pending NALUs = %d", latest->number_of_pending_picture_nalus);
     }
 
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return status;
@@ -1068,7 +1068,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
       SVI_THROW(reregister_nalus(self));
     }
     SVI_THROW(maybe_validate_gop(self, &nalu));
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   // Need to make a copy of the |nalu| independently of failure.
@@ -1108,7 +1108,7 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
       self->latest_validation->has_timestamp = false;
     }
 
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return svi_rc_to_signed_video_rc(status);
@@ -1132,7 +1132,7 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
     SVI_THROW(openssl_public_key_malloc(self->verify_data, &self->pem_public_key));
     self->has_public_key = true;
 
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return svi_rc_to_signed_video_rc(status);

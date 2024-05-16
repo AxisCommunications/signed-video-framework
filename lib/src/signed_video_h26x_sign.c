@@ -359,7 +359,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     SVI_THROW(sv_rc_to_svi_rc(
         sv_signing_plugin_sign(self->plugin_handle, sign_data->hash, sign_data->hash_size)));
 
-  SVI_CATCH()
+  SV_CATCH()
   {
     DEBUG_LOG("Failed generating the SEI");
     free(*payload);
@@ -435,7 +435,7 @@ prepare_for_nalus_to_prepend(signed_video_t *self)
       SVI_THROW_IF_WITH_MSG(
           self->num_of_completed_seis > 0, SV_NOT_SUPPORTED, "There are remaining SEIs.");
     }
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return status;
@@ -574,7 +574,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       }
     }
 
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   free(nalu.nalu_data_wo_epb);
@@ -676,7 +676,7 @@ signed_video_set_end_of_stream(signed_video_t *self)
       SVI_THROW(complete_sei_nalu_and_add_to_prepend(self));
     }
 
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return svi_rc_to_signed_video_rc(status);
@@ -710,7 +710,7 @@ signed_video_generate_golden_sei(signed_video_t *self)
       SVI_THROW(complete_sei_nalu_and_add_to_prepend(self));
     }
 
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
   // Reset the |is_golden_sei| flag, ensuring that a golden SEI is not
   // generated outside of this API.
@@ -737,7 +737,7 @@ signed_video_set_product_info(signed_video_t *self,
     SVI_THROW(allocate_memory_and_copy_string(&product_info->serial_number, serial_number));
     SVI_THROW(allocate_memory_and_copy_string(&product_info->manufacturer, manufacturer));
     SVI_THROW(allocate_memory_and_copy_string(&product_info->address, address));
-  SVI_CATCH()
+  SV_CATCH()
   {
     product_info_free_members(product_info);
   }
@@ -762,7 +762,7 @@ signed_video_set_private_key_new(signed_video_t *self,
 
     self->plugin_handle = sv_signing_plugin_session_setup(private_key, private_key_size);
     SVI_THROW_IF(!self->plugin_handle, SV_EXTERNAL_ERROR);
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   // Free the EVP_PKEY since it is no longer needed. It is handled by the signing plugin.
@@ -805,7 +805,7 @@ signed_video_set_authenticity_level(signed_video_t *self,
 
     self->authenticity_level = authenticity_level;
 
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return svi_rc_to_signed_video_rc(status);
@@ -856,7 +856,7 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid)
     self->sign_data->hash_size = hash_size;
     // Point |nalu_hash| to the correct location in the |hashes| buffer.
     self->gop_info->nalu_hash = self->gop_info->hashes + hash_size;
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return svi_rc_to_signed_video_rc(status);

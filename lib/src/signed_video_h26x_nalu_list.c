@@ -346,7 +346,7 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list, bool hash_algo_known)
     copied_nalu->tlv_data = copied_nalu->nalu_data_wo_epb;
     copied_nalu->pending_hashable_data = hashable_data;
     copied_nalu->hashable_data = copied_nalu->pending_hashable_data;
-  SVI_CATCH()
+  SV_CATCH()
   {
     free(nalu_data_wo_epb);  // At this point, nalu_data_wo_epb is actually NULL.
     free(copied_nalu);
@@ -393,7 +393,7 @@ h26x_nalu_list_add_missing(h26x_nalu_list_t *list,
       h26x_nalu_list_refresh(list);
     }
 
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   if (added_items > 0) DEBUG_LOG("Added %d missing NALU items to list", added_items);

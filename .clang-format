@@ -80,7 +80,7 @@ JavaScriptQuotes: Leave
 JavaScriptWrapImports: true
 KeepEmptyLinesAtTheStartOfBlocks: true
 MacroBlockBegin: 'SV_TRY'
-MacroBlockEnd:   'SVI_CATCH'
+MacroBlockEnd:   'SV_CATCH'
 MaxEmptyLinesToKeep: 1
 NamespaceIndentation: None
 ObjCBinPackProtocolList: Never
