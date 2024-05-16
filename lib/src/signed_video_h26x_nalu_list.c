@@ -352,7 +352,7 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list, bool hash_algo_known)
     free(copied_nalu);
     copied_nalu = NULL;
   }
-  SVI_DONE(status)
+  SV_DONE(status)
 
   if (item->taken_ownership_of_nalu) {
     // We have taken ownership of the existing |nalu|, hence we need to free it when releasing it.
@@ -394,7 +394,7 @@ h26x_nalu_list_add_missing(h26x_nalu_list_t *list,
     }
 
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   if (added_items > 0) DEBUG_LOG("Added %d missing NALU items to list", added_items);
 

@@ -171,7 +171,7 @@ verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificat
     SVI_THROW_IF(X509_verify_cert(ctx) != 1, SV_VENDOR_ERROR);
 
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   X509_STORE_CTX_free(ctx);
   X509_STORE_free(trust_store);
@@ -284,7 +284,7 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
     EVP_MD_CTX_free(md_ctx);
     md_ctx = NULL;
   }
-  SVI_DONE(status)
+  SV_DONE(status)
 
   // Transfer ownership.
   self->md_ctx = md_ctx;
@@ -462,7 +462,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     self->supplemental_authenticity.public_key_validation &= verified_signature;
 
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   free(signed_data);
   OPENSSL_free(public_key_uncompressed);
@@ -651,7 +651,7 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
 
     SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return status;
 }
@@ -701,7 +701,7 @@ set_axis_communications_public_key(void *handle,
     self->public_key = NULL;
     public_key_validation = 0;
   }
-  SVI_DONE(status)
+  SV_DONE(status)
 
   self->supplemental_authenticity.public_key_validation = public_key_validation;
 
@@ -725,7 +725,7 @@ get_axis_communications_supplemental_authenticity(void *handle,
     // Set public key validation information.
 
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   // If anything did not fulfill the verification requirements a SV_VENDOR_ERROR error is thrown.
   // Set the |supplemental_authenticity| and change status to SV_OK, since it is a valid behavior.
