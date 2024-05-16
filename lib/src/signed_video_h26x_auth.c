@@ -85,7 +85,7 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SVI_THROW_WITH_MSG(tlv_decode(self, payload, payload_size), "Failed decoding SEI payload");
+    SV_THROW_WITH_MSG(tlv_decode(self, payload, payload_size), "Failed decoding SEI payload");
 
     // Compare new with last number of GOPs to detect potentially lost SEIs.
     uint32_t new_gop_number = self->gop_info->global_gop_counter;
@@ -732,7 +732,7 @@ prepare_for_validation(signed_video_t *self)
       memcpy(verify_data->hash, self->gop_info->gop_hash, hash_size);
     }
 
-    SVI_THROW_IF_WITH_MSG(validation_flags->signing_present && !self->has_public_key,
+    SV_THROW_IF_WITH_MSG(validation_flags->signing_present && !self->has_public_key,
         SV_NOT_SUPPORTED, "No public key present");
 
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
@@ -1048,7 +1048,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // If there is no |nalu_list| we failed allocating memory for it.
-    SVI_THROW_IF_WITH_MSG(
+    SV_THROW_IF_WITH_MSG(
         !nalu_list, SV_MEMORY, "No existing nalu_list. Cannot validate authenticity");
     // Append the |nalu_list| with a new item holding a pointer to |nalu|. The |validation_status|
     // is set accordingly.

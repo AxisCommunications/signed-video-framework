@@ -732,7 +732,7 @@ decode_hash_list(signed_video_t *self, const uint8_t *data, size_t data_size)
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
-    SVI_THROW_IF_WITH_MSG(
+    SV_THROW_IF_WITH_MSG(
         hash_list_size > HASH_LIST_SIZE, SV_MEMORY, "Found more hashes than fit in hash_list");
     memcpy(self->gop_info->hash_list, data_ptr, hash_list_size);
     self->gop_info->list_idx = (int)hash_list_size;

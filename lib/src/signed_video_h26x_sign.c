@@ -422,7 +422,7 @@ prepare_for_nalus_to_prepend(signed_video_t *self)
 
     // Without a private key we cannot sign, which is equivalent with the existence of a signin
     // plugin.
-    SVI_THROW_IF_WITH_MSG(
+    SV_THROW_IF_WITH_MSG(
         !self->plugin_handle, SV_NOT_SUPPORTED, "The private key has not been set");
     // Mark the start of signing when the first NAL Unit is passed in and a signing key
     // has been set.
@@ -432,7 +432,7 @@ prepare_for_nalus_to_prepend(signed_video_t *self)
     // proceed. But if there are vital SEI-nalus waiting to be pulled we return an error message
     // (SV_NOT_SUPPORTED).
     if (!self->sv_test_on) {
-      SVI_THROW_IF_WITH_MSG(
+      SV_THROW_IF_WITH_MSG(
           self->num_of_completed_seis > 0, SV_NOT_SUPPORTED, "There are remaining SEIs.");
     }
   SV_CATCH()
@@ -564,10 +564,10 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
         SV_THROW(openssl_public_key_malloc(&verify_data, &self->pem_public_key));
         // Verify the just signed hash.
         int verified = -1;
-        SVI_THROW_WITH_MSG(
+        SV_THROW_WITH_MSG(
             openssl_verify_hash(&verify_data, &verified), "Verification test had errors");
         openssl_free_key(verify_data.key);
-        SVI_THROW_IF_WITH_MSG(verified != 1, SV_EXTERNAL_ERROR, "Verification test failed");
+        SV_THROW_IF_WITH_MSG(verified != 1, SV_EXTERNAL_ERROR, "Verification test failed");
 #endif
         SV_THROW(complete_sei_nalu_and_add_to_prepend(self));
         signing_present = 1;  // At least one SEI NALU present.
