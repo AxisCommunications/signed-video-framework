@@ -103,7 +103,7 @@ openssl_private_key_malloc(sign_or_verify_data_t *sign_data,
   EVP_PKEY *signing_key = NULL;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     // Read private key
     BIO *bp = BIO_new_mem_buf(private_key, private_key_size);
     signing_key = PEM_read_bio_PrivateKey(bp, NULL, NULL, NULL);
@@ -158,7 +158,7 @@ openssl_public_key_malloc(sign_or_verify_data_t *verify_data, pem_pkey_t *pem_pu
   int buf_size = (int)(pem_public_key->key_size);
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     // Read public key
     SVI_THROW_IF(!buf, SV_INVALID_PARAMETER);
     SVI_THROW_IF(buf_size == 0, SV_INVALID_PARAMETER);
@@ -206,7 +206,7 @@ openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_
   if (!sign_data) return SV_INVALID_PARAMETER;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     ctx = (EVP_PKEY_CTX *)sign_data->key;
     SVI_THROW_IF(!ctx, SV_INVALID_PARAMETER);
     // Borrow the EVP_PKEY |pkey| from |ctx|.
@@ -256,7 +256,7 @@ openssl_sign_hash(sign_or_verify_data_t *sign_data)
   size_t hash_size = sign_data->hash_size;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     SVI_THROW_IF(!ctx, SV_INVALID_PARAMETER);
     // Determine required buffer length of the signature
     SVI_THROW_IF(
@@ -289,7 +289,7 @@ openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_resu
   size_t hash_size = verify_data->hash_size;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     SVI_THROW_IF(!signature || signature_size == 0 || !hash_to_verify, SV_INVALID_PARAMETER);
     EVP_PKEY_CTX *ctx = (EVP_PKEY_CTX *)verify_data->key;
     SVI_THROW_IF(!ctx, SV_INVALID_PARAMETER);
@@ -377,7 +377,7 @@ oid_to_type(message_digest_t *self)
   const unsigned char *encoded_oid_ptr = NULL;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     // Point to the first byte of the OID. The |oid_ptr| will increment while decoding.
     encoded_oid_ptr = self->encoded_oid;
     SVI_THROW_IF(
@@ -402,7 +402,7 @@ obj_to_oid_and_type(message_digest_t *self, const ASN1_OBJECT *obj)
   size_t encoded_oid_size = 0;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     SVI_THROW_IF(!obj, SV_INVALID_PARAMETER);
     type = EVP_get_digestbyobj(obj);
     SVI_THROW_IF(!type, SV_EXTERNAL_ERROR);
@@ -432,7 +432,7 @@ openssl_set_hash_algo(void *handle, const char *name_or_oid)
   }
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     ASN1_OBJECT *hash_algo_obj = OBJ_txt2obj(name_or_oid, 0 /* Accept both name and OID */);
     SVI_THROW_IF_WITH_MSG(!hash_algo_obj, SV_INVALID_PARAMETER,
         "Could not identify hashing algorithm: %s", name_or_oid);
@@ -470,7 +470,7 @@ openssl_set_hash_algo_by_encoded_oid(void *handle,
   self->hash_algo.encoded_oid_size = 0;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     self->hash_algo.encoded_oid = malloc(encoded_oid_size);
     SVI_THROW_IF(!self->hash_algo.encoded_oid, SV_MEMORY);
     memcpy(self->hash_algo.encoded_oid, encoded_oid, encoded_oid_size);
@@ -539,7 +539,7 @@ write_private_key_to_file(EVP_PKEY *pkey, const char *path_to_key)
   if (!path_to_key) return SV_OK;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     f_private = fopen(path_to_key, "wb");
     SVI_THROW_IF(!f_private, SV_EXTERNAL_ERROR);
     SVI_THROW_IF(!PEM_write_PrivateKey(f_private, pkey, NULL, 0, 0, NULL, NULL), SV_EXTERNAL_ERROR);
@@ -566,7 +566,7 @@ write_private_key_to_buffer(EVP_PKEY *pkey, pem_pkey_t *pem_key)
   if (!pem_key) return SV_OK;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     pkey_bio = BIO_new(BIO_s_mem());
     SVI_THROW_IF(!pkey_bio, SV_EXTERNAL_ERROR);
     SVI_THROW_IF(
@@ -596,7 +596,7 @@ create_rsa_private_key(const char *path_to_key, pem_pkey_t *pem_key)
   EVP_PKEY *pkey = NULL;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     pkey = EVP_RSA_gen(2048);
     SVI_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
 
@@ -618,7 +618,7 @@ create_ecdsa_private_key(const char *path_to_key, pem_pkey_t *pem_key)
   EVP_PKEY *pkey = NULL;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     pkey = EVP_EC_gen(OSSL_EC_curve_nid2name(NID_X9_62_prime256v1));
     SVI_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
 
