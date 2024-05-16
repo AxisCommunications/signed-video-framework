@@ -315,7 +315,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
       }
     }
 
-    SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
+    SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -501,7 +501,7 @@ decode_product_info(signed_video_t *self, const uint8_t *data, size_t data_size)
     // Transfer the decoded |product_info| to the authenticity report.
     SVI_THROW(transfer_product_info(&self->authenticity->product_info, product_info));
 
-    SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
+    SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
 
   SVI_CATCH()
   SVI_DONE(status)
@@ -555,14 +555,14 @@ decode_arbitrary_data(signed_video_t *self, const uint8_t *data, size_t data_siz
 
   SVI_TRY()
     SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
-    SVI_THROW_IF(arbdata_size == 0, SVI_DECODING_ERROR);
+    SVI_THROW_IF(arbdata_size == 0, SV_AUTHENTICATION_ERROR);
     uint8_t *arbdata = realloc(self->arbitrary_data, arbdata_size);
     SVI_THROW_IF(!arbdata, SVI_MEMORY);
     memcpy(arbdata, data_ptr, arbdata_size);
     self->arbitrary_data = arbdata;
     self->arbitrary_data_size = arbdata_size;
     data_ptr += arbdata_size;
-    SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
+    SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
   SVI_CATCH()
   {
     free(self->arbitrary_data);
@@ -641,7 +641,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
-    SVI_THROW_IF(pubkey_size == 0, SVI_DECODING_ERROR);
+    SVI_THROW_IF(pubkey_size == 0, SV_AUTHENTICATION_ERROR);
 
     if (pem_public_key->key_size != pubkey_size) {
       free(pem_public_key->key);
@@ -672,7 +672,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     }
 #endif
 
-    SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
+    SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -740,7 +740,7 @@ decode_hash_list(signed_video_t *self, const uint8_t *data, size_t data_size)
 
     data_ptr += hash_list_size;
 
-    SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
+    SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
 
   SVI_CATCH()
   SVI_DONE(status)
@@ -836,8 +836,8 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
 
   SVI_TRY()
     SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
-    SVI_THROW_IF(hash_type < 0 || hash_type >= NUM_HASH_TYPES, SVI_DECODING_ERROR);
-    SVI_THROW_IF(max_signature_size < signature_size, SVI_DECODING_ERROR);
+    SVI_THROW_IF(hash_type < 0 || hash_type >= NUM_HASH_TYPES, SV_AUTHENTICATION_ERROR);
+    SVI_THROW_IF(max_signature_size < signature_size, SV_AUTHENTICATION_ERROR);
     if (!*signature_ptr) {
       verify_data->max_signature_size = 0;
       verify_data->signature_size = 0;
@@ -855,7 +855,7 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
     verify_data->signature_size = signature_size;
     gop_info->encoding_status = encoding_status;
     gop_info->signature_hash_type = hash_type;
-    SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
+    SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
   SVI_CATCH()
   SVI_DONE(status)
 
@@ -922,14 +922,14 @@ decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
-    SVI_THROW_IF(hash_algo_encoded_oid_size == 0, SVI_DECODING_ERROR);
+    SVI_THROW_IF(hash_algo_encoded_oid_size == 0, SV_AUTHENTICATION_ERROR);
     SVI_THROW(openssl_set_hash_algo_by_encoded_oid(
         self->crypto_handle, hash_algo_encoded_oid, hash_algo_encoded_oid_size));
     self->validation_flags.hash_algo_known = true;
     self->verify_data->hash_size = openssl_get_hash_size(self->crypto_handle);
     data_ptr += hash_algo_encoded_oid_size;
 
-    SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
+    SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
   SVI_CATCH()
   SVI_DONE(status)
 

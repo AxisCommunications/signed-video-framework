@@ -635,7 +635,7 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
     //  - 1 byte for version
     //  - 1 bytes for |attestation_size|
     //  - |attestation_size| bytes for |attestation|
-    SVI_THROW_IF(data_size <= (size_t)attestation_size + 2, SVI_DECODING_ERROR);
+    SVI_THROW_IF(data_size <= (size_t)attestation_size + 2, SV_AUTHENTICATION_ERROR);
     cert_size = data_size - attestation_size - 2;
 
     // Allocate memory for |certificate_chain| including null-terminated character.
@@ -649,7 +649,7 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
     // Move pointer past |certificate_chain|.
     data_ptr += cert_size;
 
-    SVI_THROW_IF(data_ptr != data + data_size, SVI_DECODING_ERROR);
+    SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
   SVI_CATCH()
   SVI_DONE(status)
 

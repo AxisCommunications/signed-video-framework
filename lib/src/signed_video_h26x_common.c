@@ -142,7 +142,7 @@ svi_rc_to_signed_video_rc(svi_rc status)
       return SV_INVALID_PARAMETER;
     case SVI_INCOMPATIBLE_VERSION:
       return SV_INCOMPATIBLE_VERSION;
-    case SVI_DECODING_ERROR:
+    case SV_AUTHENTICATION_ERROR:
       return SV_AUTHENTICATION_ERROR;
     case SVI_EXTERNAL_FAILURE:
       return SV_EXTERNAL_ERROR;
@@ -168,7 +168,7 @@ sv_rc_to_svi_rc(SignedVideoReturnCode status)
     case SV_INCOMPATIBLE_VERSION:
       return SVI_INCOMPATIBLE_VERSION;
     case SV_AUTHENTICATION_ERROR:
-      return SVI_DECODING_ERROR;
+      return SV_AUTHENTICATION_ERROR;
     case SV_EXTERNAL_ERROR:
       return SVI_EXTERNAL_FAILURE;
     case SV_VENDOR_ERROR:
