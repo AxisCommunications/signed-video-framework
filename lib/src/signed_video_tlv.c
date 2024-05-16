@@ -51,7 +51,7 @@ typedef size_t (*sv_tlv_encoder_t)(signed_video_t *, uint8_t *);
  * @param data_size Size of the data.
  * @param signed_video_t The Signed Video object to write to.
  *
- * @returns SVI_OK if successful otherwise an error code.
+ * @returns SV_OK if successful otherwise an error code.
  */
 typedef svi_rc (*sv_tlv_decoder_t)(signed_video_t *, const uint8_t *, size_t);
 
@@ -1077,7 +1077,7 @@ decode_tlv_header(const uint8_t *data, size_t *read_data_bytes, sv_tlv_tag_t *ta
 
   *read_data_bytes = (data_ptr - data);
 
-  return SVI_OK;
+  return SV_OK;
 }
 
 svi_rc
@@ -1093,7 +1093,7 @@ tlv_decode(signed_video_t *self, const uint8_t *data, size_t data_size)
     size_t tlv_header_size = 0;
     size_t length = 0;
     status = decode_tlv_header(data_ptr, &tlv_header_size, &tag, &length);
-    if (status != SVI_OK) {
+    if (status != SV_OK) {
       DEBUG_LOG("Could not decode TLV header (error %d)", status);
       break;
     }
@@ -1101,7 +1101,7 @@ tlv_decode(signed_video_t *self, const uint8_t *data, size_t data_size)
 
     sv_tlv_decoder_t decoder = get_decoder(tag);
     status = decoder(self, data_ptr, length);
-    if (status != SVI_OK) {
+    if (status != SV_OK) {
       DEBUG_LOG("Could not decode data (error %d)", status);
       break;
     }
@@ -1159,7 +1159,7 @@ tlv_find_and_decode_recurrent_tags(signed_video_t *self,
     size_t length = 0;
     sv_tlv_tag_t this_tag = UNDEFINED_TAG;
     status = decode_tlv_header(tlv_data_ptr, &tlv_header_size, &this_tag, &length);
-    if (status != SVI_OK) {
+    if (status != SV_OK) {
       DEBUG_LOG("Could not decode tlv header");
       break;
     }
@@ -1167,7 +1167,7 @@ tlv_find_and_decode_recurrent_tags(signed_video_t *self,
     if (!tlv_tuples[this_tag].is_always_present) {
       sv_tlv_decoder_t decoder = get_decoder(this_tag);
       status = decoder(self, tlv_data_ptr, length);
-      if (status != SVI_OK) {
+      if (status != SV_OK) {
         DEBUG_LOG("Could not decode");
         break;
       }

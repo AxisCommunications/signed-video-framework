@@ -907,7 +907,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
       latest->public_key_has_changed = false;
       self->validation_flags.has_auth_result = true;
     }
-    return SVI_OK;
+    return SV_OK;
   }
 
   svi_rc status = SV_UNKNOWN_FAILURE;
@@ -997,7 +997,7 @@ register_nalu(signed_video_t *self, h26x_nalu_list_item_t *item)
   h26x_nalu_t *nalu = item->nalu;
   assert(self && nalu && nalu->is_valid >= 0);
 
-  if (nalu->is_valid == 0) return SVI_OK;
+  if (nalu->is_valid == 0) return SV_OK;
 
   update_hashable_data(nalu);
   return hash_and_add_for_auth(self, item);
@@ -1019,7 +1019,7 @@ reregister_nalus(signed_video_t *self)
       continue;
     }
     status = hash_and_add_for_auth(self, item);
-    if (status != SVI_OK) {
+    if (status != SV_OK) {
       break;
     }
     item = item->next;
@@ -1075,8 +1075,8 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
   svi_rc copy_nalu_status =
       h26x_nalu_list_copy_last_item(nalu_list, self->validation_flags.hash_algo_known);
   // Make sure to return the first failure if both operations failed.
-  status = (status == SVI_OK) ? copy_nalu_status : status;
-  if (status != SVI_OK) nalu_list->last_item->validation_status = 'E';
+  status = (status == SV_OK) ? copy_nalu_status : status;
+  if (status != SV_OK) nalu_list->last_item->validation_status = 'E';
 
   free(nalu.nalu_data_wo_epb);
 

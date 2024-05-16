@@ -72,7 +72,7 @@ allocate_memory_and_copy_string(char **dst_str, const char *src_str)
   }
   strcpy(*dst_str, src_str);
 
-  return SVI_OK;
+  return SV_OK;
 
 catch_error:
   free(*dst_str);
@@ -89,8 +89,8 @@ svi_rc
 transfer_product_info(signed_video_product_info_t *dst, const signed_video_product_info_t *src)
 {
   // For simplicity we allow nullptrs for both |dst| and |src|. If so, we take no action and return
-  // SVI_OK.
-  if (!src || !dst) return SVI_OK;
+  // SV_OK.
+  if (!src || !dst) return SV_OK;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
@@ -334,7 +334,7 @@ signed_video_get_authenticity_report(signed_video_t *self)
   SVI_DONE(status)
 
   // Sanity check the output since we do not return a SignedVideoReturnCode.
-  assert(((status == SVI_OK) ? (authenticity_report != NULL) : (authenticity_report == NULL)));
+  assert(((status == SV_OK) ? (authenticity_report != NULL) : (authenticity_report == NULL)));
 
   return authenticity_report;
 }
@@ -348,8 +348,8 @@ create_local_authenticity_report_if_needed(signed_video_t *self)
 {
   if (!self) return SV_INVALID_PARAMETER;
 
-  // Already exists, return SVI_OK.
-  if (self->authenticity) return SVI_OK;
+  // Already exists, return SV_OK.
+  if (self->authenticity) return SV_OK;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()

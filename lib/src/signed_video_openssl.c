@@ -314,7 +314,7 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
 
   unsigned int hash_size = 0;
   int ret = EVP_Digest(data, data_size, hash, &hash_size, self->hash_algo.type, NULL);
-  svi_rc status = hash_size == self->hash_algo.size ? SVI_OK : SV_EXTERNAL_ERROR;
+  svi_rc status = hash_size == self->hash_algo.size ? SV_OK : SV_EXTERNAL_ERROR;
   return ret == 1 ? status : SV_EXTERNAL_ERROR;
 }
 
@@ -338,7 +338,7 @@ openssl_init_hash(void *handle)
     ret = EVP_DigestInit_ex(self->ctx, self->hash_algo.type, NULL);
   }
 
-  return ret == 1 ? SVI_OK : SV_EXTERNAL_ERROR;
+  return ret == 1 ? SV_OK : SV_EXTERNAL_ERROR;
 }
 
 /* Updates EVP_MD_CTX in |handle| with |data|. */
@@ -349,7 +349,7 @@ openssl_update_hash(void *handle, const uint8_t *data, size_t data_size)
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   // Update the "ongoing" hash with new data.
   if (!self->ctx) return SV_EXTERNAL_ERROR;
-  return EVP_DigestUpdate(self->ctx, data, data_size) == 1 ? SVI_OK : SV_EXTERNAL_ERROR;
+  return EVP_DigestUpdate(self->ctx, data, data_size) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
 }
 
 /* Finalizes EVP_MD_CTX in |handle| and writes result to |hash|. */
@@ -362,7 +362,7 @@ openssl_finalize_hash(void *handle, uint8_t *hash)
   if (!self->ctx) return SV_EXTERNAL_ERROR;
   unsigned int hash_size = 0;
   if (EVP_DigestFinal_ex(self->ctx, hash, &hash_size) == 1) {
-    return hash_size <= MAX_HASH_SIZE ? SVI_OK : SV_EXTERNAL_ERROR;
+    return hash_size <= MAX_HASH_SIZE ? SV_OK : SV_EXTERNAL_ERROR;
   } else {
     return SV_EXTERNAL_ERROR;
   }
@@ -461,7 +461,7 @@ openssl_set_hash_algo_by_encoded_oid(void *handle,
   // If the |encoded_oid| has not changed do nothing.
   if (encoded_oid_size == self->hash_algo.encoded_oid_size &&
       memcmp(encoded_oid, self->hash_algo.encoded_oid, encoded_oid_size) == 0) {
-    return SVI_OK;
+    return SV_OK;
   }
 
   // A new hash algorithm to set. Reset existing one.
@@ -508,7 +508,7 @@ openssl_create_handle(void)
   openssl_crypto_t *self = (openssl_crypto_t *)calloc(1, sizeof(openssl_crypto_t));
   if (!self) return NULL;
 
-  if (openssl_set_hash_algo(self, DEFAULT_HASH_ALGO) != SVI_OK) {
+  if (openssl_set_hash_algo(self, DEFAULT_HASH_ALGO) != SV_OK) {
     openssl_free_handle(self);
     self = NULL;
   }
@@ -536,7 +536,7 @@ write_private_key_to_file(EVP_PKEY *pkey, const char *path_to_key)
   FILE *f_private = NULL;
 
   assert(pkey);
-  if (!path_to_key) return SVI_OK;
+  if (!path_to_key) return SV_OK;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
@@ -563,7 +563,7 @@ write_private_key_to_buffer(EVP_PKEY *pkey, pem_pkey_t *pem_key)
   long private_key_size = 0;
 
   assert(pkey);
-  if (!pem_key) return SVI_OK;
+  if (!pem_key) return SV_OK;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()

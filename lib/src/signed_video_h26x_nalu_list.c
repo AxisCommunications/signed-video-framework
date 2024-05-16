@@ -308,7 +308,7 @@ h26x_nalu_list_append(h26x_nalu_list_t *list, const h26x_nalu_t *nalu)
 
   h26x_nalu_list_refresh(list);
 
-  return SVI_OK;
+  return SV_OK;
 }
 
 /* Replaces the |nalu| of the |last_item| in the list with a copy of itself. All pointers that are
@@ -374,7 +374,7 @@ h26x_nalu_list_add_missing(h26x_nalu_list_t *list,
     h26x_nalu_list_item_t *item)
 {
   if (!list || !item || !is_in_list(list, item) || num_missing < 0) return SV_INVALID_PARAMETER;
-  if (num_missing == 0) return SVI_OK;
+  if (num_missing == 0) return SV_OK;
 
   int added_items = 0;
 

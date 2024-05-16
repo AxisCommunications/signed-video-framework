@@ -125,11 +125,11 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   // GOP.
   if (self->sign_data->signature_size == 0) {
     signed_video_nalu_data_free(payload);
-    status = SVI_OK;
+    status = SV_OK;
     goto done;
   } else if (!payload) {
     // No more pending payloads. Already freed due to too many unsigned SEIs.
-    status = SVI_OK;
+    status = SV_OK;
     goto done;
   }
 
@@ -147,7 +147,7 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   // |signed_video_nalu_data_free| above in this function. In this case the flag is still set and
   // a SEI with all metatdata is created next time.
   self->has_recurrent_data = false;
-  return SVI_OK;
+  return SV_OK;
 
 done:
 
@@ -203,7 +203,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
   if (*payload) {
     DEBUG_LOG("Payload is not empty, *payload must be NULL");
-    return SVI_OK;
+    return SV_OK;
   }
 
   if (self->sei_data_buffer_idx >= MAX_NALUS_TO_PREPEND) {
@@ -591,10 +591,10 @@ get_latest_sei(signed_video_t *self, uint8_t *sei, size_t *sei_size)
   *sei_size = 0;
   if (self->num_of_completed_seis < 1) {
     DEBUG_LOG("There are no completed seis.");
-    return SVI_OK;
+    return SV_OK;
   }
   *sei_size = self->sei_data_buffer[self->num_of_completed_seis - 1].completed_sei_size;
-  if (!sei) return SVI_OK;
+  if (!sei) return SV_OK;
   // Copy SEI data to the provided pointer.
   memcpy(sei, self->sei_data_buffer[self->num_of_completed_seis - 1].sei, *sei_size);
 
@@ -602,7 +602,7 @@ get_latest_sei(signed_video_t *self, uint8_t *sei, size_t *sei_size)
   free(self->sei_data_buffer[self->num_of_completed_seis - 1].sei);
   --(self->num_of_completed_seis);
   shift_sei_buffer_at_index(self, self->num_of_completed_seis);
-  return SVI_OK;
+  return SV_OK;
 }
 
 SignedVideoReturnCode
@@ -640,7 +640,7 @@ signed_video_get_nalu_to_prepend(signed_video_t *self,
   size_t *sei_size = &nalu_to_prepend->nalu_data_size;
   // Get the size from get_latest_sei() and check if its success.
   svi_rc status = get_latest_sei(self, NULL, sei_size);
-  if (SVI_OK == status && *sei_size != 0) {
+  if (SV_OK == status && *sei_size != 0) {
     nalu_to_prepend->nalu_data = malloc(*sei_size);
     nalu_to_prepend->prepend_instruction = SIGNED_VIDEO_PREPEND_NALU;
     status = get_latest_sei(self, nalu_to_prepend->nalu_data, &nalu_to_prepend->nalu_data_size);

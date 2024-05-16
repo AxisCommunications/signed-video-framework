@@ -132,7 +132,7 @@ SignedVideoReturnCode
 svi_rc_to_signed_video_rc(svi_rc status)
 {
   switch (status) {
-    case SVI_OK:
+    case SV_OK:
       return SV_OK;
     case SV_MEMORY:
       return SV_MEMORY;
@@ -158,7 +158,7 @@ sv_rc_to_svi_rc(SignedVideoReturnCode status)
 {
   switch (status) {
     case SV_OK:
-      return SVI_OK;
+      return SV_OK;
     case SV_MEMORY:
       return SV_MEMORY;
     case SV_NOT_SUPPORTED:
@@ -283,7 +283,7 @@ gop_info_create(void)
   gop_info->nalu_hash = gop_info->hashes + DEFAULT_HASH_SIZE;
 
   // Set hash_list_size to same as what is allocated.
-  if (set_hash_list_size(gop_info, HASH_LIST_SIZE) != SVI_OK) {
+  if (set_hash_list_size(gop_info, HASH_LIST_SIZE) != SV_OK) {
     gop_info_free(gop_info);
     gop_info = NULL;
   }
@@ -310,7 +310,7 @@ set_hash_list_size(gop_info_t *gop_info, size_t hash_list_size)
   if (hash_list_size > HASH_LIST_SIZE) return SV_NOT_SUPPORTED;
 
   gop_info->hash_list_size = hash_list_size;
-  return SVI_OK;
+  return SV_OK;
 }
 
 svi_rc
@@ -351,13 +351,13 @@ struct_member_memory_allocated_and_copy(void **member_ptr,
     return SV_INVALID_PARAMETER;
   } else if (!new_data_size) {
     // New size is zero, doing nothing
-    return SVI_OK;
+    return SV_OK;
   } else if (new_data_size == 1 && *(char *)new_data_ptr == '\0') {
     // Reset member on empty string, i.e. ""
     free(*member_ptr);
     *member_ptr = NULL;
     *member_size_ptr = 0;
-    return SVI_OK;
+    return SV_OK;
   }
   // The allocated size must be exact or reset on empty string, i.e., ""
   if (*member_size_ptr != new_data_size) {
@@ -367,7 +367,7 @@ struct_member_memory_allocated_and_copy(void **member_ptr,
   }
   memcpy(*member_ptr, new_data_ptr, new_data_size);
   *member_size_ptr = new_data_size;
-  return SVI_OK;
+  return SV_OK;
 }
 
 static size_t
@@ -966,13 +966,13 @@ simply_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *hash, size_t
     return openssl_hash_data(self->crypto_handle, hashable_data, hashable_data_size, hash);
   } else {
     svi_rc status = update_hash(self, nalu, hash, hash_size);
-    if (status == SVI_OK) {
+    if (status == SV_OK) {
       // Finalize the ongoing hash of NALU parts.
       status = openssl_finalize_hash(self->crypto_handle, hash);
       // For the first NALU in a GOP, the hash is used twice. Once for linking and once as reference
       // for the future. Store the |nalu_hash| in |tmp_hash| to be copied for its second use, since
       // it is not possible to recompute the hash from partial NALU data.
-      if (status == SVI_OK && nalu->is_first_nalu_in_gop && !nalu->is_first_nalu_part) {
+      if (status == SV_OK && nalu->is_first_nalu_in_gop && !nalu->is_first_nalu_part) {
         memcpy(self->gop_info->tmp_hash, hash, hash_size);
         self->gop_info->tmp_hash_ptr = self->gop_info->tmp_hash;
       }
@@ -1059,7 +1059,7 @@ hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
 
   if (!nalu->is_hashable) {
     DEBUG_LOG("This NALU (type %d) was not hashed", nalu->nalu_type);
-    return SVI_OK;
+    return SV_OK;
   }
 
   gop_info_t *gop_info = self->gop_info;
@@ -1103,11 +1103,11 @@ hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
 
   if (!nalu->is_hashable) {
     DEBUG_LOG("This NALU (type %d) was not hashed.", nalu->nalu_type);
-    return SVI_OK;
+    return SV_OK;
   }
   if (!self->validation_flags.hash_algo_known) {
     DEBUG_LOG("NALU will be hashed when hash algo is known.");
-    return SVI_OK;
+    return SV_OK;
   }
 
   gop_info_t *gop_info = self->gop_info;
@@ -1223,7 +1223,7 @@ signed_video_create(SignedVideoCodec codec)
     self = NULL;
   }
   SVI_DONE(status)
-  assert(status != SVI_OK ? self == NULL : self != NULL);
+  assert(status != SV_OK ? self == NULL : self != NULL);
 
   return self;
 }

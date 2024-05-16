@@ -352,7 +352,7 @@ deserialize_attestation(sv_vendor_axis_communications_t *self)
   memcpy(self->attestation_report.attestation_list.signature, attestation_ptr, signature_size);
   attestation_ptr += signature_size;
 
-  return SVI_OK;
+  return SV_OK;
 }
 
 /* Verifies the transmitted public key, given the |attestation| and |certificate_chain|.
@@ -668,7 +668,7 @@ set_axis_communications_public_key(void *handle,
 
   // If the Public key previously has been validated unsuccessful, skip checking type and size.
   if (self->supplemental_authenticity.public_key_validation == 0) {
-    return SVI_OK;
+    return SV_OK;
   }
 
   // Mark |public_key_validation| as invalid if the |public_key_has_changed|. It is an invalid
@@ -728,12 +728,12 @@ get_axis_communications_supplemental_authenticity(void *handle,
   SVI_DONE(status)
 
   // If anything did not fulfill the verification requirements a SV_VENDOR_ERROR error is thrown.
-  // Set the |supplemental_authenticity| and change status to SVI_OK, since it is a valid behavior.
+  // Set the |supplemental_authenticity| and change status to SV_OK, since it is a valid behavior.
   if (status == SV_VENDOR_ERROR) {
     self->supplemental_authenticity.public_key_validation = 0;
     memset(self->supplemental_authenticity.serial_number, 0, SV_VENDOR_AXIS_SER_NO_MAX_LENGTH);
     strcpy(self->supplemental_authenticity.serial_number, "Unknown");
-    status = SVI_OK;
+    status = SV_OK;
   }
 
   *supplemental_authenticity = &self->supplemental_authenticity;

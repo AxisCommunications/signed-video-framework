@@ -33,9 +33,9 @@
 
 // Helpers for the try/catch macros below
 #define SVI_MAYBE_GOTO_CATCH_ERROR() \
-  if (status_ != SVI_OK) goto catch_error;
+  if (status_ != SV_OK) goto catch_error;
 #define SVI_MAYBE_GOTO_CATCH_ERROR_WITH_MSG(msg, ...) \
-  if (status_ != SVI_OK) { \
+  if (status_ != SV_OK) { \
     DEBUG_LOG(msg, ##__VA_ARGS__); \
     goto catch_error; \
   }
@@ -55,7 +55,7 @@
  *     checks |fail_condition| and throws a |fail_status| error.
  * SVI_THROW(my_status)
  *     same as SVI_THROW_IF(), but with the difference that a svi_rc check is assumed, that is,
- *     simplification of SVI_THROW_IF(my_status != SVI_OK, my_status)
+ *     simplification of SVI_THROW_IF(my_status != SV_OK, my_status)
  *
  * The THROW macros has a version to print a specific error message |fail_msg| upon failure.
  *
@@ -107,9 +107,9 @@
   catch_error: \
   if (!status_set_) { \
     DEBUG_LOG("status_ was never set, which means no THROW call was used"); \
-    status_ = SVI_OK; \
+    status_ = SV_OK; \
   } \
-  if (status_ != SVI_OK) { \
+  if (status_ != SV_OK) { \
     DEBUG_LOG("Caught error %d", status_);
 #define SVI_DONE(status) \
   } \
@@ -117,7 +117,7 @@
 
 #define SVI_THROW_IF(fail_condition, fail_status) \
   do { \
-    status_ = (fail_condition) ? (fail_status) : SVI_OK; \
+    status_ = (fail_condition) ? (fail_status) : SV_OK; \
     status_set_ = true; \
     SVI_MAYBE_GOTO_CATCH_ERROR() \
   } while (0)
@@ -130,7 +130,7 @@
 
 #define SVI_THROW_IF_WITH_MSG(fail_condition, fail_status, fail_msg, ...) \
   do { \
-    status_ = (fail_condition) ? (fail_status) : SVI_OK; \
+    status_ = (fail_condition) ? (fail_status) : SV_OK; \
     status_set_ = true; \
     SVI_MAYBE_GOTO_CATCH_ERROR_WITH_MSG(fail_msg, ##__VA_ARGS__) \
   } while (0)
@@ -142,7 +142,7 @@
   } while (0)
 
 typedef enum {
-  SVI_OK = 0,
+  SV_OK = 0,
   SV_MEMORY = 1,
   SV_NOT_SUPPORTED = 9,
   SV_INVALID_PARAMETER = 10,

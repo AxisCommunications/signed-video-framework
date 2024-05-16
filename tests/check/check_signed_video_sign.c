@@ -561,7 +561,7 @@ START_TEST(fallback_to_gop_level)
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
   // If the true hash size is different from the default one, the test should still pass.
-  ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * DEFAULT_HASH_SIZE), SVI_OK);
+  ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * DEFAULT_HASH_SIZE), SV_OK);
 
   // Create a test stream given the input string.
   test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPI", false);
