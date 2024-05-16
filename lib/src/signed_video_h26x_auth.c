@@ -621,7 +621,7 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
 
   // We expect a valid SEI and that it has been decoded.
   if (!(sei && sei->has_been_decoded)) return SVI_INVALID_PARAMETER;
-  if (!nalu_list) return SVI_NULL_PTR;
+  if (!nalu_list) return SVI_INVALID_PARAMETER;
 
   const size_t hash_size = self->verify_data->hash_size;
   h26x_nalu_list_item_t *item = NULL;

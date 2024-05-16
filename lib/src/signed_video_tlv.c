@@ -450,7 +450,7 @@ decode_product_info(signed_video_t *self, const uint8_t *data, size_t data_size)
   uint8_t version = *data_ptr++;
   svi_rc status = SVI_UNKNOWN;
 
-  if (!self || !self->product_info) return SVI_NULL_PTR;
+  if (!self || !self->product_info) return SVI_INVALID_PARAMETER;
 
   SVI_TRY()
     SVI_THROW_IF(version == 0, SVI_INCOMPATIBLE_VERSION);
