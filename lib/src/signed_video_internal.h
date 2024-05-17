@@ -163,14 +163,6 @@ struct _signed_video_t {
   int sei_data_buffer_idx;
   int num_of_completed_seis;
 
-  // TODO: Remove this member. It is not used after adding a flag in |validation_flags|
-  int signing_present;
-  // State to indicate if Signed Video is present or not. Used for signing, and can only move
-  // downwards between the states below.
-  // -1 : Initialized value. No NALUs processed yet.
-  // 0 : Signed Video information so far not present.
-  // 1 : Signed Video information is present.
-
   // Members only used for validation
   // TODO: Collect everything needed by the authentication part only in one struct/object, which
   // then is not needed to be created on the signing side, saving some memory.

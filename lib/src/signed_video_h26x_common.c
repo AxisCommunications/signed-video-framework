@@ -1157,8 +1157,6 @@ signed_video_create(SignedVideoCodec codec)
 
     self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
 
-    self->signing_present = -1;
-
     // Initialize validation members
     self->nalu_list = h26x_nalu_list_create();
     // No need to check if |nalu_list| is a nullptr, since it is only of importance on the
