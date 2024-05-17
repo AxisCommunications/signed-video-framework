@@ -116,11 +116,11 @@ struct _signed_video_t {
   int code_version[SV_VERSION_BYTES];
   SignedVideoCodec codec;  // Codec used in this session.
   signed_video_product_info_t *product_info;
-  gop_info_t *gop_info;
 
   // For cryptographic functions, like OpenSSL
   void *crypto_handle;
   pem_pkey_t pem_public_key;  // Public key in PEM form for writing/reading to/from SEIs
+  gop_info_t *gop_info;
 
   // Handle for vendor specific data. Only works with one vendor.
   void *vendor_handle;
@@ -254,9 +254,6 @@ struct_member_memory_allocated_and_copy(void **member_ptr,
     uint8_t *member_size_ptr,
     const void *new_data_ptr,
     const uint8_t new_size);
-
-void
-gop_info_reset(gop_info_t *gop_info);
 
 /* Sets the allowed size of |hash_list|.
  * Note that this can be different from what is allocated. */

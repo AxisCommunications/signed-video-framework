@@ -247,10 +247,14 @@ gop_info_free(gop_info_t *gop_info)
   free(gop_info);
 }
 
-void
+static void
 gop_info_reset(gop_info_t *gop_info)
 {
-  assert(gop_info);
+  gop_info->verified_signature_hash = -1;
+  // If a reset is forced, the stored hashes in |hash_list| have no meaning anymore.
+  gop_info->list_idx = 0;
+  gop_info->has_reference_hash = false;
+  gop_info->global_gop_counter_is_synced = false;
 }
 
 svrc_t
@@ -1110,55 +1114,20 @@ signed_video_create(SignedVideoCodec codec)
     self = (signed_video_t *)calloc(1, sizeof(signed_video_t));
     SV_THROW_IF(!self, SV_MEMORY);
 
+    // Initialize common members
     version_str_to_bytes(self->code_version, SIGNED_VIDEO_VERSION);
     self->codec = codec;
-    self->last_nalu = (h26x_nalu_t *)calloc(1, sizeof(h26x_nalu_t));
-    SV_THROW_IF(!self->last_nalu, SV_MEMORY);
-    // Mark the last NALU as complete, hence, no ongoing hashing is present.
-    self->last_nalu->is_last_nalu_part = true;
-
-    // Allocate memory for the sign or verify data
-    self->sign_data = sign_or_verify_data_create();
-    self->verify_data = sign_or_verify_data_create();
 
     self->product_info = product_info_create();
     SV_THROW_IF_WITH_MSG(!self->product_info, SV_MEMORY, "Could not allocate product_info");
 
-    self->gop_info = gop_info_create();
-    SV_THROW_IF_WITH_MSG(!self->gop_info, SV_MEMORY, "Couldn't allocate gop_info");
-
-    self->authenticity_level = DEFAULT_AUTHENTICITY_LEVEL;
-
-    self->nalu_list = h26x_nalu_list_create();
-    // No need to check if |nalu_list| is a nullptr, since it is only of importance on the
-    // authentication side. The check is done there instead.
-
-    self->signing_present = -1;
-    gop_state_reset(&(self->gop_state));
-    validation_flags_init(&(self->validation_flags));
-
-    self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
-
-    self->recurrence = RECURRENCE_ALWAYS;
-    self->has_public_key = false;
-
-    self->add_public_key_to_sei = true;
-    self->sei_epb = true;
-    self->frame_count = 0;
-    self->has_recurrent_data = false;
-    self->authentication_started = false;
-    self->signing_started = false;
-
     // Setup crypto handle.
     self->crypto_handle = openssl_create_handle();
     SV_THROW_IF(!self->crypto_handle, SV_EXTERNAL_ERROR);
-    self->sign_data->hash_size = openssl_get_hash_size(self->crypto_handle);
-    self->verify_data->hash_size = openssl_get_hash_size(self->crypto_handle);
-    // Make sure the hash size matches the default hash size.
-    SV_THROW_IF(self->sign_data->hash_size != DEFAULT_HASH_SIZE, SV_EXTERNAL_ERROR);
-    SV_THROW_WITH_MSG(reset_gop_hash(self), "Couldn't reset gop_hash");
 
-    // Signing plugin is setup when the private key is set.
+    self->gop_info = gop_info_create();
+    SV_THROW_IF_WITH_MSG(!self->gop_info, SV_MEMORY, "Could not allocate gop_info");
+    SV_THROW_WITH_MSG(reset_gop_hash(self), "Could not reset gop_hash");
 
     // Setup vendor handle.
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
@@ -1166,6 +1135,42 @@ signed_video_create(SignedVideoCodec codec)
     SV_THROW_IF(!self->vendor_handle, SV_MEMORY);
 #endif
 
+    // Initialize signing members
+    // Signing plugin is setup when the private key is set.
+    self->authenticity_level = DEFAULT_AUTHENTICITY_LEVEL;
+    self->recurrence = RECURRENCE_ALWAYS;
+    self->add_public_key_to_sei = true;
+    self->sei_epb = true;
+    self->signing_started = false;
+    self->sign_data = sign_or_verify_data_create();
+    self->sign_data->hash_size = openssl_get_hash_size(self->crypto_handle);
+    // Make sure the hash size matches the default hash size.
+    SV_THROW_IF(self->sign_data->hash_size != DEFAULT_HASH_SIZE, SV_EXTERNAL_ERROR);
+
+    self->has_recurrent_data = false;
+    self->frame_count = 0;
+
+    self->last_nalu = (h26x_nalu_t *)calloc(1, sizeof(h26x_nalu_t));
+    SV_THROW_IF(!self->last_nalu, SV_MEMORY);
+    // Mark the last NALU as complete, hence, no ongoing hashing is present.
+    self->last_nalu->is_last_nalu_part = true;
+
+    self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
+
+    self->signing_present = -1;
+
+    // Initialize validation members
+    self->nalu_list = h26x_nalu_list_create();
+    // No need to check if |nalu_list| is a nullptr, since it is only of importance on the
+    // authentication side. The check is done there instead.
+    self->authentication_started = false;
+
+    validation_flags_init(&(self->validation_flags));
+    gop_state_reset(&(self->gop_state));
+    self->has_public_key = false;
+
+    self->verify_data = sign_or_verify_data_create();
+    self->verify_data->hash_size = openssl_get_hash_size(self->crypto_handle);
   SV_CATCH()
   {
     signed_video_free(self);
@@ -1187,12 +1192,7 @@ signed_video_reset(signed_video_t *self)
     DEBUG_LOG("Resetting signed session");
     // Reset session states
     self->signing_started = false;
-    // TODO: Move these to gop_info_reset(...)
-    self->gop_info->verified_signature_hash = -1;
-    // If a reset is forced, the stored hashes in |hash_list| have no meaning anymore.
-    self->gop_info->list_idx = 0;
-    self->gop_info->has_reference_hash = false;
-    self->gop_info->global_gop_counter_is_synced = false;
+    gop_info_reset(self->gop_info);
 
     gop_state_reset(&(self->gop_state));
     validation_flags_init(&(self->validation_flags));
@@ -1227,7 +1227,7 @@ signed_video_free(signed_video_t *self)
   // Teardown the crypto handle.
   openssl_free_handle(self->crypto_handle);
 
-  // Free any NALUs left to prepend.
+  // Free any pending SEIs
   free_sei_data_buffer(self->sei_data_buffer);
 
   free(self->last_nalu);
