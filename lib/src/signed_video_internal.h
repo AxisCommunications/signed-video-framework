@@ -18,8 +18,8 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#ifndef __SIGNED_VIDEO_INTERNAL__
-#define __SIGNED_VIDEO_INTERNAL__
+#ifndef __SIGNED_VIDEO_INTERNAL_H__
+#define __SIGNED_VIDEO_INTERNAL_H__
 
 #include <stdbool.h>  // bool
 #include <stdint.h>  // uint8_t
@@ -47,7 +47,7 @@ typedef struct _h26x_nalu_t h26x_nalu_t;
 #endif
 // Currently the largest supported hash is SHA-512.
 #define MAX_HASH_SIZE (512 / 8)
-// Currently only support SHA-256 (default hash) which produces hashes of size 256 bits.
+// Size of the default hash (SHA-256).
 #define DEFAULT_HASH_SIZE (256 / 8)
 
 #define SV_VERSION_BYTES 3
@@ -65,8 +65,9 @@ typedef struct _h26x_nalu_t h26x_nalu_t;
 #endif
 
 #define UUID_LEN 16
-#define MAX_NALUS_TO_PREPEND 60  // This means that there is room to prepend 59 additional nalus.
-#define LAST_TWO_BYTES_INIT_VALUE 0x0101  // Anything but 0x00 are proper inits
+#define MAX_NALUS_TO_PREPEND 60  // Maximum number of ongoing and completed SEIs to hold
+// until the user fetch them
+#define LAST_TWO_BYTES_INIT_VALUE 0x0101  // Anything but 0x00 are proper init values
 #define STOP_BYTE_VALUE 0x80
 
 #ifndef ARRAY_SIZE
@@ -99,12 +100,10 @@ struct _gop_state_t {
   // hashable NALU.
 };
 
-// Buffer of last two bytes and payload pointer pairs. Writing of the SEI is split in time and it
-// is therefore necessary to pick up the value of |last_two_bytes| when we continue writing. Each
-// pair, consisting of |payload| and |payload_signature_ptr|, holds the memory for a SEI in
-// preparation and to be added to the prepend list. |payload| is pointing to the allocated memory
-// of the payload and |payload_signature_ptr| to where the signature is
-// about to be added.
+// Buffer of |last_two_bytes| and pointers to |sei| memory and current |write_position|.
+// Writing of the SEI is split in time and it is therefore necessary to pick up the value
+// of |last_two_bytes| when we continue writing with emulation prevention turned on. As
+// soon as a SEI is completed, the |completed_sei_size| is filled in.
 struct _sei_data_t {
   uint8_t *sei;  // Pointer to the allocated SEI data
   uint8_t *write_position;
@@ -113,24 +112,66 @@ struct _sei_data_t {
 };
 
 struct _signed_video_t {
+  // Members common to both signing and validation
   int code_version[SV_VERSION_BYTES];
-  uint16_t last_two_bytes;
   SignedVideoCodec codec;  // Codec used in this session.
-  h26x_nalu_t *last_nalu;  // Track last parsed h26x_nalu_t to pass on to next part
-
-  // Private structures
+  signed_video_product_info_t *product_info;
   gop_info_t *gop_info;
+
+  // For cryptographic functions, like OpenSSL
+  void *crypto_handle;
+  pem_pkey_t pem_public_key;  // Public key in PEM form for writing/reading to/from SEIs
+
+  // Handle for vendor specific data. Only works with one vendor.
+  void *vendor_handle;
+
+  // Arbitrary data
+  uint8_t *arbitrary_data;  // Enables the user to transmit user specific data and is automatically
+  // sent through the ARBITRARY_DATA_TAG.
+  size_t arbitrary_data_size;  // Size of |arbitrary_data|.
+
+  // Members only used for signing
+
+  // Configuration members
   SignedVideoAuthenticityLevel authenticity_level;
+  size_t max_sei_payload_size;  // Default 0 = unlimited
+  unsigned recurrence;
+
+  // Flags
   bool add_public_key_to_sei;
   bool sei_epb;  // Flag that tells whether to generate SEI frames w/wo emulation prevention bytes
   bool is_golden_sei;  // Flag that tells if a SEI is a golden SEI
-  size_t max_sei_payload_size;  // Default 0 = unlimited
   bool signing_started;
 
+  // For signing plugin
+  void *plugin_handle;
+  sign_or_verify_data_t *sign_data;  // Pointer to all necessary information to sign in a plugin.
+
+  // Vendor encoders for signing. Only works with one vendor.
+  const sv_tlv_tag_t *vendor_encoders;
+  size_t num_vendor_encoders;
+
+  // Frame counter and flag to handle recurrence
+  bool has_recurrent_data;
+  int frame_count;
+
+  h26x_nalu_t *last_nalu;  // Track last parsed h26x_nalu_t to pass on to next part
+
+  // Members associated with SEI writing
+  uint16_t last_two_bytes;
   sei_data_t sei_data_buffer[MAX_NALUS_TO_PREPEND];
   int sei_data_buffer_idx;
   int num_of_completed_seis;
 
+  // TODO: Remove this member. It is not used after adding a flag in |validation_flags|
+  int signing_present;
+  // State to indicate if Signed Video is present or not. Used for signing, and can only move
+  // downwards between the states below.
+  // -1 : Initialized value. No NALUs processed yet.
+  // 0 : Signed Video information so far not present.
+  // 1 : Signed Video information is present.
+
+  // Members only used for validation
   // TODO: Collect everything needed by the authentication part only in one struct/object, which
   // then is not needed to be created on the signing side, saving some memory.
 
@@ -143,55 +184,21 @@ struct _signed_video_t {
 
   validation_flags_t validation_flags;
   gop_state_t gop_state;
-  unsigned recurrence;
-
-  // Frame counter and flag to handle recurrence
-  bool has_recurrent_data;
-  int frame_count;
-
-  int signing_present;
-  // State to indicate if Signed Video is present or not. Used for signing, and can only move
-  // downwards between the states below.
-  // -1 : Initialized value. No NALUs processed yet.
-  // 0 : Signed Video information so far not present.
-  // 1 : Signed Video information is present.
+  bool has_public_key;  // State to indicate if public key is received/added
+  // For signature verification
+  sign_or_verify_data_t *verify_data;  // All necessary information to verify a signature.
 
   // Shortcuts to authenticity information.
   // If no authenticity report has been set by the user the memory is allocated and used locally.
   // Otherwise, these members point to the corresponding members in |authenticity| below.
-  signed_video_product_info_t *product_info;
   signed_video_latest_validation_t *latest_validation;
   signed_video_accumulated_validation_t *accumulated_validation;
 
   signed_video_authenticity_t *authenticity;  // Pointer to the authenticity report of which results
   // will be written.
 
-  // For cryptographic functions, like OpenSSL
-  void *crypto_handle;
-
-  // For signing plugin
-  void *plugin_handle;
-  sign_or_verify_data_t *sign_data;  // Pointer to all necessary information to sign in a plugin.
-  pem_pkey_t pem_public_key;  // Public key in PEM form for writing/reading to/from SEIs
-
-  // For signature verification
-  sign_or_verify_data_t *verify_data;  // All necessary information to verify a signature.
-
-  // Arbitrary data
-  uint8_t *arbitrary_data;  // Enables the user to transmit user specific data and is automatically
-  // sent through the ARBITRARY_DATA_TAG.
-  size_t arbitrary_data_size;  // Size of |arbitrary_data|.
-
-  bool has_public_key;  // State to indicate if public key is received/added
-
-  // Handle for vendor specific data. Only works with one vendor.
-  void *vendor_handle;
-  // Vendor encoders for signing. Only works with one vendor.
-  const sv_tlv_tag_t *vendor_encoders;
-  size_t num_vendor_encoders;
-
-  // Flag to enable behaviors that should only be seen in tests.
-  bool sv_test_on;
+  // Members only used by tests
+  bool sv_test_on;  // Flag to enable behaviors that should only be seen in tests.
 };
 
 typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;
@@ -271,4 +278,4 @@ free_and_reset_nalu_to_prepend_list(signed_video_t *signed_video);
 void
 free_sei_data_buffer(sei_data_t sei_data_buffer[]);
 
-#endif  // __SIGNED_VIDEO_INTERNAL__
+#endif  // __SIGNED_VIDEO_INTERNAL_H__
