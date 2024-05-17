@@ -65,7 +65,7 @@ typedef struct _h26x_nalu_t h26x_nalu_t;
 #endif
 
 #define UUID_LEN 16
-#define MAX_NALUS_TO_PREPEND 60  // Maximum number of ongoing and completed SEIs to hold
+#define MAX_SEI_DATA_BUFFER 60  // Maximum number of ongoing and completed SEIs to hold
 // until the user fetch them
 #define LAST_TWO_BYTES_INIT_VALUE 0x0101  // Anything but 0x00 are proper init values
 #define STOP_BYTE_VALUE 0x80
@@ -159,7 +159,7 @@ struct _signed_video_t {
 
   // Members associated with SEI writing
   uint16_t last_two_bytes;
-  sei_data_t sei_data_buffer[MAX_NALUS_TO_PREPEND];
+  sei_data_t sei_data_buffer[MAX_SEI_DATA_BUFFER];
   int sei_data_buffer_idx;
   int num_of_completed_seis;
 
