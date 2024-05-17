@@ -149,4 +149,24 @@ tlv_find_and_decode_recurrent_tags(signed_video_t *self,
     const uint8_t *tlv_data,
     size_t tlv_data_size);
 
+/**
+ * @brief Helper to get only the optional tags as an array.
+ *
+ * @param num_of_optional_tags A pointer to a location where the number of optional tags will be written.
+ *
+ * @returns Array that contains optional tags.
+ */
+const sv_tlv_tag_t *
+get_optional_tags(size_t *num_of_optional_tags);
+
+/**
+ * @brief Helper to get only the mandatory tags as an array.
+
+ * @param num_of_mandatory_tags A pointer to a location where number of mandatory tags will be written.
+ *
+ * @returns Array that contains mandatory tags.
+ */
+const sv_tlv_tag_t *
+get_mandatory_tags(size_t *num_of_mandatory_tags);
+
 #endif  // __SIGNED_VIDEO_TLV_H__

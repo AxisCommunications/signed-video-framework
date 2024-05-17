@@ -318,6 +318,41 @@ SignedVideoReturnCode
 signed_video_set_end_of_stream(signed_video_t *self);
 
 /**
+ * @brief Generates a golden SEI.
+ *
+ * A golden SEI is a self-signed SEI that includes all information only needed once
+ * such as the Public key. Usually a golden SEI is sent only once in the beginning of
+ * a stream.
+ * With this function a golden SEI can be generated and the user can store it for later use,
+ * and easily added to the stream when needed.
+ *
+ * Here is an example code of usage:
+ *
+ *   signed_video_t *sv = signed_video_create(SV_CODEC_H264);
+ *   if (!sv) {
+ *     // Handle error
+ *   }
+ *   if (signed_video_set_private_key_new(sv, private_key, private_key_size)
+ *       != SV_OK) {
+ *     // Handle error
+ *   }
+ *   // All necessary configurations need to be done prior to this call.
+ *   status = signed_video_generate_golden_sei(sv);
+ *   if (status != SV_OK) {
+ *     // Handle error
+ *   }
+ *   // Before fetching the SEI user needs to wait for the SEI generated.
+ *   sleep(1);
+ *   // The user can get the golden SEI using signed_video_get_sei().
+ *
+ * @param self Pointer to the signed_video_t object in use.
+ *
+ * @returns An appropriate return code.
+ */
+SignedVideoReturnCode
+signed_video_generate_golden_sei(signed_video_t *self);
+
+/**
  * @brief Sets the product information for the signed video session
  *
  * This API will set the hardware id, firmware version and serial number in the signed_video_t

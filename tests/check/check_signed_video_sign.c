@@ -681,7 +681,48 @@ START_TEST(two_completed_seis_pending)
 END_TEST
 
 /* Test description
- * Verify that after 2 completed SEIs have been created, they are emitted in correct order.
+ * Generates a golden SEI and fetches it from the library. Then verifies that the corresponding
+ * flag is set.
+ */
+START_TEST(golden_sei_created)
+{
+
+  SignedVideoCodec codec = settings[_i].codec;
+  SignedVideoReturnCode sv_rc;
+  signed_video_t *sv = signed_video_create(codec);
+  ck_assert(sv);
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+  // Setup the key
+  sv_rc = settings[_i].generate_key(NULL, &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_hash_algo(sv, settings[_i].hash_algo_name);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_generate_golden_sei(sv);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  size_t sei_size = 0;
+  sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
+  ck_assert(sei_size != 0);
+  uint8_t *sei = malloc(sei_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_get_sei(sv, sei, &sei_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Verify the golden SEI
+  ck_assert(signed_video_is_golden_sei(sv, sei, sei_size));
+
+  signed_video_free(sv);
+  free(private_key);
+  free(sei);
+}
+END_TEST
+
+/* Test description
+ * Verify that after 2 completed SEIs created ,they will be emitted in correct order
  * The operation is as follows:
  * 1. Setup a signed_video_t session
  * 2. Add 2 I NAL Units for signing that will trigger 2 SEIs
@@ -988,6 +1029,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, undefined_nalu_in_sequence, s, e);
   tcase_add_loop_test(tc, correct_timestamp, s, e);
   tcase_add_loop_test(tc, correct_signing_nalus_in_parts, s, e);
+  tcase_add_loop_test(tc, golden_sei_created, s, e);
   tcase_add_loop_test(tc, w_wo_emulation_prevention_bytes, s, e);
   tcase_add_loop_test(tc, limited_sei_payload_size, s, e);
 

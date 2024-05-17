@@ -132,6 +132,25 @@ static const sv_tlv_tuple_t tlv_tuples[] = {
     {NUMBER_OF_TLV_TAGS, 0, NULL, NULL, true},
 };
 
+/*
+ * This is an array that contains only optional tags (not |is_always_present|).
+ */
+static const sv_tlv_tag_t optional_tags[] = {
+    CRYPTO_INFO_TAG,
+    PUBLIC_KEY_TAG,
+    PRODUCT_INFO_TAG,
+};
+
+/*
+ * This is an array that contains only mandatory tags (|is_always_present|).
+ * Array excludes the SIGNATURE_TAG since it has to be treated separately.
+ */
+static const sv_tlv_tag_t mandatory_tags[] = {
+    GENERAL_TAG,
+    ARBITRARY_DATA_TAG,
+    HASH_LIST_TAG,
+};
+
 /**
  * This is an array of all available Vendor TLV tuples. The first and last tuples, which are
  * invalid tags, have dummy values to avoid the risk of reading outside memory.
@@ -1158,6 +1177,20 @@ tlv_find_and_decode_recurrent_tags(signed_video_t *self,
   }
 
   return recurrent_tags_decoded;
+}
+
+const sv_tlv_tag_t *
+get_optional_tags(size_t *num_of_optional_tags)
+{
+  *num_of_optional_tags = ARRAY_SIZE(optional_tags);
+  return optional_tags;
+}
+
+const sv_tlv_tag_t *
+get_mandatory_tags(size_t *num_of_mandatory_tags)
+{
+  *num_of_mandatory_tags = ARRAY_SIZE(mandatory_tags);
+  return mandatory_tags;
 }
 
 size_t
