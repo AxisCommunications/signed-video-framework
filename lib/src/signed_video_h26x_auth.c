@@ -27,14 +27,14 @@
 #include "includes/signed_video_auth.h"
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "signed_video_authenticity.h"  // create_local_authenticity_report_if_needed()
-#include "signed_video_defines.h"  // svi_rc
+#include "signed_video_defines.h"  // svrc_t
 #include "signed_video_h26x_internal.h"  // gop_state_*(), update_gop_hash(), update_validation_flags()
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_append()
 #include "signed_video_internal.h"  // gop_info_t, gop_state_t, reset_gop_hash()
 #include "signed_video_openssl_internal.h"  // openssl_{verify_hash, public_key_malloc}()
 #include "signed_video_tlv.h"  // tlv_find_tag()
 
-static svi_rc
+static svrc_t
 decode_sei_data(signed_video_t *signed_video, const uint8_t *payload, size_t payload_size);
 
 static bool
@@ -50,7 +50,7 @@ static bool
 verify_hashes_without_sei(signed_video_t *self);
 static void
 validate_authenticity(signed_video_t *self);
-static svi_rc
+static svrc_t
 prepare_for_validation(signed_video_t *self);
 static bool
 is_recurrent_data_decoded(signed_video_t *self);
@@ -61,7 +61,7 @@ validation_is_feasible(const h26x_nalu_list_item_t *item);
 
 static void
 remove_used_in_gop_hash(h26x_nalu_list_t *nalu_list);
-static svi_rc
+static svrc_t
 compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei);
 
 #ifdef SIGNED_VIDEO_DEBUG
@@ -74,7 +74,7 @@ const char *kAuthResultValidStr[SV_AUTH_NUM_SIGNED_GOP_VALID_STATES] = {"SIGNATU
  * signed hash. The payload is decoded and the signature hash is verified against the gop_hash in
  * |signed_video|.
  */
-static svi_rc
+static svrc_t
 decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_size)
 {
   assert(self && payload && (payload_size > 0));
@@ -83,7 +83,7 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
   uint32_t exp_gop_number = last_gop_number + 1;
   DEBUG_LOG("SEI payload size = %zu, exp gop number = %u", payload_size, exp_gop_number);
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_WITH_MSG(tlv_decode(self, payload, payload_size), "Failed decoding SEI payload");
 
@@ -612,7 +612,7 @@ remove_used_in_gop_hash(h26x_nalu_list_t *nalu_list)
 
 /* Computes the gop_hash of the oldest pending GOP in the nalu_list and completes the recursive
  * operation with the hash of the |sei|. */
-static svi_rc
+static svrc_t
 compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
 {
   assert(self);
@@ -630,7 +630,7 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
 
   h26x_nalu_list_print(nalu_list);
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Initialize the gop_hash by resetting it.
     SV_THROW(reset_gop_hash(self));
@@ -700,7 +700,7 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
  * 4) computes the gop_hash from hashes in the list, if we perform GOP level authentication.
  * 5) verify the associated hash using the signature.
  */
-static svi_rc
+static svrc_t
 prepare_for_validation(signed_video_t *self)
 {
   assert(self);
@@ -710,7 +710,7 @@ prepare_for_validation(signed_video_t *self)
   sign_or_verify_data_t *verify_data = self->verify_data;
   const size_t hash_size = verify_data->hash_size;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     h26x_nalu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(nalu_list);
     if (sei && !sei->has_been_decoded) {
@@ -880,7 +880,7 @@ validation_is_feasible(const h26x_nalu_list_item_t *item)
 
 /* Validates the authenticity of the video since last time if the state says so. After the
  * validation the gop state is reset w.r.t. a new GOP. */
-static svi_rc
+static svrc_t
 maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
 {
   assert(self && nalu);
@@ -910,7 +910,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
     return SV_OK;
   }
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Keep validating as long as there are pending GOPs.
     bool stop_validating = false;
@@ -991,7 +991,7 @@ update_hashable_data(h26x_nalu_t *nalu)
 }
 
 /* A valid NALU is registered by hashing and adding to the |item|. */
-static svi_rc
+static svrc_t
 register_nalu(signed_video_t *self, h26x_nalu_list_item_t *item)
 {
   h26x_nalu_t *nalu = item->nalu;
@@ -1004,7 +1004,7 @@ register_nalu(signed_video_t *self, h26x_nalu_list_item_t *item)
 }
 
 /* All NALUs in the |nalu_list| are re-registered by hashing them. */
-static svi_rc
+static svrc_t
 reregister_nalus(signed_video_t *self)
 {
   assert(self);
@@ -1012,7 +1012,7 @@ reregister_nalus(signed_video_t *self)
 
   h26x_nalu_list_t *nalu_list = self->nalu_list;
   h26x_nalu_list_item_t *item = nalu_list->first_item;
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   while (item) {
     if (item->nalu->is_valid <= 0) {
       item = item->next;
@@ -1033,7 +1033,7 @@ reregister_nalus(signed_video_t *self)
  * 2. Update validation flags given the added NALU.
  * 3. Register NALU, in general that means hash the NALU if it is hashable and store it.
  * 4. Validate a pending GOP if possible. */
-static svi_rc
+static svrc_t
 signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_t nalu_data_size)
 {
   if (!self || !nalu_data || (nalu_data_size == 0)) return SV_INVALID_PARAMETER;
@@ -1045,7 +1045,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
 
   self->accumulated_validation->number_of_received_nalus++;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // If there is no |nalu_list| we failed allocating memory for it.
     SV_THROW_IF_WITH_MSG(
@@ -1072,7 +1072,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
   SV_DONE(status)
 
   // Need to make a copy of the |nalu| independently of failure.
-  svi_rc copy_nalu_status =
+  svrc_t copy_nalu_status =
       h26x_nalu_list_copy_last_item(nalu_list, self->validation_flags.hash_algo_known);
   // Make sure to return the first failure if both operations failed.
   status = (status == SV_OK) ? copy_nalu_status : status;
@@ -1096,7 +1096,7 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
   // If the user requests an authenticity report, initialize to NULL.
   if (authenticity) *authenticity = NULL;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW(create_local_authenticity_report_if_needed(self));
 
@@ -1121,7 +1121,7 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
   if (self->pem_public_key.key) return SV_NOT_SUPPORTED;
   if (self->authentication_started) return SV_NOT_SUPPORTED;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Allocate memory and copy |public_key|.
     self->pem_public_key.key = malloc(public_key_size);

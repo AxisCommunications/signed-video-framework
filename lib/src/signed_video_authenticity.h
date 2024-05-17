@@ -22,7 +22,7 @@
 #define __SIGNED_VIDEO_AUTHENTICITY_H__
 
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
-#include "signed_video_defines.h"  // svi_rc
+#include "signed_video_defines.h"  // svrc_t
 #include "signed_video_internal.h"
 
 /**
@@ -31,9 +31,9 @@
  * @param dst The signed_video_product_info_t struct of which to write to
  * @param src The signed_video_product_info_t struct of which to read from
  *
- * @returns A Signed Video Internal Return Code (svi_rc)
+ * @returns A Signed Video Return Code
  */
-svi_rc
+svrc_t
 transfer_product_info(signed_video_product_info_t *dst, const signed_video_product_info_t *src);
 
 /**
@@ -64,9 +64,9 @@ accumulated_validation_init(signed_video_accumulated_validation_t *self);
  *
  * @param self The current Signed Video session
  *
- * @returns A Signed Video Internal Return Code (svi_rc)
+ * @returns A Signed Video Return Code
  */
-svi_rc
+svrc_t
 create_local_authenticity_report_if_needed(signed_video_t *self);
 
 /**
@@ -78,9 +78,9 @@ create_local_authenticity_report_if_needed(signed_video_t *self);
  * @param dst_str A pointer holding a pointer to the copied string. Memory is allocated if needed.
  * @param src_str The null-terminated string to copy. A NULL pointer copies "".
  *
- * @returns A Signed Video Internal Return Code (svi_rc)
+ * @returns A Signed Video Return Code
  */
-svi_rc
+svrc_t
 allocate_memory_and_copy_string(char **dst_str, const char *src_str);
 
 void

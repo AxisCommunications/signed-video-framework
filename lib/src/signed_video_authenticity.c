@@ -29,13 +29,13 @@
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_get_validation_str()
 
 /* Transfer functions. */
-static svi_rc
+static svrc_t
 transfer_latest_validation(signed_video_latest_validation_t *dst,
     const signed_video_latest_validation_t *src);
 static void
 transfer_accumulated_validation(signed_video_accumulated_validation_t *dst,
     const signed_video_accumulated_validation_t *src);
-static svi_rc
+static svrc_t
 transfer_authenticity(signed_video_authenticity_t *dst, const signed_video_authenticity_t *src);
 /* Init and update functions. */
 static void
@@ -54,7 +54,7 @@ signed_video_authenticity_report_create();
  * Helper functions.
  */
 
-svi_rc
+svrc_t
 allocate_memory_and_copy_string(char **dst_str, const char *src_str)
 {
   if (!dst_str) return SV_INVALID_PARAMETER;
@@ -85,14 +85,14 @@ catch_error:
  * Group of functions that performs transfer operations between structs.
  */
 
-svi_rc
+svrc_t
 transfer_product_info(signed_video_product_info_t *dst, const signed_video_product_info_t *src)
 {
   // For simplicity we allow nullptrs for both |dst| and |src|. If so, we take no action and return
   // SV_OK.
   if (!src || !dst) return SV_OK;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW(allocate_memory_and_copy_string(&dst->hardware_id, src->hardware_id));
     SV_THROW(allocate_memory_and_copy_string(&dst->firmware_version, src->firmware_version));
@@ -105,13 +105,13 @@ transfer_product_info(signed_video_product_info_t *dst, const signed_video_produ
   return status;
 }
 
-static svi_rc
+static svrc_t
 transfer_latest_validation(signed_video_latest_validation_t *dst,
     const signed_video_latest_validation_t *src)
 {
   assert(dst && src);
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW(allocate_memory_and_copy_string(&dst->nalu_str, src->nalu_str));
     SV_THROW(allocate_memory_and_copy_string(&dst->validation_str, src->validation_str));
@@ -146,12 +146,12 @@ transfer_accumulated_validation(signed_video_accumulated_validation_t *dst,
   dst->last_timestamp = src->last_timestamp;
 }
 
-static svi_rc
+static svrc_t
 transfer_authenticity(signed_video_authenticity_t *dst, const signed_video_authenticity_t *src)
 {
   assert(dst && src);
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     strcpy(dst->version_on_signing_side, src->version_on_signing_side);
     strcpy(dst->this_version, SIGNED_VIDEO_VERSION);
@@ -310,7 +310,7 @@ signed_video_get_authenticity_report(signed_video_t *self)
 
   signed_video_authenticity_t *authenticity_report = signed_video_authenticity_report_create();
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_IF(!authenticity_report, SV_MEMORY);
     // Update |number_of_pending_nalus| since that may have changed since |latest_validation|.
@@ -343,7 +343,7 @@ signed_video_get_authenticity_report(signed_video_t *self)
  * Functions to create and free authenticity reports and members.
  */
 
-svi_rc
+svrc_t
 create_local_authenticity_report_if_needed(signed_video_t *self)
 {
   if (!self) return SV_INVALID_PARAMETER;
@@ -351,7 +351,7 @@ create_local_authenticity_report_if_needed(signed_video_t *self)
   // Already exists, return SV_OK.
   if (self->authenticity) return SV_OK;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Create a new one.
     signed_video_authenticity_t *auth_report = signed_video_authenticity_report_create();

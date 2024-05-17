@@ -65,13 +65,13 @@ typedef struct {
   message_digest_t hash_algo;
 } openssl_crypto_t;
 
-static svi_rc
+static svrc_t
 write_private_key_to_file(EVP_PKEY *pkey, const char *path_to_key);
-static svi_rc
+static svrc_t
 write_private_key_to_buffer(EVP_PKEY *pkey, pem_pkey_t *pem_key);
-static svi_rc
+static svrc_t
 create_rsa_private_key(const char *path_to_key, pem_pkey_t *pem_key);
-static svi_rc
+static svrc_t
 create_ecdsa_private_key(const char *path_to_key, pem_pkey_t *pem_key);
 static char *
 get_path_to_key(const char *dir_to_key, const char *key_filename);
@@ -102,7 +102,7 @@ openssl_private_key_malloc(sign_or_verify_data_t *sign_data,
   EVP_PKEY_CTX *ctx = NULL;
   EVP_PKEY *signing_key = NULL;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Read private key
     BIO *bp = BIO_new_mem_buf(private_key, private_key_size);
@@ -146,7 +146,7 @@ openssl_private_key_malloc(sign_or_verify_data_t *sign_data,
 
 /* Reads the |pem_public_key| which is expected to be on PEM form and creates an EVP_PKEY
  * object out of it and sets it in |verify_data|. */
-svi_rc
+svrc_t
 openssl_public_key_malloc(sign_or_verify_data_t *verify_data, pem_pkey_t *pem_public_key)
 {
   // Sanity check input
@@ -157,7 +157,7 @@ openssl_public_key_malloc(sign_or_verify_data_t *verify_data, pem_pkey_t *pem_pu
   const void *buf = pem_public_key->key;
   int buf_size = (int)(pem_public_key->key_size);
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Read public key
     SV_THROW_IF(!buf, SV_INVALID_PARAMETER);
@@ -194,7 +194,7 @@ openssl_public_key_malloc(sign_or_verify_data_t *verify_data, pem_pkey_t *pem_pu
 }
 
 /* Reads the public key from the private key. */
-svi_rc
+svrc_t
 openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_t *pem_pkey)
 {
   EVP_PKEY_CTX *ctx = NULL;
@@ -205,7 +205,7 @@ openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_
 
   if (!sign_data) return SV_INVALID_PARAMETER;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     ctx = (EVP_PKEY_CTX *)sign_data->key;
     SV_THROW_IF(!ctx, SV_INVALID_PARAMETER);
@@ -255,7 +255,7 @@ openssl_sign_hash(sign_or_verify_data_t *sign_data)
   const uint8_t *hash_to_sign = sign_data->hash;
   size_t hash_size = sign_data->hash_size;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_IF(!ctx, SV_INVALID_PARAMETER);
     // Determine required buffer length of the signature
@@ -275,7 +275,7 @@ openssl_sign_hash(sign_or_verify_data_t *sign_data)
 }
 
 /* Verifies the |signature|. */
-svi_rc
+svrc_t
 openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_result)
 {
   if (!verify_data || !verified_result) return SV_INVALID_PARAMETER;
@@ -287,7 +287,7 @@ openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_resu
   const uint8_t *hash_to_verify = verify_data->hash;
   size_t hash_size = verify_data->hash_size;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_IF(!signature || signature_size == 0 || !hash_to_verify, SV_INVALID_PARAMETER);
     EVP_PKEY_CTX *ctx = (EVP_PKEY_CTX *)verify_data->key;
@@ -303,7 +303,7 @@ openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_resu
 }
 
 /* Hashes the data using |hash_algo.type|. */
-svi_rc
+svrc_t
 openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *hash)
 {
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
@@ -313,12 +313,12 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
 
   unsigned int hash_size = 0;
   int ret = EVP_Digest(data, data_size, hash, &hash_size, self->hash_algo.type, NULL);
-  svi_rc status = hash_size == self->hash_algo.size ? SV_OK : SV_EXTERNAL_ERROR;
+  svrc_t status = hash_size == self->hash_algo.size ? SV_OK : SV_EXTERNAL_ERROR;
   return ret == 1 ? status : SV_EXTERNAL_ERROR;
 }
 
 /* Initializes EVP_MD_CTX in |handle| with |hash_algo.type|. */
-svi_rc
+svrc_t
 openssl_init_hash(void *handle)
 {
   if (!handle) return SV_INVALID_PARAMETER;
@@ -341,7 +341,7 @@ openssl_init_hash(void *handle)
 }
 
 /* Updates EVP_MD_CTX in |handle| with |data|. */
-svi_rc
+svrc_t
 openssl_update_hash(void *handle, const uint8_t *data, size_t data_size)
 {
   if (!data || data_size == 0 || !handle) return SV_INVALID_PARAMETER;
@@ -352,7 +352,7 @@ openssl_update_hash(void *handle, const uint8_t *data, size_t data_size)
 }
 
 /* Finalizes EVP_MD_CTX in |handle| and writes result to |hash|. */
-svi_rc
+svrc_t
 openssl_finalize_hash(void *handle, uint8_t *hash)
 {
   if (!hash || !handle) return SV_INVALID_PARAMETER;
@@ -369,13 +369,13 @@ openssl_finalize_hash(void *handle, uint8_t *hash)
 
 /* Given an message_digest_t object, this function reads the serialized data in |oid| and
  * sets its |type|. */
-static svi_rc
+static svrc_t
 oid_to_type(message_digest_t *self)
 {
   ASN1_OBJECT *obj = NULL;
   const unsigned char *encoded_oid_ptr = NULL;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Point to the first byte of the OID. The |oid_ptr| will increment while decoding.
     encoded_oid_ptr = self->encoded_oid;
@@ -393,14 +393,14 @@ oid_to_type(message_digest_t *self)
 
 /* Given an ASN1_OBJECT |obj|, this function writes the serialized data |oid| and |type|
  * of an message_digest_t struct. */
-static svi_rc
+static svrc_t
 obj_to_oid_and_type(message_digest_t *self, const ASN1_OBJECT *obj)
 {
   const EVP_MD *type = NULL;
   unsigned char *encoded_oid_ptr = NULL;
   size_t encoded_oid_size = 0;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_IF(!obj, SV_INVALID_PARAMETER);
     type = EVP_get_digestbyobj(obj);
@@ -420,7 +420,7 @@ obj_to_oid_and_type(message_digest_t *self, const ASN1_OBJECT *obj)
   return status;
 }
 
-svi_rc
+svrc_t
 openssl_set_hash_algo(void *handle, const char *name_or_oid)
 {
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
@@ -430,7 +430,7 @@ openssl_set_hash_algo(void *handle, const char *name_or_oid)
     name_or_oid = DEFAULT_HASH_ALGO;
   }
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     ASN1_OBJECT *hash_algo_obj = OBJ_txt2obj(name_or_oid, 0 /* Accept both name and OID */);
     SV_THROW_IF_WITH_MSG(!hash_algo_obj, SV_INVALID_PARAMETER,
@@ -449,7 +449,7 @@ openssl_set_hash_algo(void *handle, const char *name_or_oid)
   return status;
 }
 
-svi_rc
+svrc_t
 openssl_set_hash_algo_by_encoded_oid(void *handle,
     const unsigned char *encoded_oid,
     size_t encoded_oid_size)
@@ -468,7 +468,7 @@ openssl_set_hash_algo_by_encoded_oid(void *handle,
   self->hash_algo.encoded_oid = NULL;
   self->hash_algo.encoded_oid_size = 0;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     self->hash_algo.encoded_oid = malloc(encoded_oid_size);
     SV_THROW_IF(!self->hash_algo.encoded_oid, SV_MEMORY);
@@ -529,7 +529,7 @@ openssl_free_handle(void *handle)
 /* Helper functions to generate a private key. Only applicable on Linux platforms. */
 
 /* Writes the content of |pkey| to a file in PEM format. */
-static svi_rc
+static svrc_t
 write_private_key_to_file(EVP_PKEY *pkey, const char *path_to_key)
 {
   FILE *f_private = NULL;
@@ -537,7 +537,7 @@ write_private_key_to_file(EVP_PKEY *pkey, const char *path_to_key)
   assert(pkey);
   if (!path_to_key) return SV_OK;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     f_private = fopen(path_to_key, "wb");
     SV_THROW_IF(!f_private, SV_EXTERNAL_ERROR);
@@ -554,7 +554,7 @@ write_private_key_to_file(EVP_PKEY *pkey, const char *path_to_key)
 }
 
 /* Writes the content of |pkey| to a buffer in PEM format. */
-static svi_rc
+static svrc_t
 write_private_key_to_buffer(EVP_PKEY *pkey, pem_pkey_t *pem_key)
 {
   BIO *pkey_bio = NULL;
@@ -564,7 +564,7 @@ write_private_key_to_buffer(EVP_PKEY *pkey, pem_pkey_t *pem_key)
   assert(pkey);
   if (!pem_key) return SV_OK;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     pkey_bio = BIO_new(BIO_s_mem());
     SV_THROW_IF(!pkey_bio, SV_EXTERNAL_ERROR);
@@ -589,12 +589,12 @@ write_private_key_to_buffer(EVP_PKEY *pkey, pem_pkey_t *pem_key)
 
 /* Creates a RSA private key and stores it as a PEM file in the designated location. Existing key
  * will be overwritten. */
-static svi_rc
+static svrc_t
 create_rsa_private_key(const char *path_to_key, pem_pkey_t *pem_key)
 {
   EVP_PKEY *pkey = NULL;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     pkey = EVP_RSA_gen(2048);
     SV_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
@@ -611,12 +611,12 @@ create_rsa_private_key(const char *path_to_key, pem_pkey_t *pem_key)
 
 /* Creates a ECDSA private key and stores it as a PEM file in the designated location. Existing key
  * will be overwritten. */
-static svi_rc
+static svrc_t
 create_ecdsa_private_key(const char *path_to_key, pem_pkey_t *pem_key)
 {
   EVP_PKEY *pkey = NULL;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     pkey = EVP_EC_gen(OSSL_EC_curve_nid2name(NID_X9_62_prime256v1));
     SV_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
@@ -661,7 +661,7 @@ signed_video_generate_ecdsa_private_key(const char *dir_to_key,
     full_path_to_private_key = get_path_to_key(dir_to_key, PRIVATE_ECDSA_KEY_FILE);
   }
 
-  svi_rc status = create_ecdsa_private_key(full_path_to_private_key, &pem_key);
+  svrc_t status = create_ecdsa_private_key(full_path_to_private_key, &pem_key);
   free(full_path_to_private_key);
   if (private_key && private_key_size) {
     *private_key = pem_key.key;
@@ -687,7 +687,7 @@ signed_video_generate_rsa_private_key(const char *dir_to_key,
     full_path_to_private_key = get_path_to_key(dir_to_key, PRIVATE_RSA_KEY_FILE);
   }
 
-  svi_rc status = create_rsa_private_key(full_path_to_private_key, &pem_key);
+  svrc_t status = create_rsa_private_key(full_path_to_private_key, &pem_key);
   free(full_path_to_private_key);
   if (private_key && private_key_size) {
     *private_key = pem_key.key;

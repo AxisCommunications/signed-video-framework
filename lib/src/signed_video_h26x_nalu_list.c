@@ -293,7 +293,7 @@ h26x_nalu_list_free_items(h26x_nalu_list_t *list)
 
 /* Appends the |last_item| of the |list| with a new item. The new item has a pointer to |nalu|, but
  * does not take ownership of it. */
-svi_rc
+svrc_t
 h26x_nalu_list_append(h26x_nalu_list_t *list, const h26x_nalu_t *nalu)
 {
   if (!list || !nalu) return SV_INVALID_PARAMETER;
@@ -315,7 +315,7 @@ h26x_nalu_list_append(h26x_nalu_list_t *list, const h26x_nalu_t *nalu)
  * not needed are set to NULL, since no ownership is transferred. The ownership of |nalu| is
  * released. If the |nalu| could not be copied it will be a NULL pointer. If hash algo is
  * not known the |hashable_data| is copied so the NALU can be hashed later. */
-svi_rc
+svrc_t
 h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list, bool hash_algo_known)
 {
   if (!list) return SV_INVALID_PARAMETER;
@@ -325,7 +325,7 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list, bool hash_algo_known)
   uint8_t *nalu_data_wo_epb = NULL;
   h26x_nalu_list_item_t *item = list->last_item;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_IF(!item->nalu, SV_UNKNOWN_FAILURE);
     copied_nalu = (h26x_nalu_t *)malloc(sizeof(h26x_nalu_t));
@@ -367,7 +367,7 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list, bool hash_algo_known)
 }
 
 /* Append or prepend the |item| of the |list| with |num_missing| NALUs. */
-svi_rc
+svrc_t
 h26x_nalu_list_add_missing(h26x_nalu_list_t *list,
     int num_missing,
     bool append,
@@ -378,7 +378,7 @@ h26x_nalu_list_add_missing(h26x_nalu_list_t *list,
 
   int added_items = 0;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     for (added_items = 0; added_items < num_missing; added_items++) {
       h26x_nalu_list_item_t *missing_nalu = h26x_nalu_list_item_create(NULL);

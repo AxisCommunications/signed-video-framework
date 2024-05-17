@@ -29,7 +29,7 @@
 #include "includes/signed_video_common.h"  // signed_video_t
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
-#include "signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
+#include "signed_video_defines.h"  // svrc_t, sv_tlv_tag_t
 
 typedef struct _gop_info_t gop_info_t;
 typedef struct _validation_flags_t validation_flags_t;
@@ -242,7 +242,7 @@ struct _gop_info_t {
 void
 bytes_to_version_str(const int *arr, char *str);
 
-svi_rc
+svrc_t
 struct_member_memory_allocated_and_copy(void **member_ptr,
     uint8_t *member_size_ptr,
     const void *new_data_ptr,
@@ -253,11 +253,11 @@ gop_info_reset(gop_info_t *gop_info);
 
 /* Sets the allowed size of |hash_list|.
  * Note that this can be different from what is allocated. */
-svi_rc
+svrc_t
 set_hash_list_size(gop_info_t *gop_info, size_t hash_list_size);
 
 /* Resets the gop_hash. */
-svi_rc
+svrc_t
 reset_gop_hash(signed_video_t *signed_video);
 
 void

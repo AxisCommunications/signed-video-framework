@@ -23,7 +23,7 @@
 
 #include <stdbool.h>  // bool
 
-#include "signed_video_defines.h"  // svi_rc
+#include "signed_video_defines.h"  // svrc_t
 #include "signed_video_internal.h"  // gop_info_t, gop_state_t, MAX_HASH_SIZE
 
 typedef struct _h26x_nalu_list_item_t h26x_nalu_list_item_t;
@@ -173,7 +173,7 @@ gop_state_reset(gop_state_t *gop_state);
 void
 update_num_nalus_in_gop_hash(signed_video_t *signed_video, const h26x_nalu_t *nalu);
 
-svi_rc
+svrc_t
 update_gop_hash(void *crypto_handle, gop_info_t *gop_info);
 
 void
@@ -181,10 +181,10 @@ check_and_copy_hash_to_hash_list(signed_video_t *signed_video,
     const uint8_t *hash,
     size_t hash_size);
 
-svi_rc
+svrc_t
 hash_and_add(signed_video_t *signed_video, const h26x_nalu_t *nalu);
 
-svi_rc
+svrc_t
 hash_and_add_for_auth(signed_video_t *signed_video, h26x_nalu_list_item_t *item);
 
 h26x_nalu_t

@@ -26,7 +26,7 @@
 #include <string.h>  // size_t
 
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
-#include "signed_video_defines.h"  // svi_rc
+#include "signed_video_defines.h"  // svrc_t
 
 /**
  * @brief Create cryptographic handle
@@ -62,7 +62,7 @@ openssl_free_handle(void *handle);
  * @returns SV_OK Successfully set hash algorithm,
  *          SV_INVALID_PARAMETER Null pointer |handle| or invalid |name_or_oid|.
  */
-svi_rc
+svrc_t
 openssl_set_hash_algo(void *handle, const char *name_or_oid);
 
 /**
@@ -77,7 +77,7 @@ openssl_set_hash_algo(void *handle, const char *name_or_oid);
  * @returns SV_OK Successfully set hash algorithm,
  *          Other appropriate error.
  */
-svi_rc
+svrc_t
 openssl_set_hash_algo_by_encoded_oid(void *handle,
     const unsigned char *encoded_oid,
     size_t encoded_oid_size);
@@ -126,7 +126,7 @@ openssl_get_hash_size(void *handle);
  *          SV_INVALID_PARAMETER Null pointer inputs, or invalid |data_size|,
  *          SV_EXTERNAL_ERROR Failed to hash.
  */
-svi_rc
+svrc_t
 openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *hash);
 
 /**
@@ -140,7 +140,7 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
  *          SV_INVALID_PARAMETER Null pointer input,
  *          SV_EXTERNAL_ERROR Failed to initialize.
  */
-svi_rc
+svrc_t
 openssl_init_hash(void *handle);
 
 /**
@@ -157,7 +157,7 @@ openssl_init_hash(void *handle);
  *          SV_INVALID_PARAMETER Null pointer inputs, or invalid |data_size|,
  *          SV_EXTERNAL_ERROR Failed to update.
  */
-svi_rc
+svrc_t
 openssl_update_hash(void *handle, const uint8_t *data, size_t data_size);
 
 /**
@@ -173,7 +173,7 @@ openssl_update_hash(void *handle, const uint8_t *data, size_t data_size);
  *          SV_INVALID_PARAMETER Null pointer inputs,
  *          SV_EXTERNAL_ERROR Failed to finalize.
  */
-svi_rc
+svrc_t
 openssl_finalize_hash(void *handle, uint8_t *hash);
 
 /**
@@ -189,7 +189,7 @@ openssl_finalize_hash(void *handle, uint8_t *hash);
  * @returns SV_OK Successfully generated |signature|,
  *          SV_INVALID_PARAMETER Errors in |verify_data|, or null pointer inputs,
  */
-svi_rc
+svrc_t
 openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_result);
 
 /**
@@ -206,7 +206,7 @@ openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_resu
  *          SV_MEMORY Could not allocate memory for |key|,
  *          SV_EXTERNAL_ERROR Failure in OpenSSL.
  */
-svi_rc
+svrc_t
 openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_t *pem_pkey);
 
 /**
@@ -223,7 +223,7 @@ openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_
  *          SV_INVALID_PARAMETER Missing inputs,
  *          SV_EXTERNAL_ERROR Failure in OpenSSL.
  */
-svi_rc
+svrc_t
 openssl_public_key_malloc(sign_or_verify_data_t *verify_data, pem_pkey_t *pem_public_key);
 
 #endif  // __SIGNED_VIDEO_OPENSSL_INTERNAL__
