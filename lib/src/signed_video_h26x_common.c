@@ -149,7 +149,6 @@ svi_rc_to_signed_video_rc(svi_rc status)
     case SVI_VENDOR:
       return SV_VENDOR_ERROR;
     case SVI_FILE:
-    case SVI_NULL_PTR:
     default:
       return SV_UNKNOWN_FAILURE;
   }
@@ -350,7 +349,7 @@ struct_member_memory_allocated_and_copy(void **member_ptr,
     const uint8_t new_data_size)
 {
   if (!member_size_ptr || !member_ptr) {
-    return SVI_NULL_PTR;
+    return SVI_INVALID_PARAMETER;
   } else if (!new_data_size) {
     // New size is zero, doing nothing
     return SVI_OK;
