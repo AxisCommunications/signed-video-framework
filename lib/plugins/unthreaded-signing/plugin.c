@@ -23,7 +23,7 @@
  * This signing plugin calls openssl_sign_hash() and stores the generated signature before return.
  * This signature is then copied to the user when sv_signing_plugin_get_signature().
  */
-#include <stdlib.h>  // calloc
+#include <stdlib.h>  // calloc, memcpy
 
 #include "includes/signed_video_openssl.h"
 #include "includes/signed_video_signing_plugin.h"

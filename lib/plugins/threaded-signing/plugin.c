@@ -22,18 +22,20 @@
 /**
  * This signing plugin sets up a worker thread and calls openssl_sign_hash(), from the worker
  * thread, when there is a new hash to sign. To handle several signatures at the same time, the
- * plugin has two buffers. One for incomming hashes and another for outgoing signatures.
- * The thread is stopped if |out| is full, if there was a failure in the memory allocation
- * for a new signature or if sv_signing_plugin_session_teardown() is called.
+ * plugin has two buffers. One for incomming hashes and another one for outgoing signatures.
+ * The thread is stopped if 1) the out buffer is full, 2) there was a failure in the memory
+ * allocation for a new signature or 3) sv_signing_plugin_session_teardown() is called.
  *
  * If the plugin is initialized, sv_signing_plugin_init(), one single central thread is spawned.
  * Each Signed Video session will then get an id to distiguish between them since they use common
- * input and output buffers. The thread is stopped if |out| is full, if there was a failure in the
- * memory allocation for a new signature or if sv_signing_plugin_exit() is called.
+ * input and output buffers. The thread is stopped if 1) the out buffer is full, 2) there was a
+ * failure in the memory allocation for a new signature or 3) sv_signing_plugin_exit() is called.
  */
 
 #include <assert.h>
 #include <glib.h>
+#include <stdbool.h>
+#include <stdint.h>  // uint8_t
 #include <stdlib.h>  // calloc, malloc, free
 #include <string.h>  // memcpy
 
@@ -857,6 +859,12 @@ catch_error:
   return -1;
 }
 
+/* This plugin initializer expects the |user_data| to be a pem_pkey_t struct. The
+ * |private_key| will be used through all added sessions.
+ *
+ * A central thread is set up and a list, containing the IDs of the active sessions, is
+ * initialized with an empty list head.
+ */
 int
 sv_signing_plugin_init_new(void *user_data)
 {
