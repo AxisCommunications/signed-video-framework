@@ -689,12 +689,12 @@ signed_video_generate_golden_sei(signed_video_t *self)
 
   uint8_t *payload = NULL;
   uint8_t *payload_signature_ptr = NULL;
-  // Set the |is_golden_sei| and |has_recurrent_data| flags to true to include the necessary
-  // documents required for generating a golden SEI.
+  // The flag |is_golden_sei| will mark the next SEI as golden and should include
+  // recurrent data, hence |has_recurrent_data| is set to true.
   self->is_golden_sei = true;
   self->has_recurrent_data = true;
-  svi_rc status = SVI_UNKNOWN;
 
+  svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
     SVI_THROW(prepare_for_nalus_to_prepend(self));
     SVI_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
