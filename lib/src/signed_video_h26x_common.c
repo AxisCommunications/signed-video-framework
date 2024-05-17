@@ -128,57 +128,6 @@ nalu_type_to_char(const h26x_nalu_t *nalu)
 }
 
 /* Declared in signed_video_internal.h */
-SignedVideoReturnCode
-svi_rc_to_signed_video_rc(svi_rc status)
-{
-  switch (status) {
-    case SV_OK:
-      return SV_OK;
-    case SV_MEMORY:
-      return SV_MEMORY;
-    case SV_NOT_SUPPORTED:
-      return SV_NOT_SUPPORTED;
-    case SV_INVALID_PARAMETER:
-      return SV_INVALID_PARAMETER;
-    case SV_INCOMPATIBLE_VERSION:
-      return SV_INCOMPATIBLE_VERSION;
-    case SV_AUTHENTICATION_ERROR:
-      return SV_AUTHENTICATION_ERROR;
-    case SV_EXTERNAL_ERROR:
-      return SV_EXTERNAL_ERROR;
-    case SV_VENDOR_ERROR:
-      return SV_VENDOR_ERROR;
-    default:
-      return SV_UNKNOWN_FAILURE;
-  }
-}
-
-svi_rc
-sv_rc_to_svi_rc(SignedVideoReturnCode status)
-{
-  switch (status) {
-    case SV_OK:
-      return SV_OK;
-    case SV_MEMORY:
-      return SV_MEMORY;
-    case SV_NOT_SUPPORTED:
-      return SV_NOT_SUPPORTED;
-    case SV_INVALID_PARAMETER:
-      return SV_INVALID_PARAMETER;
-    case SV_INCOMPATIBLE_VERSION:
-      return SV_INCOMPATIBLE_VERSION;
-    case SV_AUTHENTICATION_ERROR:
-      return SV_AUTHENTICATION_ERROR;
-    case SV_EXTERNAL_ERROR:
-      return SV_EXTERNAL_ERROR;
-    case SV_VENDOR_ERROR:
-      return SV_VENDOR_ERROR;
-    case SV_UNKNOWN_FAILURE:
-    default:
-      return SV_UNKNOWN_FAILURE;
-  }
-}
-
 // SEI UUID types
 const uint8_t kUuidSignedVideo[UUID_LEN] = {
     0x53, 0x69, 0x67, 0x6e, 0x65, 0x64, 0x20, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x2e, 0x2e, 0x30};
@@ -1259,7 +1208,7 @@ signed_video_reset(signed_video_t *self)
   SV_CATCH()
   SV_DONE(status)
 
-  return svi_rc_to_signed_video_rc(status);
+  return status;
 }
 
 void

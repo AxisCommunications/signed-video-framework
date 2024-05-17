@@ -29,7 +29,7 @@
 #include "signed_video_authenticity.h"  // allocate_memory_and_copy_string
 #include "signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
 #include "signed_video_h26x_internal.h"  // parse_nalu_info()
-#include "signed_video_internal.h"  // gop_info_t, reset_gop_hash(), sv_rc_to_svi_rc()
+#include "signed_video_internal.h"  // gop_info_t, reset_gop_hash()
 #include "signed_video_openssl_internal.h"
 #include "signed_video_tlv.h"  // tlv_list_encode_or_get_size()
 
@@ -356,8 +356,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     // Reset the timestamp to avoid including a duplicate in the next SEI.
     gop_info->has_timestamp = false;
 
-    SV_THROW(sv_rc_to_svi_rc(
-        sv_signing_plugin_sign(self->plugin_handle, sign_data->hash, sign_data->hash_size)));
+    SV_THROW(sv_signing_plugin_sign(self->plugin_handle, sign_data->hash, sign_data->hash_size));
 
   SV_CATCH()
   {
@@ -547,7 +546,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
       while (sv_signing_plugin_get_signature(self->plugin_handle, sign_data->signature,
           sign_data->max_signature_size, &sign_data->signature_size, &signature_error)) {
-        SV_THROW(sv_rc_to_svi_rc(signature_error));
+        SV_THROW(signature_error);
 #ifdef SIGNED_VIDEO_DEBUG
         // TODO: This might not work for blocked signatures, that is if the hash in
         // |sign_data| does not correspond to the copied |signature|.
@@ -581,7 +580,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
 
   if (signing_present > self->signing_present) self->signing_present = signing_present;
 
-  return svi_rc_to_signed_video_rc(status);
+  return status;
 }
 
 static svi_rc
@@ -645,7 +644,7 @@ signed_video_get_nalu_to_prepend(signed_video_t *self,
     nalu_to_prepend->prepend_instruction = SIGNED_VIDEO_PREPEND_NALU;
     status = get_latest_sei(self, nalu_to_prepend->nalu_data, &nalu_to_prepend->nalu_data_size);
   }
-  return svi_rc_to_signed_video_rc(status);
+  return status;
 }
 
 void
@@ -672,14 +671,14 @@ signed_video_set_end_of_stream(signed_video_t *self)
     SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
     while (sv_signing_plugin_get_signature(self->plugin_handle, sign_data->signature,
         sign_data->max_signature_size, &sign_data->signature_size, &signature_error)) {
-      SV_THROW(sv_rc_to_svi_rc(signature_error));
+      SV_THROW(signature_error);
       SV_THROW(complete_sei_nalu_and_add_to_prepend(self));
     }
 
   SV_CATCH()
   SV_DONE(status)
 
-  return svi_rc_to_signed_video_rc(status);
+  return status;
 }
 
 SignedVideoReturnCode
@@ -706,7 +705,7 @@ signed_video_generate_golden_sei(signed_video_t *self)
     sign_or_verify_data_t *sign_data = self->sign_data;
     while (sv_signing_plugin_get_signature(self->plugin_handle, sign_data->signature,
         sign_data->max_signature_size, &sign_data->signature_size, &signature_error)) {
-      SV_THROW(sv_rc_to_svi_rc(signature_error));
+      SV_THROW(signature_error);
       SV_THROW(complete_sei_nalu_and_add_to_prepend(self));
     }
 
@@ -715,7 +714,7 @@ signed_video_generate_golden_sei(signed_video_t *self)
   // Reset the |is_golden_sei| flag, ensuring that a golden SEI is not
   // generated outside of this API.
   self->is_golden_sei = false;
-  return svi_rc_to_signed_video_rc(status);
+  return status;
 }
 
 SignedVideoReturnCode
@@ -743,7 +742,7 @@ signed_video_set_product_info(signed_video_t *self,
   }
   SV_DONE(status)
 
-  return svi_rc_to_signed_video_rc(status);
+  return status;
 }
 
 SignedVideoReturnCode
@@ -756,8 +755,7 @@ signed_video_set_private_key_new(signed_video_t *self,
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Temporally turn the PEM |private_key| into an EVP_PKEY and allocate memory for signatures.
-    SV_THROW(sv_rc_to_svi_rc(
-        openssl_private_key_malloc(self->sign_data, private_key, private_key_size)));
+    SV_THROW(openssl_private_key_malloc(self->sign_data, private_key, private_key_size));
     SV_THROW(openssl_read_pubkey_from_private_key(self->sign_data, &self->pem_public_key));
 
     self->plugin_handle = sv_signing_plugin_session_setup(private_key, private_key_size);
@@ -769,7 +767,7 @@ signed_video_set_private_key_new(signed_video_t *self,
   openssl_free_key(self->sign_data->key);
   self->sign_data->key = NULL;
 
-  return svi_rc_to_signed_video_rc(status);
+  return status;
 }
 
 /* TO BE DEPRECATED */
@@ -808,7 +806,7 @@ signed_video_set_authenticity_level(signed_video_t *self,
   SV_CATCH()
   SV_DONE(status)
 
-  return svi_rc_to_signed_video_rc(status);
+  return status;
 }
 
 SignedVideoReturnCode
@@ -859,5 +857,5 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid)
   SV_CATCH()
   SV_DONE(status)
 
-  return svi_rc_to_signed_video_rc(status);
+  return status;
 }

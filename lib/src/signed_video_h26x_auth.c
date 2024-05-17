@@ -1111,7 +1111,7 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
   SV_CATCH()
   SV_DONE(status)
 
-  return svi_rc_to_signed_video_rc(status);
+  return status;
 }
 
 SignedVideoReturnCode
@@ -1135,5 +1135,5 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
   SV_CATCH()
   SV_DONE(status)
 
-  return svi_rc_to_signed_video_rc(status);
+  return status;
 }
