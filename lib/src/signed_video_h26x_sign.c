@@ -184,26 +184,21 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 {
   sign_or_verify_data_t *sign_data = self->sign_data;
   const size_t hash_size = sign_data->hash_size;
+  size_t num_optional_tags = 0;
+  size_t num_mandatory_tags = 0;
 
-  // Metadata + hash_list forming a document.
-  const sv_tlv_tag_t document_encoders[] = {
-      GENERAL_TAG,
-      CRYPTO_INFO_TAG,
-      PUBLIC_KEY_TAG,
-      PRODUCT_INFO_TAG,
-      ARBITRARY_DATA_TAG,
-      HASH_LIST_TAG,
-  };
+  const sv_tlv_tag_t *optional_tags = get_optional_tags(&num_optional_tags);
+  const sv_tlv_tag_t *mandatory_tags = get_mandatory_tags(&num_mandatory_tags);
   const sv_tlv_tag_t gop_info_encoders[] = {
       SIGNATURE_TAG,
   };
 
   size_t payload_size = 0;
-  size_t document_size = 0;
+  size_t optional_tags_size = 0;
+  size_t mandatory_tags_size = 0;
   size_t gop_info_size = 0;
   size_t vendor_size = 0;
   size_t sei_buffer_size = 0;
-  const size_t num_doc_encoders = ARRAY_SIZE(document_encoders);
   const size_t num_gop_encoders = ARRAY_SIZE(gop_info_encoders);
 
   if (*payload) {
@@ -224,22 +219,27 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
   SVI_TRY()
     // Get the total payload size of all TLVs. Then compute the total size of the SEI NALU to be
     // generated. Add extra space for potential emulation prevention bytes.
-    document_size = tlv_list_encode_or_get_size(self, document_encoders, num_doc_encoders, NULL);
+    optional_tags_size = tlv_list_encode_or_get_size(self, optional_tags, num_optional_tags, NULL);
+    mandatory_tags_size =
+        tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, NULL);
+    if (self->is_golden_sei) mandatory_tags_size = 0;
     gop_info_size = tlv_list_encode_or_get_size(self, gop_info_encoders, num_gop_encoders, NULL);
     if (self->num_vendor_encoders > 0 && self->vendor_encoders) {
       vendor_size =
           tlv_list_encode_or_get_size(self, self->vendor_encoders, self->num_vendor_encoders, NULL);
     }
 
-    payload_size = document_size + gop_info_size + vendor_size;
+    payload_size = gop_info_size + vendor_size + optional_tags_size + mandatory_tags_size;
     payload_size += UUID_LEN;  // UUID
     payload_size += 1;  // One byte for reserved data.
-    if ((self->max_sei_payload_size > 0) && (payload_size > self->max_sei_payload_size)) {
+    if ((self->max_sei_payload_size > 0) && (payload_size > self->max_sei_payload_size) &&
+        (mandatory_tags_size > 0)) {
       // Fallback to GOP-level signing
-      payload_size -= document_size;
+      payload_size -= mandatory_tags_size;
       self->gop_info->list_idx = -1;  // Reset hash list size to exclude it from TLV
-      document_size = tlv_list_encode_or_get_size(self, document_encoders, num_doc_encoders, NULL);
-      payload_size += document_size;
+      mandatory_tags_size =
+          tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, NULL);
+      payload_size += mandatory_tags_size;
     }
     // Compute total SEI NALU data size.
     sei_buffer_size += self->codec == SV_CODEC_H264 ? 6 : 7;  // NALU header
@@ -297,9 +297,15 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     *payload_ptr++ = reserved_byte;
 
     size_t written_size =
-        tlv_list_encode_or_get_size(self, document_encoders, num_doc_encoders, payload_ptr);
+        tlv_list_encode_or_get_size(self, optional_tags, num_optional_tags, payload_ptr);
     SVI_THROW_IF(written_size == 0, SVI_MEMORY);
     payload_ptr += written_size;
+    if (mandatory_tags_size > 0) {
+      written_size =
+          tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, payload_ptr);
+      payload_ptr += written_size;
+      SVI_THROW_IF(written_size == 0, SVI_MEMORY);
+    }
 
     if (vendor_size > 0) {
       written_size = tlv_list_encode_or_get_size(
@@ -673,6 +679,42 @@ signed_video_set_end_of_stream(signed_video_t *self)
   SVI_CATCH()
   SVI_DONE(status)
 
+  return svi_rc_to_signed_video_rc(status);
+}
+
+SignedVideoReturnCode
+signed_video_generate_golden_sei(signed_video_t *self)
+{
+  if (!self) return SV_INVALID_PARAMETER;
+
+  uint8_t *payload = NULL;
+  uint8_t *payload_signature_ptr = NULL;
+  // The flag |is_golden_sei| will mark the next SEI as golden and should include
+  // recurrent data, hence |has_recurrent_data| is set to true.
+  self->is_golden_sei = true;
+  self->has_recurrent_data = true;
+
+  svi_rc status = SVI_UNKNOWN;
+  SVI_TRY()
+    SVI_THROW(prepare_for_nalus_to_prepend(self));
+    SVI_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
+    add_payload_to_buffer(self, payload, payload_signature_ptr);
+
+    // Note: From here, this is a temporary solution. It will only work unthreaded.
+    // Fetch the signature. If it is not ready we exit without generating the SEI.
+    SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
+    sign_or_verify_data_t *sign_data = self->sign_data;
+    while (sv_signing_plugin_get_signature(self->plugin_handle, sign_data->signature,
+        sign_data->max_signature_size, &sign_data->signature_size, &signature_error)) {
+      SVI_THROW(sv_rc_to_svi_rc(signature_error));
+      SVI_THROW(complete_sei_nalu_and_add_to_prepend(self));
+    }
+
+  SVI_CATCH()
+  SVI_DONE(status)
+  // Reset the |is_golden_sei| flag, ensuring that a golden SEI is not
+  // generated outside of this API.
+  self->is_golden_sei = false;
   return svi_rc_to_signed_video_rc(status);
 }
 
