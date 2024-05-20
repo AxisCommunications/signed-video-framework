@@ -59,8 +59,8 @@ openssl_free_handle(void *handle);
  * @param handle Pointer to the OpenSSL cryptographic handle.
  * @param name_or_oid A null-terminated string defining the hashing algorithm.
  *
- * @returns SVI_OK Successfully set hash algorithm,
- *          SVI_INVALID_PARAMETER Null pointer |handle| or invalid |name_or_oid|.
+ * @returns SV_OK Successfully set hash algorithm,
+ *          SV_INVALID_PARAMETER Null pointer |handle| or invalid |name_or_oid|.
  */
 svi_rc
 openssl_set_hash_algo(void *handle, const char *name_or_oid);
@@ -74,7 +74,7 @@ openssl_set_hash_algo(void *handle, const char *name_or_oid);
  * @param encoded_oid A pointer to the encoded OID of the hashing algorithm.
  * @param encoded_oid_size The size of the encoded OID data.
  *
- * @returns SVI_OK Successfully set hash algorithm,
+ * @returns SV_OK Successfully set hash algorithm,
  *          Other appropriate error.
  */
 svi_rc
@@ -122,9 +122,9 @@ openssl_get_hash_size(void *handle);
  * @param data_size Size of the |data| to hash.
  * @param hash A pointer to the hashed output. This memory has to be pre-allocated.
  *
- * @returns SVI_OK Successfully hashed |data|,
- *          SVI_INVALID_PARAMETER Null pointer inputs, or invalid |data_size|,
- *          SVI_EXTERNAL_FAILURE Failed to hash.
+ * @returns SV_OK Successfully hashed |data|,
+ *          SV_INVALID_PARAMETER Null pointer inputs, or invalid |data_size|,
+ *          SV_EXTERNAL_ERROR Failed to hash.
  */
 svi_rc
 openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *hash);
@@ -136,9 +136,9 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
  *
  * @param handle Pointer to the OpenSSL cryptographic handle.
  *
- * @returns SVI_OK Successfully initialized EVP_MD_CTX object in |handle|,
- *          SVI_INVALID_PARAMETER Null pointer input,
- *          SVI_EXTERNAL_FAILURE Failed to initialize.
+ * @returns SV_OK Successfully initialized EVP_MD_CTX object in |handle|,
+ *          SV_INVALID_PARAMETER Null pointer input,
+ *          SV_EXTERNAL_ERROR Failed to initialize.
  */
 svi_rc
 openssl_init_hash(void *handle);
@@ -153,9 +153,9 @@ openssl_init_hash(void *handle);
  * @param data Pointer to the data to update an ongoing hash.
  * @param data_size Size of the |data|.
  *
- * @returns SVI_OK Successfully updated EVP_MD_CTX object in |handle|,
- *          SVI_INVALID_PARAMETER Null pointer inputs, or invalid |data_size|,
- *          SVI_EXTERNAL_FAILURE Failed to update.
+ * @returns SV_OK Successfully updated EVP_MD_CTX object in |handle|,
+ *          SV_INVALID_PARAMETER Null pointer inputs, or invalid |data_size|,
+ *          SV_EXTERNAL_ERROR Failed to update.
  */
 svi_rc
 openssl_update_hash(void *handle, const uint8_t *data, size_t data_size);
@@ -169,9 +169,9 @@ openssl_update_hash(void *handle, const uint8_t *data, size_t data_size);
  * @param handle Pointer to the OpenSSL cryptographic handle.
  * @param hash A pointer to the hashed output. This memory has to be pre-allocated.
  *
- * @returns SVI_OK Successfully wrote the final result of EVP_MD_CTX object in |handle| to |hash|,
- *          SVI_INVALID_PARAMETER Null pointer inputs,
- *          SVI_EXTERNAL_FAILURE Failed to finalize.
+ * @returns SV_OK Successfully wrote the final result of EVP_MD_CTX object in |handle| to |hash|,
+ *          SV_INVALID_PARAMETER Null pointer inputs,
+ *          SV_EXTERNAL_ERROR Failed to finalize.
  */
 svi_rc
 openssl_finalize_hash(void *handle, uint8_t *hash);
@@ -186,8 +186,8 @@ openssl_finalize_hash(void *handle, uint8_t *hash);
  * @param verified_result Poiniter to the place where the verification result is written. The
  *   |verified_result| can either be 1 (success), 0 (failure), or < 0 (error).
  *
- * @returns SVI_OK Successfully generated |signature|,
- *          SVI_INVALID_PARAMETER Errors in |verify_data|, or null pointer inputs,
+ * @returns SV_OK Successfully generated |signature|,
+ *          SV_INVALID_PARAMETER Errors in |verify_data|, or null pointer inputs,
  */
 svi_rc
 openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_result);
@@ -201,10 +201,10 @@ openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_resu
  * @param sign_data A pointer to the object holding the |private_key|.
  * @param pem_pkey A pointer to the object where the public key, on PEM format, will be written.
  *
- * @returns SVI_OK Successfully written |key| to |pem_pkey|,
- *          SVI_INVALID_PARAMETER Errors in |sign_data|, or no private key present,
- *          SVI_MEMORY Could not allocate memory for |key|,
- *          SVI_EXTERNAL_FAILURE Failure in OpenSSL.
+ * @returns SV_OK Successfully written |key| to |pem_pkey|,
+ *          SV_INVALID_PARAMETER Errors in |sign_data|, or no private key present,
+ *          SV_MEMORY Could not allocate memory for |key|,
+ *          SV_EXTERNAL_ERROR Failure in OpenSSL.
  */
 svi_rc
 openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_t *pem_pkey);
@@ -219,9 +219,9 @@ openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_
  * @param verify_data A pointer to the struct that holds all necessary information for signing.
  * @param pem_public_key A pointer to the PEM format struct.
  *
- * @returns SVI_OK Successfully stored |public_key|,
- *          SVI_INVALID_PARAMETER Missing inputs,
- *          SVI_EXTERNAL_FAILURE Failure in OpenSSL.
+ * @returns SV_OK Successfully stored |public_key|,
+ *          SV_INVALID_PARAMETER Missing inputs,
+ *          SV_EXTERNAL_ERROR Failure in OpenSSL.
  */
 svi_rc
 openssl_public_key_malloc(sign_or_verify_data_t *verify_data, pem_pkey_t *pem_public_key);

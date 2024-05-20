@@ -57,7 +57,7 @@ signed_video_authenticity_report_create();
 svi_rc
 allocate_memory_and_copy_string(char **dst_str, const char *src_str)
 {
-  if (!dst_str) return SVI_INVALID_PARAMETER;
+  if (!dst_str) return SV_INVALID_PARAMETER;
   // If the |src_str| is a NULL pointer make sure to copy an empty string.
   if (!src_str) src_str = "";
 
@@ -72,13 +72,13 @@ allocate_memory_and_copy_string(char **dst_str, const char *src_str)
   }
   strcpy(*dst_str, src_str);
 
-  return SVI_OK;
+  return SV_OK;
 
 catch_error:
   free(*dst_str);
   *dst_str = NULL;
 
-  return SVI_MEMORY;
+  return SV_MEMORY;
 }
 
 /**
@@ -89,10 +89,10 @@ svi_rc
 transfer_product_info(signed_video_product_info_t *dst, const signed_video_product_info_t *src)
 {
   // For simplicity we allow nullptrs for both |dst| and |src|. If so, we take no action and return
-  // SVI_OK.
-  if (!src || !dst) return SVI_OK;
+  // SV_OK.
+  if (!src || !dst) return SV_OK;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     SVI_THROW(allocate_memory_and_copy_string(&dst->hardware_id, src->hardware_id));
     SVI_THROW(allocate_memory_and_copy_string(&dst->firmware_version, src->firmware_version));
@@ -111,7 +111,7 @@ transfer_latest_validation(signed_video_latest_validation_t *dst,
 {
   assert(dst && src);
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     SVI_THROW(allocate_memory_and_copy_string(&dst->nalu_str, src->nalu_str));
     SVI_THROW(allocate_memory_and_copy_string(&dst->validation_str, src->validation_str));
@@ -151,7 +151,7 @@ transfer_authenticity(signed_video_authenticity_t *dst, const signed_video_authe
 {
   assert(dst && src);
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     strcpy(dst->version_on_signing_side, src->version_on_signing_side);
     strcpy(dst->this_version, SIGNED_VIDEO_VERSION);
@@ -310,9 +310,9 @@ signed_video_get_authenticity_report(signed_video_t *self)
 
   signed_video_authenticity_t *authenticity_report = signed_video_authenticity_report_create();
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
-    SVI_THROW_IF(!authenticity_report, SVI_MEMORY);
+    SVI_THROW_IF(!authenticity_report, SV_MEMORY);
     // Update |number_of_pending_nalus| since that may have changed since |latest_validation|.
     signed_video_accumulated_validation_t *accumulated = self->accumulated_validation;
     if (accumulated->authenticity == SV_AUTH_RESULT_NOT_SIGNED) {
@@ -334,7 +334,7 @@ signed_video_get_authenticity_report(signed_video_t *self)
   SVI_DONE(status)
 
   // Sanity check the output since we do not return a SignedVideoReturnCode.
-  assert(((status == SVI_OK) ? (authenticity_report != NULL) : (authenticity_report == NULL)));
+  assert(((status == SV_OK) ? (authenticity_report != NULL) : (authenticity_report == NULL)));
 
   return authenticity_report;
 }
@@ -346,16 +346,16 @@ signed_video_get_authenticity_report(signed_video_t *self)
 svi_rc
 create_local_authenticity_report_if_needed(signed_video_t *self)
 {
-  if (!self) return SVI_INVALID_PARAMETER;
+  if (!self) return SV_INVALID_PARAMETER;
 
-  // Already exists, return SVI_OK.
-  if (self->authenticity) return SVI_OK;
+  // Already exists, return SV_OK.
+  if (self->authenticity) return SV_OK;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     // Create a new one.
     signed_video_authenticity_t *auth_report = signed_video_authenticity_report_create();
-    SVI_THROW_IF(auth_report == NULL, SVI_MEMORY);
+    SVI_THROW_IF(auth_report == NULL, SV_MEMORY);
     // Transfer |product_info| from |self|.
     SVI_THROW(transfer_product_info(&auth_report->product_info, self->product_info));
 

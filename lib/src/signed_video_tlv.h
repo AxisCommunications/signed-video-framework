@@ -57,7 +57,7 @@ tlv_list_encode_or_get_size(signed_video_t *signed_video,
  * @param data Pointer to the data to read from.
  * @param data_size Size of the data.
  *
- * @returns SVI_OK if decoding was successful, otherwise an error code.
+ * @returns SV_OK if decoding was successful, otherwise an error code.
  */
 svi_rc
 tlv_decode(signed_video_t *signed_video, const uint8_t *data, size_t data_size);

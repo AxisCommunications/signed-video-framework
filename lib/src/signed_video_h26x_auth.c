@@ -83,7 +83,7 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
   uint32_t exp_gop_number = last_gop_number + 1;
   DEBUG_LOG("SEI payload size = %zu, exp gop number = %u", payload_size, exp_gop_number);
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     SVI_THROW_WITH_MSG(tlv_decode(self, payload, payload_size), "Failed decoding SEI payload");
 
@@ -620,8 +620,8 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
   h26x_nalu_list_t *nalu_list = self->nalu_list;
 
   // We expect a valid SEI and that it has been decoded.
-  if (!(sei && sei->has_been_decoded)) return SVI_INVALID_PARAMETER;
-  if (!nalu_list) return SVI_INVALID_PARAMETER;
+  if (!(sei && sei->has_been_decoded)) return SV_INVALID_PARAMETER;
+  if (!nalu_list) return SV_INVALID_PARAMETER;
 
   const size_t hash_size = self->verify_data->hash_size;
   h26x_nalu_list_item_t *item = NULL;
@@ -630,7 +630,7 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
 
   h26x_nalu_list_print(nalu_list);
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     // Initialize the gop_hash by resetting it.
     SVI_THROW(reset_gop_hash(self));
@@ -710,7 +710,7 @@ prepare_for_validation(signed_video_t *self)
   sign_or_verify_data_t *verify_data = self->verify_data;
   const size_t hash_size = verify_data->hash_size;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     h26x_nalu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(nalu_list);
     if (sei && !sei->has_been_decoded) {
@@ -733,7 +733,7 @@ prepare_for_validation(signed_video_t *self)
     }
 
     SVI_THROW_IF_WITH_MSG(validation_flags->signing_present && !self->has_public_key,
-        SVI_NOT_SUPPORTED, "No public key present");
+        SV_NOT_SUPPORTED, "No public key present");
 
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // If "Axis Communications AB" can be identified from the |product_info|, get
@@ -907,10 +907,10 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
       latest->public_key_has_changed = false;
       self->validation_flags.has_auth_result = true;
     }
-    return SVI_OK;
+    return SV_OK;
   }
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     // Keep validating as long as there are pending GOPs.
     bool stop_validating = false;
@@ -997,7 +997,7 @@ register_nalu(signed_video_t *self, h26x_nalu_list_item_t *item)
   h26x_nalu_t *nalu = item->nalu;
   assert(self && nalu && nalu->is_valid >= 0);
 
-  if (nalu->is_valid == 0) return SVI_OK;
+  if (nalu->is_valid == 0) return SV_OK;
 
   update_hashable_data(nalu);
   return hash_and_add_for_auth(self, item);
@@ -1012,14 +1012,14 @@ reregister_nalus(signed_video_t *self)
 
   h26x_nalu_list_t *nalu_list = self->nalu_list;
   h26x_nalu_list_item_t *item = nalu_list->first_item;
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   while (item) {
     if (item->nalu->is_valid <= 0) {
       item = item->next;
       continue;
     }
     status = hash_and_add_for_auth(self, item);
-    if (status != SVI_OK) {
+    if (status != SV_OK) {
       break;
     }
     item = item->next;
@@ -1036,7 +1036,7 @@ reregister_nalus(signed_video_t *self)
 static svi_rc
 signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_t nalu_data_size)
 {
-  if (!self || !nalu_data || (nalu_data_size == 0)) return SVI_INVALID_PARAMETER;
+  if (!self || !nalu_data || (nalu_data_size == 0)) return SV_INVALID_PARAMETER;
 
   h26x_nalu_list_t *nalu_list = self->nalu_list;
   h26x_nalu_t nalu = parse_nalu_info(nalu_data, nalu_data_size, self->codec, true, true);
@@ -1045,15 +1045,15 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
 
   self->accumulated_validation->number_of_received_nalus++;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     // If there is no |nalu_list| we failed allocating memory for it.
     SVI_THROW_IF_WITH_MSG(
-        !nalu_list, SVI_MEMORY, "No existing nalu_list. Cannot validate authenticity");
+        !nalu_list, SV_MEMORY, "No existing nalu_list. Cannot validate authenticity");
     // Append the |nalu_list| with a new item holding a pointer to |nalu|. The |validation_status|
     // is set accordingly.
     SVI_THROW(h26x_nalu_list_append(nalu_list, &nalu));
-    SVI_THROW_IF(nalu.is_valid < 0, SVI_UNKNOWN);
+    SVI_THROW_IF(nalu.is_valid < 0, SV_UNKNOWN_FAILURE);
     update_validation_flags(&self->validation_flags, &nalu);
     SVI_THROW(register_nalu(self, nalu_list->last_item));
     // As soon as the first Signed Video SEI arrives (|signing_present| is true) and the
@@ -1075,8 +1075,8 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
   svi_rc copy_nalu_status =
       h26x_nalu_list_copy_last_item(nalu_list, self->validation_flags.hash_algo_known);
   // Make sure to return the first failure if both operations failed.
-  status = (status == SVI_OK) ? copy_nalu_status : status;
-  if (status != SVI_OK) nalu_list->last_item->validation_status = 'E';
+  status = (status == SV_OK) ? copy_nalu_status : status;
+  if (status != SV_OK) nalu_list->last_item->validation_status = 'E';
 
   free(nalu.nalu_data_wo_epb);
 
@@ -1096,7 +1096,7 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
   // If the user requests an authenticity report, initialize to NULL.
   if (authenticity) *authenticity = NULL;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     SVI_THROW(create_local_authenticity_report_if_needed(self));
 
@@ -1121,11 +1121,11 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
   if (self->pem_public_key.key) return SV_NOT_SUPPORTED;
   if (self->authentication_started) return SV_NOT_SUPPORTED;
 
-  svi_rc status = SVI_UNKNOWN;
+  svi_rc status = SV_UNKNOWN_FAILURE;
   SVI_TRY()
     // Allocate memory and copy |public_key|.
     self->pem_public_key.key = malloc(public_key_size);
-    SVI_THROW_IF(!self->pem_public_key.key, SVI_MEMORY);
+    SVI_THROW_IF(!self->pem_public_key.key, SV_MEMORY);
     memcpy(self->pem_public_key.key, public_key, public_key_size);
     self->pem_public_key.key_size = public_key_size;
     // Turn the public key from PEM to EVP_PKEY form.
