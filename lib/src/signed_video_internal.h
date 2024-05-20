@@ -90,7 +90,7 @@ struct _validation_flags_t {
 };
 
 struct _gop_state_t {
-  bool has_gop_sei;  // The GOP includes a SEI.
+  bool has_sei;  // The GOP includes a SEI.
   bool has_lost_sei;  // Has detected a lost SEI since last validation.
   bool no_gop_end_before_sei;  // No GOP end (I-frame) has been found before the SEI.
   bool gop_transition_is_lost;  // The transition between GOPs has been lost.
@@ -202,7 +202,6 @@ typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;
  * the nalus that has been added.
  */
 struct _gop_info_t {
-  uint8_t version;  // Version of this struct.
   uint8_t hash_buddies[2 * MAX_HASH_SIZE];  // Memory for two hashes organized as
   // [reference_hash, nalu_hash].
   bool has_reference_hash;  // Flags if the reference hash in |hash_buddies| is valid.
