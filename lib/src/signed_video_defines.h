@@ -46,7 +46,7 @@ typedef SignedVideoReturnCode svi_rc;
 
 /* Macros for writing uniform try/catch code.
  *
- * SVI_TRY()
+ * SV_TRY()
  *     initiates the scope.
  * SVI_CATCH()
  *     initiates a scope for catching and handling errors. Note that if this point is reached
@@ -68,12 +68,12 @@ typedef SignedVideoReturnCode svi_rc;
  *
  * Limitation : The above try/catch macros comes with limitation as given below,
  * 1. Macros need to be called in the particularly defined order as explained in the below example.
- * 2. Macros "SVI_TRY, SVI_CATCH and SVI_DONE" should only be called once per function. The macro
- *    order is "SVI_TRY, SVI_CATCH and SVI_DONE".
- * 3. The macros "SVI_TRY, SVI_CATCH and SVI_DONE" cannot be used standalone. Using SVI_TRY means
+ * 2. Macros "SV_TRY, SVI_CATCH and SVI_DONE" should only be called once per function. The macro
+ *    order is "SV_TRY, SVI_CATCH and SVI_DONE".
+ * 3. The macros "SV_TRY, SVI_CATCH and SVI_DONE" cannot be used standalone. Using SV_TRY means
  *    that SVI_CATCH and SVI_DONE must be used as well.
  * 4. SVI_THROW_IF, SVI_THROW, SVI_THROW_IF_WITH_MSG and SVI_THROW_WITH_MSG can be called (single
- *    or multiple times) in between SVI_TRY and SVI_CATCH.
+ *    or multiple times) in between SV_TRY and SVI_CATCH.
  *
  * Example code:
  *
@@ -84,7 +84,7 @@ typedef SignedVideoReturnCode svi_rc;
  *
  *   my_struct_t *a = NULL;
  *   svi_rc status = SV_UNKNOWN_FAILURE;  // Initiate to something that fails
- *   SVI_TRY()
+ *   SV_TRY()
  *     a = malloc(sizeof(my_struct_t));
  *     SVI_THROW_IF(!a, SV_MEMORY);  // Throw without message
  *
@@ -104,7 +104,7 @@ typedef SignedVideoReturnCode svi_rc;
  *   return status;
  * }
  */
-#define SVI_TRY() \
+#define SV_TRY() \
   svi_rc status_; \
   bool status_set_ = false;
 #define SVI_CATCH() \

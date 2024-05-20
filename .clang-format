@@ -79,7 +79,7 @@ IndentWrappedFunctionNames: false
 JavaScriptQuotes: Leave
 JavaScriptWrapImports: true
 KeepEmptyLinesAtTheStartOfBlocks: true
-MacroBlockBegin: 'SVI_TRY'
+MacroBlockBegin: 'SV_TRY'
 MacroBlockEnd:   'SVI_CATCH'
 MaxEmptyLinesToKeep: 1
 NamespaceIndentation: None

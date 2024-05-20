@@ -93,7 +93,7 @@ transfer_product_info(signed_video_product_info_t *dst, const signed_video_produ
   if (!src || !dst) return SV_OK;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     SVI_THROW(allocate_memory_and_copy_string(&dst->hardware_id, src->hardware_id));
     SVI_THROW(allocate_memory_and_copy_string(&dst->firmware_version, src->firmware_version));
     SVI_THROW(allocate_memory_and_copy_string(&dst->serial_number, src->serial_number));
@@ -112,7 +112,7 @@ transfer_latest_validation(signed_video_latest_validation_t *dst,
   assert(dst && src);
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     SVI_THROW(allocate_memory_and_copy_string(&dst->nalu_str, src->nalu_str));
     SVI_THROW(allocate_memory_and_copy_string(&dst->validation_str, src->validation_str));
     dst->authenticity = src->authenticity;
@@ -152,7 +152,7 @@ transfer_authenticity(signed_video_authenticity_t *dst, const signed_video_authe
   assert(dst && src);
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     strcpy(dst->version_on_signing_side, src->version_on_signing_side);
     strcpy(dst->this_version, SIGNED_VIDEO_VERSION);
     SVI_THROW(transfer_product_info(&dst->product_info, &src->product_info));
@@ -311,7 +311,7 @@ signed_video_get_authenticity_report(signed_video_t *self)
   signed_video_authenticity_t *authenticity_report = signed_video_authenticity_report_create();
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     SVI_THROW_IF(!authenticity_report, SV_MEMORY);
     // Update |number_of_pending_nalus| since that may have changed since |latest_validation|.
     signed_video_accumulated_validation_t *accumulated = self->accumulated_validation;
@@ -352,7 +352,7 @@ create_local_authenticity_report_if_needed(signed_video_t *self)
   if (self->authenticity) return SV_OK;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     // Create a new one.
     signed_video_authenticity_t *auth_report = signed_video_authenticity_report_create();
     SVI_THROW_IF(auth_report == NULL, SV_MEMORY);

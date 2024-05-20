@@ -84,7 +84,7 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
   DEBUG_LOG("SEI payload size = %zu, exp gop number = %u", payload_size, exp_gop_number);
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     SVI_THROW_WITH_MSG(tlv_decode(self, payload, payload_size), "Failed decoding SEI payload");
 
     // Compare new with last number of GOPs to detect potentially lost SEIs.
@@ -631,7 +631,7 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
   h26x_nalu_list_print(nalu_list);
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     // Initialize the gop_hash by resetting it.
     SVI_THROW(reset_gop_hash(self));
     // In general we do not know when the SEI, associated with a GOP, arrives. If it is delayed we
@@ -711,7 +711,7 @@ prepare_for_validation(signed_video_t *self)
   const size_t hash_size = verify_data->hash_size;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     h26x_nalu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(nalu_list);
     if (sei && !sei->has_been_decoded) {
       // Decode the SEI and set signature->hash
@@ -911,7 +911,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
   }
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     // Keep validating as long as there are pending GOPs.
     bool stop_validating = false;
     while (has_pending_gop(self) && !stop_validating) {
@@ -1046,7 +1046,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
   self->accumulated_validation->number_of_received_nalus++;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     // If there is no |nalu_list| we failed allocating memory for it.
     SVI_THROW_IF_WITH_MSG(
         !nalu_list, SV_MEMORY, "No existing nalu_list. Cannot validate authenticity");
@@ -1097,7 +1097,7 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
   if (authenticity) *authenticity = NULL;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     SVI_THROW(create_local_authenticity_report_if_needed(self));
 
     SVI_THROW(signed_video_add_h26x_nalu(self, nalu_data, nalu_data_size));
@@ -1122,7 +1122,7 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
   if (self->authentication_started) return SV_NOT_SUPPORTED;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     // Allocate memory and copy |public_key|.
     self->pem_public_key.key = malloc(public_key_size);
     SVI_THROW_IF(!self->pem_public_key.key, SV_MEMORY);

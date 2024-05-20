@@ -150,7 +150,7 @@ verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificat
   X509_STORE_CTX *ctx = NULL;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     trust_store = X509_STORE_new();
     SVI_THROW_IF(!trust_store, SV_EXTERNAL_ERROR);
     // Load trusted CA certificate
@@ -205,7 +205,7 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
   EVP_MD_CTX_free(self->md_ctx);
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     // Create an empty stack of X509 certificates.
     untrusted_certificates = sk_X509_new_null();
     SVI_THROW_IF(!untrusted_certificates, SV_EXTERNAL_ERROR);
@@ -381,7 +381,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
   int verified_signature = -1;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     // If no message digest context exists, the |public_key| cannot be validated.
     SVI_THROW_IF(!self->md_ctx, SV_VENDOR_ERROR);
     SVI_THROW_IF(!self->public_key, SV_NOT_SUPPORTED);
@@ -611,7 +611,7 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
   size_t cert_size = 0;
 
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     SVI_THROW_IF(version != 1, SV_INCOMPATIBLE_VERSION);
     // Read |attestation_size|.
     attestation_size = *data_ptr++;
@@ -680,7 +680,7 @@ set_axis_communications_public_key(void *handle,
 
   int public_key_validation = self->supplemental_authenticity.public_key_validation;
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     // Validate that the public key is of correct type and size.
     SVI_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
     // Ensure it is a NIST P-256 key with correct curve.
@@ -718,7 +718,7 @@ get_axis_communications_supplemental_authenticity(void *handle,
 
   // TODO: Fill in the skeleton below step by step.
   svi_rc status = SV_UNKNOWN_FAILURE;
-  SVI_TRY()
+  SV_TRY()
     SVI_THROW(verify_and_parse_certificate_chain(self));
     SVI_THROW(deserialize_attestation(self));
     SVI_THROW(verify_axis_communications_public_key(self));
