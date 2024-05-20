@@ -170,7 +170,7 @@ verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificat
         SV_EXTERNAL_ERROR);
     SVI_THROW_IF(X509_verify_cert(ctx) != 1, SV_VENDOR_ERROR);
 
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   X509_STORE_CTX_free(ctx);
@@ -275,7 +275,7 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
     SVI_THROW_IF(EVP_DigestVerifyInit(md_ctx, NULL, EVP_sha256(), NULL, attestation_pubkey) < 1,
         SV_EXTERNAL_ERROR);
 
-  SVI_CATCH()
+  SV_CATCH()
   {
     // If no serial number can be found, copy "Unknown" to |serial_number|.
     memset(self->supplemental_authenticity.serial_number, 0, SV_VENDOR_AXIS_SER_NO_MAX_LENGTH);
@@ -461,7 +461,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     // If verification fails (is 0) the result should never be overwritten with success (1) later.
     self->supplemental_authenticity.public_key_validation &= verified_signature;
 
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   free(signed_data);
@@ -650,7 +650,7 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
     data_ptr += cert_size;
 
     SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return status;
@@ -696,7 +696,7 @@ set_axis_communications_public_key(void *handle,
 
     // The Public key is of correct type and size.
     self->public_key = public_key;
-  SVI_CATCH()
+  SV_CATCH()
   {
     self->public_key = NULL;
     public_key_validation = 0;
@@ -724,7 +724,7 @@ get_axis_communications_supplemental_authenticity(void *handle,
     SVI_THROW(verify_axis_communications_public_key(self));
     // Set public key validation information.
 
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   // If anything did not fulfill the verification requirements a SV_VENDOR_ERROR error is thrown.

@@ -130,7 +130,7 @@ openssl_private_key_malloc(sign_or_verify_data_t *sign_data,
     // Set the content in |sign_data|
     sign_data->max_signature_size = max_signature_size;
     sign_data->key = ctx;
-  SVI_CATCH()
+  SV_CATCH()
   {
     free(sign_data->signature);
     sign_data->signature = NULL;
@@ -181,7 +181,7 @@ openssl_public_key_malloc(sign_or_verify_data_t *verify_data, pem_pkey_t *pem_pu
     EVP_PKEY_CTX_free(verify_data->key);
     // Set the content in |verify_data|
     verify_data->key = ctx;
-  SVI_CATCH()
+  SV_CATCH()
   {
     EVP_PKEY_CTX_free(ctx);
     ctx = NULL;
@@ -225,7 +225,7 @@ openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_
     SVI_THROW_IF(!public_key, SV_MEMORY);
     memcpy(public_key, buf_pos, public_key_size);
 
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   BIO_free(pub_bio);
@@ -269,7 +269,7 @@ openssl_sign_hash(sign_or_verify_data_t *sign_data)
     // Set the actually written size of the signature. Depending on signing algorithm a shorter
     // signature may have been written.
     sign_data->signature_size = siglen;
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return svi_rc_to_signed_video_rc(status);
@@ -295,7 +295,7 @@ openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_resu
     SVI_THROW_IF(!ctx, SV_INVALID_PARAMETER);
     // EVP_PKEY_verify returns 1 upon success, 0 upon failure and < 0 upon error.
     verified_hash = EVP_PKEY_verify(ctx, signature, signature_size, hash_to_verify, hash_size);
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   *verified_result = verified_hash;
@@ -384,7 +384,7 @@ oid_to_type(message_digest_t *self)
         !d2i_ASN1_OBJECT(&obj, &encoded_oid_ptr, self->encoded_oid_size), SV_EXTERNAL_ERROR);
     self->type = EVP_get_digestbyobj(obj);
     self->size = EVP_MD_size(self->type);
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   ASN1_OBJECT_free(obj);
@@ -415,7 +415,7 @@ obj_to_oid_and_type(message_digest_t *self, const ASN1_OBJECT *obj)
     self->encoded_oid = encoded_oid_ptr;
     self->encoded_oid_size = encoded_oid_size;
     self->size = EVP_MD_size(type);
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return status;
@@ -444,7 +444,7 @@ openssl_set_hash_algo(void *handle, const char *name_or_oid)
     SVI_THROW(openssl_init_hash(self));
     DEBUG_LOG("Setting hash algo %s that has ASN.1/DER coded OID length %zu", name_or_oid,
         self->hash_algo.encoded_oid_size);
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return status;
@@ -477,7 +477,7 @@ openssl_set_hash_algo_by_encoded_oid(void *handle,
     self->hash_algo.encoded_oid_size = encoded_oid_size;
 
     SVI_THROW(oid_to_type(&self->hash_algo));
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return status;
@@ -543,7 +543,7 @@ write_private_key_to_file(EVP_PKEY *pkey, const char *path_to_key)
     f_private = fopen(path_to_key, "wb");
     SVI_THROW_IF(!f_private, SV_EXTERNAL_ERROR);
     SVI_THROW_IF(!PEM_write_PrivateKey(f_private, pkey, NULL, 0, 0, NULL, NULL), SV_EXTERNAL_ERROR);
-  SVI_CATCH()
+  SV_CATCH()
   {
     if (f_private) unlink(path_to_key);
   }
@@ -580,7 +580,7 @@ write_private_key_to_buffer(EVP_PKEY *pkey, pem_pkey_t *pem_key)
     memcpy(pem_key->key, private_key, private_key_size);
     pem_key->key_size = private_key_size;
 
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   if (pkey_bio) BIO_free(pkey_bio);
@@ -602,7 +602,7 @@ create_rsa_private_key(const char *path_to_key, pem_pkey_t *pem_key)
 
     SVI_THROW(write_private_key_to_file(pkey, path_to_key));
     SVI_THROW(write_private_key_to_buffer(pkey, pem_key));
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   EVP_PKEY_free(pkey);  // Free |pkey|, |rsa| struct will be freed automatically as well
@@ -624,7 +624,7 @@ create_ecdsa_private_key(const char *path_to_key, pem_pkey_t *pem_key)
 
     SVI_THROW(write_private_key_to_file(pkey, path_to_key));
     SVI_THROW(write_private_key_to_buffer(pkey, pem_key));
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   if (pkey) EVP_PKEY_free(pkey);

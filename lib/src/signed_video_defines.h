@@ -48,7 +48,7 @@ typedef SignedVideoReturnCode svi_rc;
  *
  * SV_TRY()
  *     initiates the scope.
- * SVI_CATCH()
+ * SV_CATCH()
  *     initiates a scope for catching and handling errors. Note that if this point is reached
  *     without errors, this section is not executed.
  * SVI_DONE(status)
@@ -68,12 +68,12 @@ typedef SignedVideoReturnCode svi_rc;
  *
  * Limitation : The above try/catch macros comes with limitation as given below,
  * 1. Macros need to be called in the particularly defined order as explained in the below example.
- * 2. Macros "SV_TRY, SVI_CATCH and SVI_DONE" should only be called once per function. The macro
- *    order is "SV_TRY, SVI_CATCH and SVI_DONE".
- * 3. The macros "SV_TRY, SVI_CATCH and SVI_DONE" cannot be used standalone. Using SV_TRY means
- *    that SVI_CATCH and SVI_DONE must be used as well.
+ * 2. Macros "SV_TRY, SV_CATCH and SVI_DONE" should only be called once per function. The macro
+ *    order is "SV_TRY, SV_CATCH and SVI_DONE".
+ * 3. The macros "SV_TRY, SV_CATCH and SVI_DONE" cannot be used standalone. Using SV_TRY means
+ *    that SV_CATCH and SVI_DONE must be used as well.
  * 4. SVI_THROW_IF, SVI_THROW, SVI_THROW_IF_WITH_MSG and SVI_THROW_WITH_MSG can be called (single
- *    or multiple times) in between SV_TRY and SVI_CATCH.
+ *    or multiple times) in between SV_TRY and SV_CATCH.
  *
  * Example code:
  *
@@ -93,7 +93,7 @@ typedef SignedVideoReturnCode svi_rc;
  *     SVI_THROW_WITH_MSG(get_b_value(&b), "Could not get b");
  *
  *     a->b = b;
- *   SVI_CATCH()
+ *   SV_CATCH()
  *     free(a);
  *     a = NULL;
  *   SVI_DONE(status)
@@ -107,7 +107,7 @@ typedef SignedVideoReturnCode svi_rc;
 #define SV_TRY() \
   svi_rc status_; \
   bool status_set_ = false;
-#define SVI_CATCH() \
+#define SV_CATCH() \
   catch_error: \
   if (!status_set_) { \
     DEBUG_LOG("status_ was never set, which means no THROW call was used"); \

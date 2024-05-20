@@ -316,7 +316,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
     }
 
     SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return status;
@@ -503,7 +503,7 @@ decode_product_info(signed_video_t *self, const uint8_t *data, size_t data_size)
 
     SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
 
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return status;
@@ -563,7 +563,7 @@ decode_arbitrary_data(signed_video_t *self, const uint8_t *data, size_t data_siz
     self->arbitrary_data_size = arbdata_size;
     data_ptr += arbdata_size;
     SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
-  SVI_CATCH()
+  SV_CATCH()
   {
     free(self->arbitrary_data);
     self->arbitrary_data = NULL;
@@ -673,7 +673,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
 #endif
 
     SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return status;
@@ -742,7 +742,7 @@ decode_hash_list(signed_video_t *self, const uint8_t *data, size_t data_size)
 
     SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
 
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return status;
@@ -856,7 +856,7 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
     gop_info->encoding_status = encoding_status;
     gop_info->signature_hash_type = hash_type;
     SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return status;
@@ -930,7 +930,7 @@ decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
     data_ptr += hash_algo_encoded_oid_size;
 
     SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return status;

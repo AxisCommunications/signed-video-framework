@@ -885,7 +885,7 @@ update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
     }
     printf("\n");
 #endif
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return status;
@@ -1011,7 +1011,7 @@ hash_and_copy_to_ref(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *has
     memcpy(reference_hash, hash, hash_size);
     // Tell the user there is a new reference hash.
     gop_info->has_reference_hash = true;
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return status;
@@ -1046,7 +1046,7 @@ hash_with_reference(signed_video_t *self,
     // Hash reference hash together with the |nalu_hash| and store in |buddy_hash|.
     SVI_THROW(
         openssl_hash_data(self->crypto_handle, gop_info->hash_buddies, hash_size * 2, buddy_hash));
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return status;
@@ -1083,7 +1083,7 @@ hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
       SVI_THROW(update_gop_hash(self->crypto_handle, gop_info));
       update_num_nalus_in_gop_hash(self, nalu);
     }
-  SVI_CATCH()
+  SV_CATCH()
   {
     // If we fail, the |hash_list| is not trustworthy.
     gop_info->list_idx = -1;
@@ -1140,7 +1140,7 @@ hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
       SVI_THROW(hash_wrapper(self, nalu, item->second_hash, hash_size));
     }
 
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return status;
@@ -1217,7 +1217,7 @@ signed_video_create(SignedVideoCodec codec)
     SVI_THROW_IF(!self->vendor_handle, SV_MEMORY);
 #endif
 
-  SVI_CATCH()
+  SV_CATCH()
   {
     signed_video_free(self);
     self = NULL;
@@ -1257,7 +1257,7 @@ signed_video_reset(signed_video_t *self)
     SVI_THROW(openssl_init_hash(self->crypto_handle));
 
     SVI_THROW(reset_gop_hash(self));
-  SVI_CATCH()
+  SV_CATCH()
   SVI_DONE(status)
 
   return svi_rc_to_signed_video_rc(status);
