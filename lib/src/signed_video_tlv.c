@@ -317,7 +317,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
 
     SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return status;
 }
@@ -504,7 +504,7 @@ decode_product_info(signed_video_t *self, const uint8_t *data, size_t data_size)
     SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
 
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return status;
 }
@@ -569,7 +569,7 @@ decode_arbitrary_data(signed_video_t *self, const uint8_t *data, size_t data_siz
     self->arbitrary_data = NULL;
     self->arbitrary_data_size = 0;
   }
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return status;
 }
@@ -674,7 +674,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
 
     SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return status;
 }
@@ -743,7 +743,7 @@ decode_hash_list(signed_video_t *self, const uint8_t *data, size_t data_size)
     SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
 
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return status;
 }
@@ -857,7 +857,7 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
     gop_info->signature_hash_type = hash_type;
     SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return status;
 }
@@ -931,7 +931,7 @@ decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
 
     SVI_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return status;
 }

@@ -109,7 +109,7 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
     }
 
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return status;
 }
@@ -686,7 +686,7 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
     // Failed computing the gop_hash. Remove all used_in_gop_hash markers.
     remove_used_in_gop_hash(nalu_list);
   }
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return status;
 }
@@ -770,7 +770,7 @@ prepare_for_validation(signed_video_t *self)
     }
 
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return status;
 }
@@ -962,7 +962,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
     }
 
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return status;
 }
@@ -1069,7 +1069,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
     }
     SVI_THROW(maybe_validate_gop(self, &nalu));
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   // Need to make a copy of the |nalu| independently of failure.
   svi_rc copy_nalu_status =
@@ -1109,7 +1109,7 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
     }
 
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return svi_rc_to_signed_video_rc(status);
 }
@@ -1133,7 +1133,7 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
     self->has_public_key = true;
 
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return svi_rc_to_signed_video_rc(status);
 }

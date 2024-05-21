@@ -366,7 +366,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     *payload = NULL;
     payload_ptr = NULL;
   }
-  SVI_DONE(status)
+  SV_DONE(status)
 
   // Store offset so that we can append the signature once it has been generated.
   *payload_signature_ptr = payload_ptr;
@@ -436,7 +436,7 @@ prepare_for_nalus_to_prepend(signed_video_t *self)
           self->num_of_completed_seis > 0, SV_NOT_SUPPORTED, "There are remaining SEIs.");
     }
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return status;
 }
@@ -575,7 +575,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     }
 
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   free(nalu.nalu_data_wo_epb);
 
@@ -677,7 +677,7 @@ signed_video_set_end_of_stream(signed_video_t *self)
     }
 
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return svi_rc_to_signed_video_rc(status);
 }
@@ -711,7 +711,7 @@ signed_video_generate_golden_sei(signed_video_t *self)
     }
 
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
   // Reset the |is_golden_sei| flag, ensuring that a golden SEI is not
   // generated outside of this API.
   self->is_golden_sei = false;
@@ -741,7 +741,7 @@ signed_video_set_product_info(signed_video_t *self,
   {
     product_info_free_members(product_info);
   }
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return svi_rc_to_signed_video_rc(status);
 }
@@ -763,7 +763,7 @@ signed_video_set_private_key_new(signed_video_t *self,
     self->plugin_handle = sv_signing_plugin_session_setup(private_key, private_key_size);
     SVI_THROW_IF(!self->plugin_handle, SV_EXTERNAL_ERROR);
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   // Free the EVP_PKEY since it is no longer needed. It is handled by the signing plugin.
   openssl_free_key(self->sign_data->key);
@@ -806,7 +806,7 @@ signed_video_set_authenticity_level(signed_video_t *self,
     self->authenticity_level = authenticity_level;
 
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return svi_rc_to_signed_video_rc(status);
 }
@@ -857,7 +857,7 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid)
     // Point |nalu_hash| to the correct location in the |hashes| buffer.
     self->gop_info->nalu_hash = self->gop_info->hashes + hash_size;
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return svi_rc_to_signed_video_rc(status);
 }

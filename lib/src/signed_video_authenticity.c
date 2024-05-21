@@ -100,7 +100,7 @@ transfer_product_info(signed_video_product_info_t *dst, const signed_video_produ
     SVI_THROW(allocate_memory_and_copy_string(&dst->manufacturer, src->manufacturer));
     SVI_THROW(allocate_memory_and_copy_string(&dst->address, src->address));
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return status;
 }
@@ -124,7 +124,7 @@ transfer_latest_validation(signed_video_latest_validation_t *dst,
     dst->has_timestamp = src->has_timestamp;
     dst->timestamp = src->timestamp;
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return status;
 }
@@ -159,7 +159,7 @@ transfer_authenticity(signed_video_authenticity_t *dst, const signed_video_authe
     SVI_THROW(transfer_latest_validation(&dst->latest_validation, &src->latest_validation));
     transfer_accumulated_validation(&dst->accumulated_validation, &src->accumulated_validation);
   SV_CATCH()
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return status;
 }
@@ -331,7 +331,7 @@ signed_video_get_authenticity_report(signed_video_t *self)
     signed_video_authenticity_report_free(authenticity_report);
     authenticity_report = NULL;
   }
-  SVI_DONE(status)
+  SV_DONE(status)
 
   // Sanity check the output since we do not return a SignedVideoReturnCode.
   assert(((status == SV_OK) ? (authenticity_report != NULL) : (authenticity_report == NULL)));
@@ -365,7 +365,7 @@ create_local_authenticity_report_if_needed(signed_video_t *self)
   {
     signed_video_authenticity_report_free(auth_report);
   }
-  SVI_DONE(status)
+  SV_DONE(status)
 
   return status;
 }
