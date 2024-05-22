@@ -20,8 +20,6 @@
  */
 #include "signed_video_tlv.h"
 
-#include <stdlib.h>  // free
-
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "axis-communications/sv_vendor_axis_communications_internal.h"
 #endif
@@ -136,9 +134,9 @@ static const sv_tlv_tuple_t tlv_tuples[] = {
  * This is an array that contains only optional tags (not |is_always_present|).
  */
 static const sv_tlv_tag_t optional_tags[] = {
-    CRYPTO_INFO_TAG,
     PUBLIC_KEY_TAG,
     PRODUCT_INFO_TAG,
+    CRYPTO_INFO_TAG,
 };
 
 /*
@@ -147,8 +145,8 @@ static const sv_tlv_tag_t optional_tags[] = {
  */
 static const sv_tlv_tag_t mandatory_tags[] = {
     GENERAL_TAG,
-    ARBITRARY_DATA_TAG,
     HASH_LIST_TAG,
+    ARBITRARY_DATA_TAG,
 };
 
 /**
@@ -176,7 +174,7 @@ get_decoder(sv_tlv_tag_t tag);
 static sv_tlv_tuple_t
 get_tlv_tuple(sv_tlv_tag_t tag);
 static svrc_t
-decode_tlv_header(const uint8_t *data, size_t *read_data_bytes, sv_tlv_tag_t *tag, size_t *length);
+decode_tlv_header(const uint8_t *data, size_t *data_bytes_read, sv_tlv_tag_t *tag, size_t *length);
 
 /* Selects and returns the correct decoder from either |tlv_tuples| or |vendor_tlv_tuples|. */
 static sv_tlv_decoder_t
@@ -985,8 +983,8 @@ tlv_encode_or_get_size_generic(signed_video_t *self, const sv_tlv_tuple_t tlv, u
   //  - length (1 or 2 bytes)
   //  - value (variable, dependent on encoder/decoder)
 
-  tl_size += 1;
-  tl_size += tlv.bytes_for_length;
+  tl_size += 1;  // For tag
+  tl_size += tlv.bytes_for_length;  // For length
   v_size = tlv.encoder(self, NULL);
 
   if (v_size == 0) {
@@ -1011,7 +1009,7 @@ tlv_encode_or_get_size_generic(signed_video_t *self, const sv_tlv_tuple_t tlv, u
   }
   write_byte(last_two_bytes, &data_ptr, (uint8_t)(v_size & 0x000000ff), epb);
 
-  // Write value, i.e. the actual data of the TLV
+  // Write value, i.e., the actual data of the TLV
   size_t v_size_written = tlv.encoder(self, data_ptr);
 
   if (v_size_written < v_size) {
@@ -1045,7 +1043,7 @@ tlv_list_encode_or_get_size(signed_video_t *self,
     if (tlv.is_always_present || self->has_recurrent_data) {
       size_t tlv_size = tlv_encode_or_get_size_generic(self, tlv, data_ptr);
       tlv_list_size += tlv_size;
-      // Increment data_ptr if we're writing data
+      // Increment data_ptr if data is written
       if (data) data_ptr += tlv_size;
     }
   }
@@ -1053,14 +1051,14 @@ tlv_list_encode_or_get_size(signed_video_t *self,
 }
 
 static svrc_t
-decode_tlv_header(const uint8_t *data, size_t *read_data_bytes, sv_tlv_tag_t *tag, size_t *length)
+decode_tlv_header(const uint8_t *data, size_t *data_bytes_read, sv_tlv_tag_t *tag, size_t *length)
 {
   // Sanity checks on input parameters.
-  if (!data || !read_data_bytes || !tag || !length) return SV_INVALID_PARAMETER;
+  if (!data || !data_bytes_read || !tag || !length) return SV_INVALID_PARAMETER;
 
   const uint8_t *data_ptr = data;
   sv_tlv_tag_t tag_from_data = (sv_tlv_tag_t)(*data_ptr++);
-  *read_data_bytes = 0;
+  *data_bytes_read = 0;
   sv_tlv_tuple_t tlv = get_tlv_tuple(tag_from_data);
   if (tlv.tag != tag_from_data) {
     DEBUG_LOG("Parsed an invalid tag (%d) in the data", tag_from_data);
@@ -1074,7 +1072,7 @@ decode_tlv_header(const uint8_t *data, size_t *read_data_bytes, sv_tlv_tag_t *ta
     *length = *data_ptr++;
   }
 
-  *read_data_bytes = (data_ptr - data);
+  *data_bytes_read = (data_ptr - data);
 
   return SV_OK;
 }
@@ -1123,7 +1121,9 @@ tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bo
     latest_tag_location = tlv_data_ptr;
     // Read the tag
     sv_tlv_tag_t this_tag = read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
-    if (this_tag == tag) return latest_tag_location;
+    if (this_tag == tag) {
+      return latest_tag_location;
+    }
 
     // Read the length
     uint16_t length = read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
@@ -1143,7 +1143,7 @@ tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bo
 }
 
 bool
-tlv_find_and_decode_recurrent_tags(signed_video_t *self,
+tlv_find_and_decode_optional_tags(signed_video_t *self,
     const uint8_t *tlv_data,
     size_t tlv_data_size)
 {
@@ -1152,7 +1152,7 @@ tlv_find_and_decode_recurrent_tags(signed_video_t *self,
   if (!self || !tlv_data || tlv_data_size == 0) return false;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
-  bool recurrent_tags_decoded = false;
+  bool optional_tags_decoded = false;
   while (tlv_data_ptr < tlv_data + tlv_data_size) {
     size_t tlv_header_size = 0;
     size_t length = 0;
@@ -1167,15 +1167,15 @@ tlv_find_and_decode_recurrent_tags(signed_video_t *self,
       sv_tlv_decoder_t decoder = get_decoder(this_tag);
       status = decoder(self, tlv_data_ptr, length);
       if (status != SV_OK) {
-        DEBUG_LOG("Could not decode");
+        DEBUG_LOG("Could not decode tlv values");
         break;
       }
-      recurrent_tags_decoded = true;
+      optional_tags_decoded = true;
     }
     tlv_data_ptr += length;
   }
 
-  return recurrent_tags_decoded;
+  return optional_tags_decoded;
 }
 
 const sv_tlv_tag_t *

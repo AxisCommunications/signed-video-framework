@@ -797,7 +797,7 @@ is_recurrent_data_decoded(signed_video_t *self)
     if (item->nalu && item->nalu->is_gop_sei && item->validation_status == 'P') {
       const uint8_t *tlv_data = item->nalu->tlv_data;
       size_t tlv_size = item->nalu->tlv_size;
-      recurrent_data_decoded = tlv_find_and_decode_recurrent_tags(self, tlv_data, tlv_size);
+      recurrent_data_decoded = tlv_find_and_decode_optional_tags(self, tlv_data, tlv_size);
     }
     item = item->next;
   }
