@@ -23,21 +23,21 @@
 
 #include <stdbool.h>  // bool
 #include <stdint.h>  // uint8_t
-#include <string.h>  // size_t
+#include <stdlib.h>  // size_t
 
 #include "includes/signed_video_common.h"  // signed_video_t
 #include "signed_video_defines.h"  // svrc_t, sv_tlv_tag_t
 
 /**
- * @brief Encodes a SEI-nalu payload defined by a list of tags.
+ * @brief Encodes a SEI payload defined by a list of tags.
  *
  * The tags are written to data in a TLV structure. The tags define a TLV tuple associating encoders
  * and decoders with the tag.
  *
- * @param signed_video Pointer to the signed_video_t object to get GOP validation from.
+ * @param signed_video Pointer to the signed_video_t object.
  * @param tags Array of tags to be encoded.
  * @param num_tags Number of tags in the array.
- * @param data Pointer to a pointer to the memory to write to.
+ * @param data Pointer to the memory to write to, or a NULL pointer to only get the size.
  *
  * @returns The size of the data encoded.
  */
@@ -48,12 +48,12 @@ tlv_list_encode_or_get_size(signed_video_t *signed_video,
     uint8_t *data);
 
 /**
- * @brief Decodes a SEI-nalu payload into the singed_video_t object.
+ * @brief Decodes a SEI payload into the singed_video_t object.
  *
- * The data is assumed to have been written in a TLV format. tlv_decode parse data as long as there
- * are new tags.
+ * The data is assumed to have been written in a TLV format. This function parses data as long as
+ * there are more tags.
  *
- * @param signed_video Pointer to the signed_video_t object to get GOP validation from.
+ * @param signed_video Pointer to the signed_video_t object.
  * @param data Pointer to the data to read from.
  * @param data_size Size of the data.
  *
@@ -65,8 +65,8 @@ tlv_decode(signed_video_t *signed_video, const uint8_t *data, size_t data_size);
 /**
  * @brief Scans the TLV part of a SEI payload and stops when a given tag is detected.
  *
- * The data is assumed to have been written in a TLV format. tlv_find_tag parses data as long as
- * there are new tags, but never decodes it. The function can handle data both with and without
+ * The data is assumed to have been written in a TLV format. This function parses data as long as
+ * there are more tags, but never decodes it. The function can handle data both with and without
  * emulation prevention bytes.
  *
  * @param tlv_data Pointer to the TLV data to scan.
@@ -98,13 +98,13 @@ read_8bits(const uint8_t *p, uint8_t *val);
 /**
  * @brief Writes many bytes to payload w/wo emulation prevention
  *
- * @param dest Location in payload to write
- * @param src Location from where to copy data
- * @param size Number of bytes to write to dest, usually size of src
+ * @param dst Location to write
+ * @param src Location from where to read data
+ * @param size Number of bytes to write to |dst|, usually size of |src|
  * @param last_two_bytes For emulation prevention
  */
 void
-write_byte_many(uint8_t **dest,
+write_byte_many(uint8_t **dst,
     char *src,
     size_t size,
     uint16_t *last_two_bytes,
@@ -115,14 +115,11 @@ write_byte_many(uint8_t **dest,
  *
  * @param last_two_bytes For emulation prevention
  * @param payload Location write byte
- * @curr_byte Byte to write
- * @do_emulation_prevention If emulation prevention
+ * @param byte Byte to write
+ * @param do_emulation_prevention If emulation prevention
  */
 void
-write_byte(uint16_t *last_two_bytes,
-    uint8_t **payload,
-    uint8_t curr_byte,
-    bool do_emulation_prevention);
+write_byte(uint16_t *last_two_bytes, uint8_t **payload, uint8_t byte, bool do_emulation_prevention);
 
 /**
  * @brief Reads a byte from payload w/wo emulation prevention
@@ -133,10 +130,10 @@ uint8_t
 read_byte(uint16_t *last_two_bytes, const uint8_t **payload, bool do_emulation_prevention);
 
 /**
- * @brief Scans the TLV part of a SEI payload and decodes all tags dependent on recurrency.
+ * @brief Scans the TLV part of a SEI payload and decodes all recurrent tags
  *
- * The data is assumed to have been written in a TLV format. tlv_find_and_decode_recurrent_tags
- * parses data and finds all tags dependent on recurrency and decodes them.
+ * The data is assumed to have been written in a TLV format. This function parses data and
+ * finds all tags dependent on recurrency (marked not |is_always_present|) and decodes them.
  *
  * @param self Pointer to the signed_video_t session.
  * @param tlv_data Pointer to the TLV data to scan.
@@ -150,21 +147,23 @@ tlv_find_and_decode_recurrent_tags(signed_video_t *self,
     size_t tlv_data_size);
 
 /**
- * @brief Helper to get only the optional tags as an array.
+ * @brief Helper to get only the optional tags as an array
  *
- * @param num_of_optional_tags A pointer to a location where the number of optional tags will be written.
+ * @param num_of_optional_tags A pointer to a location where the number of optional tags will be
+ * written.
  *
- * @returns Array that contains optional tags.
+ * @returns Array that contains all optional tags.
  */
 const sv_tlv_tag_t *
 get_optional_tags(size_t *num_of_optional_tags);
 
 /**
- * @brief Helper to get only the mandatory tags as an array.
-
- * @param num_of_mandatory_tags A pointer to a location where number of mandatory tags will be written.
+ * @brief Helper to get only the mandatory tags as an array
  *
- * @returns Array that contains mandatory tags.
+ * @param num_of_mandatory_tags A pointer to a location where number of mandatory tags will be
+ * written.
+ *
+ * @returns Array that contains all mandatory tags.
  */
 const sv_tlv_tag_t *
 get_mandatory_tags(size_t *num_of_mandatory_tags);
