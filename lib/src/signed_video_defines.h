@@ -55,11 +55,11 @@ typedef SignedVideoReturnCode svi_rc;
  *     completes the scope and everything afterwards (error or not) will be executed. The variable
  *     |status| is set accordingly.
  *
- * SVI_THROW_IF(fail_condition, fail_status)
+ * SV_THROW_IF(fail_condition, fail_status)
  *     checks |fail_condition| and throws a |fail_status| error.
  * SVI_THROW(my_status)
- *     same as SVI_THROW_IF(), but with the difference that a svi_rc check is assumed, that is,
- *     simplification of SVI_THROW_IF(my_status != SV_OK, my_status)
+ *     same as SV_THROW_IF(), but with the difference that a svi_rc check is assumed, that is,
+ *     simplification of SV_THROW_IF(my_status != SV_OK, my_status)
  *
  * The THROW macros has a version to print a specific error message |fail_msg| upon failure.
  *
@@ -72,7 +72,7 @@ typedef SignedVideoReturnCode svi_rc;
  *    order is "SV_TRY, SV_CATCH and SV_DONE".
  * 3. The macros "SV_TRY, SV_CATCH and SV_DONE" cannot be used standalone. Using SV_TRY means
  *    that SV_CATCH and SV_DONE must be used as well.
- * 4. SVI_THROW_IF, SVI_THROW, SVI_THROW_IF_WITH_MSG and SVI_THROW_WITH_MSG can be called (single
+ * 4. SV_THROW_IF, SVI_THROW, SVI_THROW_IF_WITH_MSG and SVI_THROW_WITH_MSG can be called (single
  *    or multiple times) in between SV_TRY and SV_CATCH.
  *
  * Example code:
@@ -86,7 +86,7 @@ typedef SignedVideoReturnCode svi_rc;
  *   svi_rc status = SV_UNKNOWN_FAILURE;  // Initiate to something that fails
  *   SV_TRY()
  *     a = malloc(sizeof(my_struct_t));
- *     SVI_THROW_IF(!a, SV_MEMORY);  // Throw without message
+ *     SV_THROW_IF(!a, SV_MEMORY);  // Throw without message
  *
  *     int b = -1;
  *     // get_b_value() returns svi_rc
@@ -119,7 +119,7 @@ typedef SignedVideoReturnCode svi_rc;
   } \
   status = status_;
 
-#define SVI_THROW_IF(fail_condition, fail_status) \
+#define SV_THROW_IF(fail_condition, fail_status) \
   do { \
     status_ = (fail_condition) ? (fail_status) : SV_OK; \
     status_set_ = true; \

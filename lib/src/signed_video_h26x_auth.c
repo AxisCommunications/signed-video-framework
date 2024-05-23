@@ -1053,7 +1053,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
     // Append the |nalu_list| with a new item holding a pointer to |nalu|. The |validation_status|
     // is set accordingly.
     SVI_THROW(h26x_nalu_list_append(nalu_list, &nalu));
-    SVI_THROW_IF(nalu.is_valid < 0, SV_UNKNOWN_FAILURE);
+    SV_THROW_IF(nalu.is_valid < 0, SV_UNKNOWN_FAILURE);
     update_validation_flags(&self->validation_flags, &nalu);
     SVI_THROW(register_nalu(self, nalu_list->last_item));
     // As soon as the first Signed Video SEI arrives (|signing_present| is true) and the
@@ -1125,7 +1125,7 @@ signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t
   SV_TRY()
     // Allocate memory and copy |public_key|.
     self->pem_public_key.key = malloc(public_key_size);
-    SVI_THROW_IF(!self->pem_public_key.key, SV_MEMORY);
+    SV_THROW_IF(!self->pem_public_key.key, SV_MEMORY);
     memcpy(self->pem_public_key.key, public_key, public_key_size);
     self->pem_public_key.key_size = public_key_size;
     // Turn the public key from PEM to EVP_PKEY form.

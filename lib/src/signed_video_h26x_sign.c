@@ -252,7 +252,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
     // Allocate memory for payload + SEI header to return
     *payload = (uint8_t *)malloc(sei_buffer_size);
-    SVI_THROW_IF(!(*payload), SV_MEMORY);
+    SV_THROW_IF(!(*payload), SV_MEMORY);
 
     // Track the payload position with |payload_ptr|.
     uint8_t *payload_ptr = *payload;
@@ -298,19 +298,19 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
     size_t written_size =
         tlv_list_encode_or_get_size(self, optional_tags, num_optional_tags, payload_ptr);
-    SVI_THROW_IF(written_size == 0, SV_MEMORY);
+    SV_THROW_IF(written_size == 0, SV_MEMORY);
     payload_ptr += written_size;
     if (mandatory_tags_size > 0) {
       written_size =
           tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, payload_ptr);
       payload_ptr += written_size;
-      SVI_THROW_IF(written_size == 0, SV_MEMORY);
+      SV_THROW_IF(written_size == 0, SV_MEMORY);
     }
 
     if (vendor_size > 0) {
       written_size = tlv_list_encode_or_get_size(
           self, self->vendor_encoders, self->num_vendor_encoders, payload_ptr);
-      SVI_THROW_IF(written_size == 0, SV_MEMORY);
+      SV_THROW_IF(written_size == 0, SV_MEMORY);
       payload_ptr += written_size;
     }
 
@@ -418,7 +418,7 @@ prepare_for_nalus_to_prepend(signed_video_t *self)
 {
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SVI_THROW_IF(!self, SV_INVALID_PARAMETER);
+    SV_THROW_IF(!self, SV_INVALID_PARAMETER);
 
     // Without a private key we cannot sign, which is equivalent with the existence of a signin
     // plugin.
@@ -502,7 +502,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
   SV_TRY()
     SVI_THROW(prepare_for_nalus_to_prepend(self));
 
-    SVI_THROW_IF(nalu.is_valid < 0, SV_INVALID_PARAMETER);
+    SV_THROW_IF(nalu.is_valid < 0, SV_INVALID_PARAMETER);
 
     // Note that |recurrence| is counted in frames and not in NALUs, hence we only increment the
     // counter for primary slices.
@@ -761,7 +761,7 @@ signed_video_set_private_key_new(signed_video_t *self,
     SVI_THROW(openssl_read_pubkey_from_private_key(self->sign_data, &self->pem_public_key));
 
     self->plugin_handle = sv_signing_plugin_session_setup(private_key, private_key_size);
-    SVI_THROW_IF(!self->plugin_handle, SV_EXTERNAL_ERROR);
+    SV_THROW_IF(!self->plugin_handle, SV_EXTERNAL_ERROR);
   SV_CATCH()
   SV_DONE(status)
 
@@ -800,8 +800,8 @@ signed_video_set_authenticity_level(signed_video_t *self,
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SVI_THROW_IF(authenticity_level >= SV_AUTHENTICITY_LEVEL_NUM, SV_NOT_SUPPORTED);
-    SVI_THROW_IF(authenticity_level < SV_AUTHENTICITY_LEVEL_GOP, SV_NOT_SUPPORTED);
+    SV_THROW_IF(authenticity_level >= SV_AUTHENTICITY_LEVEL_NUM, SV_NOT_SUPPORTED);
+    SV_THROW_IF(authenticity_level < SV_AUTHENTICITY_LEVEL_GOP, SV_NOT_SUPPORTED);
 
     self->authenticity_level = authenticity_level;
 
@@ -851,7 +851,7 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid)
   SV_TRY()
     SVI_THROW(openssl_set_hash_algo(self->crypto_handle, name_or_oid));
     hash_size = openssl_get_hash_size(self->crypto_handle);
-    SVI_THROW_IF(hash_size == 0 || hash_size > MAX_HASH_SIZE, SV_NOT_SUPPORTED);
+    SV_THROW_IF(hash_size == 0 || hash_size > MAX_HASH_SIZE, SV_NOT_SUPPORTED);
 
     self->sign_data->hash_size = hash_size;
     // Point |nalu_hash| to the correct location in the |hashes| buffer.

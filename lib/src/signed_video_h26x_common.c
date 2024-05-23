@@ -1136,7 +1136,7 @@ hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
       hash_wrapper = get_hash_wrapper(self, nalu);
       free(item->second_hash);
       item->second_hash = malloc(MAX_HASH_SIZE);
-      SVI_THROW_IF(!item->second_hash, SV_MEMORY);
+      SV_THROW_IF(!item->second_hash, SV_MEMORY);
       SVI_THROW(hash_wrapper(self, nalu, item->second_hash, hash_size));
     }
 
@@ -1156,15 +1156,15 @@ signed_video_create(SignedVideoCodec codec)
   DEBUG_LOG("Creating signed-video from code version %s", SIGNED_VIDEO_VERSION);
 
   SV_TRY()
-    SVI_THROW_IF((codec < 0) || (codec >= SV_CODEC_NUM), SV_INVALID_PARAMETER);
+    SV_THROW_IF((codec < 0) || (codec >= SV_CODEC_NUM), SV_INVALID_PARAMETER);
 
     self = (signed_video_t *)calloc(1, sizeof(signed_video_t));
-    SVI_THROW_IF(!self, SV_MEMORY);
+    SV_THROW_IF(!self, SV_MEMORY);
 
     version_str_to_bytes(self->code_version, SIGNED_VIDEO_VERSION);
     self->codec = codec;
     self->last_nalu = (h26x_nalu_t *)calloc(1, sizeof(h26x_nalu_t));
-    SVI_THROW_IF(!self->last_nalu, SV_MEMORY);
+    SV_THROW_IF(!self->last_nalu, SV_MEMORY);
     // Mark the last NALU as complete, hence, no ongoing hashing is present.
     self->last_nalu->is_last_nalu_part = true;
 
@@ -1202,11 +1202,11 @@ signed_video_create(SignedVideoCodec codec)
 
     // Setup crypto handle.
     self->crypto_handle = openssl_create_handle();
-    SVI_THROW_IF(!self->crypto_handle, SV_EXTERNAL_ERROR);
+    SV_THROW_IF(!self->crypto_handle, SV_EXTERNAL_ERROR);
     self->sign_data->hash_size = openssl_get_hash_size(self->crypto_handle);
     self->verify_data->hash_size = openssl_get_hash_size(self->crypto_handle);
     // Make sure the hash size matches the default hash size.
-    SVI_THROW_IF(self->sign_data->hash_size != DEFAULT_HASH_SIZE, SV_EXTERNAL_ERROR);
+    SV_THROW_IF(self->sign_data->hash_size != DEFAULT_HASH_SIZE, SV_EXTERNAL_ERROR);
     SVI_THROW_WITH_MSG(reset_gop_hash(self), "Couldn't reset gop_hash");
 
     // Signing plugin is setup when the private key is set.
@@ -1214,7 +1214,7 @@ signed_video_create(SignedVideoCodec codec)
     // Setup vendor handle.
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     self->vendor_handle = sv_vendor_axis_communications_setup();
-    SVI_THROW_IF(!self->vendor_handle, SV_MEMORY);
+    SV_THROW_IF(!self->vendor_handle, SV_MEMORY);
 #endif
 
   SV_CATCH()
@@ -1234,7 +1234,7 @@ signed_video_reset(signed_video_t *self)
   svi_rc status = SV_UNKNOWN_FAILURE;
 
   SV_TRY()
-    SVI_THROW_IF(!self, SV_INVALID_PARAMETER);
+    SV_THROW_IF(!self, SV_INVALID_PARAMETER);
     DEBUG_LOG("Resetting signed session");
     // Reset session states
     self->signing_started = false;
