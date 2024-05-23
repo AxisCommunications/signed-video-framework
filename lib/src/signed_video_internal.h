@@ -242,12 +242,6 @@ struct _gop_info_t {
 void
 bytes_to_version_str(const int *arr, char *str);
 
-SignedVideoReturnCode
-svi_rc_to_signed_video_rc(svi_rc status);
-
-svi_rc
-sv_rc_to_svi_rc(SignedVideoReturnCode status);
-
 svi_rc
 struct_member_memory_allocated_and_copy(void **member_ptr,
     uint8_t *member_size_ptr,

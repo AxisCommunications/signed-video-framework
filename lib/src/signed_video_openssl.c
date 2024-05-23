@@ -41,7 +41,7 @@
 
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "signed_video_defines.h"
-#include "signed_video_internal.h"  // svi_rc_to_signed_video_rc(), sv_rc_to_svi_rc()
+#include "signed_video_internal.h"  // MAX_HASH_SIZE
 #include "signed_video_openssl_internal.h"
 
 /**
@@ -141,7 +141,7 @@ openssl_private_key_malloc(sign_or_verify_data_t *sign_data,
 
   EVP_PKEY_free(signing_key);
 
-  return svi_rc_to_signed_video_rc(status);
+  return status;
 }
 
 /* Reads the |pem_public_key| which is expected to be on PEM form and creates an EVP_PKEY
@@ -271,7 +271,7 @@ openssl_sign_hash(sign_or_verify_data_t *sign_data)
   SV_CATCH()
   SV_DONE(status)
 
-  return svi_rc_to_signed_video_rc(status);
+  return status;
 }
 
 /* Verifies the |signature|. */
@@ -671,7 +671,7 @@ signed_video_generate_ecdsa_private_key(const char *dir_to_key,
     free(pem_key.key);
   }
 
-  return svi_rc_to_signed_video_rc(status);
+  return status;
 }
 
 SignedVideoReturnCode
@@ -697,7 +697,7 @@ signed_video_generate_rsa_private_key(const char *dir_to_key,
     free(pem_key.key);
   }
 
-  return svi_rc_to_signed_video_rc(status);
+  return status;
 }
 
 /* TO BE DEPRECATED */
