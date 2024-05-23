@@ -69,7 +69,7 @@ h26x_nalu_list_free_items(h26x_nalu_list_t* list);
  *
  * @returns Signed Video Internal Return Code
  */
-svi_rc
+svrc_t
 h26x_nalu_list_append(h26x_nalu_list_t* list, const h26x_nalu_t* nalu);
 
 /**
@@ -84,7 +84,7 @@ h26x_nalu_list_append(h26x_nalu_list_t* list, const h26x_nalu_t* nalu);
  *
  * @returns Signed Video Internal Return Code
  */
-svi_rc
+svrc_t
 h26x_nalu_list_copy_last_item(h26x_nalu_list_t* list, bool hash_algo_known);
 
 /**
@@ -101,7 +101,7 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t* list, bool hash_algo_known);
  *
  * @returns Signed Video Internal Return Code
  */
-svi_rc
+svrc_t
 h26x_nalu_list_add_missing(h26x_nalu_list_t* list,
     int num_missing,
     bool append,

@@ -25,7 +25,7 @@
 
 #include "includes/signed_video_common.h"  // SignedVideoReturnCode
 
-typedef SignedVideoReturnCode svi_rc;
+typedef SignedVideoReturnCode svrc_t;
 
 // Semicolon needed after, ex. DEBUG_LOG("my debug: %d", 42);
 #ifdef SIGNED_VIDEO_DEBUG
@@ -58,7 +58,7 @@ typedef SignedVideoReturnCode svi_rc;
  * SV_THROW_IF(fail_condition, fail_status)
  *     checks |fail_condition| and throws a |fail_status| error.
  * SV_THROW(my_status)
- *     same as SV_THROW_IF(), but with the difference that a svi_rc check is assumed, that is,
+ *     same as SV_THROW_IF(), but with the difference that a svrc_t check is assumed, that is,
  *     simplification of SV_THROW_IF(my_status != SV_OK, my_status)
  *
  * The THROW macros has a version to print a specific error message |fail_msg| upon failure.
@@ -77,19 +77,19 @@ typedef SignedVideoReturnCode svi_rc;
  *
  * Example code:
  *
- * svi_rc
+ * svrc_t
  * example_function(my_struct_t **output_parameter)
  * {
  *   if (!output_parameter) return SV_INVALID_PARAMETER;
  *
  *   my_struct_t *a = NULL;
- *   svi_rc status = SV_UNKNOWN_FAILURE;  // Initiate to something that fails
+ *   svrc_t status = SV_UNKNOWN_FAILURE;  // Initiate to something that fails
  *   SV_TRY()
  *     a = malloc(sizeof(my_struct_t));
  *     SV_THROW_IF(!a, SV_MEMORY);  // Throw without message
  *
  *     int b = -1;
- *     // get_b_value() returns svi_rc
+ *     // get_b_value() returns svrc_t
  *     SV_THROW_WITH_MSG(get_b_value(&b), "Could not get b");
  *
  *     a->b = b;
@@ -105,7 +105,7 @@ typedef SignedVideoReturnCode svi_rc;
  * }
  */
 #define SV_TRY() \
-  svi_rc status_; \
+  svrc_t status_; \
   bool status_set_ = false;
 #define SV_CATCH() \
   catch_error: \

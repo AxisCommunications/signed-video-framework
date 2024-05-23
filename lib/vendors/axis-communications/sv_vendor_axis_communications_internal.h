@@ -29,7 +29,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "signed_video_defines.h"  // svi_rc
+#include "signed_video_defines.h"  // svrc_t
 
 #define SV_VENDOR_AXIS_SER_NO_MAX_LENGTH 20
 /**
@@ -90,7 +90,7 @@ encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, bool e
  *
  * @returns An internal return code to catch potential errors.
  */
-svi_rc
+svrc_t
 decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data_size);
 
 /**
@@ -104,7 +104,7 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
  *
  * @returns An internal return code to catch potential errors.
  */
-svi_rc
+svrc_t
 set_axis_communications_public_key(void *handle,
     void const *public_key,
     bool public_key_has_changed);
@@ -121,7 +121,7 @@ set_axis_communications_public_key(void *handle,
  *
  * @returns An internal return code to catch potential errors.
  */
-svi_rc
+svrc_t
 get_axis_communications_supplemental_authenticity(void *handle,
     sv_vendor_axis_supplemental_authenticity_t **supplemental_authenticity);
 

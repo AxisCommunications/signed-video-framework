@@ -53,51 +53,51 @@ typedef size_t (*sv_tlv_encoder_t)(signed_video_t *, uint8_t *);
  *
  * @returns SV_OK if successful otherwise an error code.
  */
-typedef svi_rc (*sv_tlv_decoder_t)(signed_video_t *, const uint8_t *, size_t);
+typedef svrc_t (*sv_tlv_decoder_t)(signed_video_t *, const uint8_t *, size_t);
 
 /**
  * Declarations of encoder and decoder implementations.
  */
 static size_t
 encode_general(signed_video_t *self, uint8_t *data);
-static svi_rc
+static svrc_t
 decode_general(signed_video_t *self, const uint8_t *data, size_t data_size);
 
 static size_t
 encode_public_key(signed_video_t *self, uint8_t *data);
-static svi_rc
+static svrc_t
 decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size);
 
 static size_t
 encode_arbitrary_data(signed_video_t *self, uint8_t *data);
-static svi_rc
+static svrc_t
 decode_arbitrary_data(signed_video_t *self, const uint8_t *data, size_t data_size);
 
 static size_t
 encode_product_info(signed_video_t *self, uint8_t *data);
-static svi_rc
+static svrc_t
 decode_product_info(signed_video_t *self, const uint8_t *data, size_t data_size);
 
 static size_t
 encode_hash_list(signed_video_t *self, uint8_t *data);
-static svi_rc
+static svrc_t
 decode_hash_list(signed_video_t *self, const uint8_t *data, size_t data_size);
 
 static size_t
 encode_signature(signed_video_t *self, uint8_t *data);
-static svi_rc
+static svrc_t
 decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size);
 
 static size_t
 encode_crypto_info(signed_video_t *self, uint8_t *data);
-static svi_rc
+static svrc_t
 decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size);
 
 // Vendor specific encoders and decoders. Serves as wrappers of vendor specific calls with
 // |vendor_handle| as input.
 static size_t
 encode_axis_communications(signed_video_t *self, uint8_t *data);
-static svi_rc
+static svrc_t
 decode_axis_communications(signed_video_t *self, const uint8_t *data, size_t data_size);
 
 /**
@@ -175,7 +175,7 @@ static sv_tlv_decoder_t
 get_decoder(sv_tlv_tag_t tag);
 static sv_tlv_tuple_t
 get_tlv_tuple(sv_tlv_tag_t tag);
-static svi_rc
+static svrc_t
 decode_tlv_header(const uint8_t *data, size_t *read_data_bytes, sv_tlv_tag_t *tag, size_t *length);
 
 /* Selects and returns the correct decoder from either |tlv_tuples| or |vendor_tlv_tuples|. */
@@ -280,7 +280,7 @@ encode_general(signed_video_t *self, uint8_t *data)
 /**
  * @brief Decodes the GENERAL_TAG from data
  */
-static svi_rc
+static svrc_t
 decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
   if (!self || !data) return SV_INVALID_PARAMETER;
@@ -288,7 +288,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
   const uint8_t *data_ptr = data;
   gop_info_t *gop_info = self->gop_info;
   uint8_t version = *data_ptr++;
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
 
   SV_TRY()
     SV_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
@@ -462,12 +462,12 @@ encode_product_info(signed_video_t *self, uint8_t *data)
  * @param data_size Size of this TLV
  * @param self Session struct
  */
-static svi_rc
+static svrc_t
 decode_product_info(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
   const uint8_t *data_ptr = data;
   uint8_t version = *data_ptr++;
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
 
   if (!self || !self->product_info) return SV_INVALID_PARAMETER;
 
@@ -544,13 +544,13 @@ encode_arbitrary_data(signed_video_t *self, uint8_t *data)
  * @brief Decodes the ARBITRARY_DATA_TAG from data
  *
  */
-static svi_rc
+static svrc_t
 decode_arbitrary_data(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
   const uint8_t *data_ptr = data;
   uint8_t version = *data_ptr++;
   uint16_t arbdata_size = (uint16_t)(data_size - 1);
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
 
   SV_TRY()
     SV_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
@@ -622,7 +622,7 @@ encode_public_key(signed_video_t *self, uint8_t *data)
  * @brief Decodes the PUBLIC_KEY_TAG from data
  *
  */
-static svi_rc
+static svrc_t
 decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
   const uint8_t *data_ptr = data;
@@ -637,7 +637,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     pubkey_size -= 1;
   }
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
     SV_THROW_IF(pubkey_size == 0, SV_AUTHENTICATION_ERROR);
@@ -722,14 +722,14 @@ encode_hash_list(signed_video_t *self, uint8_t *data)
  * @brief Decodes the HASH_LIST_TAG from data
  *
  */
-static svi_rc
+static svrc_t
 decode_hash_list(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
   const uint8_t *data_ptr = data;
   uint8_t version = *data_ptr++;
   size_t hash_list_size = data_size - (data_ptr - data);
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
     SV_THROW_IF_WITH_MSG(
@@ -813,7 +813,7 @@ encode_signature(signed_video_t *self, uint8_t *data)
  * @brief Decodes the SIGNATURE_TAG from data
  *
  */
-static svi_rc
+static svrc_t
 decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
   const uint8_t *data_ptr = data;
@@ -831,7 +831,7 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
   // The rest should now be the allocated size for the signature.
   max_signature_size = data_size - (data_ptr - data);
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
 
   SV_TRY()
     SV_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
@@ -910,7 +910,7 @@ encode_crypto_info(signed_video_t *self, uint8_t *data)
  * @brief Decodes the CRYPTO_INFO_TAG from data
  *
  */
-static svi_rc
+static svrc_t
 decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
   const uint8_t *data_ptr = data;
@@ -918,7 +918,7 @@ decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
   size_t hash_algo_encoded_oid_size = *data_ptr++;
   const unsigned char *hash_algo_encoded_oid = (const unsigned char *)data_ptr;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
     SV_THROW_IF(hash_algo_encoded_oid_size == 0, SV_AUTHENTICATION_ERROR);
@@ -959,7 +959,7 @@ encode_axis_communications(signed_video_t ATTR_UNUSED *self, uint8_t ATTR_UNUSED
  * @brief Decodes the VENDOR_AXIS_COMMUNICATIONS_TAG from data
  *
  */
-static svi_rc
+static svrc_t
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 decode_axis_communications(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
@@ -1052,7 +1052,7 @@ tlv_list_encode_or_get_size(signed_video_t *self,
   return tlv_list_size;
 }
 
-static svi_rc
+static svrc_t
 decode_tlv_header(const uint8_t *data, size_t *read_data_bytes, sv_tlv_tag_t *tag, size_t *length)
 {
   // Sanity checks on input parameters.
@@ -1079,10 +1079,10 @@ decode_tlv_header(const uint8_t *data, size_t *read_data_bytes, sv_tlv_tag_t *ta
   return SV_OK;
 }
 
-svi_rc
+svrc_t
 tlv_decode(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
-  svi_rc status = SV_INVALID_PARAMETER;
+  svrc_t status = SV_INVALID_PARAMETER;
   const uint8_t *data_ptr = data;
 
   if (!self || !data || data_size == 0) return SV_INVALID_PARAMETER;
@@ -1151,7 +1151,7 @@ tlv_find_and_decode_recurrent_tags(signed_video_t *self,
 
   if (!self || !tlv_data || tlv_data_size == 0) return false;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   bool recurrent_tags_decoded = false;
   while (tlv_data_ptr < tlv_data + tlv_data_size) {
     size_t tlv_header_size = 0;

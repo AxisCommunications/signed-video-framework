@@ -124,13 +124,13 @@ typedef struct _sv_vendor_axis_communications_t {
 } sv_vendor_axis_communications_t;
 
 // Declarations of static functions.
-static svi_rc
+static svrc_t
 verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificates);
-static svi_rc
+static svrc_t
 verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self);
-static svi_rc
+static svrc_t
 deserialize_attestation(sv_vendor_axis_communications_t *self);
-static svi_rc
+static svrc_t
 verify_axis_communications_public_key(sv_vendor_axis_communications_t *self);
 static size_t
 get_untrusted_certificates_size(const sv_vendor_axis_communications_t *self);
@@ -141,7 +141,7 @@ get_untrusted_certificates_size(const sv_vendor_axis_communications_t *self);
  *
  * Uses the |trusted_ca| to verify the first certificate in the chain. The last certificate verified
  * is the |attestation_certificate| which will be used to verify the transmitted public key. */
-static svi_rc
+static svrc_t
 verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificates)
 {
   assert(trusted_ca && untrusted_certificates);
@@ -149,7 +149,7 @@ verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificat
   X509_STORE *trust_store = NULL;
   X509_STORE_CTX *ctx = NULL;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     trust_store = X509_STORE_new();
     SV_THROW_IF(!trust_store, SV_EXTERNAL_ERROR);
@@ -187,7 +187,7 @@ verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificat
  * If all goes well, ownership of |md_ctx| is transfered to |self|. Anything that does not follow
  * the expected format will return SV_VENDOR_ERROR.
  */
-static svi_rc
+static svrc_t
 verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
 {
   if (!self || !self->certificate_chain) return SV_INVALID_PARAMETER;
@@ -204,7 +204,7 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
   // Remove the old message digest context.
   EVP_MD_CTX_free(self->md_ctx);
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Create an empty stack of X509 certificates.
     untrusted_certificates = sk_X509_new_null();
@@ -307,7 +307,7 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
  *     - timestamp (12 bytes)
  *     - signature_size (2 bytes)
  *     - signature (|signature_size| bytes) */
-static svi_rc
+static svrc_t
 deserialize_attestation(sv_vendor_axis_communications_t *self)
 {
   assert(self);
@@ -368,7 +368,7 @@ deserialize_attestation(sv_vendor_axis_communications_t *self)
  *   - attributes
  *   - timestamp
  */
-static svi_rc
+static svrc_t
 verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
 {
   assert(self);
@@ -380,7 +380,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
   // Initiate verification to not feasible/error.
   int verified_signature = -1;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // If no message digest context exists, the |public_key| cannot be validated.
     SV_THROW_IF(!self->md_ctx, SV_VENDOR_ERROR);
@@ -599,7 +599,7 @@ encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, bool e
 }
 
 /* Decodes the TLV tag VENDOR_AXIS_COMMUNICATIONS_TAG to the handle data. */
-svi_rc
+svrc_t
 decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data_size)
 {
   if (!handle) return SV_INVALID_PARAMETER;
@@ -610,7 +610,7 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
   uint8_t attestation_size = 0;
   size_t cert_size = 0;
 
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_IF(version != 1, SV_INCOMPATIBLE_VERSION);
     // Read |attestation_size|.
@@ -656,7 +656,7 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
   return status;
 }
 
-svi_rc
+svrc_t
 set_axis_communications_public_key(void *handle,
     const void *public_key,
     bool public_key_has_changed)
@@ -679,7 +679,7 @@ set_axis_communications_public_key(void *handle,
   }
 
   int public_key_validation = self->supplemental_authenticity.public_key_validation;
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Validate that the public key is of correct type and size.
     SV_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
@@ -708,7 +708,7 @@ set_axis_communications_public_key(void *handle,
   return status;
 }
 
-svi_rc
+svrc_t
 get_axis_communications_supplemental_authenticity(void *handle,
     sv_vendor_axis_supplemental_authenticity_t **supplemental_authenticity)
 {
@@ -717,7 +717,7 @@ get_axis_communications_supplemental_authenticity(void *handle,
   sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
 
   // TODO: Fill in the skeleton below step by step.
-  svi_rc status = SV_UNKNOWN_FAILURE;
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW(verify_and_parse_certificate_chain(self));
     SV_THROW(deserialize_attestation(self));

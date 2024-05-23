@@ -26,7 +26,7 @@
 #include <string.h>  // size_t
 
 #include "includes/signed_video_common.h"  // signed_video_t
-#include "signed_video_defines.h"  // svi_rc, sv_tlv_tag_t
+#include "signed_video_defines.h"  // svrc_t, sv_tlv_tag_t
 
 /**
  * @brief Encodes a SEI-nalu payload defined by a list of tags.
@@ -59,7 +59,7 @@ tlv_list_encode_or_get_size(signed_video_t *signed_video,
  *
  * @returns SV_OK if decoding was successful, otherwise an error code.
  */
-svi_rc
+svrc_t
 tlv_decode(signed_video_t *signed_video, const uint8_t *data, size_t data_size);
 
 /**
