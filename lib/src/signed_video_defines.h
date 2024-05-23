@@ -36,9 +36,9 @@ typedef SignedVideoReturnCode svi_rc;
 #endif
 
 // Helpers for the try/catch macros below
-#define SVI_MAYBE_GOTO_CATCH_ERROR() \
+#define SV_MAYBE_GOTO_CATCH_ERROR() \
   if (status_ != SV_OK) goto catch_error;
-#define SVI_MAYBE_GOTO_CATCH_ERROR_WITH_MSG(msg, ...) \
+#define SV_MAYBE_GOTO_CATCH_ERROR_WITH_MSG(msg, ...) \
   if (status_ != SV_OK) { \
     DEBUG_LOG(msg, ##__VA_ARGS__); \
     goto catch_error; \
@@ -63,8 +63,8 @@ typedef SignedVideoReturnCode svi_rc;
  *
  * The THROW macros has a version to print a specific error message |fail_msg| upon failure.
  *
- * SVI_THROW_IF_WITH_MSG(fail_condition, fail_status, fail_msg)
- * SVI_THROW_WITH_MSG(my_status, fail_msg)
+ * SV_THROW_IF_WITH_MSG(fail_condition, fail_status, fail_msg)
+ * SV_THROW_WITH_MSG(my_status, fail_msg)
  *
  * Limitation : The above try/catch macros comes with limitation as given below,
  * 1. Macros need to be called in the particularly defined order as explained in the below example.
@@ -72,7 +72,7 @@ typedef SignedVideoReturnCode svi_rc;
  *    order is "SV_TRY, SV_CATCH and SV_DONE".
  * 3. The macros "SV_TRY, SV_CATCH and SV_DONE" cannot be used standalone. Using SV_TRY means
  *    that SV_CATCH and SV_DONE must be used as well.
- * 4. SV_THROW_IF, SV_THROW, SVI_THROW_IF_WITH_MSG and SVI_THROW_WITH_MSG can be called (single
+ * 4. SV_THROW_IF, SV_THROW, SV_THROW_IF_WITH_MSG and SV_THROW_WITH_MSG can be called (single
  *    or multiple times) in between SV_TRY and SV_CATCH.
  *
  * Example code:
@@ -90,7 +90,7 @@ typedef SignedVideoReturnCode svi_rc;
  *
  *     int b = -1;
  *     // get_b_value() returns svi_rc
- *     SVI_THROW_WITH_MSG(get_b_value(&b), "Could not get b");
+ *     SV_THROW_WITH_MSG(get_b_value(&b), "Could not get b");
  *
  *     a->b = b;
  *   SV_CATCH()
@@ -123,26 +123,26 @@ typedef SignedVideoReturnCode svi_rc;
   do { \
     status_ = (fail_condition) ? (fail_status) : SV_OK; \
     status_set_ = true; \
-    SVI_MAYBE_GOTO_CATCH_ERROR() \
+    SV_MAYBE_GOTO_CATCH_ERROR() \
   } while (0)
 #define SV_THROW(status) \
   do { \
     status_ = (status); \
     status_set_ = true; \
-    SVI_MAYBE_GOTO_CATCH_ERROR() \
+    SV_MAYBE_GOTO_CATCH_ERROR() \
   } while (0)
 
-#define SVI_THROW_IF_WITH_MSG(fail_condition, fail_status, fail_msg, ...) \
+#define SV_THROW_IF_WITH_MSG(fail_condition, fail_status, fail_msg, ...) \
   do { \
     status_ = (fail_condition) ? (fail_status) : SV_OK; \
     status_set_ = true; \
-    SVI_MAYBE_GOTO_CATCH_ERROR_WITH_MSG(fail_msg, ##__VA_ARGS__) \
+    SV_MAYBE_GOTO_CATCH_ERROR_WITH_MSG(fail_msg, ##__VA_ARGS__) \
   } while (0)
-#define SVI_THROW_WITH_MSG(status, fail_msg, ...) \
+#define SV_THROW_WITH_MSG(status, fail_msg, ...) \
   do { \
     status_ = status; \
     status_set_ = true; \
-    SVI_MAYBE_GOTO_CATCH_ERROR_WITH_MSG(fail_msg, ##__VA_ARGS__) \
+    SV_MAYBE_GOTO_CATCH_ERROR_WITH_MSG(fail_msg, ##__VA_ARGS__) \
   } while (0)
 
 /**

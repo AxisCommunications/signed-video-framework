@@ -433,7 +433,7 @@ openssl_set_hash_algo(void *handle, const char *name_or_oid)
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     ASN1_OBJECT *hash_algo_obj = OBJ_txt2obj(name_or_oid, 0 /* Accept both name and OID */);
-    SVI_THROW_IF_WITH_MSG(!hash_algo_obj, SV_INVALID_PARAMETER,
+    SV_THROW_IF_WITH_MSG(!hash_algo_obj, SV_INVALID_PARAMETER,
         "Could not identify hashing algorithm: %s", name_or_oid);
     SV_THROW(obj_to_oid_and_type(&self->hash_algo, hash_algo_obj));
     // Free the context to be able to assign a new message digest type to it.

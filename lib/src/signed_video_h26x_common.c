@@ -1172,10 +1172,10 @@ signed_video_create(SignedVideoCodec codec)
     self->verify_data = sign_or_verify_data_create();
 
     self->product_info = product_info_create();
-    SVI_THROW_IF_WITH_MSG(!self->product_info, SV_MEMORY, "Could not allocate product_info");
+    SV_THROW_IF_WITH_MSG(!self->product_info, SV_MEMORY, "Could not allocate product_info");
 
     self->gop_info = gop_info_create();
-    SVI_THROW_IF_WITH_MSG(!self->gop_info, SV_MEMORY, "Couldn't allocate gop_info");
+    SV_THROW_IF_WITH_MSG(!self->gop_info, SV_MEMORY, "Couldn't allocate gop_info");
 
     self->authenticity_level = DEFAULT_AUTHENTICITY_LEVEL;
 
@@ -1206,7 +1206,7 @@ signed_video_create(SignedVideoCodec codec)
     self->verify_data->hash_size = openssl_get_hash_size(self->crypto_handle);
     // Make sure the hash size matches the default hash size.
     SV_THROW_IF(self->sign_data->hash_size != DEFAULT_HASH_SIZE, SV_EXTERNAL_ERROR);
-    SVI_THROW_WITH_MSG(reset_gop_hash(self), "Couldn't reset gop_hash");
+    SV_THROW_WITH_MSG(reset_gop_hash(self), "Couldn't reset gop_hash");
 
     // Signing plugin is setup when the private key is set.
 
