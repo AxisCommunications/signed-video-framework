@@ -57,7 +57,7 @@ typedef SignedVideoReturnCode svi_rc;
  *
  * SV_THROW_IF(fail_condition, fail_status)
  *     checks |fail_condition| and throws a |fail_status| error.
- * SVI_THROW(my_status)
+ * SV_THROW(my_status)
  *     same as SV_THROW_IF(), but with the difference that a svi_rc check is assumed, that is,
  *     simplification of SV_THROW_IF(my_status != SV_OK, my_status)
  *
@@ -72,7 +72,7 @@ typedef SignedVideoReturnCode svi_rc;
  *    order is "SV_TRY, SV_CATCH and SV_DONE".
  * 3. The macros "SV_TRY, SV_CATCH and SV_DONE" cannot be used standalone. Using SV_TRY means
  *    that SV_CATCH and SV_DONE must be used as well.
- * 4. SV_THROW_IF, SVI_THROW, SVI_THROW_IF_WITH_MSG and SVI_THROW_WITH_MSG can be called (single
+ * 4. SV_THROW_IF, SV_THROW, SVI_THROW_IF_WITH_MSG and SVI_THROW_WITH_MSG can be called (single
  *    or multiple times) in between SV_TRY and SV_CATCH.
  *
  * Example code:
@@ -125,7 +125,7 @@ typedef SignedVideoReturnCode svi_rc;
     status_set_ = true; \
     SVI_MAYBE_GOTO_CATCH_ERROR() \
   } while (0)
-#define SVI_THROW(status) \
+#define SV_THROW(status) \
   do { \
     status_ = (status); \
     status_set_ = true; \

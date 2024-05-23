@@ -229,7 +229,7 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
     }
     SV_THROW_IF(num_certificates > NUM_UNTRUSTED_CERTIFICATES, SV_VENDOR_ERROR);
 
-    SVI_THROW(verify_certificate_chain(self->trusted_ca, untrusted_certificates));
+    SV_THROW(verify_certificate_chain(self->trusted_ca, untrusted_certificates));
 
     // Extract |chip_id| from the |attestation_certificate|.
     X509_NAME *subject = X509_get_subject_name(attestation_certificate);
@@ -719,9 +719,9 @@ get_axis_communications_supplemental_authenticity(void *handle,
   // TODO: Fill in the skeleton below step by step.
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SVI_THROW(verify_and_parse_certificate_chain(self));
-    SVI_THROW(deserialize_attestation(self));
-    SVI_THROW(verify_axis_communications_public_key(self));
+    SV_THROW(verify_and_parse_certificate_chain(self));
+    SV_THROW(deserialize_attestation(self));
+    SV_THROW(verify_axis_communications_public_key(self));
     // Set public key validation information.
 
   SV_CATCH()

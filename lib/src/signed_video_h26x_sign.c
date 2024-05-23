@@ -324,7 +324,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
       h26x_nalu_t nalu_without_signature_data =
           parse_nalu_info(*payload, fake_payload_size, self->codec, false, true);
       // Create a document hash.
-      SVI_THROW(hash_and_add(self, &nalu_without_signature_data));
+      SV_THROW(hash_and_add(self, &nalu_without_signature_data));
       // Note that the "add" part of the hash_and_add() operation above is actually only necessary
       // for SV_AUTHENTICITY_LEVEL_GOP where we need to update the |gop_hash|. For
       // SV_AUTHENTICITY_LEVEL_FRAME adding this hash to the |hash_list| is pointless, since we have
@@ -347,7 +347,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     }
 
     // Reset the gop_hash since we start a new GOP.
-    SVI_THROW(reset_gop_hash(self));
+    SV_THROW(reset_gop_hash(self));
     // Reset the |hash_list| by rewinding the |list_idx| since we start a new GOP.
     gop_info->list_idx = 0;
 
@@ -356,7 +356,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     // Reset the timestamp to avoid including a duplicate in the next SEI.
     gop_info->has_timestamp = false;
 
-    SVI_THROW(sv_rc_to_svi_rc(
+    SV_THROW(sv_rc_to_svi_rc(
         sv_signing_plugin_sign(self->plugin_handle, sign_data->hash, sign_data->hash_size)));
 
   SV_CATCH()
@@ -500,7 +500,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SVI_THROW(prepare_for_nalus_to_prepend(self));
+    SV_THROW(prepare_for_nalus_to_prepend(self));
 
     SV_THROW_IF(nalu.is_valid < 0, SV_INVALID_PARAMETER);
 
@@ -513,7 +513,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       self->frame_count++;  // It is ok for this variable to wrap around
     }
 
-    SVI_THROW(hash_and_add(self, &nalu));
+    SV_THROW(hash_and_add(self, &nalu));
     // Depending on the input NALU, we need to take different actions. If the input is an I-NALU we
     // have a transition to a new GOP. Then we need to generate the necessary SEI-NALU(s) and put in
     // prepend_list. For all other valid NALUs, simply hash and proceed.
@@ -531,13 +531,13 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       uint8_t *payload_signature_ptr = NULL;
       signing_present = 0;  // About to add SEI NALUs.
 
-      SVI_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
+      SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
       // Add |payload| to buffer. Will be picked up again when the signature has been generated.
       add_payload_to_buffer(self, payload, payload_signature_ptr);
       // Now we are done with the previous GOP. The gop_hash was reset right after signing and
       // adding it to the SEI NALU. Now it is time to start a new GOP, that is, hash and add this
       // first NALU of the GOP.
-      SVI_THROW(hash_and_add(self, &nalu));
+      SV_THROW(hash_and_add(self, &nalu));
     }
 
     // Only add a SEI if the current NALU is the primary picture NALU and of course if signing is
@@ -547,7 +547,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
       while (sv_signing_plugin_get_signature(self->plugin_handle, sign_data->signature,
           sign_data->max_signature_size, &sign_data->signature_size, &signature_error)) {
-        SVI_THROW(sv_rc_to_svi_rc(signature_error));
+        SV_THROW(sv_rc_to_svi_rc(signature_error));
 #ifdef SIGNED_VIDEO_DEBUG
         // TODO: This might not work for blocked signatures, that is if the hash in
         // |sign_data| does not correspond to the copied |signature|.
@@ -561,7 +561,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
             .max_signature_size = sign_data->max_signature_size,
         };
         // Convert the public key to EVP_PKEY for verification. Normally done upon validation.
-        SVI_THROW(openssl_public_key_malloc(&verify_data, &self->pem_public_key));
+        SV_THROW(openssl_public_key_malloc(&verify_data, &self->pem_public_key));
         // Verify the just signed hash.
         int verified = -1;
         SVI_THROW_WITH_MSG(
@@ -569,7 +569,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
         openssl_free_key(verify_data.key);
         SVI_THROW_IF_WITH_MSG(verified != 1, SV_EXTERNAL_ERROR, "Verification test failed");
 #endif
-        SVI_THROW(complete_sei_nalu_and_add_to_prepend(self));
+        SV_THROW(complete_sei_nalu_and_add_to_prepend(self));
         signing_present = 1;  // At least one SEI NALU present.
       }
     }
@@ -664,16 +664,16 @@ signed_video_set_end_of_stream(signed_video_t *self)
   uint8_t *payload_signature_ptr = NULL;
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SVI_THROW(prepare_for_nalus_to_prepend(self));
-    SVI_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
+    SV_THROW(prepare_for_nalus_to_prepend(self));
+    SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
     add_payload_to_buffer(self, payload, payload_signature_ptr);
     // Fetch the signature. If it is not ready we exit without generating the SEI.
     sign_or_verify_data_t *sign_data = self->sign_data;
     SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
     while (sv_signing_plugin_get_signature(self->plugin_handle, sign_data->signature,
         sign_data->max_signature_size, &sign_data->signature_size, &signature_error)) {
-      SVI_THROW(sv_rc_to_svi_rc(signature_error));
-      SVI_THROW(complete_sei_nalu_and_add_to_prepend(self));
+      SV_THROW(sv_rc_to_svi_rc(signature_error));
+      SV_THROW(complete_sei_nalu_and_add_to_prepend(self));
     }
 
   SV_CATCH()
@@ -696,8 +696,8 @@ signed_video_generate_golden_sei(signed_video_t *self)
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SVI_THROW(prepare_for_nalus_to_prepend(self));
-    SVI_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
+    SV_THROW(prepare_for_nalus_to_prepend(self));
+    SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
     add_payload_to_buffer(self, payload, payload_signature_ptr);
 
     // Note: From here, this is a temporary solution. It will only work unthreaded.
@@ -706,8 +706,8 @@ signed_video_generate_golden_sei(signed_video_t *self)
     sign_or_verify_data_t *sign_data = self->sign_data;
     while (sv_signing_plugin_get_signature(self->plugin_handle, sign_data->signature,
         sign_data->max_signature_size, &sign_data->signature_size, &signature_error)) {
-      SVI_THROW(sv_rc_to_svi_rc(signature_error));
-      SVI_THROW(complete_sei_nalu_and_add_to_prepend(self));
+      SV_THROW(sv_rc_to_svi_rc(signature_error));
+      SV_THROW(complete_sei_nalu_and_add_to_prepend(self));
     }
 
   SV_CATCH()
@@ -732,11 +732,11 @@ signed_video_set_product_info(signed_video_t *self,
 
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SVI_THROW(allocate_memory_and_copy_string(&product_info->hardware_id, hardware_id));
-    SVI_THROW(allocate_memory_and_copy_string(&product_info->firmware_version, firmware_version));
-    SVI_THROW(allocate_memory_and_copy_string(&product_info->serial_number, serial_number));
-    SVI_THROW(allocate_memory_and_copy_string(&product_info->manufacturer, manufacturer));
-    SVI_THROW(allocate_memory_and_copy_string(&product_info->address, address));
+    SV_THROW(allocate_memory_and_copy_string(&product_info->hardware_id, hardware_id));
+    SV_THROW(allocate_memory_and_copy_string(&product_info->firmware_version, firmware_version));
+    SV_THROW(allocate_memory_and_copy_string(&product_info->serial_number, serial_number));
+    SV_THROW(allocate_memory_and_copy_string(&product_info->manufacturer, manufacturer));
+    SV_THROW(allocate_memory_and_copy_string(&product_info->address, address));
   SV_CATCH()
   {
     product_info_free_members(product_info);
@@ -756,9 +756,9 @@ signed_video_set_private_key_new(signed_video_t *self,
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Temporally turn the PEM |private_key| into an EVP_PKEY and allocate memory for signatures.
-    SVI_THROW(sv_rc_to_svi_rc(
+    SV_THROW(sv_rc_to_svi_rc(
         openssl_private_key_malloc(self->sign_data, private_key, private_key_size)));
-    SVI_THROW(openssl_read_pubkey_from_private_key(self->sign_data, &self->pem_public_key));
+    SV_THROW(openssl_read_pubkey_from_private_key(self->sign_data, &self->pem_public_key));
 
     self->plugin_handle = sv_signing_plugin_session_setup(private_key, private_key_size);
     SV_THROW_IF(!self->plugin_handle, SV_EXTERNAL_ERROR);
@@ -849,7 +849,7 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid)
   size_t hash_size = 0;
   svi_rc status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SVI_THROW(openssl_set_hash_algo(self->crypto_handle, name_or_oid));
+    SV_THROW(openssl_set_hash_algo(self->crypto_handle, name_or_oid));
     hash_size = openssl_get_hash_size(self->crypto_handle);
     SV_THROW_IF(hash_size == 0 || hash_size > MAX_HASH_SIZE, SV_NOT_SUPPORTED);
 

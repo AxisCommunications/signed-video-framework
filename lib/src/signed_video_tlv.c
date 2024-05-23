@@ -477,29 +477,28 @@ decode_product_info(signed_video_t *self, const uint8_t *data, size_t data_size)
     signed_video_product_info_t *product_info = self->product_info;
 
     uint8_t hardware_id_size = *data_ptr++;
-    SVI_THROW(allocate_memory_and_copy_string(&product_info->hardware_id, (const char *)data_ptr));
+    SV_THROW(allocate_memory_and_copy_string(&product_info->hardware_id, (const char *)data_ptr));
     data_ptr += hardware_id_size;
 
     uint8_t firmware_version_size = *data_ptr++;
-    SVI_THROW(
+    SV_THROW(
         allocate_memory_and_copy_string(&product_info->firmware_version, (const char *)data_ptr));
     data_ptr += firmware_version_size;
 
     uint8_t serial_number_size = *data_ptr++;
-    SVI_THROW(
-        allocate_memory_and_copy_string(&product_info->serial_number, (const char *)data_ptr));
+    SV_THROW(allocate_memory_and_copy_string(&product_info->serial_number, (const char *)data_ptr));
     data_ptr += serial_number_size;
 
     uint8_t manufacturer_size = *data_ptr++;
-    SVI_THROW(allocate_memory_and_copy_string(&product_info->manufacturer, (const char *)data_ptr));
+    SV_THROW(allocate_memory_and_copy_string(&product_info->manufacturer, (const char *)data_ptr));
     data_ptr += manufacturer_size;
 
     uint8_t address_size = *data_ptr++;
-    SVI_THROW(allocate_memory_and_copy_string(&product_info->address, (const char *)data_ptr));
+    SV_THROW(allocate_memory_and_copy_string(&product_info->address, (const char *)data_ptr));
     data_ptr += address_size;
 
     // Transfer the decoded |product_info| to the authenticity report.
-    SVI_THROW(transfer_product_info(&self->authenticity->product_info, product_info));
+    SV_THROW(transfer_product_info(&self->authenticity->product_info, product_info));
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
 
@@ -659,7 +658,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     data_ptr += pubkey_size;
 
     // Convert to EVP_PKEY
-    SVI_THROW(openssl_public_key_malloc(self->verify_data, &self->pem_public_key));
+    SV_THROW(openssl_public_key_malloc(self->verify_data, &self->pem_public_key));
 
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // If "Axis Communications AB" can be identified from the |product_info|, set |public_key| to
@@ -667,7 +666,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     if (self->product_info->manufacturer &&
         strcmp(self->product_info->manufacturer, "Axis Communications AB") == 0) {
       // Set public key.
-      SVI_THROW(set_axis_communications_public_key(self->vendor_handle, self->verify_data->key,
+      SV_THROW(set_axis_communications_public_key(self->vendor_handle, self->verify_data->key,
           self->latest_validation->public_key_has_changed));
     }
 #endif
@@ -923,7 +922,7 @@ decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
   SV_TRY()
     SV_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
     SV_THROW_IF(hash_algo_encoded_oid_size == 0, SV_AUTHENTICATION_ERROR);
-    SVI_THROW(openssl_set_hash_algo_by_encoded_oid(
+    SV_THROW(openssl_set_hash_algo_by_encoded_oid(
         self->crypto_handle, hash_algo_encoded_oid, hash_algo_encoded_oid_size));
     self->validation_flags.hash_algo_known = true;
     self->verify_data->hash_size = openssl_get_hash_size(self->crypto_handle);
