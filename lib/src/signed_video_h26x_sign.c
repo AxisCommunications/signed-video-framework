@@ -75,7 +75,7 @@ h26x_set_nal_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDT
 void
 free_sei_data_buffer(sei_data_t sei_data_buffer[])
 {
-  for (int i = 0; i < MAX_NALUS_TO_PREPEND; i++) {
+  for (int i = 0; i < MAX_SEI_DATA_BUFFER; i++) {
     free(sei_data_buffer[i].sei);
     sei_data_buffer[i].sei = NULL;
     sei_data_buffer[i].write_position = NULL;
@@ -89,7 +89,7 @@ add_payload_to_buffer(signed_video_t *self, uint8_t *payload, uint8_t *payload_s
 {
   assert(self);
 
-  if (self->sei_data_buffer_idx >= MAX_NALUS_TO_PREPEND) {
+  if (self->sei_data_buffer_idx >= MAX_SEI_DATA_BUFFER) {
     // Not enough space for this payload. Free the memory and return.
     free(payload);
     return;
@@ -112,7 +112,7 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   if (self->sei_data_buffer_idx < 1) return SV_NOT_SUPPORTED;
 
   // Get the oldest sei data
-  assert(self->sei_data_buffer_idx <= MAX_NALUS_TO_PREPEND);
+  assert(self->sei_data_buffer_idx <= MAX_SEI_DATA_BUFFER);
   svrc_t status = SV_UNKNOWN_FAILURE;
   sei_data_t *sei_data = &(self->sei_data_buffer[self->num_of_completed_seis]);
   // Transfer oldest pointer in |payload_buffer| to local |payload|
@@ -206,7 +206,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     return SV_OK;
   }
 
-  if (self->sei_data_buffer_idx >= MAX_NALUS_TO_PREPEND) {
+  if (self->sei_data_buffer_idx >= MAX_SEI_DATA_BUFFER) {
     // Not enough space for this payload.
     return SV_NOT_SUPPORTED;
   }
