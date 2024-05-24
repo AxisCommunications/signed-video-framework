@@ -33,12 +33,6 @@
 #include "sv_tlv.h"
 #include "sv_vendor_axis_communications_internal.h"
 
-// List of TLV encoders to include in SEI.
-#define AXIS_COMMUNICATIONS_NUM_ENCODERS 1
-static const sv_tlv_tag_t axis_communications_encoders[AXIS_COMMUNICATIONS_NUM_ENCODERS] = {
-    VENDOR_AXIS_COMMUNICATIONS_TAG,
-};
-
 #define NUM_UNTRUSTED_CERTIFICATES 2  // |certificate_chain| has 2 untrusted certificates.
 #define CHIP_ID_SIZE 18
 #define CHIP_ID_PREFIX_SIZE 4
@@ -875,9 +869,6 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
     self->factory_provisioned = true;
     sv->add_public_key_to_sei = false;
   }
-
-  sv->vendor_encoders = axis_communications_encoders;
-  sv->num_vendor_encoders = AXIS_COMMUNICATIONS_NUM_ENCODERS;
 
   return SV_OK;
 

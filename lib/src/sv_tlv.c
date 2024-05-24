@@ -141,6 +141,7 @@ static const sv_tlv_tag_t optional_tags[] = {
     PUBLIC_KEY_TAG,
     PRODUCT_INFO_TAG,
     CRYPTO_INFO_TAG,
+    VENDOR_AXIS_COMMUNICATIONS_TAG,
 };
 
 /*

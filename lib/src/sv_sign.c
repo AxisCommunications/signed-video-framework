@@ -194,7 +194,6 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
   size_t optional_tags_size = 0;
   size_t mandatory_tags_size = 0;
   size_t gop_info_size = 0;
-  size_t vendor_size = 0;
   size_t sei_buffer_size = 0;
   const size_t num_gop_encoders = ARRAY_SIZE(gop_info_encoders);
 
@@ -218,12 +217,8 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
         tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, NULL);
     if (self->is_golden_sei) mandatory_tags_size = 0;
     gop_info_size = tlv_list_encode_or_get_size(self, gop_info_encoders, num_gop_encoders, NULL);
-    if (self->num_vendor_encoders > 0 && self->vendor_encoders) {
-      vendor_size =
-          tlv_list_encode_or_get_size(self, self->vendor_encoders, self->num_vendor_encoders, NULL);
-    }
 
-    payload_size = gop_info_size + vendor_size + optional_tags_size + mandatory_tags_size;
+    payload_size = gop_info_size + optional_tags_size + mandatory_tags_size;
     payload_size += UUID_LEN;  // UUID
     payload_size += 1;  // One byte for reserved data.
     if ((self->max_sei_payload_size > 0) && (payload_size > self->max_sei_payload_size) &&
@@ -340,13 +335,6 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
     if (mandatory_tags_size > 0) {
       written_size =
           tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, payload_ptr);
-      SV_THROW_IF(written_size == 0, SV_MEMORY);
-      payload_ptr += written_size;
-    }
-
-    if (vendor_size > 0) {
-      written_size = tlv_list_encode_or_get_size(
-          self, self->vendor_encoders, self->num_vendor_encoders, payload_ptr);
       SV_THROW_IF(written_size == 0, SV_MEMORY);
       payload_ptr += written_size;
     }
