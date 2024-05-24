@@ -959,13 +959,12 @@ prepare_for_validation(signed_video_t *self)
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // If "Axis Communications AB" can be identified from the |product_info|, get
     // |supplemental_authenticity| from |vendor_handle|.
-    if (self->product_info->manufacturer &&
-        strcmp(self->product_info->manufacturer, "Axis Communications AB") == 0) {
+    if (strcmp(self->product_info.manufacturer, "Axis Communications AB") == 0) {
 
       sv_vendor_axis_supplemental_authenticity_t *supplemental_authenticity = NULL;
       SV_THROW(get_axis_communications_supplemental_authenticity(
           self->vendor_handle, &supplemental_authenticity));
-      if (strcmp(self->product_info->serial_number, supplemental_authenticity->serial_number)) {
+      if (strcmp(self->product_info.serial_number, supplemental_authenticity->serial_number)) {
         self->latest_validation->public_key_validation = SV_PUBKEY_VALIDATION_NOT_OK;
       } else {
         // Convert to SignedVideoPublicKeyValidation

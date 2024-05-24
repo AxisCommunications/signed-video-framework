@@ -390,10 +390,9 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
 static size_t
 encode_product_info(signed_video_t *self, uint8_t *data)
 {
-  signed_video_product_info_t *product_info = self->product_info;
+  signed_video_product_info_t *product_info = &self->product_info;
   size_t data_size = 0;
-  const uint8_t version = 1;
-  const uint8_t kFullByte = 255;
+  const uint8_t version = 2;
 
   // Value fields:
   //  - version (1 byte)
@@ -410,106 +409,60 @@ encode_product_info(signed_video_t *self, uint8_t *data)
 
   data_size += sizeof(version);
 
-  // Determine sizes including null-terminated character and truncate to fit in one byte.
+  // Determine sizes excluding null-terminated character
   data_size += 1;
-  size_t hardware_id_size = product_info->hardware_id ? strlen(product_info->hardware_id) + 1 : 1;
-  bool hardware_id_too_long = (hardware_id_size > kFullByte);
-  const uint8_t hardware_id_size_onebyte =
-      hardware_id_too_long ? kFullByte : (uint8_t)hardware_id_size;
-  data_size += hardware_id_size_onebyte;
+  size_t hardware_id_size = strlen(product_info->hardware_id);
+  data_size += hardware_id_size;
 
   data_size += 1;
-  size_t firmware_version_size =
-      product_info->firmware_version ? strlen(product_info->firmware_version) + 1 : 1;
-  bool firmware_version_too_long = (firmware_version_size > kFullByte);
-  const uint8_t firmware_version_size_onebyte =
-      firmware_version_too_long ? kFullByte : (uint8_t)firmware_version_size;
-  data_size += firmware_version_size_onebyte;
+  size_t firmware_version_size = strlen(product_info->firmware_version);
+  data_size += firmware_version_size;
 
   data_size += 1;
-  size_t serial_number_size =
-      product_info->serial_number ? strlen(product_info->serial_number) + 1 : 1;
-  bool serial_number_too_long = (serial_number_size > kFullByte);
-  const uint8_t serial_number_size_onebyte =
-      serial_number_too_long ? kFullByte : (uint8_t)serial_number_size;
-  data_size += serial_number_size_onebyte;
+  size_t serial_number_size = strlen(product_info->serial_number);
+  data_size += serial_number_size;
 
   data_size += 1;
-  size_t manufacturer_size =
-      product_info->manufacturer ? strlen(product_info->manufacturer) + 1 : 1;
-  bool manufacturer_too_long = (manufacturer_size > kFullByte);
-  const uint8_t manufacturer_size_onebyte =
-      manufacturer_too_long ? kFullByte : (uint8_t)manufacturer_size;
-  data_size += manufacturer_size_onebyte;
+  size_t manufacturer_size = strlen(product_info->manufacturer);
+  data_size += manufacturer_size;
 
   data_size += 1;
-  size_t address_size = product_info->address ? strlen(product_info->address) + 1 : 1;
-  bool address_too_long = (address_size > kFullByte);
-  const uint8_t address_size_onebyte = address_too_long ? kFullByte : (uint8_t)address_size;
-  data_size += address_size_onebyte;
+  size_t address_size = strlen(product_info->address);
+  data_size += address_size;
 
   if (!data) return data_size;
 
   uint8_t *data_ptr = data;
   uint16_t *last_two_bytes = &self->last_two_bytes;
   bool epb = self->sei_epb;
-  uint8_t str_end_byte = '\0';
   // Version
   write_byte(last_two_bytes, &data_ptr, version, epb);
 
-  // Write |hardware_id|.
-  write_byte(last_two_bytes, &data_ptr, hardware_id_size_onebyte, epb);
-  // Write all but the last character.
+  // Write |hardware_id|, i.e., size + string.
+  write_byte(last_two_bytes, &data_ptr, hardware_id_size, epb);
+  // Write all but the null-terminated character.
+  write_byte_many(&data_ptr, product_info->hardware_id, hardware_id_size, last_two_bytes, epb);
+
+  // Write |firmware_version|, i.e., size + string.
+  write_byte(last_two_bytes, &data_ptr, firmware_version_size, epb);
+  // Write all but the null-terminated character.
   write_byte_many(
-      &data_ptr, product_info->hardware_id, hardware_id_size_onebyte - 1, last_two_bytes, epb);
-  // Determine and write the last character.
-  str_end_byte = (hardware_id_too_long || !product_info->hardware_id)
-      ? '\0'
-      : product_info->hardware_id[hardware_id_size_onebyte - 1];
-  write_byte(last_two_bytes, &data_ptr, str_end_byte, epb);
+      &data_ptr, product_info->firmware_version, firmware_version_size, last_two_bytes, epb);
 
-  // Write |firmware_version|.
-  write_byte(last_two_bytes, &data_ptr, firmware_version_size_onebyte, epb);
-  // Write all but the last character.
-  write_byte_many(&data_ptr, product_info->firmware_version, firmware_version_size_onebyte - 1,
-      last_two_bytes, epb);
-  // Determine and write the last character.
-  str_end_byte = (firmware_version_too_long || !product_info->firmware_version)
-      ? '\0'
-      : product_info->firmware_version[firmware_version_size_onebyte - 1];
-  write_byte(last_two_bytes, &data_ptr, str_end_byte, epb);
+  // Write |serial_number|, i.e., size + string.
+  write_byte(last_two_bytes, &data_ptr, serial_number_size, epb);
+  // Write all but the null-terminated character.
+  write_byte_many(&data_ptr, product_info->serial_number, serial_number_size, last_two_bytes, epb);
 
-  // Write |serial_number|.
-  write_byte(last_two_bytes, &data_ptr, serial_number_size_onebyte, epb);
-  // Write all but the last character.
-  write_byte_many(
-      &data_ptr, product_info->serial_number, serial_number_size_onebyte - 1, last_two_bytes, epb);
-  // Determine and write the last character.
-  str_end_byte = (serial_number_too_long || !product_info->serial_number)
-      ? '\0'
-      : product_info->serial_number[serial_number_size_onebyte - 1];
-  write_byte(last_two_bytes, &data_ptr, str_end_byte, epb);
+  // Write |manufacturer|, i.e., size + string.
+  write_byte(last_two_bytes, &data_ptr, manufacturer_size, epb);
+  // Write all but the null-terminated character.
+  write_byte_many(&data_ptr, product_info->manufacturer, manufacturer_size, last_two_bytes, epb);
 
-  // Write |manufacturer|.
-  write_byte(last_two_bytes, &data_ptr, manufacturer_size_onebyte, epb);
-  // Write all but the last character.
-  write_byte_many(
-      &data_ptr, product_info->manufacturer, manufacturer_size_onebyte - 1, last_two_bytes, epb);
-  // Determine and write the last character.
-  str_end_byte = (manufacturer_too_long || !product_info->manufacturer)
-      ? '\0'
-      : product_info->manufacturer[manufacturer_size_onebyte - 1];
-  write_byte(last_two_bytes, &data_ptr, str_end_byte, epb);
-
-  // Write |address|.
-  write_byte(last_two_bytes, &data_ptr, address_size_onebyte, epb);
-  // Write all but the last character.
-  write_byte_many(&data_ptr, product_info->address, address_size_onebyte - 1, last_two_bytes, epb);
-  // Determine and write the last character.
-  str_end_byte = (address_too_long || !product_info->address)
-      ? '\0'
-      : product_info->address[address_size_onebyte - 1];
-  write_byte(last_two_bytes, &data_ptr, str_end_byte, epb);
+  // Write |address|, i.e., size + string.
+  write_byte(last_two_bytes, &data_ptr, address_size, epb);
+  // Write all but the null-terminated character.
+  write_byte_many(&data_ptr, product_info->address, address_size, last_two_bytes, epb);
 
   return (data_ptr - data);
 }
@@ -524,32 +477,42 @@ decode_product_info(signed_video_t *self, const uint8_t *data, size_t data_size)
   uint8_t version = *data_ptr++;
   svrc_t status = SV_UNKNOWN_FAILURE;
 
-  if (!self || !self->product_info) return SV_INVALID_PARAMETER;
+  if (!self) return SV_INVALID_PARAMETER;
 
   SV_TRY()
-    SV_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
+    SV_THROW_IF(version < 1 || version > 2, SV_INCOMPATIBLE_VERSION);
 
-    signed_video_product_info_t *product_info = self->product_info;
+    signed_video_product_info_t *product_info = &self->product_info;
+
+    product_info_reset_members(product_info);
 
     uint8_t hardware_id_size = *data_ptr++;
-    SV_THROW(allocate_memory_and_copy_string(&product_info->hardware_id, (const char *)data_ptr));
+    memcpy(product_info->hardware_id, (const char *)data_ptr, hardware_id_size);
+    // Note that version 1 writes |hardware_id| including null-terminated character.
+    // Adding another one after the string does not affect its content. Therefore, there
+    // is no need to treat version 1 separately. This holds for all members in
+    // |product_info|.
+    product_info->hardware_id[hardware_id_size] = '\0';
     data_ptr += hardware_id_size;
 
     uint8_t firmware_version_size = *data_ptr++;
-    SV_THROW(
-        allocate_memory_and_copy_string(&product_info->firmware_version, (const char *)data_ptr));
+    memcpy(product_info->firmware_version, (const char *)data_ptr, firmware_version_size);
+    product_info->firmware_version[firmware_version_size] = '\0';
     data_ptr += firmware_version_size;
 
     uint8_t serial_number_size = *data_ptr++;
-    SV_THROW(allocate_memory_and_copy_string(&product_info->serial_number, (const char *)data_ptr));
+    memcpy(product_info->serial_number, (const char *)data_ptr, serial_number_size);
+    product_info->serial_number[serial_number_size] = '\0';
     data_ptr += serial_number_size;
 
     uint8_t manufacturer_size = *data_ptr++;
-    SV_THROW(allocate_memory_and_copy_string(&product_info->manufacturer, (const char *)data_ptr));
+    memcpy(product_info->manufacturer, (const char *)data_ptr, manufacturer_size);
+    product_info->manufacturer[manufacturer_size] = '\0';
     data_ptr += manufacturer_size;
 
     uint8_t address_size = *data_ptr++;
-    SV_THROW(allocate_memory_and_copy_string(&product_info->address, (const char *)data_ptr));
+    memcpy(product_info->address, (const char *)data_ptr, address_size);
+    product_info->address[address_size] = '\0';
     data_ptr += address_size;
 
     // Transfer the decoded |product_info| to the authenticity report.
@@ -735,8 +698,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // If "Axis Communications AB" can be identified from the |product_info|, set |public_key| to
     // |vendor_handle|.
-    if (self->product_info->manufacturer &&
-        strcmp(self->product_info->manufacturer, "Axis Communications AB") == 0) {
+    if (strcmp(self->product_info.manufacturer, "Axis Communications AB") == 0) {
       // Set public key.
       SV_THROW(set_axis_communications_public_key(self->vendor_handle, self->verify_data->key,
           self->latest_validation->public_key_has_changed));

@@ -189,13 +189,16 @@ typedef struct {
 
 /**
  * Struct for holding strings to selected product information
+ *
+ * Note that the SEIs can only handle string lengths that can be represented by one byte,
+ * that is, up to 255 character strings. If longer names are set, they will be truncated.
  */
 typedef struct {
-  char *hardware_id;  // Hardware ID
-  char *firmware_version;  // Firmware version
-  char *serial_number;  // Serial number
-  char *manufacturer;  // Manufacturer
-  char *address;  // Address to manufacturer, contact info like url/email/mail address.
+  char hardware_id[256];  // Hardware ID
+  char firmware_version[256];  // Firmware version
+  char serial_number[256];  // Serial number
+  char manufacturer[256];  // Manufacturer
+  char address[256];  // Address to manufacturer, contact info like url/email/mail address.
 } signed_video_product_info_t;
 
 /**

@@ -253,24 +253,33 @@ legacy_decode_product_info(legacy_sv_t *self, const uint8_t *data, size_t data_s
     signed_video_product_info_t *product_info = self->product_info;
 
     uint8_t hardware_id_size = *data_ptr++;
-    SV_THROW(allocate_memory_and_copy_string(&product_info->hardware_id, (const char *)data_ptr));
+    strncpy(product_info->hardware_id, (const char *)data_ptr, hardware_id_size);
+    // Note that all legacy video have been recorded with version 1 which writes
+    // |hardware_id| including null-terminated character. Adding another null-terminated
+    // character after the string does not affect its content. Therefore, there is no need
+    // to treat the legacy code differently from the code in the main library. This holds
+    // for all members in |product_info|.
+    product_info->hardware_id[hardware_id_size] = '\0';
     data_ptr += hardware_id_size;
 
     uint8_t firmware_version_size = *data_ptr++;
-    SV_THROW(
-        allocate_memory_and_copy_string(&product_info->firmware_version, (const char *)data_ptr));
+    strncpy(product_info->firmware_version, (const char *)data_ptr, firmware_version_size);
+    product_info->firmware_version[firmware_version_size] = '\0';
     data_ptr += firmware_version_size;
 
     uint8_t serial_number_size = *data_ptr++;
-    SV_THROW(allocate_memory_and_copy_string(&product_info->serial_number, (const char *)data_ptr));
+    strncpy(product_info->serial_number, (const char *)data_ptr, serial_number_size);
+    product_info->serial_number[serial_number_size] = '\0';
     data_ptr += serial_number_size;
 
     uint8_t manufacturer_size = *data_ptr++;
-    SV_THROW(allocate_memory_and_copy_string(&product_info->manufacturer, (const char *)data_ptr));
+    strncpy(product_info->manufacturer, (const char *)data_ptr, manufacturer_size);
+    product_info->manufacturer[manufacturer_size] = '\0';
     data_ptr += manufacturer_size;
 
     uint8_t address_size = *data_ptr++;
-    SV_THROW(allocate_memory_and_copy_string(&product_info->address, (const char *)data_ptr));
+    strncpy(product_info->address, (const char *)data_ptr, address_size);
+    product_info->address[address_size] = '\0';
     data_ptr += address_size;
 
     // Transfer the decoded |product_info| to the authenticity report.
@@ -375,8 +384,7 @@ legacy_decode_public_key(legacy_sv_t *self, const uint8_t *data, size_t data_siz
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // If "Axis Communications AB" can be identified from the |product_info|, set |public_key| to
     // |vendor_handle|.
-    if (self->product_info->manufacturer &&
-        strcmp(self->product_info->manufacturer, "Axis Communications AB") == 0) {
+    if (strcmp(self->product_info->manufacturer, "Axis Communications AB") == 0) {
       // Set public key.
       SV_THROW(set_axis_communications_public_key(self->vendor_handle, self->verify_data->key,
           self->latest_validation->public_key_has_changed));

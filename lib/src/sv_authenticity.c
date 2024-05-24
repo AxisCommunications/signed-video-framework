@@ -89,17 +89,15 @@ transfer_product_info(signed_video_product_info_t *dst, const signed_video_produ
   // SV_OK.
   if (!src || !dst) return SV_OK;
 
-  svrc_t status = SV_UNKNOWN_FAILURE;
-  SV_TRY()
-    SV_THROW(allocate_memory_and_copy_string(&dst->hardware_id, src->hardware_id));
-    SV_THROW(allocate_memory_and_copy_string(&dst->firmware_version, src->firmware_version));
-    SV_THROW(allocate_memory_and_copy_string(&dst->serial_number, src->serial_number));
-    SV_THROW(allocate_memory_and_copy_string(&dst->manufacturer, src->manufacturer));
-    SV_THROW(allocate_memory_and_copy_string(&dst->address, src->address));
-  SV_CATCH()
-  SV_DONE(status)
+  product_info_reset_members(dst);
 
-  return status;
+  strcpy(dst->hardware_id, src->hardware_id);
+  strcpy(dst->firmware_version, src->firmware_version);
+  strcpy(dst->serial_number, src->serial_number);
+  strcpy(dst->manufacturer, src->manufacturer);
+  strcpy(dst->address, src->address);
+
+  return SV_OK;
 }
 
 static svrc_t
@@ -359,7 +357,7 @@ create_local_authenticity_report_if_needed(signed_video_t *self)
     signed_video_authenticity_t *auth_report = signed_video_authenticity_report_create();
     SV_THROW_IF(auth_report == NULL, SV_MEMORY);
     // Transfer |product_info| from |self|.
-    SV_THROW(transfer_product_info(&auth_report->product_info, self->product_info));
+    SV_THROW(transfer_product_info(&auth_report->product_info, &self->product_info));
 
     self->authenticity = auth_report;
     set_authenticity_shortcuts(self);
@@ -391,8 +389,6 @@ signed_video_authenticity_report_free(signed_video_authenticity_t *authenticity_
   if (!authenticity_report) return;
 
   // Free the memory.
-  product_info_free_members(&authenticity_report->product_info);
-
   free(authenticity_report->version_on_signing_side);
   free(authenticity_report->this_version);
   free(authenticity_report->latest_validation.nalu_str);

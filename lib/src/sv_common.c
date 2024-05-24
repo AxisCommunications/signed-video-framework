@@ -158,29 +158,6 @@ sign_or_verify_data_free(sign_or_verify_data_t *self)
   free(self);
 }
 
-static signed_video_product_info_t *
-product_info_create()
-{
-  return (signed_video_product_info_t *)calloc(1, sizeof(signed_video_product_info_t));
-}
-
-void
-product_info_free_members(signed_video_product_info_t *product_info)
-{
-  if (product_info) {
-    free(product_info->hardware_id);
-    product_info->hardware_id = NULL;
-    free(product_info->firmware_version);
-    product_info->firmware_version = NULL;
-    free(product_info->serial_number);
-    product_info->serial_number = NULL;
-    free(product_info->manufacturer);
-    product_info->manufacturer = NULL;
-    free(product_info->address);
-    product_info->address = NULL;
-  }
-}
-
 /* Reads the version string and puts the Major.Minor.Patch in the first, second and third element of
  * the array, respectively */
 static bool
@@ -199,15 +176,6 @@ bytes_to_version_str(const int *arr, char *str)
 {
   if (!arr || !str) return;
   sprintf(str, "v%d.%d.%d", arr[0], arr[1], arr[2]);
-}
-
-static void
-product_info_free(signed_video_product_info_t *product_info)
-{
-  if (product_info) {
-    product_info_free_members(product_info);
-    free(product_info);
-  }
 }
 
 /**
@@ -302,6 +270,21 @@ struct_member_memory_allocated_and_copy(void **member_ptr,
   memcpy(*member_ptr, new_data_ptr, new_data_size);
   *member_size_ptr = new_data_size;
   return SV_OK;
+}
+
+void
+product_info_reset_members(signed_video_product_info_t *product_info)
+{
+  if (!product_info) {
+    return;
+  }
+
+  // Reset strings by null-ing them.
+  memset(product_info->hardware_id, 0, 256);
+  memset(product_info->firmware_version, 0, 256);
+  memset(product_info->serial_number, 0, 256);
+  memset(product_info->manufacturer, 0, 256);
+  memset(product_info->address, 0, 256);
 }
 
 static SignedVideoUUIDType
@@ -899,9 +882,6 @@ signed_video_create(SignedVideoCodec codec)
     version_str_to_bytes(self->code_version, SIGNED_VIDEO_VERSION);
     self->codec = codec;
 
-    self->product_info = product_info_create();
-    SV_THROW_IF_WITH_MSG(!self->product_info, SV_MEMORY, "Could not allocate product_info");
-
     // Setup crypto handle.
     self->crypto_handle = openssl_create_handle();
     SV_THROW_IF(!self->crypto_handle, SV_EXTERNAL_ERROR);
@@ -1017,7 +997,6 @@ signed_video_free(signed_video_t *self)
   bu_list_free(self->bu_list);
 
   signed_video_authenticity_report_free(self->authenticity);
-  product_info_free(self->product_info);
   gop_info_free(self->gop_info);
   sign_or_verify_data_free(self->sign_data);
   sign_or_verify_data_free(self->verify_data);
