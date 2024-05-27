@@ -495,7 +495,6 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
   }
 
   sign_or_verify_data_t *sign_data = self->sign_data;
-  int signing_present = self->signing_present;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
@@ -528,7 +527,6 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
 
       uint8_t *payload = NULL;
       uint8_t *payload_signature_ptr = NULL;
-      signing_present = 0;  // About to add SEI NALUs.
 
       SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
       // Add |payload| to buffer. Will be picked up again when the signature has been generated.
@@ -569,7 +567,6 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
         SV_THROW_IF_WITH_MSG(verified != 1, SV_EXTERNAL_ERROR, "Verification test failed");
 #endif
         SV_THROW(complete_sei_nalu_and_add_to_prepend(self));
-        signing_present = 1;  // At least one SEI NALU present.
       }
     }
 
@@ -577,8 +574,6 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
   SV_DONE(status)
 
   free(nalu.nalu_data_wo_epb);
-
-  if (signing_present > self->signing_present) self->signing_present = signing_present;
 
   return status;
 }
