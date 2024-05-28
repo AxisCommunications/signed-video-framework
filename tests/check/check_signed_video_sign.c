@@ -316,6 +316,12 @@ START_TEST(incorrect_operation)
   // Pull all SEIs.
   sv_rc = get_seis(sv, -1, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Verifying that the SV_NOT_SUPPORTED error is returned when attempting to
+  // enable the golden SEI principle on an ongoing signed_video_t session.
+  sv_rc = signed_video_set_using_golden_sei(sv, true);
+  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
+
   // Free test stream items, session and private key.
   test_stream_item_free(p_nalu);
   test_stream_item_free(i_nalu);
