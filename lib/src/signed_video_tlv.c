@@ -1288,7 +1288,7 @@ write_byte(uint16_t *last_two_bytes,
 }
 
 void
-write_byte_many(uint8_t **dest,
+write_byte_many(uint8_t **dst,
     char *src,
     size_t size,
     uint16_t *last_two_bytes,
@@ -1298,6 +1298,6 @@ write_byte_many(uint8_t **dest,
 
   for (size_t ii = 0; ii < size; ++ii) {
     uint8_t ch = src[ii];
-    write_byte(last_two_bytes, dest, ch, do_emulation_prevention);
+    write_byte(last_two_bytes, dst, ch, do_emulation_prevention);
   }
 }
