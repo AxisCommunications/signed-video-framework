@@ -219,6 +219,14 @@ encode_general(signed_video_t *self, uint8_t *data)
   int64_t timestamp = self->gop_info->timestamp;
   uint8_t flags = 0;
 
+  // Value fields:
+  //  - version (1 byte)
+  //  - gop_counter (4 bytes)
+  //  - num_nalus_in_gop_hash (2 bytes)
+  //  - signed video version (SV_VERSION_BYTES bytes)
+  //  - flags (1 byte)
+  //  - timestamp (8 bytes) requires version 2+
+
   // Get size of data
   data_size += sizeof(version);
   data_size += sizeof(gop_counter);
@@ -230,7 +238,7 @@ encode_general(signed_video_t *self, uint8_t *data)
   }
 
   if (!data) {
-    DEBUG_LOG("Returning computed size %zu", data_size);
+    DEBUG_LOG("General tag has size %zu", data_size);
     return data_size;
   }
 
@@ -239,7 +247,7 @@ encode_general(signed_video_t *self, uint8_t *data)
   uint8_t *data_ptr = data;
   uint16_t *last_two_bytes = &self->last_two_bytes;
   bool epb = self->sei_epb;
-  // Fill Camera Info data
+
   // Version
   write_byte(last_two_bytes, &data_ptr, version, epb);
   // GOP counter; 4 bytes
@@ -289,12 +297,12 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
   svrc_t status = SV_UNKNOWN_FAILURE;
 
   SV_TRY()
-    SV_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
+    SV_THROW_IF(version < 1 || version > 2, SV_INCOMPATIBLE_VERSION);
 
     data_ptr += read_32bits(data_ptr, &gop_info->global_gop_counter);
     DEBUG_LOG("Found GOP counter = %u", gop_info->global_gop_counter);
     data_ptr += read_16bits(data_ptr, &gop_info->num_sent_nalus);
-    DEBUG_LOG("Number of sent NALUs = %u", gop_info->num_sent_nalus);
+    DEBUG_LOG("Number of sent NAL Units = %u", gop_info->num_sent_nalus);
 
     for (int i = 0; i < SV_VERSION_BYTES; i++) {
       self->code_version[i] = *data_ptr++;
@@ -322,9 +330,6 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
 
 /**
  * @brief Encodes the PRODUCT_INFO_TAG into data
- *
- * @param self Session struct
- * @param data Location to write TLV into payload
  */
 static size_t
 encode_product_info(signed_video_t *self, uint8_t *data)
@@ -334,7 +339,7 @@ encode_product_info(signed_video_t *self, uint8_t *data)
   const uint8_t version = 1;
   const uint8_t kFullByte = 255;
 
-  // Version 1:
+  // Value fields:
   //  - version (1 byte)
   //  - hardware_id_size (1 byte)
   //  - hardware_id
@@ -455,10 +460,6 @@ encode_product_info(signed_video_t *self, uint8_t *data)
 
 /**
  * @brief Decodes the PRODUCT_INFO_TAG from data
- *
- * @param data Payload to write to
- * @param data_size Size of this TLV
- * @param self Session struct
  */
 static svrc_t
 decode_product_info(signed_video_t *self, const uint8_t *data, size_t data_size)
@@ -508,7 +509,6 @@ decode_product_info(signed_video_t *self, const uint8_t *data, size_t data_size)
 
 /**
  * @brief Encodes the ARBITRARY_DATA_TAG into data
- *
  */
 static size_t
 encode_arbitrary_data(signed_video_t *self, uint8_t *data)
@@ -540,7 +540,6 @@ encode_arbitrary_data(signed_video_t *self, uint8_t *data)
 
 /**
  * @brief Decodes the ARBITRARY_DATA_TAG from data
- *
  */
 static svrc_t
 decode_arbitrary_data(signed_video_t *self, const uint8_t *data, size_t data_size)
@@ -573,7 +572,6 @@ decode_arbitrary_data(signed_video_t *self, const uint8_t *data, size_t data_siz
 
 /**
  * @brief Encodes the PUBLIC_KEY_TAG into data
- *
  */
 static size_t
 encode_public_key(signed_video_t *self, uint8_t *data)
@@ -586,9 +584,13 @@ encode_public_key(signed_video_t *self, uint8_t *data)
   // that is, return 0.
   if (!pem_public_key->key || !self->add_public_key_to_sei) return 0;
 
-  // Version 1:
+  // Value fields:
   //  - version (1 byte)
-  //  - public_key
+  //  - public_key (key_size bytes)
+  //  - num_nalus_in_gop_hash (2 bytes)
+  //  - signed video version (SV_VERSION_BYTES bytes)
+  //  - flags (1 byte)
+  //  - timestamp (8 bytes) requires version 2+
   //
   // Note that we do not have to store the size of the public. We already know it from the TLV
   // length.
@@ -655,7 +657,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     self->has_public_key = true;
     data_ptr += pubkey_size;
 
-    // Convert to EVP_PKEY
+    // Convert to EVP_PKEY_CTX
     SV_THROW(openssl_public_key_malloc(self->verify_data, &self->pem_public_key));
 
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
@@ -691,9 +693,10 @@ encode_hash_list(signed_video_t *self, uint8_t *data)
   // use SV_AUTHENTICITY_LEVEL_FRAME skip encoding.
   if (gop_info->list_idx <= 0 || self->authenticity_level != SV_AUTHENTICITY_LEVEL_FRAME) return 0;
 
-  // Version 1:
-  // - version (1 byte)
-  // - hash_list (list_idx bytes)
+  // Value fields:
+  //  - version (1 byte)
+  //  - hash_list (list_idx bytes)
+
   data_size += sizeof(version);
   data_size += gop_info->list_idx * sizeof(gop_info->hash_list[0]);
 
@@ -718,7 +721,6 @@ encode_hash_list(signed_video_t *self, uint8_t *data)
 
 /**
  * @brief Decodes the HASH_LIST_TAG from data
- *
  */
 static svrc_t
 decode_hash_list(signed_video_t *self, const uint8_t *data, size_t data_size)
@@ -747,7 +749,6 @@ decode_hash_list(signed_video_t *self, const uint8_t *data, size_t data_size)
 
 /**
  * @brief Encodes the SIGNATURE_TAG into data
- *
  */
 static size_t
 encode_signature(signed_video_t *self, uint8_t *data)
@@ -757,23 +758,18 @@ encode_signature(signed_video_t *self, uint8_t *data)
   size_t data_size = 0;
   const uint8_t version = 1;  // Increment when the change breaks the format
 
-  // TODO: Signaling which type of hash that was signed can be put in the info field with a bit
-  // mask. Also, if the document hash was signed, there is no need to transmit the gop_hash init
-  // value. Let us fix this when we have all functionality in place and want to reduce the bitrate.
-  // For now it is better to have a clear and readable structure.
-
-  // Version 1:
+  // Value fields:
   //  - version (1 byte)
   //  - info field (1 byte)
   //  - hash type (1 byte)
   //  - signature size (2 bytes)
-  //  - signed hash (256 bytes)
+  //  - signature (max_signature_size bytes)
 
   data_size += sizeof(version);
-  // Info field. This field holds information on whether the GOP info was correctly created or if
-  // there were errors. This means that the authenticator is informed what can be verified and what
-  // cannot.
 
+  // Info field. This field holds information on whether the GOP info was correctly created or if
+  // there were errors. This means that the validator is informed what can be verified and what
+  // cannot.
   data_size += sizeof(gop_info->encoding_status);  // Info field
   data_size += 1;  // hash type
   data_size += 2;  // 2 bytes to store the actual size of the signature.
@@ -809,7 +805,6 @@ encode_signature(signed_video_t *self, uint8_t *data)
 
 /**
  * @brief Decodes the SIGNATURE_TAG from data
- *
  */
 static svrc_t
 decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
@@ -826,7 +821,7 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
 
   // Read true size of the signature.
   data_ptr += read_16bits(data_ptr, &signature_size);
-  // The rest should now be the allocated size for the signature.
+  // The rest of the value bytes should now be the allocated size for the signature.
   max_signature_size = data_size - (data_ptr - data);
 
   svrc_t status = SV_UNKNOWN_FAILURE;
@@ -861,7 +856,6 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
 
 /**
  * @brief Encodes the CRYPTO_INFO_TAG into data
- *
  */
 static size_t
 encode_crypto_info(signed_video_t *self, uint8_t *data)
@@ -875,7 +869,7 @@ encode_crypto_info(signed_video_t *self, uint8_t *data)
   // If there is no hash algorithm present skip encoding, that is, return 0.
   if (!hash_algo_encoded_oid || !hash_algo_encoded_oid_size) return 0;
 
-  // Version 1:
+  // Value fields:
   //  - version (1 byte)
   //  - size of hash algo OID (serialized form) (1 byte)
   //  - hash algo (hash_algo_encoded_oid_size bytes)
@@ -906,7 +900,6 @@ encode_crypto_info(signed_video_t *self, uint8_t *data)
 
 /**
  * @brief Decodes the CRYPTO_INFO_TAG from data
- *
  */
 static svrc_t
 decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
