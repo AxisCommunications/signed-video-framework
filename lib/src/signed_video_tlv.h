@@ -142,7 +142,7 @@ read_byte(uint16_t *last_two_bytes, const uint8_t **payload, bool do_emulation_p
  * @returns True if find and decoding tag was successful.
  */
 bool
-tlv_find_and_decode_recurrent_tags(signed_video_t *self,
+tlv_find_and_decode_optional_tags(signed_video_t *self,
     const uint8_t *tlv_data,
     size_t tlv_data_size);
 
