@@ -500,6 +500,29 @@ SignedVideoReturnCode
 signed_video_set_sei_epb(signed_video_t *self, bool sei_epb);
 
 /**
+ * @brief Configures Signed Video to use golden SEI principle
+ *
+ * The principle of the golden SEI sends all information only needed once, such as the Public key,
+ * at the start of the stream with the golden SEI. After that, the rest of the SEIs in the stream
+ * only include mandatory information.
+ *
+ * It is the user's responsibility to ensure that the first SEI in the stream is a golden SEI.
+ * This golden SEI does not necessarily have to be at the very beginning of the stream, but it must
+ * be the first SEI included.
+ *
+ * Note: It is not feasible to set this on an ongoing session.
+ *
+ * @param self Session struct pointer
+ * @param using_golden_sei Flag to enable or disable the golden SEI principle.
+ *
+ * @returns SV_OK SEI |using_golden_sei| was successfully set,
+ *          SV_INVALID_PARAMETER Invalid parameter.
+ *          SV_NOT_SUPPORTED if set during an ongoing session.
+ */
+SignedVideoReturnCode
+signed_video_set_using_golden_sei(signed_video_t *self, bool using_golden_sei);
+
+/**
  * @brief Configures Signed Video to limit the payload size of the SEI NAL Units
  *
  * In many Signed Video integrations on the signing side SEIs cannot become arbitrary large due to

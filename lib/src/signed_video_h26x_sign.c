@@ -220,6 +220,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     // Get the total payload size of all TLVs. Then compute the total size of the SEI NALU to be
     // generated. Add extra space for potential emulation prevention bytes.
     optional_tags_size = tlv_list_encode_or_get_size(self, optional_tags, num_optional_tags, NULL);
+    if (self->using_golden_sei && !self->is_golden_sei) optional_tags_size = 0;
     mandatory_tags_size =
         tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, NULL);
     if (self->is_golden_sei) mandatory_tags_size = 0;
@@ -296,15 +297,19 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     reserved_byte |= self->is_golden_sei << 6;
     *payload_ptr++ = reserved_byte;
 
-    size_t written_size =
-        tlv_list_encode_or_get_size(self, optional_tags, num_optional_tags, payload_ptr);
-    SV_THROW_IF(written_size == 0, SV_MEMORY);
-    payload_ptr += written_size;
+    size_t written_size = 0;
+    if (optional_tags_size > 0) {
+      written_size =
+          tlv_list_encode_or_get_size(self, optional_tags, num_optional_tags, payload_ptr);
+      SV_THROW_IF(written_size == 0, SV_MEMORY);
+      payload_ptr += written_size;
+    }
+
     if (mandatory_tags_size > 0) {
       written_size =
           tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, payload_ptr);
-      payload_ptr += written_size;
       SV_THROW_IF(written_size == 0, SV_MEMORY);
+      payload_ptr += written_size;
     }
 
     if (vendor_size > 0) {
@@ -356,6 +361,13 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     // Reset the timestamp to avoid including a duplicate in the next SEI.
     gop_info->has_timestamp = false;
 
+#ifdef SIGNED_VIDEO_DEBUG
+    printf("Hash to sign:\n");
+    for (size_t i = 0; i < sign_data->hash_size; i++) {
+      printf("%02x", sign_data->hash[i]);
+    }
+    printf("\n");
+#endif
     SV_THROW(sv_signing_plugin_sign(self->plugin_handle, sign_data->hash, sign_data->hash_size));
 
   SV_CATCH()
@@ -687,6 +699,7 @@ signed_video_generate_golden_sei(signed_video_t *self)
   // recurrent data, hence |has_recurrent_data| is set to true.
   self->is_golden_sei = true;
   self->has_recurrent_data = true;
+  self->authenticity_level = SV_AUTHENTICITY_LEVEL_FRAME;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
@@ -819,8 +832,17 @@ SignedVideoReturnCode
 signed_video_set_sei_epb(signed_video_t *self, bool sei_epb)
 {
   if (!self) return SV_INVALID_PARAMETER;
-
   self->sei_epb = sei_epb;
+  return SV_OK;
+}
+
+SignedVideoReturnCode
+signed_video_set_using_golden_sei(signed_video_t *self, bool using_golden_sei)
+{
+  if (!self) return SV_INVALID_PARAMETER;
+  if (self->signing_started) return SV_NOT_SUPPORTED;
+
+  self->using_golden_sei = using_golden_sei;
   return SV_OK;
 }
 

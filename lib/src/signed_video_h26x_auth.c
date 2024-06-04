@@ -765,7 +765,14 @@ prepare_for_validation(signed_video_t *self)
 #endif
 
     // If we have received a SEI there is a signature to use for verification.
-    if (self->gop_state.has_sei) {
+    if (self->gop_state.has_sei || self->nalu_list->first_item->nalu->is_golden_sei) {
+#ifdef SIGNED_VIDEO_DEBUG
+      printf("Hash to verify against signature:\n");
+      for (size_t i = 0; i < verify_data->hash_size; i++) {
+        printf("%02x", verify_data->hash[i]);
+      }
+      printf("\n");
+#endif
       SV_THROW(openssl_verify_hash(verify_data, &self->gop_info->verified_signature_hash));
     }
 
@@ -1028,6 +1035,30 @@ reregister_nalus(signed_video_t *self)
   return status;
 }
 
+static void
+validate_golden_sei(signed_video_t *self, h26x_nalu_list_t *nalu_list)
+{
+  // TODO: Authenticity result will be overwritten in |maybe_validate_gop| API.
+  // It has to be fixed in a near future.
+
+  // Check the status of the verified signature hash for the GOP info.
+  switch (self->gop_info->verified_signature_hash) {
+    case 1:
+      nalu_list->first_item->validation_status = '.';
+      break;
+    case 0:
+      nalu_list->first_item->validation_status = 'N';
+      self->latest_validation->authenticity = SV_AUTH_RESULT_NOT_OK;
+      break;
+    case -1:
+    default:
+      // Got an error when verifying the gop_hash. Verify without a SEI.
+      nalu_list->first_item->validation_status = 'E';
+      self->latest_validation->authenticity = SV_AUTH_RESULT_NOT_OK;
+      self->has_public_key = false;
+  }
+}
+
 /* The basic order of actions are:
  * 1. Every NALU should be parsed and added to the h26x_nalu_list (|nalu_list|).
  * 2. Update validation flags given the added NALU.
@@ -1065,6 +1096,13 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
         DEBUG_LOG("No cryptographic information found in SEI. Using default hash algo");
         self->validation_flags.hash_algo_known = true;
       }
+      // Note: This is a temporary solution.
+      // TODO: Handling of the golden SEI should be moved inside the |prepare_for_validation| API.
+      if (nalu.is_golden_sei) {
+        prepare_for_validation(self);
+        validate_golden_sei(self, nalu_list);
+      }
+
       SV_THROW(reregister_nalus(self));
     }
     SV_THROW(maybe_validate_gop(self, &nalu));

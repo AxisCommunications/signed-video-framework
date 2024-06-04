@@ -2188,6 +2188,87 @@ START_TEST(with_blocked_signing)
 }
 END_TEST
 
+/* Test description
+ * Generates SEIs using golden SEI prinsiple and verifies them.
+ * The operation is as follows:
+ * 1. Generate and store golden SEI
+ * 2. Enable golden SEI principle
+ * 3. Create a test stream.
+ * 4. Insert golden SEI to test stream
+ * 5. Validate the test stream
+ */
+START_TEST(golden_sei_principle)
+{
+  if (settings[_i].auth_level != SV_AUTHENTICITY_LEVEL_FRAME) return;
+
+  SignedVideoCodec codec = settings[_i].codec;
+  SignedVideoReturnCode sv_rc;
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+  // Setup the key
+  sv_rc = settings[_i].generate_key(NULL, &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Generate golden SEI
+  signed_video_t *sv = signed_video_create(codec);
+  ck_assert(sv);
+
+  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_hash_algo(sv, settings[_i].hash_algo_name);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_product_info(sv, HW_ID, FW_VER, SER_NO, MANUFACT, ADDR);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_generate_golden_sei(sv);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  size_t golden_sei_size = 0;
+  sv_rc = signed_video_get_sei(sv, NULL, &golden_sei_size);
+  ck_assert(golden_sei_size != 0);
+  uint8_t *golden_sei = malloc(golden_sei_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  // Store the |golden_sei|
+  sv_rc = signed_video_get_sei(sv, golden_sei, &golden_sei_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  test_stream_item_t *golden_sei_item = test_stream_item_create(golden_sei, golden_sei_size, codec);
+  // End the |sv| session
+  signed_video_free(sv);
+
+  // Start a new stream
+  sv = signed_video_create(codec);
+  ck_assert(sv);
+  sv_rc = signed_video_set_using_golden_sei(sv, true);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_hash_algo(sv, settings[_i].hash_algo_name);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_product_info(sv, HW_ID, FW_VER, SER_NO, MANUFACT, ADDR);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIPPIPPI", false);
+  test_stream_prepend_first_item(list, golden_sei_item);
+  test_stream_check_types(list, "SSIPPSIPPSIPPSI");
+  signed_video_free(sv);
+  // Final validation is OK and all received NAL Units, but the last one, are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // One pending NAL Unit per GOP.
+  struct validation_stats expected = {.valid_gops = 4,
+      .pending_nalus = 4,
+      .has_signature = 1,
+      .final_validation = &final_validation};
+  validate_nalu_list(NULL, list, expected);
+
+  test_stream_free(list);
+  free(private_key);
+}
+END_TEST
+
 static Suite *
 signed_video_suite(void)
 {
@@ -2240,6 +2321,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, test_public_key_scenarios, s, e);
   tcase_add_loop_test(tc, no_public_key_in_sei_and_bad_public_key_on_validation_side, s, e);
   tcase_add_loop_test(tc, fallback_to_gop_level, s, e);
+  tcase_add_loop_test(tc, golden_sei_principle, s, e);
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
 #endif
