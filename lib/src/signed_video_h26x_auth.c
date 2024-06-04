@@ -765,7 +765,7 @@ prepare_for_validation(signed_video_t *self)
 #endif
 
     // If we have received a SEI there is a signature to use for verification.
-    if (self->gop_state.has_gop_sei || self->nalu_list->first_item->nalu->is_golden_sei) {
+    if (self->gop_state.has_sei || self->nalu_list->first_item->nalu->is_golden_sei) {
 #ifdef SIGNED_VIDEO_DEBUG
       printf("Hash to verify against signature:\n");
       for (size_t i = 0; i < verify_data->hash_size; i++) {

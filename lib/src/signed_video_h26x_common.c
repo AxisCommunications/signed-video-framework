@@ -763,7 +763,7 @@ gop_state_print(const gop_state_t *gop_state)
 {
   if (!gop_state) return;
 
-  DEBUG_LOG("             has_gop_sei: %u", gop_state->has_gop_sei);
+  DEBUG_LOG("                 has_sei: %u", gop_state->has_sei);
   DEBUG_LOG("validate_after_next_nalu: %u", gop_state->validate_after_next_nalu);
   DEBUG_LOG("   no_gop_end_before_sei: %u", gop_state->no_gop_end_before_sei);
   DEBUG_LOG("            has_lost_sei: %u", gop_state->has_lost_sei);
@@ -773,7 +773,7 @@ gop_state_print(const gop_state_t *gop_state)
 
 /* Updates the |gop_state| w.r.t. a |nalu|.
  *
- * Since auth_state is updated along the way, the only thing we need to update is |has_gop_sei| to
+ * Since auth_state is updated along the way, the only thing we need to update is |has_sei| to
  * know if we have received a signature for this GOP. */
 void
 gop_state_update(gop_state_t *gop_state, h26x_nalu_t *nalu)
@@ -783,7 +783,7 @@ gop_state_update(gop_state_t *gop_state, h26x_nalu_t *nalu)
   // If the NALU is not valid nor hashable no action should be taken.
   if (nalu->is_valid <= 0 || !nalu->is_hashable) return;
 
-  gop_state->has_gop_sei |= nalu->is_gop_sei;
+  gop_state->has_sei |= nalu->is_gop_sei;
 }
 
 /* Resets the |gop_state| after validating a GOP. */
@@ -794,7 +794,7 @@ gop_state_reset(gop_state_t *gop_state)
 
   gop_state->has_lost_sei = false;
   gop_state->gop_transition_is_lost = false;
-  gop_state->has_gop_sei = false;
+  gop_state->has_sei = false;
   gop_state->no_gop_end_before_sei = false;
   gop_state->validate_after_next_nalu = false;
 }
@@ -1078,7 +1078,7 @@ hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
     SV_THROW(hash_wrapper(self, nalu, nalu_hash, hash_size));
     // Check if we have a potential transition to a new GOP. This happens if the current NALU
     // |is_first_nalu_in_gop|. If we have lost the first NALU of a GOP we can still make a guess by
-    // checking if |has_gop_sei| flag is set. It is set if the previous hashable NALU was SEI.
+    // checking if |has_sei| flag is set. It is set if the previous hashable NALU was SEI.
     if (nalu->is_first_nalu_in_gop || (gop_state->validate_after_next_nalu && !nalu->is_gop_sei)) {
       // Updates counters and reset flags.
       gop_info->has_reference_hash = false;
