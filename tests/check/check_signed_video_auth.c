@@ -2257,7 +2257,7 @@ START_TEST(golden_sei_principle)
   // Final validation is OK and all received NAL Units, but the last one, are validated.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // One pending NAL Unit per GOP.
+
   struct validation_stats expected = {.valid_gops = 4,
       .pending_nalus = 4,
       .has_signature = 1,

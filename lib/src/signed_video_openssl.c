@@ -476,6 +476,8 @@ openssl_set_hash_algo_by_encoded_oid(void *handle,
     self->hash_algo.encoded_oid_size = encoded_oid_size;
 
     SV_THROW(oid_to_type(&self->hash_algo));
+    DEBUG_LOG("Setting hash algo from tlv that has ASN.1/DER coded OID length %zu",
+        self->hash_algo.encoded_oid_size);
   SV_CATCH()
   SV_DONE(status)
 
