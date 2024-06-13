@@ -123,7 +123,8 @@ sv_signing_plugin_init(void *user_data);
 /* Temporary function for backwards compatibility while re-interpreting |user_data|. */
 int
 sv_signing_plugin_init_new(void *user_data);
-
+void
+sv_signing_pluging_reset_signature_generated(void *handle);
 /**
  * @brief Plugin termination
  *
