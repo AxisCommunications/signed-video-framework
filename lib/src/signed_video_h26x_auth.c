@@ -696,18 +696,14 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
  * for authenticity.
  */
 static svrc_t
-prepare_golden_sei(signed_video_t *self)
+prepare_golden_sei(signed_video_t *self, h26x_nalu_list_item_t *sei)
 {
   assert(self);
-  h26x_nalu_list_t *nalu_list = self->nalu_list;
   svrc_t status = SV_UNKNOWN_FAILURE;
   sign_or_verify_data_t *verify_data = self->verify_data;
   const size_t hash_size = verify_data->hash_size;
-
+  self->gop_state.has_sei = true;
   SV_TRY()
-    // Get the next SEI item from the NALU list.
-    h26x_nalu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(nalu_list);
-
     // If an SEI item is found and it hasn't been decoded yet, decode it.
     if (sei && !sei->has_been_decoded) {
       // Extract the TLV data and size from the NALU.
@@ -717,18 +713,9 @@ prepare_golden_sei(signed_video_t *self)
       // Decode the SEI data and update the status.
       SV_THROW(decode_sei_data(self, tlv_data, tlv_size));
       sei->has_been_decoded = true;  // Mark the SEI as decoded.
-      if (self->gop_info->signature_hash_type == DOCUMENT_HASH) {
-        SV_THROW(hash_and_add_for_auth(self, sei));
-        memcpy(verify_data->hash, sei->hash, hash_size);
-      }
-    }
-
-    // Check if the SEI is decoded, not yet used in the GOP hash, and the signature hash type is
-    // GOP_HASH.
-    if (sei && sei->has_been_decoded && !sei->used_in_gop_hash &&
-        self->gop_info->signature_hash_type == GOP_HASH) {
-      // Compute the hash and add it for authentication.
+      // Assuming the signature hash type is always DOCUMENT_HASH.
       SV_THROW(hash_and_add_for_auth(self, sei));
+      memcpy(verify_data->hash, sei->hash, hash_size);
     }
     SV_THROW(prepare_for_validation(self));
   SV_CATCH()
@@ -811,7 +798,7 @@ prepare_for_validation(signed_video_t *self)
 #endif
 
     // If we have received a SEI there is a signature to use for verification.
-    if (self->gop_state.has_sei || self->nalu_list->first_item->nalu->is_golden_sei) {
+    if (self->gop_state.has_sei) {
 #ifdef SIGNED_VIDEO_DEBUG
       printf("Hash to verify against signature:\n");
       for (size_t i = 0; i < verify_data->hash_size; i++) {
@@ -951,28 +938,34 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
 
   // Abort if validation is not feasible.
   if (!validation_feasible) {
-    // If this is the first arrived SEI, but could still not validate the authenticity, signal to
-    // the user that the Signed Video feature has been detected.
     if (nalu->is_golden_sei) {
       switch (self->gop_info->verified_signature_hash) {
         case 1:
-          nalu_list->first_item->validation_status = '.';
+          // Signature verified successfully.
+          nalu_list->last_item->validation_status = '.';
           break;
         case 0:
-          nalu_list->first_item->validation_status = 'N';
-          self->latest_validation->authenticity = SV_AUTH_RESULT_NOT_OK;
+          // Signature verification failed.
+          nalu_list->last_item->validation_status = 'N';
+          latest->authenticity = SV_AUTH_RESULT_NOT_OK;
           self->has_public_key = false;
           break;
         case -1:
         default:
-          // Got an error when verifying the gop_hash. Verify without a SEI.
-          nalu_list->first_item->validation_status = 'E';
-          self->latest_validation->authenticity = SV_AUTH_RESULT_NOT_OK;
+          // Error occurred during verification; handle as an error.
+          nalu_list->last_item->validation_status = 'E';
+          latest->authenticity = SV_AUTH_RESULT_NOT_OK;
           self->has_public_key = false;
       }
     }
+    // If this is the first arrived SEI, but could still not validate the authenticity, signal to
+    // the user that the Signed Video feature has been detected.
     if (validation_flags->is_first_sei) {
-      latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+      // Only set authenticity to SV_AUTH_RESULT_SIGNATURE_PRESENT if it has not been marked as
+      // NOT_OK This ensures that an earlier failure is not overwritten.
+      if (latest->authenticity != SV_AUTH_RESULT_NOT_OK) {
+        latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+      }
       latest->number_of_expected_picture_nalus = -1;
       latest->number_of_received_picture_nalus = -1;
       latest->number_of_pending_picture_nalus = h26x_nalu_list_num_pending_items(nalu_list);
@@ -1137,7 +1130,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
         DEBUG_LOG("No cryptographic information found in SEI. Using default hash algo");
         self->validation_flags.hash_algo_known = true;
       }
-      if (nalu.is_golden_sei) prepare_golden_sei(self);
+      if (nalu.is_golden_sei) prepare_golden_sei(self, nalu_list->last_item);
 
       SV_THROW(reregister_nalus(self));
     }
