@@ -554,14 +554,19 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
   return status;
 }
 
+/*
+ * This function retrieves the complete SEI message containing the signature and adds it to the
+ * prepend list for the current signed video context. It uses the signing plugin to obtain the
+ * signature and performs optional debug verification of the signature.
+ */
 static svrc_t
-get_latest_sei(signed_video_t *self, uint8_t *sei, size_t *sei_size)
+get_signature_complete_sei_and_add_to_prepend(signed_video_t *self)
 {
   svrc_t status = SV_UNKNOWN_FAILURE;
+
   SV_TRY()
     SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
     sign_or_verify_data_t *sign_data = self->sign_data;
-    ;
     while (sv_signing_plugin_get_signature(self->plugin_handle, sign_data->signature,
         sign_data->max_signature_size, &sign_data->signature_size, &signature_error)) {
       SV_THROW(signature_error);
@@ -591,13 +596,20 @@ get_latest_sei(signed_video_t *self, uint8_t *sei, size_t *sei_size)
 
   SV_CATCH()
   SV_DONE(status)
+  return status;
+}
 
+static svrc_t
+get_latest_sei(signed_video_t *self, uint8_t *sei, size_t *sei_size)
+{
   if (!self || !sei_size) return SV_INVALID_PARAMETER;
   *sei_size = 0;
+
+  svrc_t status = get_signature_complete_sei_and_add_to_prepend(self);
+  if (status != SV_OK) return status;
   if (self->num_of_completed_seis < 1) {
     DEBUG_LOG("There are no completed seis.");
-    status = SV_OK;
-    return status;
+    return SV_OK;
   }
 
   *sei_size = self->sei_data_buffer[self->num_of_completed_seis - 1].completed_sei_size;
@@ -616,45 +628,14 @@ SignedVideoReturnCode
 signed_video_get_sei(signed_video_t *self, uint8_t *sei, size_t *sei_size)
 {
 
-  svrc_t status = SV_UNKNOWN_FAILURE;
-  SV_TRY()
-    SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
-    sign_or_verify_data_t *sign_data = self->sign_data;
-    while (sv_signing_plugin_get_signature(self->plugin_handle, sign_data->signature,
-        sign_data->max_signature_size, &sign_data->signature_size, &signature_error)) {
-      SV_THROW(signature_error);
-#ifdef SIGNED_VIDEO_DEBUG
-      // TODO: This might not work for blocked signatures, that is if the hash in
-      // |sign_data| does not correspond to the copied |signature|.
-      // Borrow hash and signature from |sign_data|.
-      sign_or_verify_data_t verify_data = {
-          .hash = sign_data->hash,
-          .hash_size = sign_data->hash_size,
-          .key = NULL,
-          .signature = sign_data->signature,
-          .signature_size = sign_data->signature_size,
-          .max_signature_size = sign_data->max_signature_size,
-      };
-      // Convert the public key to EVP_PKEY for verification. Normally done upon validation.
-      SV_THROW(openssl_public_key_malloc(&verify_data, &self->pem_public_key));
-      // Verify the just signed hash.
-      int verified = -1;
-      SV_THROW_WITH_MSG(
-          openssl_verify_hash(&verify_data, &verified), "Verification test had errors");
-      openssl_free_key(verify_data.key);
-      SV_THROW_IF_WITH_MSG(verified != 1, SV_EXTERNAL_ERROR, "Verification test failed");
-#endif
-      SV_THROW(complete_sei_nalu_and_add_to_prepend(self));
-    }
-
-  SV_CATCH()
-  SV_DONE(status)
   if (!self || !sei_size) return SV_INVALID_PARAMETER;
   *sei_size = 0;
+
+  svrc_t status = get_signature_complete_sei_and_add_to_prepend(self);
+  if (status != SV_OK) return status;
   if (self->num_of_completed_seis < 1) {
     DEBUG_LOG("There are no completed seis.");
-    status = SV_OK;
-    return status;
+    return SV_OK;
   }
   *sei_size = self->sei_data_buffer[0].completed_sei_size;
   if (!sei) return SV_OK;
