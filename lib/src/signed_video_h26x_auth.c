@@ -938,6 +938,18 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
 
   // Abort if validation is not feasible.
   if (!validation_feasible) {
+    // If this is the first arrived SEI, but could still not validate the authenticity, signal to
+    // the user that the Signed Video feature has been detected.
+    if (validation_flags->is_first_sei) {
+      // Only set authenticity to SV_AUTH_RESULT_SIGNATURE_PRESENT if it has not been marked as
+      // NOT_OK This ensures that an earlier failure is not overwritten.
+      latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+      latest->number_of_expected_picture_nalus = -1;
+      latest->number_of_received_picture_nalus = -1;
+      latest->number_of_pending_picture_nalus = h26x_nalu_list_num_pending_items(nalu_list);
+      latest->public_key_has_changed = false;
+      self->validation_flags.has_auth_result = true;
+    }
     if (nalu->is_golden_sei) {
       switch (self->gop_info->verified_signature_hash) {
         case 1:
@@ -957,20 +969,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
           latest->authenticity = SV_AUTH_RESULT_NOT_OK;
           self->has_public_key = false;
       }
-    }
-    // If this is the first arrived SEI, but could still not validate the authenticity, signal to
-    // the user that the Signed Video feature has been detected.
-    if (validation_flags->is_first_sei) {
-      // Only set authenticity to SV_AUTH_RESULT_SIGNATURE_PRESENT if it has not been marked as
-      // NOT_OK This ensures that an earlier failure is not overwritten.
-      if (latest->authenticity != SV_AUTH_RESULT_NOT_OK) {
-        latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
-      }
-      latest->number_of_expected_picture_nalus = -1;
-      latest->number_of_received_picture_nalus = -1;
       latest->number_of_pending_picture_nalus = h26x_nalu_list_num_pending_items(nalu_list);
-      latest->public_key_has_changed = false;
-      self->validation_flags.has_auth_result = true;
     }
     return SV_OK;
   }

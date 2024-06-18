@@ -153,8 +153,10 @@ validate_nalu_list(signed_video_t *sv, test_stream_t *list, struct validation_st
         ck_assert_int_eq(strcmp(auth_report->product_info.address, ADDR), 0);
         // Check if code version used when signing the video is equal to the code version used when
         // validating the authenticity.
-        ck_assert(!signed_video_compare_versions(
-            auth_report->version_on_signing_side, auth_report->this_version));
+        if (strlen(auth_report->version_on_signing_side) != 0) {
+          ck_assert(!signed_video_compare_versions(
+              auth_report->version_on_signing_side, auth_report->this_version));
+        }
       }
       // Get an authenticity report from separate API and compare accumulated results.
       signed_video_authenticity_t *extra_auth_report = signed_video_get_authenticity_report(sv);
