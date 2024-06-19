@@ -53,6 +53,7 @@ static svrc_t
 prepare_for_nalus_to_prepend(signed_video_t *self);
 static void
 shift_sei_buffer_at_index(signed_video_t *self, int index);
+
 static void
 h26x_set_nal_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDType uuid_type)
 {

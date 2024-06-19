@@ -298,8 +298,8 @@ START_TEST(incorrect_operation)
   sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   // signed_video_get_sei(...) should be called after each signed_video_add_nalu_for_signing(...).
-  // After a P-nalu it is in principle OK, since there are no SEIs to get, due to an unthreaded
-  // signing plugin.
+  // After a P-nalu it is in principle OK, but there might be SEIs to get if the SEIs that are
+  // created didn't get fetched.
 
   sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
