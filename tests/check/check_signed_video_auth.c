@@ -2201,7 +2201,6 @@ END_TEST
  */
 START_TEST(golden_sei_principle)
 {
-  if (settings[_i].auth_level != SV_AUTHENTICITY_LEVEL_FRAME) return;
 
   SignedVideoCodec codec = settings[_i].codec;
   SignedVideoReturnCode sv_rc;

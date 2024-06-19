@@ -920,7 +920,6 @@ decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
     data_ptr += hash_algo_encoded_oid_size;
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
-    self->gop_info->nalu_hash = self->gop_info->hashes + self->verify_data->hash_size;
   SV_CATCH()
   SV_DONE(status)
 
