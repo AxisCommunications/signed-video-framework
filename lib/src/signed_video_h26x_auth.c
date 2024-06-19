@@ -939,35 +939,35 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
     // If this is the first arrived SEI, but could still not validate the authenticity, signal to
     // the user that the Signed Video feature has been detected.
     if (validation_flags->is_first_sei) {
-      latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+      // Check if the data is golden. If it is, update the validation status accordingly.
+      if (nalu->is_golden_sei) {
+        switch (self->gop_info->verified_signature_hash) {
+          case 1:
+            // Signature verified successfully.
+            nalu_list->last_item->validation_status = '.';
+            latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+            break;
+          case 0:
+            // Signature verification failed.
+            nalu_list->last_item->validation_status = 'N';
+            latest->authenticity = SV_AUTH_RESULT_NOT_OK;
+            self->has_public_key = false;
+            break;
+          case -1:
+          default:
+            // Error occurred during verification; handle as an error.
+            nalu_list->last_item->validation_status = 'E';
+            latest->authenticity = SV_AUTH_RESULT_NOT_OK;
+            self->has_public_key = false;
+        }
+      } else {
+        latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+      }
       latest->number_of_expected_picture_nalus = -1;
       latest->number_of_received_picture_nalus = -1;
       latest->number_of_pending_picture_nalus = h26x_nalu_list_num_pending_items(nalu_list);
       latest->public_key_has_changed = false;
       self->validation_flags.has_auth_result = true;
-    }
-    if (nalu->is_golden_sei) {
-      switch (self->gop_info->verified_signature_hash) {
-        case 1:
-          // Signature verified successfully.
-          nalu_list->last_item->validation_status = '.';
-          break;
-        case 0:
-          // Signature verification failed.
-          nalu_list->last_item->validation_status = 'N';
-          latest->authenticity = SV_AUTH_RESULT_NOT_OK;
-          self->has_public_key = false;
-          break;
-        case -1:
-        default:
-          // Error occurred during verification; handle as an error.
-          nalu_list->last_item->validation_status = 'E';
-          latest->authenticity = SV_AUTH_RESULT_NOT_OK;
-          self->has_public_key = false;
-      }
-      latest->number_of_pending_picture_nalus = h26x_nalu_list_num_pending_items(nalu_list);
-    } else {
-      latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
     }
     return SV_OK;
   }
