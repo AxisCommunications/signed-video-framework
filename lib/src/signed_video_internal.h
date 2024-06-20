@@ -189,9 +189,6 @@ struct _signed_video_t {
 
   signed_video_authenticity_t *authenticity;  // Pointer to the authenticity report of which results
   // will be written.
-
-  // Members only used by tests
-  bool sv_test_on;  // Flag to enable behaviors that should only be seen in tests.
 };
 
 typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;

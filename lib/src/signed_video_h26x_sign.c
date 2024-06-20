@@ -442,10 +442,9 @@ prepare_for_nalus_to_prepend(signed_video_t *self)
     // empty list item, the pull action has no impact. We can therefore silently remove it and
     // proceed. But if there are vital SEI-nalus waiting to be pulled we return an error message
     // (SV_NOT_SUPPORTED).
-    if (!self->sv_test_on) {
-      SV_THROW_IF_WITH_MSG(
-          self->num_of_completed_seis > 0, SV_NOT_SUPPORTED, "There are remaining SEIs.");
-    }
+
+    SV_THROW_IF_WITH_MSG(
+        self->num_of_completed_seis > 0, SV_NOT_SUPPORTED, "There are remaining SEIs.");
   SV_CATCH()
   SV_DONE(status)
 

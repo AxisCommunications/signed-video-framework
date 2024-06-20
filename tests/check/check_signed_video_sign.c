@@ -631,9 +631,6 @@ START_TEST(two_completed_seis_pending)
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
 
-  // Enable testing mode to add multiple SEIs.
-  sv->sv_test_on = true;
-
   char *private_key = NULL;
   size_t private_key_size = 0;
   test_stream_item_t *i_nalu_1 = test_stream_item_create_from_type('I', 0, codec);
@@ -748,8 +745,6 @@ START_TEST(two_completed_seis_pending_legacy)
 
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
-
-  sv->sv_test_on = true;
 
   char *private_key = NULL;
   size_t private_key_size = 0;
