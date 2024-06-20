@@ -85,12 +85,12 @@ unthreaded_openssl_sign_hash(sv_unthreaded_plugin_t *self, const uint8_t *hash, 
   // Borrow the |hash| by passing the pointer to |sign_data| for signing.
   self->sign_data.hash = (uint8_t *)hash;
   self->sign_data.hash_size = hash_size;
-
-  status = openssl_sign_hash(&self->sign_data);
-  if (status != SV_OK) return status;
   int idx = self->out_buffer_idx;
-
-  if (self->sign_data.signature_size > 0 && idx < MAX_BUFFER_LENGTH) {
+  if (idx < MAX_BUFFER_LENGTH) {
+    status = openssl_sign_hash(&self->sign_data);
+  }
+  if (status != SV_OK) return status;
+  if (self->sign_data.signature_size > 0) {
     if (!self->out_buffer[idx].signature) {
       self->out_buffer[idx].signature = calloc(1, self->sign_data.max_signature_size);
       if (!self->out_buffer[idx].signature) {
@@ -140,7 +140,7 @@ sv_signing_plugin_get_signature(void *handle,
     // Copy signature if there is room for it.
     if (max_signature_size < self->out_buffer[0].signature_size) {
       *written_signature_size = 0;
-      return false;
+      has_signature = false;
     } else {
       memcpy(signature, self->out_buffer[0].signature, self->out_buffer[0].signature_size);
       *written_signature_size = self->out_buffer[0].signature_size;
