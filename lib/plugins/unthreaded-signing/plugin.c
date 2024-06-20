@@ -23,6 +23,7 @@
  * This signing plugin calls openssl_sign_hash() and stores the generated signature before return.
  * This signature is then copied to the user when sv_signing_plugin_get_signature().
  */
+#include <assert.h>  // assert
 #include <stdlib.h>  // calloc, memcpy
 
 #include "includes/signed_video_openssl.h"
@@ -60,9 +61,9 @@ static void
 shift_out_buffer(sv_unthreaded_plugin_t *self)
 {
   const int idx = self->out_buffer_idx;
-  if (idx <= 0 || idx >= MAX_BUFFER_LENGTH) return;
+  assert(idx <= MAX_BUFFER_LENGTH);
 
-  // Store the address of the oldest signature
+  // Store the address of the oldest signature.
   uint8_t *oldest_signature = self->out_buffer[0].signature;
 
   for (int j = 0; j < idx - 1; j++) {
@@ -89,7 +90,7 @@ unthreaded_openssl_sign_hash(sv_unthreaded_plugin_t *self, const uint8_t *hash, 
   if (status != SV_OK) return status;
   int idx = self->out_buffer_idx;
 
-  if (status == SV_OK && self->sign_data.signature_size > 0 && idx < MAX_BUFFER_LENGTH) {
+  if (self->sign_data.signature_size > 0 && idx < MAX_BUFFER_LENGTH) {
     if (!self->out_buffer[idx].signature) {
       self->out_buffer[idx].signature = calloc(1, self->sign_data.max_signature_size);
       if (!self->out_buffer[idx].signature) {
@@ -102,6 +103,8 @@ unthreaded_openssl_sign_hash(sv_unthreaded_plugin_t *self, const uint8_t *hash, 
         self->out_buffer[idx].signature, self->sign_data.signature, self->sign_data.signature_size);
     self->out_buffer[idx].signature_size = self->sign_data.signature_size;
     self->out_buffer_idx++;
+  } else {
+    return SV_NOT_SUPPORTED;
   }
 
   return status;
@@ -137,13 +140,12 @@ sv_signing_plugin_get_signature(void *handle,
     // Copy signature if there is room for it.
     if (max_signature_size < self->out_buffer[0].signature_size) {
       *written_signature_size = 0;
-      shift_out_buffer(self);
       return false;
     } else {
       memcpy(signature, self->out_buffer[0].signature, self->out_buffer[0].signature_size);
       *written_signature_size = self->out_buffer[0].signature_size;
-      shift_out_buffer(self);
     }
+    shift_out_buffer(self);
   }
   if (error) *error = SV_OK;
 
@@ -170,10 +172,7 @@ static void
 out_buffer_teardown(sv_unthreaded_plugin_t *self)
 {
   for (int i = 0; i < MAX_BUFFER_LENGTH; i++) {
-    if (self->out_buffer[i].signature) {
-      free(self->out_buffer[i].signature);
-    }
-    self->out_buffer[i].signature_size = 0;
+    free(self->out_buffer[i].signature);
   }
 }
 
