@@ -85,33 +85,44 @@ unthreaded_openssl_sign_hash(sv_unthreaded_plugin_t *self, const uint8_t *hash, 
   // Borrow the |hash| by passing the pointer to |sign_data| for signing.
   self->sign_data.hash = (uint8_t *)hash;
   self->sign_data.hash_size = hash_size;
+
   int idx = self->out_buffer_idx;
-  if (idx < MAX_BUFFER_LENGTH) {
-    status = openssl_sign_hash(&self->sign_data);
-  } else {
-    return SV_NOT_SUPPORTED;
-  }
-  if (status != SV_OK) return status;
-  if (self->sign_data.signature_size > 0) {
-    if (!self->out_buffer[idx].signature) {
-      self->out_buffer[idx].signature = calloc(1, self->sign_data.max_signature_size);
-      if (!self->out_buffer[idx].signature) {
-        // Handle allocation failure
-        sv_signing_plugin_session_teardown((void *)self);
-        return SV_MEMORY;
-      }
-    }
-    memcpy(
-        self->out_buffer[idx].signature, self->sign_data.signature, self->sign_data.signature_size);
-    self->out_buffer[idx].signature_size = self->sign_data.signature_size;
-    self->out_buffer_idx++;
-  } else {
-    return SV_NOT_SUPPORTED;
+  // Check if the buffer is full.
+  if (idx >= MAX_BUFFER_LENGTH) {
+    status = SV_NOT_SUPPORTED;
+    goto done;
   }
 
+  // Perform the signing operation.
+  status = openssl_sign_hash(&self->sign_data);
+  if (status != SV_OK) goto done;
+
+  // Check if a valid signature was generated.
+  if (self->sign_data.signature_size == 0) {
+    status = SV_NOT_SUPPORTED;
+    goto done;
+  }
+
+  signature_data_t *out = &self->out_buffer[idx];
+  // Allocate memory for the signature if not already allocated.
+  if (!out->signature) {
+    out->signature = calloc(1, self->sign_data.max_signature_size);
+    if (!out->signature) {
+      // Handle memory allocation failure.
+      status = SV_MEMORY;
+      goto done;
+    }
+  }
+
+  // Copy the generated signature to the buffer.
+  memcpy(out->signature, self->sign_data.signature, self->sign_data.signature_size);
+  out->signature_size = self->sign_data.signature_size;
+
+  self->out_buffer_idx++;
+
+done:
   return status;
 }
-
 /**
  * Definitions of declared interfaces according to signed_video_signing_plugin.h.
  */
