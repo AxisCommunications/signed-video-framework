@@ -66,14 +66,14 @@ char private_key_ecdsa[ECDSA_PRIVATE_KEY_ALLOC_BYTES];
 size_t private_key_size_ecdsa;
 
 struct sv_setting settings[NUM_SETTINGS] = {
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA, 0},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_RSA, 0},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_RSA, 0},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_RSA, 0},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA, 0},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA, 0},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, 0},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, 0},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA, 0, false},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA, 0, false},
+    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA, 0, false},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, 0, false},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, 0, false},
+    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, 0, false},
+    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_GOP, SIGN_ALGO_ECDSA, 0, true},
+    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_FRAME, SIGN_ALGO_ECDSA, 0, true},
 };
 
 /* Pull NALUs to prepend from the signed_video_t session (sv) and prepend, or append, them to the
@@ -94,8 +94,8 @@ pull_nalus(signed_video_t *sv, nalu_list_item_t *item)
   while (sv_rc == SV_OK && nalu_to_prepend.prepend_instruction != SIGNED_VIDEO_PREPEND_NOTHING) {
 
     // Generate a new nalu_list_item with this NALU data.
-    nalu_list_item_t *new_item =
-        nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, sv->codec);
+    nalu_list_item_t *new_item = nalu_list_create_item(
+        nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, sv->codec, NULL);
     // Prepend, or append, the nalu_list_item with this new item.
     if (nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NALU) {
       nalu_list_item_prepend_item(cur_item, new_item);
@@ -121,14 +121,17 @@ pull_nalus(signed_video_t *sv, nalu_list_item_t *item)
  * data for these. Then adds these NALUs to the input session. The generated sei-nalus are added to
  * the stream. */
 nalu_list_t *
-create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalus)
+create_signed_nalus_with_sv(signed_video_t *sv,
+    const char *str,
+    bool split_nalus,
+    bool use_obu_frame)
 {
   SignedVideoReturnCode rc = SV_OK;
   ck_assert(sv);
   SignedVideoCodec codec = sv->codec;
 
   // Create a list of NALUs given the input string.
-  nalu_list_t *list = nalu_list_create(str, codec);
+  nalu_list_t *list = nalu_list_create(str, codec, use_obu_frame);
   nalu_list_item_t *item = list->first_item;
 
   // Loop through the NALUs and add for signing.
@@ -138,6 +141,8 @@ create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalu
       rc = signed_video_add_nalu_part_for_signing_with_timestamp(
           sv, item->data, item->data_size - 2, &g_testTimestamp, false);
       ck_assert_int_eq(rc, SV_OK);
+      // Pull NALUs to prepend or append and inject into the NALU list.
+      pull_nalus(sv, item);
       rc = signed_video_add_nalu_part_for_signing_with_timestamp(
           sv, &item->data[item->data_size - 2], 2, &g_testTimestamp, true);
     } else {
@@ -187,7 +192,7 @@ create_signed_splitted_nalus_int(const char *str,
   ck_assert_int_eq(signed_video_set_max_sei_payload_size(sv, settings.max_sei_payload_size), SV_OK);
 
   // Create a list of NALUs given the input string.
-  nalu_list_t *list = create_signed_nalus_with_sv(sv, str, split_nalus);
+  nalu_list_t *list = create_signed_nalus_with_sv(sv, str, split_nalus, settings.use_obu_frame);
   signed_video_free(sv);
 
   return list;
@@ -279,7 +284,7 @@ tag_is_present(nalu_list_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t tag)
   ck_assert(item);
 
   bool found_tag = false;
-  h26x_nalu_t nalu = parse_nalu_info(item->data, item->data_size, codec, false, true);
+  h26x_nalu_t nalu = parse_nalu_info(item->data, item->data_size, codec, false, true, NULL);
   if (!nalu.is_gop_sei) return false;
 
   void *tag_ptr = (void *)tlv_find_tag(nalu.tlv_data, nalu.tlv_size, tag, false);

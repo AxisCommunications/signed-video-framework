@@ -45,6 +45,7 @@ struct sv_setting {
   SignedVideoAuthenticityLevel auth_level;
   sign_algo_t algo;
   size_t max_sei_payload_size;
+  bool use_obu_frame;
 };
 
 #define NUM_SETTINGS 8
@@ -100,7 +101,10 @@ create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_pr
  * data for these. Then adds these NALUs to the input session. The generated sei-nalus are added to
  * the stream. */
 nalu_list_t *
-create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalus);
+create_signed_nalus_with_sv(signed_video_t *sv,
+    const char *str,
+    bool split_nalus,
+    bool use_obu_frame);
 
 /* Removes the NALU list items with position |item_number| from the |list|. The item is, after a
  * check against the expected |str|, then freed. */

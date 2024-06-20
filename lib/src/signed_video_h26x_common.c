@@ -40,6 +40,8 @@
 #define USER_DATA_UNREGISTERED 5
 #define H264_NALU_HEADER_LEN 1  // length of forbidden_zero_bit, nal_ref_idc and nal_unit_type
 #define H265_NALU_HEADER_LEN 2  // length of nal_unit_header as per ISO/ITU spec
+#define METADATA_TYPE_USER_PRIVATE 25
+#define AV1_OBU_HEADER_LEN 1
 // The salt added to the recursive hash to get the final gop_hash
 #define GOP_HASH_SALT 1
 
@@ -379,6 +381,26 @@ h264_get_payload_size(const uint8_t *data, size_t *payload_size)
   return (data_ptr - data);
 }
 
+static size_t
+av1_get_payload_size(const uint8_t *data, size_t *payload_size)
+{
+  const uint8_t *data_ptr = data;
+  int shift_bits = 0;
+  int metadata_length = 0;
+  *payload_size = 0;
+  // Get payload size (including uuid). We assume the data points to the size bytes.
+  while (true) {
+    int byte = *data_ptr & 0xff;
+    metadata_length |= (byte & 0x7F) << shift_bits;
+    data_ptr++;
+    if ((byte & 0x80) == 0) break;
+    shift_bits += 7;
+  }
+  *payload_size = (size_t)metadata_length;
+
+  return (data_ptr - data);
+}
+
 static SignedVideoUUIDType
 h264_get_uuid_sei_type(const uint8_t *uuid)
 {
@@ -566,6 +588,120 @@ parse_h265_nalu_header(h26x_nalu_t *nalu)
   return nalu_header_is_valid;
 }
 
+static bool
+parse_av1_obu_header(h26x_nalu_t *obu, obu_t *previous_obu)
+{
+  // Parse the AV1 OBU Header
+  const uint8_t *obu_ptr = obu->hashable_data;
+  uint8_t obu_header = *obu_ptr;
+  bool forbidden_zero_bit = (bool)(obu_header & 0x80);  // First bit
+  uint8_t obu_type = (obu_header & 0x78) >> 3;  // Four bits
+  bool obu_extension_flag = (bool)(obu_header & 0x04);  // One bit
+  bool obu_has_size_field = (bool)(obu_header & 0x02);  // One bit
+  bool obu_reserved_bit = (bool)(obu_header & 0x01);  // One bit
+  bool nalu_header_is_valid = !obu_extension_flag && obu_has_size_field && !obu_reserved_bit;
+
+  obu_ptr++;
+  // Read size
+  size_t obu_size = 0;
+  size_t read_bytes = av1_get_payload_size(obu_ptr, &obu_size);
+  obu_ptr += read_bytes;
+
+  // First slice in the current NALU or not
+  obu->is_primary_slice = false;
+
+  bool show_existing_frame = (*obu_ptr & 0x80);  // Has no Tile Group if true.
+  // Verify that NALU type and nal_ref_idc follow standard.
+  switch (obu_type) {
+    case 1:  // 1 OBU_SEQUENCE_HEADER
+      obu->nalu_type = NALU_TYPE_PS;
+      if (previous_obu) {
+        previous_obu->next = NALU_TYPE_OTHER;
+        previous_obu->previous = NALU_TYPE_PS;
+      }
+      break;
+    case 2:  // 2 OBU_TEMPORAL_DELIMITER
+      // Do not hash because these will be removed if you switch
+      // from bytestream to NALU stream format
+      obu->nalu_type = NALU_TYPE_AUD;
+      if (previous_obu) {
+        previous_obu->next = NALU_TYPE_OTHER;
+        previous_obu->previous = NALU_TYPE_AUD;
+      }
+      nalu_header_is_valid &= (obu_size == 0);
+      break;
+    case 3:  // 3 OBU_FRAME_HEADER
+      obu->nalu_type = show_existing_frame ? NALU_TYPE_P : OBU_TYPE_FH;
+      if (previous_obu) {
+        previous_obu->next = show_existing_frame ? NALU_TYPE_OTHER
+            : ((*obu_ptr & 0x60) >> 5) == 0      ? NALU_TYPE_I
+                                                 : NALU_TYPE_P;
+        previous_obu->previous = obu->nalu_type;
+      }
+      break;
+    case 4:  // 4 OBU_TILE_GROUP
+      obu->nalu_type = previous_obu->next;
+      obu->is_primary_slice = previous_obu->previous == OBU_TYPE_FH;
+      if (previous_obu) {
+        previous_obu->previous = obu->nalu_type;
+      }
+      break;
+    case 5:  // 5 OBU_METADATA
+      obu->nalu_type = NALU_TYPE_SEI;
+      if (previous_obu) {
+        previous_obu->next = NALU_TYPE_OTHER;
+        previous_obu->previous = NALU_TYPE_SEI;
+      }
+      break;
+    case 6:  // 6 OBU_FRAME
+      obu->nalu_type = ((*obu_ptr & 0x60) >> 5) == 0 ? NALU_TYPE_I : NALU_TYPE_P;
+      if (previous_obu) {
+        previous_obu->next = NALU_TYPE_OTHER;
+        previous_obu->previous = obu->nalu_type;
+      }
+      obu->is_primary_slice = true;
+      obu->is_obu_frame = true;
+      break;
+    case 7:  // 7 OBU_REDUNDANT_FRAME_HEADER
+      obu->nalu_type = NALU_TYPE_OTHER;
+      if (previous_obu) {
+        previous_obu->next = NALU_TYPE_OTHER;
+        previous_obu->previous = NALU_TYPE_OTHER;
+      }
+      nalu_header_is_valid = false;
+      break;
+    case 8:  // 8 OBU_TILE_LIST
+      obu->nalu_type = previous_obu->next;
+      obu->is_primary_slice = previous_obu->previous == OBU_TYPE_FH;
+      if (previous_obu) {
+        previous_obu->previous = obu->nalu_type;
+      }
+      break;
+    case 15:  // 15 OBU_PADDING
+      obu->nalu_type = NALU_TYPE_OTHER;
+      if (previous_obu) {
+        previous_obu->next = NALU_TYPE_OTHER;
+        previous_obu->previous = NALU_TYPE_OTHER;
+      }
+      nalu_header_is_valid = false;
+      break;
+    default:
+      // Reserved and invalid
+      // 0, 9-14, 16-
+      obu->nalu_type = NALU_TYPE_UNDEFINED;
+      if (previous_obu) {
+        previous_obu->next = NALU_TYPE_UNDEFINED;
+        previous_obu->previous = NALU_TYPE_UNDEFINED;
+      }
+      nalu_header_is_valid = false;
+      break;
+  }
+
+  // If the forbidden_zero_bit is set this is not a correct NALU header.
+  nalu_header_is_valid &= !forbidden_zero_bit;
+  return nalu_header_is_valid;
+}
+
 /**
  * @brief Removes emulation prevention bytes from a Signed Video generated SEI NALU
  *
@@ -632,7 +768,8 @@ parse_nalu_info(const uint8_t *nalu_data,
     size_t nalu_data_size,
     SignedVideoCodec codec,
     bool check_trailing_bytes,
-    bool is_auth_side)
+    bool is_auth_side,
+    obu_t *previous_obu)
 {
   uint32_t nalu_header_len = 0;
   h26x_nalu_t nalu = {0};
@@ -654,17 +791,20 @@ parse_nalu_info(const uint8_t *nalu_data,
   // We need to support all three cases.
   const uint32_t kStartCode = 0x00000001;
   uint32_t start_code = 0;
-  size_t read_bytes = read_32bits(nalu_data, &start_code);
+  size_t read_bytes = 0;
   bool nalu_header_is_valid = false;
 
-  if (start_code != kStartCode) {
-    // Check if this is a 3 byte Start Code.
-    read_bytes = 3;
-    start_code >>= 8;
+  if (codec != SV_CODEC_AV1) {
+    read_bytes = read_32bits(nalu_data, &start_code);
     if (start_code != kStartCode) {
-      // No Start Code found.
-      start_code = 0;
-      read_bytes = 0;
+      // Check if this is a 3 byte Start Code.
+      read_bytes = 3;
+      start_code >>= 8;
+      if (start_code != kStartCode) {
+        // No Start Code found.
+        start_code = 0;
+        read_bytes = 0;
+      }
     }
   }
   nalu.hashable_data = &nalu_data[read_bytes];
@@ -673,15 +813,21 @@ parse_nalu_info(const uint8_t *nalu_data,
   if (codec == SV_CODEC_H264) {
     nalu_header_is_valid = parse_h264_nalu_header(&nalu);
     nalu_header_len = H264_NALU_HEADER_LEN;
-  } else {
+  } else if (codec == SV_CODEC_H265) {
     nalu_header_is_valid = parse_h265_nalu_header(&nalu);
     nalu_header_len = H265_NALU_HEADER_LEN;
+  } else {
+    nalu_header_is_valid = parse_av1_obu_header(&nalu, previous_obu);
+    nalu_header_len = AV1_OBU_HEADER_LEN;
   }
   // If a correct NALU header could not be parsed, mark as invalid.
   nalu.is_valid = nalu_header_is_valid;
 
-  // Only picture NALUs are hashed.
-  if (nalu.nalu_type == NALU_TYPE_I || nalu.nalu_type == NALU_TYPE_P) nalu.is_hashable = true;
+  // Only picture NALUs are hashed, or for AV1 also the Frame Header.
+  if (nalu.nalu_type == NALU_TYPE_I || nalu.nalu_type == NALU_TYPE_P ||
+      nalu.nalu_type == OBU_TYPE_FH) {
+    nalu.is_hashable = true;
+  }
 
   nalu.is_first_nalu_in_gop = (nalu.nalu_type == NALU_TYPE_I) && nalu.is_primary_slice;
 
@@ -699,38 +845,75 @@ parse_nalu_info(const uint8_t *nalu_data,
   if (nalu.nalu_type == NALU_TYPE_SEI) {
     // SEI NALU payload starts after the NALU header.
     const uint8_t *payload = nalu.hashable_data + nalu_header_len;
-    // Check user_data_unregistered
-    uint8_t user_data_unregistered = *payload;
-    payload++;
-    if (user_data_unregistered == USER_DATA_UNREGISTERED) {
-      // Decode payload size and compute emulation prevention bytes
-      size_t payload_size = 0;
-      size_t read_bytes = h264_get_payload_size(payload, &payload_size);
-      payload += read_bytes;
-      nalu.payload = payload;
-      nalu.payload_size = payload_size;
-      // We now know the payload size, including UUID (16 bytes) and excluding stop bit. This means
-      // that we can determine if we have added any emulation prevention bytes.
-      int epb = (int)nalu.hashable_data_size;
-      epb -= (int)(payload - nalu.hashable_data);  // Read bytes so far
-      epb -= (int)payload_size;  // The true encoded payload size, excluding stop byte.
-      // If we have the stop bit in a byte of its own it's not included in the payload size. This is
-      // actually always the case for the signed video generated SEI data.
+    if (codec != SV_CODEC_AV1) {
+      // Check user_data_unregistered
+      uint8_t user_data_unregistered = *payload;
+      payload++;
+      if (user_data_unregistered == USER_DATA_UNREGISTERED) {
+        // Decode payload size and compute emulation prevention bytes
+        size_t payload_size = 0;
+        size_t read_bytes = h264_get_payload_size(payload, &payload_size);
+        payload += read_bytes;
+        nalu.payload = payload;
+        nalu.payload_size = payload_size;
+        // We now know the payload size, including UUID (16 bytes) and excluding stop bit. This
+        // means that we can determine if we have added any emulation prevention bytes.
+        int epb = (int)nalu.hashable_data_size;
+        epb -= (int)(payload - nalu.hashable_data);  // Read bytes so far
+        epb -= (int)payload_size;  // The true encoded payload size, excluding stop byte.
+        // If we have the stop bit in a byte of its own it's not included in the payload size. This
+        // is actually always the case for the signed video generated SEI data.
 
-      epb -= nalu_data[nalu_data_size - 1] == STOP_BYTE_VALUE ? 1 : 0;
-      nalu.emulation_prevention_bytes = epb;
-      DEBUG_LOG("Computed %d emulation prevention byte(s)", nalu.emulation_prevention_bytes);
+        epb -= nalu_data[nalu_data_size - 1] == STOP_BYTE_VALUE ? 1 : 0;
+        nalu.emulation_prevention_bytes = epb;
+        DEBUG_LOG("Computed %d emulation prevention byte(s)", nalu.emulation_prevention_bytes);
 
-      // Decode UUID type
-      nalu.uuid_type = h264_get_uuid_sei_type(payload);
+        // Decode UUID type
+        nalu.uuid_type = h264_get_uuid_sei_type(payload);
+      } else {
+        // We only have UUID if SEI-NALU is user_data_unregistered
+        nalu.uuid_type = UUID_TYPE_UNDEFINED;
+      }
     } else {
-      // We only have UUID if SEI-NALU is user_data_unregistered
-      nalu.uuid_type = UUID_TYPE_UNDEFINED;
+#ifdef SIGNED_VIDEO_DEBUG
+      printf("\n SEI (%zu bytes):  ", nalu_data_size);
+      for (size_t i = 0; i < nalu_data_size; ++i) {
+        printf(" %02x", nalu_data[i]);
+      }
+      printf("\n");
+#endif
+      // Decode payload size
+      size_t payload_size = 0;
+      size_t read_bytes = av1_get_payload_size(payload, &payload_size);
+      payload += read_bytes;
+      // Read metadata_type
+      uint8_t user_data_unregistered = *payload++;
+      // Read intermediate trailing byte
+      payload++;
+      payload_size -= 2;
+      if (user_data_unregistered == METADATA_TYPE_USER_PRIVATE) {
+        nalu.payload = payload;
+        nalu.payload_size = payload_size - 1;  // Exclude ending trailing byte
+        // We now know the payload size, including UUID (16 bytes) and excluding stop bit. This
+        // means that we can determine if we have added any emulation prevention bytes.
+        nalu.emulation_prevention_bytes = 0;
+
+        // Decode UUID type
+        nalu.uuid_type = h264_get_uuid_sei_type(payload);
+      } else {
+        // We only have UUID if SEI-NALU is user_data_unregistered
+        nalu.uuid_type = UUID_TYPE_UNDEFINED;
+      }
     }
     nalu.is_gop_sei = (nalu.uuid_type == UUID_TYPE_SIGNED_VIDEO);
 
-    // Only Signed Video generated SEI-NALUs are valid and hashable.
-    nalu.is_hashable = nalu.is_gop_sei && is_auth_side;
+    if (codec != SV_CODEC_AV1) {
+      // Only Signed Video generated SEI-NALUs are valid and hashable.
+      nalu.is_hashable = nalu.is_gop_sei && is_auth_side;
+    } else {
+      // Hash all Metadata OBUs unless it is a Signed Video generated SEI and on signing side.
+      nalu.is_hashable = !(nalu.is_gop_sei && !is_auth_side);
+    }
 
     remove_epb_from_sei_payload(&nalu);
   }
@@ -1055,10 +1238,24 @@ hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
-    if (nalu->is_first_nalu_part && !nalu->is_last_nalu_part) {
-      // If this is the first part of a non-complete NALU, initialize the |crypto_handle| to enable
-      // sequentially updating the hash with more parts.
-      SVI_THROW(sv_rc_to_svi_rc(openssl_init_hash(self->crypto_handle)));
+    if (self->codec == SV_CODEC_AV1) {
+      // The Frame Header should be hashed together with the following TG.
+      // Hence, initialize the |crypto_handle| to enable sequential updates of the hash
+      // with more OBUs.
+      // For other OBUs than the first TG after a FH sequential update is also required.
+      // TODO: For AV1 OBUs are never split in parts, hence this if statement can be
+      // simplified.
+      if (nalu->nalu_type == OBU_TYPE_FH ||
+          (self->last_nalu->nalu_type != OBU_TYPE_FH && nalu->is_first_nalu_part &&
+              !nalu->is_last_nalu_part)) {
+        SVI_THROW(sv_rc_to_svi_rc(openssl_init_hash(self->crypto_handle)));
+      }
+    } else {
+      if (nalu->is_first_nalu_part && !nalu->is_last_nalu_part) {
+        // If this is the first part of a non-complete NALU, initialize the |crypto_handle| to
+        // enable sequentially updating the hash with more parts.
+        SVI_THROW(sv_rc_to_svi_rc(openssl_init_hash(self->crypto_handle)));
+      }
     }
     // Select hash function, hash the NALU and store as 'latest hash'
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
@@ -1099,6 +1296,15 @@ hash_and_add_for_auth(signed_video_t *self, const h26x_nalu_t *nalu)
 
   svi_rc status = SVI_UNKNOWN;
   SVI_TRY()
+    if (self->codec == SV_CODEC_AV1) {
+      // The Frame Header should be hashed together with the following TG.
+      // Hence, initialize the |crypto_handle| to enable sequentially updating the hash
+      // with more OBUs.
+      // For other OBUs than the first TG after a FH sequential update is also required.
+      if (nalu->nalu_type == OBU_TYPE_FH) {
+        SVI_THROW(sv_rc_to_svi_rc(openssl_init_hash(self->crypto_handle)));
+      }
+    }
     // Select hash wrapper, hash the NALU and store as |nalu_hash|.
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
     SVI_THROW(hash_wrapper(self, nalu, nalu_hash));
@@ -1146,6 +1352,7 @@ signed_video_create(SignedVideoCodec codec)
     SVI_THROW_IF(!self->last_nalu, SVI_MEMORY);
     // Mark the last NALU as complete, hence, no ongoing hashing is present.
     self->last_nalu->is_last_nalu_part = true;
+    self->previous_obu = calloc(1, sizeof(obu_t));
 
     // Allocate memory for the signature_info struct.
     self->signature_info = signature_create();
@@ -1173,7 +1380,7 @@ signed_video_create(SignedVideoCodec codec)
     self->has_public_key = false;
 
     self->add_public_key_to_sei = true;
-    self->sei_epb = true;
+    self->sei_epb = codec != SV_CODEC_AV1;
     self->frame_count = 0;
     self->has_recurrent_data = false;
     self->authentication_started = false;
@@ -1215,7 +1422,7 @@ signed_video_reset(signed_video_t *self)
     self->gop_info->verified_signature_hash = -1;
     // If a reset is forced, the stored hashes in |hash_list| have no meaning anymore.
     self->gop_info->list_idx = 0;
-    self->gop_info->has_reference_hash = false;
+    self->gop_info->has_reference_hash = true;
     self->gop_info->global_gop_counter_is_synced = false;
 
     gop_state_reset(&(self->gop_state));
@@ -1227,6 +1434,9 @@ signed_video_reset(signed_video_t *self)
 
     memset(self->last_nalu, 0, sizeof(h26x_nalu_t));
     self->last_nalu->is_last_nalu_part = true;
+    self->previous_obu->next = NALU_TYPE_UNDEFINED;
+    self->previous_obu->previous = NALU_TYPE_UNDEFINED;
+
     SVI_THROW(sv_rc_to_svi_rc(openssl_init_hash(self->crypto_handle)));
 
     SVI_THROW(reset_gop_hash(self));
@@ -1256,6 +1466,7 @@ signed_video_free(signed_video_t *self)
   free_sei_data_buffer(self->sei_data_buffer);
 
   free(self->last_nalu);
+  free(self->previous_obu);
   h26x_nalu_list_free(self->nalu_list);
 
   signed_video_authenticity_report_free(self->authenticity);

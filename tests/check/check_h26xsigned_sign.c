@@ -84,10 +84,11 @@ START_TEST(api_inputs)
   // |settings|; See signed_video_helpers.h.
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
+  bool use_obu_frame = settings[_i].use_obu_frame;
   sign_algo_t algo = settings[_i].algo;
   signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
-  nalu_list_item_t *p_nalu = nalu_list_item_create_and_set_id('P', 0, codec);
-  nalu_list_item_t *invalid = nalu_list_item_create_and_set_id('X', 0, codec);
+  nalu_list_item_t **p = nalu_list_item_create_and_set_id('P', 0, codec, NULL, use_obu_frame);
+  nalu_list_item_t **invalid = nalu_list_item_create_and_set_id('X', 0, codec, NULL, use_obu_frame);
   char *private_key = NULL;
   size_t private_key_size = 0;
 
@@ -125,7 +126,7 @@ START_TEST(api_inputs)
   sv_rc = signed_video_set_private_key(sv, algo, private_key, 0);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   // Adding nalu for signing without setting private key is invalid.
-  sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, (*p)->data, (*p)->data_size);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
   // Will set keys.
   sv_rc = signed_video_set_private_key(sv, algo, private_key, private_key_size);
@@ -155,46 +156,45 @@ START_TEST(api_inputs)
   sv_rc = signed_video_set_sei_epb(NULL, false);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   sv_rc = signed_video_set_sei_epb(sv, false);
-  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert_int_eq(sv_rc, codec == SV_CODEC_AV1 ? SV_NOT_SUPPORTED : SV_OK);
   sv_rc = signed_video_set_sei_epb(sv, true);
-  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert_int_eq(sv_rc, codec == SV_CODEC_AV1 ? SV_NOT_SUPPORTED : SV_OK);
 
   // Prepare for next iteration of tests.
   sv_rc = signed_video_set_product_info(sv, HW_ID, FW_VER, SER_NO, MANUFACT, ADDR);
   ck_assert_int_eq(sv_rc, SV_OK);
   // signed_video_add_nalu_for_signing()
   // NULL pointers are invalid, as well as zero sized nalus.
-  sv_rc = signed_video_add_nalu_for_signing(NULL, p_nalu->data, p_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(NULL, (*p)->data, (*p)->data_size);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_add_nalu_for_signing(sv, NULL, p_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, NULL, (*p)->data_size);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, 0);
+  sv_rc = signed_video_add_nalu_for_signing(sv, (*p)->data, 0);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   // An invalid NALU should return silently.
-  sv_rc = signed_video_add_nalu_for_signing(sv, invalid->data, invalid->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, (*invalid)->data, (*invalid)->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Timestamp version of the API.
   // Zero sized nalus are invalid, as well as NULL pointers except for the timestamp
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
-      NULL, p_nalu->data, p_nalu->data_size, &g_testTimestamp);
+      NULL, (*p)->data, (*p)->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
-      sv, NULL, p_nalu->data_size, &g_testTimestamp);
+  sv_rc =
+      signed_video_add_nalu_for_signing_with_timestamp(sv, NULL, (*p)->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(sv, p_nalu->data, 0, &g_testTimestamp);
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(sv, (*p)->data, 0, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   // An invalid NALU should return silently.
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
-      sv, invalid->data, invalid->data_size, &g_testTimestamp);
+      sv, (*invalid)->data, (*invalid)->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Timestamp can be null
-  sv_rc =
-      signed_video_add_nalu_for_signing_with_timestamp(sv, p_nalu->data, p_nalu->data_size, NULL);
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(sv, (*p)->data, (*p)->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Valid call
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
-      sv, p_nalu->data, p_nalu->data_size, &g_testTimestamp);
+      sv, (*p)->data, (*p)->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // TODO: Add check on |sv| to make sure nothing has changed.
@@ -230,10 +230,13 @@ START_TEST(api_inputs)
       sv, "hardware_id", "firmware_version", "serial_number", "manufacturer", LONG_STRING);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Free nalu_list_item and session.
-  nalu_list_free_item(p_nalu);
-  nalu_list_free_item(invalid);
+  nalu_list_free_item(*p);
+  nalu_list_free_item(*(p + 1));
+  nalu_list_free_item(*invalid);
   signed_video_free(sv);
   free(private_key);
+  free(p);
+  free(invalid);
 }
 END_TEST
 
@@ -253,16 +256,16 @@ START_TEST(incorrect_operation)
   // |settings|; See signed_video_helpers.h.
 
   SignedVideoCodec codec = settings[_i].codec;
+  bool use_obu_frame = settings[_i].use_obu_frame;
 
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
   char *private_key = NULL;
   size_t private_key_size = 0;
-  nalu_list_item_t *p_nalu = nalu_list_item_create_and_set_id('P', 0, codec);
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
+  nalu_list_item_t **p = nalu_list_item_create_and_set_id('P', 0, codec, NULL, use_obu_frame);
+  nalu_list_item_t **i = nalu_list_item_create_and_set_id('I', 0, codec, NULL, use_obu_frame);
   // The path to openssl keys has to be set before start of signing.
-  SignedVideoReturnCode sv_rc =
-      signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
+  SignedVideoReturnCode sv_rc = signed_video_add_nalu_for_signing(sv, (*i)->data, (*i)->data_size);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
   sv_rc =
       signed_video_generate_private_key(settings[_i].algo, "./", &private_key, &private_key_size);
@@ -271,23 +274,34 @@ START_TEST(incorrect_operation)
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, (*i)->data, (*i)->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
+  if (*(i + 1)) {
+    sv_rc = signed_video_add_nalu_for_signing(sv, (*(i + 1))->data, (*(i + 1))->data_size);
+    ck_assert_int_eq(sv_rc, SV_OK);
+  }
   // signed_video_get_nalu_to_prepend(...) should be called after each
   // signed_video_add_nalu_for_signing(...). After a P-nalu this is still OK, since we have no
   // NALUs to prepend, but otherwise we should.
 
-  sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, (*p)->data, (*p)->data_size);
+  if (*(p + 1)) {
+    ck_assert_int_eq(sv_rc, SV_OK);
+    sv_rc = signed_video_add_nalu_for_signing(sv, (*(p + 1))->data, (*(p + 1))->data_size);
+  }
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
   // This is the first NALU of the stream. We should have 1 NALU to prepend. Pulling only one
   // should not be enough.
 
   sv_rc = pull_nalus(sv, 1, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, (*p)->data, (*p)->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Adding another P-nalu without pulling NALUs is fine.
-  sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
+  if (*(p + 1))
+    sv_rc = signed_video_add_nalu_for_signing(sv, (*(p + 1))->data, (*(p + 1))->data_size);
+  else
+    sv_rc = signed_video_add_nalu_for_signing(sv, (*p)->data, (*p)->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Pull all nalus.
   sv_rc = pull_nalus(sv, -1, NULL);
@@ -296,10 +310,14 @@ START_TEST(incorrect_operation)
   sv_rc = pull_nalus(sv, -1, NULL);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
   // Free nalu_list_item and session.
-  nalu_list_free_item(p_nalu);
-  nalu_list_free_item(i_nalu);
+  nalu_list_free_item(*p);
+  nalu_list_free_item(*(p + 1));
+  nalu_list_free_item(*i);
+  nalu_list_free_item(*(i + 1));
   signed_video_free(sv);
   free(private_key);
+  free(p);
+  free(i);
 }
 END_TEST
 
@@ -314,10 +332,12 @@ START_TEST(vendor_axis_communications_operation)
 
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
+  bool use_obu_frame = settings[_i].use_obu_frame;
   sign_algo_t algo = settings[_i].algo;
   SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
   signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
+  nalu_list_item_t **i = nalu_list_item_create_and_set_id('I', 0, codec, NULL, use_obu_frame);
+  nalu_list_item_t **p = nalu_list_item_create_and_set_id('P', 0, codec, NULL, use_obu_frame);
   nalu_list_item_t *sei = NULL;
   char *private_key = NULL;
   size_t private_key_size = 0;
@@ -372,11 +392,18 @@ START_TEST(vendor_axis_communications_operation)
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Add an I-NALU to trigger a SEI.
-  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, (*i)->data, (*i)->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
+  if (*(i + 1)) {
+    sv_rc = signed_video_add_nalu_for_signing(sv, (*(i + 1))->data, (*(i + 1))->data_size);
+    ck_assert_int_eq(sv_rc, SV_OK);
+    sv_rc = signed_video_add_nalu_for_signing(sv, (*p)->data, (*p)->data_size);
+    ck_assert_int_eq(sv_rc, SV_OK);
+  }
   sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sei = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec);
+  sei =
+      nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec, NULL);
   ck_assert(tag_is_present(sei, codec, VENDOR_AXIS_COMMUNICATIONS_TAG));
   // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory.
   sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
@@ -385,9 +412,14 @@ START_TEST(vendor_axis_communications_operation)
 
   // Free nalu_list_item and session.
   nalu_list_free_item(sei);
-  nalu_list_free_item(i_nalu);
+  nalu_list_free_item(*i);
+  nalu_list_free_item(*(i + 1));
+  nalu_list_free_item(*p);
+  nalu_list_free_item(*(p + 1));
   signed_video_free(sv);
   free(private_key);
+  free(i);
+  free(p);
 }
 END_TEST
 #endif
@@ -421,7 +453,11 @@ START_TEST(correct_nalu_sequence_without_eos)
   // |settings|; See signed_video_helpers.h.
 
   nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPP", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIPP");
+  if (settings[_i].codec != SV_CODEC_AV1 || settings[_i].use_obu_frame) {
+    nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIPP");
+  } else {
+    nalu_list_check_str(list, "ISPPISPPISPPISPPISPPISPP");
+  }
   nalu_list_free(list);
 }
 END_TEST
@@ -459,8 +495,14 @@ START_TEST(correct_multislice_nalu_sequence_without_eos)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  if (settings[_i].codec == SV_CODEC_AV1 && settings[_i].use_obu_frame) return;
+
   nalu_list_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i]);
-  nalu_list_check_str(list, "SIiPpPpSIiPpPp");
+  if (settings[_i].codec != SV_CODEC_AV1) {
+    nalu_list_check_str(list, "SIiPpPpSIiPpPp");
+  } else {
+    nalu_list_check_str(list, "IiSPpPpIiSPpPp");
+  }
   nalu_list_free(list);
 }
 END_TEST
@@ -484,13 +526,19 @@ START_TEST(sei_increase_with_gop_length)
 
   SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPPPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPPPPSI");
-  nalu_list_item_t *sei_3 = nalu_list_remove_item(list, 12);
+  SignedVideoCodec codec = settings[_i].codec;
+  nalu_list_t *list = create_signed_nalus("IPPIPPPPPIP", settings[_i]);
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPSIPPPPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPISPPPPPISP");
+  }
+  nalu_list_item_t *sei_3 = nalu_list_remove_item(list, 12 + (is_obu_fh_style ? 11 : 0));
   nalu_list_item_check_str(sei_3, "S");
-  nalu_list_item_t *sei_2 = nalu_list_remove_item(list, 5);
+  nalu_list_item_t *sei_2 = nalu_list_remove_item(list, 5 + (is_obu_fh_style ? 5 : 0));
   nalu_list_item_check_str(sei_2, "S");
-  nalu_list_item_t *sei_1 = nalu_list_remove_item(list, 1);
+  nalu_list_item_t *sei_1 = nalu_list_remove_item(list, 1 + (is_obu_fh_style ? 2 : 0));
   nalu_list_item_check_str(sei_1, "S");
   if (auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
     // Verify constant size. Note that the size differs if more emulation prevention bytes have
@@ -532,26 +580,34 @@ START_TEST(fallback_to_gop_level)
   // By construction, run the test for SV_AUTHENTICITY_LEVEL_FRAME only.
   if (settings[_i].auth_level != SV_AUTHENTICITY_LEVEL_FRAME) return;
 
+  SignedVideoCodec codec = settings[_i].codec;
+  bool use_obu_frame = settings[_i].use_obu_frame;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !use_obu_frame;
   const size_t kFallbackSize = 10;
-  signed_video_t *sv = get_initialized_signed_video(settings[_i].codec, settings[_i].algo, false);
+  signed_video_t *sv = get_initialized_signed_video(codec, settings[_i].algo, false);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
   ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * HASH_DIGEST_SIZE), SVI_OK);
 
   // Create a list of NALUs given the input string.
-  nalu_list_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPI", false);
-  nalu_list_check_str(list, "SIPPSIPPPPPPPPPPPPPPPPPPPPPPPPSI");
-  nalu_list_item_t *sei_3 = nalu_list_remove_item(list, 31);
+  nalu_list_t *list =
+      create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIP", false, use_obu_frame);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPSIPPPPPPPPPPPPPPPPPPPPPPPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPISPPPPPPPPPPPPPPPPPPPPPPPPISP");
+  }
+  nalu_list_item_t *sei_3 = nalu_list_remove_item(list, 31 + (is_obu_fh_style ? 30 : 0));
   nalu_list_item_check_str(sei_3, "S");
-  nalu_list_item_t *sei_2 = nalu_list_remove_item(list, 5);
+  nalu_list_item_t *sei_2 = nalu_list_remove_item(list, 5 + (is_obu_fh_style ? 5 : 0));
   nalu_list_item_check_str(sei_2, "S");
-  nalu_list_item_t *sei_1 = nalu_list_remove_item(list, 1);
+  nalu_list_item_t *sei_1 = nalu_list_remove_item(list, 1 + (is_obu_fh_style ? 2 : 0));
   nalu_list_item_check_str(sei_1, "S");
 
   // Verify that the HASH_LIST_TAG is present (or not) in the SEI.
-  ck_assert(tag_is_present(sei_1, settings[_i].codec, HASH_LIST_TAG));
-  ck_assert(tag_is_present(sei_2, settings[_i].codec, HASH_LIST_TAG));
-  ck_assert(!tag_is_present(sei_3, settings[_i].codec, HASH_LIST_TAG));
+  ck_assert(tag_is_present(sei_1, codec, HASH_LIST_TAG));
+  ck_assert(tag_is_present(sei_2, codec, HASH_LIST_TAG));
+  ck_assert(!tag_is_present(sei_3, codec, HASH_LIST_TAG));
 
   nalu_list_free_item(sei_1);
   nalu_list_free_item(sei_2);
@@ -573,8 +629,13 @@ START_TEST(undefined_nalu_in_sequence)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPXPSIPPSI");
+  nalu_list_t *list = create_signed_nalus("IPXPIPPIP", settings[_i]);
+  bool is_obu_fh_style = settings[_i].codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPXPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPXPISPPISP");
+  }
   nalu_list_free(list);
 }
 END_TEST
@@ -594,6 +655,9 @@ START_TEST(correct_timestamp)
   // |settings|; See signed_video_helpers.h.
 
   SignedVideoCodec codec = settings[_i].codec;
+
+  if (codec == SV_CODEC_AV1) return;
+
   signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
   signed_video_nalu_to_prepend_t nalu_to_prepend_ts = {0};
   SignedVideoReturnCode sv_rc;
@@ -604,7 +668,8 @@ START_TEST(correct_timestamp)
   ck_assert(sv_ts);
   char *private_key = NULL;
   size_t private_key_size = 0;
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
+  nalu_list_item_t **i =
+      nalu_list_item_create_and_set_id('I', 0, codec, NULL, settings[_i].use_obu_frame);
 
   // Setup the key
   sv_rc =
@@ -622,15 +687,15 @@ START_TEST(correct_timestamp)
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Test old API without timestamp
-  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, (*i)->data, (*i)->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(nalu_to_prepend.prepend_instruction != SIGNED_VIDEO_PREPEND_NOTHING);
 
   // Test new API with timestamp as NULL. It should give the same result as the old API
-  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
-      sv_ts, i_nalu->data, i_nalu->data_size, NULL);
+  sv_rc =
+      signed_video_add_nalu_for_signing_with_timestamp(sv_ts, (*i)->data, (*i)->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_get_nalu_to_prepend(sv_ts, &nalu_to_prepend_ts);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -643,9 +708,9 @@ START_TEST(correct_timestamp)
 
   // Get the hashable data (includes the signature)
   h26x_nalu_t nalu = parse_nalu_info(
-      nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec, false, true);
+      nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec, false, true, NULL);
   h26x_nalu_t nalu_ts = parse_nalu_info(
-      nalu_to_prepend_ts.nalu_data, nalu_to_prepend_ts.nalu_data_size, codec, false, true);
+      nalu_to_prepend_ts.nalu_data, nalu_to_prepend_ts.nalu_data_size, codec, false, true, NULL);
 
   // Remove the signature
   update_hashable_data(&nalu);
@@ -660,7 +725,8 @@ START_TEST(correct_timestamp)
   free(nalu_ts.nalu_data_wo_epb);
   signed_video_nalu_data_free(nalu_to_prepend.nalu_data);
   signed_video_nalu_data_free(nalu_to_prepend_ts.nalu_data);
-  nalu_list_free_item(i_nalu);
+  nalu_list_free_item(*i);
+  free(i);
   signed_video_free(sv);
   signed_video_free(sv_ts);
   free(private_key);
@@ -674,6 +740,9 @@ START_TEST(correct_signing_nalus_in_parts)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  bool is_obu_fh_style = settings[_i].codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+  if (is_obu_fh_style) return;
 
   nalu_list_t *list = create_signed_splitted_nalus("IPPIPP", settings[_i]);
   nalu_list_check_str(list, "SIPPSIPP");
@@ -693,13 +762,16 @@ START_TEST(w_wo_emulation_prevention_bytes)
   SignedVideoCodec codec = settings[_i].codec;
   SignedVideoReturnCode sv_rc;
 
+  if (codec == SV_CODEC_AV1) return;
+
   h26x_nalu_t nalus[NUM_EPB_CASES] = {0};
   uint8_t *sei[NUM_EPB_CASES] = {NULL, NULL};
   size_t sei_size[NUM_EPB_CASES] = {0, 0};
   bool with_emulation_prevention[NUM_EPB_CASES] = {true, false};
   char *private_key = NULL;
   size_t private_key_size = 0;
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
+  nalu_list_item_t **i =
+      nalu_list_item_create_and_set_id('I', 0, codec, NULL, settings[_i].use_obu_frame);
 
   // Generate a Private key.
   sv_rc =
@@ -730,7 +802,7 @@ START_TEST(w_wo_emulation_prevention_bytes)
 
     // Add I-frame for signing and get SEI frame
     sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
-        sv, i_nalu->data, i_nalu->data_size, &g_testTimestamp);
+        sv, (*i)->data, (*i)->data_size, &g_testTimestamp);
     ck_assert_int_eq(sv_rc, SV_OK);
     sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
     ck_assert_int_eq(sv_rc, SV_OK);
@@ -743,7 +815,7 @@ START_TEST(w_wo_emulation_prevention_bytes)
     memcpy(sei[ii], nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size);
     signed_video_nalu_data_free(nalu_to_prepend.nalu_data);
 
-    nalus[ii] = parse_nalu_info(sei[ii], sei_size[ii], codec, false, true);
+    nalus[ii] = parse_nalu_info(sei[ii], sei_size[ii], codec, false, true, NULL);
     update_hashable_data(&nalus[ii]);
 
     signed_video_free(sv);
@@ -759,8 +831,9 @@ START_TEST(w_wo_emulation_prevention_bytes)
     free(nalus[ii].nalu_data_wo_epb);
     free(sei[ii]);
   }
-  nalu_list_free_item(i_nalu);
+  nalu_list_free_item(*i);
   free(private_key);
+  free(i);
 }
 END_TEST
 
@@ -777,11 +850,21 @@ START_TEST(limited_sei_payload_size)
   // Select an upper payload limit which is less then the size of the last SEI.
   const size_t max_sei_payload_size = 1000;
   settings[_i].max_sei_payload_size = max_sei_payload_size;
-  nalu_list_t *list = create_signed_nalus("IPPIPPPPPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPPPPPSI");
+  nalu_list_t *list = create_signed_nalus("IPPIPPPPPPIP", settings[_i]);
+  bool is_obu_fh_style = settings[_i].codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPSIPPPPPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPISPPPPPPISP");
+  }
 
   // Extract the SEIs and check their sizes, which should be smaller than |max_sei_payload_size|.
   int sei_idx[3] = {13, 5, 1};
+  if (is_obu_fh_style) {
+    sei_idx[0] = 25;
+    sei_idx[1] = 10;
+    sei_idx[2] = 3;
+  }
   for (int ii = 0; ii < 3; ii++) {
     nalu_list_item_t *sei = nalu_list_remove_item(list, sei_idx[ii]);
     ck_assert_int_eq(sei->str_code, 'S');

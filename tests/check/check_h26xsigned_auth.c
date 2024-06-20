@@ -274,27 +274,31 @@ START_TEST(invalid_api_inputs)
   // For this test, the authenticity level has no meaning, since it is a setting for the signing
   // side, and we do not use a signed stream here.
   SignedVideoCodec codec = settings[_i].codec;
+  bool use_obu_frame = settings[_i].use_obu_frame;
 
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
-  nalu_list_item_t *p_nalu = nalu_list_item_create_and_set_id('P', 0, codec);
-  nalu_list_item_t *invalid = nalu_list_item_create_and_set_id('X', 0, codec);
+  nalu_list_item_t **p = nalu_list_item_create_and_set_id('P', 0, codec, NULL, use_obu_frame);
+  nalu_list_item_t **invalid = nalu_list_item_create_and_set_id('X', 0, codec, NULL, use_obu_frame);
   // signed_video_add_nalu_and_authenticate()
   // NULL pointers are invalid, as well as zero sized nalus.
   SignedVideoReturnCode sv_rc =
-      signed_video_add_nalu_and_authenticate(NULL, p_nalu->data, p_nalu->data_size, NULL);
+      signed_video_add_nalu_and_authenticate(NULL, (*p)->data, (*p)->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_add_nalu_and_authenticate(sv, NULL, p_nalu->data_size, NULL);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, NULL, (*p)->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_add_nalu_and_authenticate(sv, p_nalu->data, 0, NULL);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, (*p)->data, 0, NULL);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   // An invalid NALU should return silently.
-  sv_rc = signed_video_add_nalu_and_authenticate(sv, invalid->data, invalid->data_size, NULL);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, (*invalid)->data, (*invalid)->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Free nalu_list_item and session.
-  nalu_list_free_item(p_nalu);
-  nalu_list_free_item(invalid);
+  nalu_list_free_item(*p);
+  nalu_list_free_item(*(p + 1));
+  nalu_list_free_item(*invalid);
   signed_video_free(sv);
+  free(p);
+  free(invalid);
 }
 END_TEST
 
@@ -310,13 +314,24 @@ START_TEST(intact_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  // Create a list of NALUs given the input string.
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
 
+  // Create a list of NALUs given the input string.
+  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPISPPISPPISPPISPPISPPISP");
+  }
+
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 20 * obu_factor + 7;  // I/P + S
+  const unsigned validated = 18 * obu_factor + 7;  // I/P + S
+  const unsigned pending = 2 * obu_factor;  // I/P
   // All NALUs but the last 'I' are validated.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 26, 25, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NALU per GOP.
   struct validation_stats expected = {
       .valid_gops = 7, .pending_nalus = 7, .final_validation = &final_validation};
@@ -331,15 +346,29 @@ START_TEST(intact_multislice_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IiPpPpIiPpPpIi", settings[_i]);
-  nalu_list_check_str(list, "SIiPpPpSIiPpPpSIi");
+  SignedVideoCodec codec = settings[_i].codec;
+  bool use_obu_frame = settings[_i].use_obu_frame;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !use_obu_frame;
+  if (codec == SV_CODEC_AV1 && use_obu_frame) return;
 
+  nalu_list_t *list = create_signed_nalus("IiPpPpIiPpPpIiPp", settings[_i]);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIiPpPpSIiPpPpSIiPp");
+  } else {
+    nalu_list_check_str(list, "IiSPpPpIiSPpPpIiSPp");
+  }
+
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 8 * obu_factor + 8 + 3;  // I/P + i/p + S
+  const unsigned validated = 6 * obu_factor + 6 + 3;  // I/P + i/p + S
+  const unsigned pending = 2 * obu_factor + 2;  // I/P + i/p
+  const int pending_nalus = is_obu_fh_style ? 6 : 3;
   // All NALUs but the last 'I' and 'i' are validated.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 17, 15, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NALU per GOP.
   struct validation_stats expected = {
-      .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
+      .valid_gops = 3, .pending_nalus = pending_nalus, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
   nalu_list_free(list);
@@ -350,6 +379,10 @@ START_TEST(intact_stream_with_splitted_nalus)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+  if (is_obu_fh_style) return;
 
   // Create a list of NALUs given the input string.
   nalu_list_t *list = create_signed_splitted_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
@@ -375,12 +408,23 @@ START_TEST(intact_stream_with_pps_nalu_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("VIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "VSIPPSIPPSI");
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
 
+  nalu_list_t *list = create_signed_nalus("VIPPIPPIP", settings[_i]);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "VSIPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "VISPPISPPISP");
+  }
+
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 8 * obu_factor + 1 + 3;  // I/P + V + S
+  const unsigned validated = 6 * obu_factor + 1 + 3;  // I/P + V + S
+  const unsigned pending = 2 * obu_factor;  // I/P
   // All NALUs but the last 'I' are validated.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 11, 10, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NALU per GOP.
   struct validation_stats expected = {
       .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
@@ -394,6 +438,10 @@ START_TEST(intact_stream_with_pps_bytestream)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+  if (is_obu_fh_style) return;
 
   nalu_list_t *list = create_signed_nalus("VIPPIPPI", settings[_i]);
   nalu_list_check_str(list, "VSIPPSIPPSI");
@@ -427,15 +475,29 @@ START_TEST(intact_ms_stream_with_pps_nalu_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("VIiPpPpIiPpPpIi", settings[_i]);
-  nalu_list_check_str(list, "VSIiPpPpSIiPpPpSIi");
+  SignedVideoCodec codec = settings[_i].codec;
+  bool use_obu_frame = settings[_i].use_obu_frame;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !use_obu_frame;
+  if (SV_CODEC_AV1 && use_obu_frame) return;
 
+  nalu_list_t *list = create_signed_nalus("VIiPpPpIiPpPpIiPp", settings[_i]);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "VSIiPpPpSIiPpPpSIiPp");
+  } else {
+    nalu_list_check_str(list, "VIiSPpPpIiSPpPpIiSPp");
+  }
+
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 8 * obu_factor + 9 + 3;  // I/P + i/p/V + S
+  const unsigned validated = 6 * obu_factor + 7 + 3;  // I/P + i/p/V + S
+  const unsigned pending = 2 * obu_factor + 2;  // I/P + i/p/V
+  const int pending_nalus = is_obu_fh_style ? 6 : 3;
   // All NALUs but the last 'I' and 'i' are validated.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 18, 16, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NALU per GOP.
   struct validation_stats expected = {
-      .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
+      .valid_gops = 3, .pending_nalus = pending_nalus, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
   nalu_list_free(list);
@@ -446,6 +508,9 @@ START_TEST(intact_ms_stream_with_pps_bytestream)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  SignedVideoCodec codec = settings[_i].codec;
+  if (codec == SV_CODEC_AV1) return;
 
   nalu_list_t *list = create_signed_nalus("VIiPpPpIiPpPpIi", settings[_i]);
   nalu_list_check_str(list, "VSIiPpPpSIiPpPpSIi");
@@ -482,12 +547,23 @@ START_TEST(intact_with_undefined_nalu_in_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPXPSIPPSI");
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
 
+  nalu_list_t *list = create_signed_nalus("IPXPIPPIP", settings[_i]);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPXPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPXPISPPISP");
+  }
+
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 8 * obu_factor + 1 + 3;  // I/P + X + S
+  const unsigned validated = 6 * obu_factor + 1 + 3;  // I/P + X + S
+  const unsigned pending = 2 * obu_factor;  // I/P
   // All NALUs but the last 'I' are validated.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 11, 10, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NALU per GOP.
   struct validation_stats expected = {
       .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
@@ -502,15 +578,29 @@ START_TEST(intact_with_undefined_multislice_nalu_in_stream)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IiPpXPpIiPpPpIi", settings[_i]);
-  nalu_list_check_str(list, "SIiPpXPpSIiPpPpSIi");
+  SignedVideoCodec codec = settings[_i].codec;
+  bool use_obu_frame = settings[_i].use_obu_frame;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !use_obu_frame;
+  if (codec == SV_CODEC_AV1 && use_obu_frame) return;
 
+  nalu_list_t *list = create_signed_nalus("IiPpXPpIiPpPpIiPp", settings[_i]);
+  if (codec != SV_CODEC_AV1) {
+    nalu_list_check_str(list, "SIiPpXPpSIiPpPpSIiPp");
+  } else {
+    nalu_list_check_str(list, "IiSPpXPpIiSPpPpIiSPp");
+  }
+
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 8 * obu_factor + 9 + 3;  // I/P + i/p/X + S
+  const unsigned validated = 6 * obu_factor + 7 + 3;  // I/P + i/p/X + S
+  const unsigned pending = 2 * obu_factor + 2;  // I/P + i/p/X
+  const int pending_nalus = is_obu_fh_style ? 6 : 3;
   // All NALUs but the last 'I' and 'i' are validated.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 18, 16, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NALU per GOP.
   struct validation_stats expected = {
-      .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
+      .valid_gops = 3, .pending_nalus = pending_nalus, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
   nalu_list_free(list);
@@ -528,22 +618,41 @@ START_TEST(remove_one_p_nalu)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+
+  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPIP", settings[_i]);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPSIPPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPISPPPISPPISP");
+  }
 
   // Item counting starts at 1.  Middle P-NALU in second non-empty GOP: SIPPSIP P PSIPPSI
-  const int remove_nalu_number = 8;
-  remove_item_then_check_and_free(list, remove_nalu_number, "P");
-  nalu_list_check_str(list, "SIPPSIPPSIPPSI");
+  if (!is_obu_fh_style) {
+    const int remove_nalu_number = 8;
+    remove_item_then_check_and_free(list, remove_nalu_number, "P");
+    nalu_list_check_str(list, "SIPPSIPPSIPPSIP");
+  } else {
+    // Remove FH and TG, that is, 2 OBUs
+    const int remove_nalu_number = 13;
+    remove_item_then_check_and_free(list, remove_nalu_number, "");
+    remove_item_then_check_and_free(list, remove_nalu_number, "P");
+    nalu_list_check_str(list, "ISPPISPPISPPISP");
+  }
 
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 11 * obu_factor + 4;  // I/P + S
+  const unsigned validated = 9 * obu_factor + 4;  // I/P + S
+  const unsigned pending = 2 * obu_factor;  // I/P
   // All NALUs but the last 'I' are validated and since one NALU has been removed the authenticity
   // is NOT OK.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 14, 13, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NALU per GOP.
   struct validation_stats expected = {.valid_gops = 2,
       .invalid_gops = 2,
-      .missed_nalus = 1,
+      .missed_nalus = 1,  // For AV1 it is not known if any FH is missing
       .pending_nalus = 4,
       .final_validation = &final_validation};
   // For Frame level we can identify the missing NALU and mark the GOP as valid with missing info.
@@ -567,23 +676,50 @@ START_TEST(interchange_two_p_nalus)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
 
-  // Item counting starts at 1.  Middle P-NALU in second non-empty GOP: SIPPSIP P PSIPPSI
-  const int nalu_number = 8;
-  nalu_list_item_t *item = nalu_list_remove_item(list, nalu_number);
-  nalu_list_item_check_str(item, "P");
+  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPIP", settings[_i]);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPSIPPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPISPPPISPPISP");
+  }
+
+  // Item counting starts at 1.  Middle P-NALU in second non-empty GOP: SIPPSIP P PSIPPSIP
+  int nalu_number = 8;
+  nalu_list_item_t *item = NULL;
+  if (!is_obu_fh_style) {
+    item = nalu_list_remove_item(list, nalu_number);
+    nalu_list_item_check_str(item, "P");
+  } else {
+    // Remove FH and TG, that is, 2 OBUs
+    nalu_number = 13;
+    item = nalu_list_remove_item(list, nalu_number);
+    nalu_list_item_check_str(item, "");
+    nalu_list_append_item(list, item, nalu_number + 2);
+    item = nalu_list_remove_item(list, nalu_number);
+    nalu_list_item_check_str(item, "P");
+    nalu_number += 2;
+  }
 
   // Inject the item again, but at position nalu_number + 1, that is, append the list item at
   // position nalu_number.
   nalu_list_append_item(list, item, nalu_number);
-  nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPSIPPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPISPPPISPPISP");
+  }
 
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 12 * obu_factor + 4;  // I/P + S
+  const unsigned validated = 10 * obu_factor + 4;  // I/P + S
+  const unsigned pending = 2 * obu_factor;  // I/P
   // All NALUs but the last 'I' are validated and since two NALUs have been moved the authenticity
   // is NOT OK.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NALU per GOP.
   struct validation_stats expected = {.valid_gops = 2,
       .invalid_gops = 2,
@@ -593,7 +729,7 @@ START_TEST(interchange_two_p_nalus)
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
     expected.valid_gops = 3;
     expected.invalid_gops = 1;
-    expected.final_validation->number_of_validated_nalus = 14;
+    // expected.final_validation->number_of_validated_nalus = 14;
   }
   validate_nalu_list(NULL, list, expected);
 
@@ -610,17 +746,28 @@ START_TEST(modify_one_p_nalu)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+
+  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPIP", settings[_i]);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPSIPPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPISPPPISPPISP");
+  }
 
   // Second P-NALU in first non-empty GOP: SIP P SIPPPSIPPSI
-  const int modify_nalu_number = 4;
+  const int modify_nalu_number = is_obu_fh_style ? 7 : 4;
   modify_list_item(list, modify_nalu_number, "P");
 
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 12 * obu_factor + 4;  // I/P + S
+  const unsigned validated = 10 * obu_factor + 4;  // I/P + S
+  const unsigned pending = 2 * obu_factor;  // I/P
   // All NALUs but the last 'I' are validated and since one NALU has been modified the authenticity
   // is NOT OK.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NALU per GOP.
   struct validation_stats expected = {.valid_gops = 2,
       .invalid_gops = 2,
@@ -642,17 +789,28 @@ START_TEST(modify_one_i_nalu)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+
+  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPIP", settings[_i]);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPSIPPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPISPPPISPPISP");
+  }
 
   // Modify the I-NALU in second non-empty GOP: SIPPS I PPPSIPPSI
-  const int modify_nalu_number = 6;
+  const int modify_nalu_number = is_obu_fh_style ? 9 : 6;
   modify_list_item(list, modify_nalu_number, "I");
 
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 12 * obu_factor + 4;  // I/P + S
+  const unsigned validated = 10 * obu_factor + 4;  // I/P + S
+  const unsigned pending = 2 * obu_factor;  // I/P
   // All NALUs but the last 'I' are validated and since one I-NALU has been modified the
   // authenticity is NOT OK.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NALU per GOP. Note that a modified I-nalu affects two GOPs due to linked hashes,
   // but it will also affect a third if we validate with a gop_hash.
   struct validation_stats expected = {.valid_gops = 1,
@@ -684,15 +842,33 @@ START_TEST(remove_the_g_nalu)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSI");
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
 
-  // SEI of second non-empty GOP: SIPPSIPP S IPPSIPPSI.
-  const int remove_nalu_number = 9;
+  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIP", settings[_i]);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPISPPISPPISPPISP");
+  }
+
+  // SEI of second non-empty GOP: SIPPSIPP S IPPSIPPSIP.
+  const int remove_nalu_number = is_obu_fh_style ? 17 : 9;
   remove_item_then_check_and_free(list, remove_nalu_number, "S");
-  nalu_list_check_str(list, "SIPPSIPPIPPSIPPSI");
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPSIPPIPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPISPPIPPISPPISP");
+  }
 
-  // SIPPSIPPIPPSIPPSI
+  // ISPPISPPIPPISPPISP (AV1)
+  //
+  // IS                ->   (valid) -> P.
+  // ISPPIS            ->   (valid) -> ....P.
+  //     ISPPIPPIS     -> (invalid) -> N.NNN..P.
+  //            ISPPIS ->   (valid) -> ....P.
+  //
+  // SIPPSIPPIPPSIPPSIP
   //
   // SI                ->   (valid) -> .P
   //  IPPSI            ->   (valid) -> ....P
@@ -701,11 +877,15 @@ START_TEST(remove_the_g_nalu)
   //             IPPSI ->   (valid) -> ....P
   // All NALUs but the last 'I' are validated and since one SEI has been removed the authenticity
   // is NOT OK.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 17, 16, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 14 * obu_factor + 4;  // I/P + S
+  const unsigned validated = 12 * obu_factor + 4;  // I/P + S
+  const unsigned pending = 2 * obu_factor;  // I/P
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {.valid_gops = 3,
-      .invalid_gops = 2,
-      .pending_nalus = 8,
+      .invalid_gops = is_obu_fh_style ? 1 : 2,
+      .pending_nalus = is_obu_fh_style ? 4 : 8,
       .final_validation = &final_validation};
 
   validate_nalu_list(NULL, list, expected);
@@ -719,23 +899,41 @@ START_TEST(remove_the_i_nalu)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSI");
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
 
-  // I-NALU of third non-empty GOP: SIPPSIPPS I PPSIPPSI.
-  const int remove_nalu_number = 10;
+  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIP", settings[_i]);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPISPPISPPISPPISP");
+  }
+
+  // I-NALU of third non-empty GOP: SIPPSIPPS I PPSIPPSIP.
+  const int remove_nalu_number = is_obu_fh_style ? 15 : 10;
+  if (is_obu_fh_style) {
+    remove_item_then_check_and_free(list, remove_nalu_number, "");
+  }
   remove_item_then_check_and_free(list, remove_nalu_number, "I");
-  nalu_list_check_str(list, "SIPPSIPPSPPSIPPSI");
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPSIPPSPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPISPPSPPISPPISP");
+  }
 
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 13 * obu_factor + 5;  // I/P + S
+  const unsigned validated = 11 * obu_factor + 5;  // I/P + S
+  const unsigned pending = 2 * obu_factor;  // I/P
   // All NALUs but the last 'I' are validated and since one I-NALU has been removed the authenticity
   // is NOT OK.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 17, 16, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NALU per GOP. A missing I NALU will affect two GOPs, since it is part of two
   // gop_hashes. At GOP level the missing NALU will make the GOP invalid, but for Frame level we can
   // identify the missed NALU when the I NALU is not the reference, that is, the first GOP is valid
   // with missing info, whereas the second becomes invalid.
-  // SIPPSIPPSPPSIPPSI
+  // SIPPSIPPSPPSIPPSIP
   //
   // SI                ->   (valid) -> .P
   //  IPPSI            ->   (valid) -> ....P
@@ -744,7 +942,7 @@ START_TEST(remove_the_i_nalu)
   //             IPPSI -> (invalid) -> N...P
   struct validation_stats expected = {.valid_gops = 2,
       .invalid_gops = 3,
-      .missed_nalus = 1,
+      .missed_nalus = 1,  // For AV1 it is unknown if a FH is missing
       .pending_nalus = 5,
       .final_validation = &final_validation};
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
@@ -767,21 +965,51 @@ START_TEST(remove_the_gi_nalus)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSI");
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
 
-  // SEI of second non-empty GOP: SIPPSIPP S IPPSIPPSI.
-  int remove_nalu_number = 9;
-  remove_item_then_check_and_free(list, remove_nalu_number, "S");
-  // Note that we have removed an item before this one, hence the I-NALU is now at place 9:
-  // SIPPSIPP I PPSIPPS.
-  remove_item_then_check_and_free(list, remove_nalu_number, "I");
-  nalu_list_check_str(list, "SIPPSIPPPPSIPPSI");
+  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIP", settings[_i]);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPISPPISPPISPPISP");
+  }
 
+  // SEI of second non-empty GOP: SIPPSIPP S IPPSIPPSIP.
+  const int remove_nalu_number = is_obu_fh_style ? 15 : 9;
+  if (!is_obu_fh_style) {
+    remove_item_then_check_and_free(list, remove_nalu_number, "S");
+    // Note that we have removed an item before this one, hence the I-NALU is now at place 9:
+    // SIPPSIPP I PPSIPPS.
+    remove_item_then_check_and_free(list, remove_nalu_number, "I");
+    nalu_list_check_str(list, "SIPPSIPPPPSIPPSIP");
+  } else {
+    remove_item_then_check_and_free(list, remove_nalu_number, "");
+    remove_item_then_check_and_free(list, remove_nalu_number, "I");
+    // Note that we have removed an item before this one, hence the SEI is now at place 15:
+    // SIPPSIPP I PPSIPPS.
+    remove_item_then_check_and_free(list, remove_nalu_number, "S");
+    nalu_list_check_str(list, "ISPPISPPPPISPPISP");
+  }
+
+  // AV1 acts different in the test since the lost transition cannot be detected.
+  // This happens because the SEIs always occur after the I-frame and further, validation
+  // can (incorrectly) be performed on the frame right after the SEI.
+  // ISPPISPPPPISPPISP (AV1)
+  //
+  // IS               ->   (valid) P.
+  // ISPPIS           ->   (valid) ....P.
+  //     ISPPPPIS     -> (invalid) N.NNNNPP
+  //           ISP    -> (invalid) NMM.P
+  //             PPIS -> (invalid) MNNP.
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 13 * obu_factor + 4;  // I/P + S
+  const unsigned validated = 11 * obu_factor + 4;  // I/P + S
+  const unsigned pending = 2 * obu_factor;  // I/P
   // All NALUs but the last 'I' are validated and since one couple of SEI and I-NALU have been
   // removed the authenticity is NOT OK.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 16, 15, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NALU per detected GOP. Note that we lose one 'true' GOP since the transition is
   // lost. We have now two incomplete GOPs; second (missing S) and third (missing I). In fact, we
   // miss the transition between GOP two and three, but will detect it later through the gop
@@ -789,9 +1017,9 @@ START_TEST(remove_the_gi_nalus)
   // "missing gops", so we cannot get that information. This will be solved when changing to a more
   // complete authentication report.
   struct validation_stats expected = {.valid_gops = 2,
-      .invalid_gops = 2,
-      .missed_nalus = -2,
-      .pending_nalus = 4,
+      .invalid_gops = is_obu_fh_style ? 3 : 2,
+      .missed_nalus = is_obu_fh_style ? 3 : -2,
+      .pending_nalus = is_obu_fh_style ? 6 : 4,
       .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
@@ -807,6 +1035,10 @@ START_TEST(sei_arrives_late)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+  if (is_obu_fh_style) return;
 
   nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPI", settings[_i]);
   nalu_list_check_str(list, "SIPPPSIPPPSIPPPSI");
@@ -839,35 +1071,70 @@ END_TEST
 static nalu_list_t *
 generate_delayed_sei_list(struct sv_setting setting, bool extra_delay)
 {
+  SignedVideoCodec codec = setting.codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !setting.use_obu_frame;
+
   // Make first GOP one P-frame longer to trigger recurrence on second I-frame.
-  nalu_list_t *list = create_signed_nalus("IPPPPIPPPIPPPIPPPIP", setting);
-  nalu_list_check_str(list, "SIPPPPSIPPPSIPPPSIPPPSIP");
+  nalu_list_t *list = create_signed_nalus("IPPPPIPPPIPPPIPPPIPP", setting);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPPPSIPPPSIPPPSIPPPSIPP");
+  } else {
+    nalu_list_check_str(list, "ISPPPPISPPPISPPPISPPPISPP");
+  }
 
   // Remove each SEI in the list and append it 2 items later (which in practice becomes 1 item later
   // since we just removed the SEI).
-  int extra_offset = extra_delay ? 5 : 0;
-  int extra_correction = extra_delay ? 1 : 0;
-  nalu_list_item_t *sei = nalu_list_remove_item(list, 1);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_append_item(list, sei, 2 + extra_offset);
-  sei = nalu_list_remove_item(list, 7 - extra_correction);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_append_item(list, sei, 8 + extra_offset);
-  sei = nalu_list_remove_item(list, 12 - extra_correction);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_append_item(list, sei, 13 + extra_offset);
-  sei = nalu_list_remove_item(list, 17 - extra_correction);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_append_item(list, sei, 18 + extra_offset);
-  sei = nalu_list_remove_item(list, 22 - extra_correction);
-  nalu_list_item_check_str(sei, "S");
-  nalu_list_append_item(list, sei, 23);
-
-  if (extra_delay) {
-    nalu_list_check_str(list, "IPPPPISPPPIPSPPIPSPPIPSS");
+  if (!is_obu_fh_style) {
+    int extra_offset = extra_delay ? 5 : 0;
+    int extra_correction = extra_delay ? 1 : 0;
+    nalu_list_item_t *sei = nalu_list_remove_item(list, 1);
+    nalu_list_item_check_str(sei, "S");
+    nalu_list_append_item(list, sei, 2 + extra_offset);
+    sei = nalu_list_remove_item(list, 7 - extra_correction);
+    nalu_list_item_check_str(sei, "S");
+    nalu_list_append_item(list, sei, 8 + extra_offset);
+    sei = nalu_list_remove_item(list, 12 - extra_correction);
+    nalu_list_item_check_str(sei, "S");
+    nalu_list_append_item(list, sei, 13 + extra_offset);
+    sei = nalu_list_remove_item(list, 17 - extra_correction);
+    nalu_list_item_check_str(sei, "S");
+    nalu_list_append_item(list, sei, 18 + extra_offset);
+    sei = nalu_list_remove_item(list, 22 - extra_correction);
+    nalu_list_item_check_str(sei, "S");
+    nalu_list_append_item(list, sei, 23);
   } else {
-    nalu_list_check_str(list, "IPSPPPIPSPPIPSPPIPSPPIPS");
-  };
+    int extra_offset = extra_delay ? 7 : 0;
+    int extra_correction = extra_delay ? 1 : 0;
+    nalu_list_item_t *sei = nalu_list_remove_item(list, 3);
+    nalu_list_item_check_str(sei, "S");
+    nalu_list_append_item(list, sei, 6 + extra_offset);
+    sei = nalu_list_remove_item(list, 14 - extra_correction);
+    nalu_list_item_check_str(sei, "S");
+    nalu_list_append_item(list, sei, 15 + extra_offset);
+    sei = nalu_list_remove_item(list, 23 - extra_correction);
+    nalu_list_item_check_str(sei, "S");
+    nalu_list_append_item(list, sei, 24 + extra_offset);
+    sei = nalu_list_remove_item(list, 32 - extra_correction);
+    nalu_list_item_check_str(sei, "S");
+    nalu_list_append_item(list, sei, 33 + extra_offset);
+    sei = nalu_list_remove_item(list, 41 - extra_correction);
+    nalu_list_item_check_str(sei, "S");
+    nalu_list_append_item(list, sei, 42);
+  }
+
+  if (!is_obu_fh_style) {
+    if (extra_delay) {
+      nalu_list_check_str(list, "IPPPPISPPPIPSPPIPSPPIPSSP");
+    } else {
+      nalu_list_check_str(list, "IPSPPPIPSPPIPSPPIPSPPIPSP");
+    };
+  } else {
+    if (extra_delay) {
+      nalu_list_check_str(list, "IPPPPISPPPISPPPISPPPISPSP");
+    } else {
+      nalu_list_check_str(list, "IPPSPPIPSPPIPSPPIPSPPIPSP");
+    };
+  }
   return list;
 }
 
@@ -880,9 +1147,21 @@ START_TEST(all_seis_arrive_late)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
   nalu_list_t *list = generate_delayed_sei_list(settings[_i], true);
 
-  // IPPPPISPPPIPSPPIPSPPIPSS
+  // IPPPPISPPPISPPPISPPPISPSP (AV1)
+  //
+  // IPPPPI                   -> (no signature) -> PPPPPP         6 pending
+  // IPPPPIS                  ->        (valid) -> PPPPPP.        6 pending
+  // IPPPPISPPPIS             ->        (valid) -> .....P.PPPP.   5 pending
+  //      ISPPPISPPPIS        ->        (valid) -> .....P.PPPP.   5 pending
+  //           ISPPPISPPPIS   ->        (valid) -> .....P.PPPP.   5 pending
+  //                ISPPPISPS ->        (valid) -> .....P.P.      2 pending
+  //                                                             29 pending
+  //
+  // IPPPPISPPPIPSPPIPSPPIPSSP
   //
   // IPPPPI                   -> (no signature) -> PPPPPP         6 pending
   // IPPPPIS                  ->        (valid) -> PPPPPP.        6 pending
@@ -890,13 +1169,17 @@ START_TEST(all_seis_arrive_late)
   //      ISPPPIPSPPIPS       ->        (valid) -> .....PP.PPPP.  6 pending
   //           IPSPPIPSPPIPS  ->        (valid) -> .....PP.PPPP.  6 pending
   //                IPSPPIPSS ->        (valid) -> .....PP..      2 pending
-  //                                                32 pending
-  // All NALUs but the last 'I', 'P' and 2 SEIs are validated as OK, hence four pending NALUs.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 24, 20, 4, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  //                                                             32 pending
+  // All NALUs but the last 'I', 'P' and 2 SEIs are validated as OK, hence five pending NALUs.
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 20 * obu_factor + 5;  // I/P + S
+  const unsigned validated = 17 * obu_factor + 3;  // I/P + S
+  const unsigned pending = 3 * obu_factor + 2 - (obu_factor - 1);  // I/P + S
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {.valid_gops = 5,
       .unsigned_gops = 1,
-      .pending_nalus = 32,
+      .pending_nalus = is_obu_fh_style ? 29 : 32,
       .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
@@ -909,30 +1192,78 @@ START_TEST(all_seis_arrive_late_first_gop_scrapped)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
   nalu_list_t *list = generate_delayed_sei_list(settings[_i], true);
 
-  nalu_list_item_t *item = nalu_list_pop_first_item(list);
+  nalu_list_item_t *item = NULL;
+  if (is_obu_fh_style) {
+    // Remove the FH
+    item = nalu_list_pop_first_item(list);
+    nalu_list_free_item(item);
+  }
+  item = nalu_list_pop_first_item(list);
   nalu_list_item_check_str(item, "I");
-  nalu_list_check_str(list, "PPPPISPPPIPSPPIPSPPIPSS");
   nalu_list_free_item(item);
+  if (is_obu_fh_style) {
+    nalu_list_check_str(list, "PPPPISPPPISPPPISPPPISPSP");
+    // Remove the FH
+    item = nalu_list_pop_first_item(list);
+    nalu_list_free_item(item);
+  } else {
+    nalu_list_check_str(list, "PPPPISPPPIPSPPIPSPPIPSSP");
+  }
   item = nalu_list_pop_first_item(list);
   nalu_list_item_check_str(item, "P");
-  nalu_list_check_str(list, "PPPISPPPIPSPPIPSPPIPSS");
   nalu_list_free_item(item);
+  if (is_obu_fh_style) {
+    nalu_list_check_str(list, "PPPISPPPISPPPISPPPISPSP");
+    // Remove the FH
+    item = nalu_list_pop_first_item(list);
+    nalu_list_free_item(item);
+  } else {
+    nalu_list_check_str(list, "PPPISPPPIPSPPIPSPPIPSSP");
+  }
   item = nalu_list_pop_first_item(list);
   nalu_list_item_check_str(item, "P");
-  nalu_list_check_str(list, "PPISPPPIPSPPIPSPPIPSS");
   nalu_list_free_item(item);
+  if (is_obu_fh_style) {
+    nalu_list_check_str(list, "PPISPPPISPPPISPPPISPSP");
+    // Remove the FH
+    item = nalu_list_pop_first_item(list);
+    nalu_list_free_item(item);
+  } else {
+    nalu_list_check_str(list, "PPISPPPIPSPPIPSPPIPSSP");
+  }
   item = nalu_list_pop_first_item(list);
   nalu_list_item_check_str(item, "P");
-  nalu_list_check_str(list, "PISPPPIPSPPIPSPPIPSS");
   nalu_list_free_item(item);
+  if (is_obu_fh_style) {
+    nalu_list_check_str(list, "PISPPPISPPPISPPPISPSP");
+    // Remove the FH
+    item = nalu_list_pop_first_item(list);
+    nalu_list_free_item(item);
+  } else {
+    nalu_list_check_str(list, "PISPPPIPSPPIPSPPIPSSP");
+  }
   item = nalu_list_pop_first_item(list);
   nalu_list_item_check_str(item, "P");
-  nalu_list_check_str(list, "ISPPPIPSPPIPSPPIPSS");
   nalu_list_free_item(item);
+  if (is_obu_fh_style) {
+    nalu_list_check_str(list, "ISPPPISPPPISPPPISPSP");
+  } else {
+    nalu_list_check_str(list, "ISPPPIPSPPIPSPPIPSSP");
+  }
 
-  // ISPPPIPSPPIPSPPIPSS
+  // ISPPPISPPPISPPPISPSP (AV1)
+  //
+  // IS                  ->    (signature) -> PU             1 pending
+  // ISPPPIS             ->    (signature) -> PUPPPPU        5 pending
+  // ISPPPISPPPIS        ->        (valid) -> .U...PUPPPP.   5 pending
+  //      ISPPPISPPPIS   ->        (valid) -> .U...P.PPPP.   5 pending
+  //           ISPPPISPS ->        (valid) -> .....P.P.      2 pending
+  //                                                        18 pending
+  // ISPPPIPSPPIPSPPIPSSP
   //
   // IS                  ->    (signature) -> PU             1 pending
   // ISPPPIPS            ->    (signature) -> PUPPPPPU       6 pending
@@ -940,11 +1271,15 @@ START_TEST(all_seis_arrive_late_first_gop_scrapped)
   //      IPSPPIPSPPIPS  ->        (valid) -> ..U..PP.PPPP.  6 pending
   //           IPSPPIPSS ->        (valid) -> .....PP..      2 pending
   //                                                        21 pending
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 19, 15, 4, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 15 * obu_factor + 5;  // I/P + S
+  const unsigned validated = 12 * obu_factor + 3 + (is_obu_fh_style);  // I/P + S
+  const unsigned pending = 3 * obu_factor + 2 - (is_obu_fh_style);  // I/P + S
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {.valid_gops = 3,
       .has_signature = 2,
-      .pending_nalus = 21,
+      .pending_nalus = is_obu_fh_style ? 18 : 21,
       .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
@@ -961,32 +1296,62 @@ START_TEST(lost_g_before_late_sei_arrival)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPPSIPPPSIPPPSIPPSI");
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+
+  nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPIPPIP", settings[_i]);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPPSIPPPSIPPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPPISPPPISPPPISPPISP");
+  }
 
   // Remove the third SEI, that is, number 11 in the list: SIPPPSIPPP (S) IPPPSIPPSI.
-  nalu_list_item_t *sei = nalu_list_remove_item(list, 11);
+  nalu_list_item_t *sei = nalu_list_remove_item(list, is_obu_fh_style ? 21 : 11);
   nalu_list_item_check_str(sei, "S");
-  nalu_list_check_str(list, "SIPPPSIPPPIPPPSIPPSI");
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPPSIPPPIPPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPPISPPPIPPPISPPISP");
+  }
 
   // Prepend the middle P of the next GOP: SIPPPSIPPPIP (S)P PSIPPSI. This is equivalent with
   // appending the first P of the same GOP, that is, number 12.
 
-  nalu_list_append_item(list, sei, 12);
-  nalu_list_check_str(list, "SIPPPSIPPPIPSPPSIPPSI");
+  nalu_list_append_item(list, sei, is_obu_fh_style ? 22 : 12);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPPSIPPPIPSPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPPISPPPIPSPPISPPISP");
+  }
 
   // Remove the second SEI, i.e., number 6 in the list: SIPPP (S) IPPPIPSPPSIPPSI.
-  remove_item_then_check_and_free(list, 6, "S");
-  nalu_list_check_str(list, "SIPPPIPPPIPSPPSIPPSI");
+  remove_item_then_check_and_free(list, is_obu_fh_style ? 12 : 6, "S");
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPPIPPPIPSPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPPIPPPIPSPPISPPISP");
+  }
 
+  // ISPPPIPPPIPSPPISPPISP (AV1)
+  // IS                   ->   (valid) -> P.           1 pending
+  // ISPPPIPPPIPS         -> (invalid) -> N.NNNN...PP. 2 pending (two GOPs in one validation)
+  //          IPSPPIS     ->   (valid) -> .....P.      1 pending
+  //               ISPPIS ->   (valid) -> ....P.       1 pending
+  //                                                   5 pending
+  //
   // SI                   ->   (valid) -> .P           1 pending
   //  IPPPIPPPIPS         -> (invalid) -> NNNNN...PP.  2 pending (two GOPs in one validation)
   //          IPSPPSI     ->   (valid) -> ......P      1 pending
   //                IPPSI ->   (valid) -> ....P        1 pending
   //                                             5 pending
   // All NALUs but the last 'I' are validated. Since a SEI is lost the authenticity is NOT OK.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 20, 19, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 17 * obu_factor + 4;  // I/P + S
+  const unsigned validated = 15 * obu_factor + 4;  // I/P + S
+  const unsigned pending = 2 * obu_factor;  // I/P + S
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {.valid_gops = 3,
       .invalid_gops = 1,
       .pending_nalus = 5,
@@ -1065,25 +1430,49 @@ START_TEST(lost_all_nalus_between_two_seis)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPPSIPPPSIPPPSIPPSI");
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
 
-  // Remove IPPP between the second and third S.
-  remove_item_then_check_and_free(list, 7, "I");
-  remove_item_then_check_and_free(list, 7, "P");
-  remove_item_then_check_and_free(list, 7, "P");
-  remove_item_then_check_and_free(list, 7, "P");
-  nalu_list_check_str(list, "SIPPPSSIPPPSIPPSI");
+  nalu_list_t *list = create_signed_nalus("IPPPIPPPIPPPIPPIP", settings[_i]);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPPSIPPPSIPPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPPISPPPISPPPISPPISP");
+  }
+
+  if (!is_obu_fh_style) {
+    // Remove IPPP between the second and third S.
+    remove_item_then_check_and_free(list, 7, "I");
+    remove_item_then_check_and_free(list, 7, "P");
+    remove_item_then_check_and_free(list, 7, "P");
+    remove_item_then_check_and_free(list, 7, "P");
+    nalu_list_check_str(list, "SIPPPSSIPPPSIPPSIP");
+  } else {
+    // Remove IPPP between the second and third S.
+    remove_item_then_check_and_free(list, 13, "");
+    remove_item_then_check_and_free(list, 13, "P");
+    remove_item_then_check_and_free(list, 13, "");
+    remove_item_then_check_and_free(list, 13, "P");
+    remove_item_then_check_and_free(list, 13, "");
+    remove_item_then_check_and_free(list, 13, "P");
+    remove_item_then_check_and_free(list, 13, "");
+    remove_item_then_check_and_free(list, 13, "I");
+    nalu_list_check_str(list, "ISPPPISSPPPISPPISP");
+  }
 
   // All NALUs but the last 'I' are validated. Since all NALUs between two SEIs are lost the
   // authenticity is NOT OK.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 17, 16, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 13 * obu_factor + 5;  // I/P + S
+  const unsigned validated = 11 * obu_factor + 5;  // I/P + S
+  const unsigned pending = 2 * obu_factor;  // I/P
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // We have NALUs from 5 GOPs present and each GOP will produce one pending NALU. The lost NALUs
   // (IPPP) will be detected, but for SV_AUTHENTICITY_LEVEL_FRAME we will measure one extra missing
   // NALU. This is a descrepancy in the way we count NALUs by excluding SEIs.
   //
-  // SIPPPSSIPPPSIPPSI
+  // SIPPPSSIPPPSIPPSIP
   //
   // SI                ->   (valid) -> .P
   //  IPPPSS           -> (invalid) -> NNNNNP
@@ -1092,11 +1481,11 @@ START_TEST(lost_all_nalus_between_two_seis)
   //             IPPSI ->   (valid) -> ....P
   struct validation_stats expected = {.valid_gops = 2,
       .invalid_gops = 3,
-      .missed_nalus = 4,
+      .missed_nalus = 4,  // For AV1 it is unknown if FH is lost
       .pending_nalus = 5,
       .final_validation = &final_validation};
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    // SIPPPSSIPPPSIPPSI
+    // SIPPPSSIPPPSIPPSIP
     //
     // SI                ->   (valid) -> .P
     //  IPPPSS           ->   (valid) -> .....P
@@ -1113,34 +1502,101 @@ START_TEST(lost_all_nalus_between_two_seis)
 END_TEST
 
 /* Test description
- * Verify that we get a valid authentication if a sei-nalu has been added between signing and
- * authentication.
+ * Verify that we get a valid authentication if a SEI has been added between signing and
+ * authentication. For AV1 Metadata OBUs are not supposed to be added afterwards and are
+ * hashed, hence breaks the signing if added later.
  */
 START_TEST(add_one_sei_nalu_after_signing)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  nalu_list_check_str(list, "SIPPSIPPPSIPPSI");
+  SignedVideoCodec codec = settings[_i].codec;
+  bool use_obu_frame = settings[_i].use_obu_frame;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !use_obu_frame;
+  if (is_obu_fh_style) return;
+
+  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPIP", settings[_i]);
+  nalu_list_check_str(list, "SIPPSIPPPSIPPSIP");
 
   const uint8_t id = 0;
-  nalu_list_item_t *sei = nalu_list_item_create_and_set_id('Z', id, settings[_i].codec);
+  nalu_list_item_t **sei = nalu_list_item_create_and_set_id('Z', id, codec, NULL, use_obu_frame);
 
   // Middle P-NALU in second non-empty GOP: SIPPSIP P(Z) PSIPPSI
   const int append_nalu_number = 8;
-  nalu_list_append_item(list, sei, append_nalu_number);
-  nalu_list_check_str(list, "SIPPSIPPZPSIPPSI");
+  nalu_list_append_item(list, *sei, append_nalu_number);
+  nalu_list_check_str(list, "SIPPSIPPZPSIPPSIP");
 
   // All NALUs but the last 'I' are validated as OK. The last one is pending.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 16, 15, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const unsigned received = 17;  // I/P + S + Z
+  const unsigned validated = 15;  // I/P + S + Z
+  const unsigned pending = 2;  // I/P
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NALU per GOP.
   struct validation_stats expected = {
       .valid_gops = 4, .pending_nalus = 4, .final_validation = &final_validation};
+  if (codec == SV_CODEC_AV1) {
+    // OBU_METADATA are hashed, hence will cause 1 or 2 GOPs to become invalid.
+    if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
+      expected.valid_gops = 2;
+      expected.invalid_gops = 2;
+    } else {
+      expected.valid_gops = 3;
+      expected.invalid_gops = 1;
+    }
+    expected.missed_nalus = -1;  // One OBU added.
+    final_validation.authenticity = SV_AUTH_RESULT_NOT_OK;
+  }
   validate_nalu_list(NULL, list, expected);
 
   nalu_list_free(list);
+  free(sei);
+}
+END_TEST
+
+START_TEST(add_one_metadata_obu_after_signing)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  SignedVideoCodec codec = settings[_i].codec;
+  bool use_obu_frame = settings[_i].use_obu_frame;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !use_obu_frame;
+  if (!is_obu_fh_style) return;
+
+  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPIP", settings[_i]);
+  nalu_list_check_str(list, "ISPPISPPPISPPISP");
+
+  const uint8_t id = 0;
+  nalu_list_item_t **sei = nalu_list_item_create_and_set_id('Z', id, codec, NULL, use_obu_frame);
+
+  // Middle P-NALU in second non-empty GOP: SIPPSIP P(Z) PSIPPSI
+  const int append_nalu_number = 14;
+  nalu_list_append_item(list, *sei, append_nalu_number);
+  nalu_list_check_str(list, "ISPPISPPZPISPPISP");
+
+  // All NALUs but the last 'I' are validated as OK. The last one is pending.
+  const unsigned obu_factor = 2;
+  const unsigned received = 12 * obu_factor + 4 + 1;  // I/P + S + Z
+  const unsigned validated = 10 * obu_factor + 4 + 1;  // I/P + S + Z
+  const unsigned pending = 2 * obu_factor;  // I/P
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // One pending NALU per GOP.
+  struct validation_stats expected = {.valid_gops = 3,
+      .invalid_gops = 1,
+      .pending_nalus = 4,
+      .missed_nalus = -1,
+      .final_validation = &final_validation};
+  if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
+    expected.invalid_gops = 2;
+    expected.valid_gops = 2;
+  }
+  validate_nalu_list(NULL, list, expected);
+
+  nalu_list_free(list);
+  free(sei);
 }
 END_TEST
 
@@ -1157,6 +1613,12 @@ START_TEST(camera_reset_on_signing_side)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+  // TODO: Revisit this test. It does not look correct since the second list is generated
+  // with a different signing key.
+  if (is_obu_fh_style) return;
 
   // Generate 2 GOPs
   nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i]);
@@ -1195,6 +1657,12 @@ START_TEST(detect_change_of_public_key)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+  // TODO: Revisit this test since generating two lists is not really correct. The global
+  // GOP counter is reset and affects validation.
+  if (is_obu_fh_style) return;
 
   // Generate 2 GOPs
   nalu_list_t *list = create_signed_nalus("IPPIPP", settings[_i]);
@@ -1293,8 +1761,12 @@ START_TEST(fast_forward_stream_with_reset)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+  if (is_obu_fh_style) return;
+
   // Create a session.
-  signed_video_t *sv = signed_video_create(settings[_i].codec);
+  signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
   nalu_list_t *list = mimic_au_fast_forward_and_get_list(sv, settings[_i]);
@@ -1328,8 +1800,12 @@ START_TEST(fast_forward_stream_without_reset)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+  if (is_obu_fh_style) return;
+
   // Create a session.
-  signed_video_t *sv = signed_video_create(settings[_i].codec);
+  signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
   nalu_list_t *list = mimic_au_fast_forward_and_get_list(sv, settings[_i]);
@@ -1362,14 +1838,14 @@ static nalu_list_t *
 mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_setting setting)
 {
   nalu_list_t *list = generate_delayed_sei_list(setting, false);
-  nalu_list_check_str(list, "IPSPPPIPSPPIPSPPIPSPPIPS");
+  nalu_list_check_str(list, "IPSPPPIPSPPIPSPPIPSPPIPSP");
 
   // Extract the first 9 NALUs from the list. This should be the empty GOP, a full GOP and in the
   // middle of the next GOP: IPSPPPIPS PPIPSPPIPSPPIPS. These are the NALUs to be processed before
   // the fast forward.
   nalu_list_t *pre_fast_forward = nalu_list_pop(list, 9);
   nalu_list_check_str(pre_fast_forward, "IPSPPPIPS");
-  nalu_list_check_str(list, "PPIPSPPIPSPPIPS");
+  nalu_list_check_str(list, "PPIPSPPIPSPPIPSP");
 
   // Final validation of |pre_fast_forward| is OK and all received NALUs, but the last three, are
   // validated.
@@ -1394,7 +1870,7 @@ mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_se
     nalu_list_item_t *item = nalu_list_pop_first_item(list);
     nalu_list_free_item(item);
   }
-  nalu_list_check_str(list, "IPSPPIPS");
+  nalu_list_check_str(list, "IPSPPIPSP");
 
   return list;
 }
@@ -1404,8 +1880,12 @@ START_TEST(fast_forward_stream_with_delayed_seis)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+  if (is_obu_fh_style) return;
+
   // Create a new session.
-  signed_video_t *sv = signed_video_create(settings[_i].codec);
+  signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
   nalu_list_t *list = mimic_au_fast_forward_on_late_seis_and_get_list(sv, settings[_i]);
@@ -1414,7 +1894,7 @@ START_TEST(fast_forward_stream_with_delayed_seis)
 
   // Final validation is OK and all received NALUs, but the last three, are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 8, 5, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 9, 5, 4, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // Validate IPSPPIPS:
   //
   // IPS      -> PPU           (SV_AUTH_RESULT_SIGNATURE_PRESENT)
@@ -1499,10 +1979,14 @@ START_TEST(file_export_with_dangling_end)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+  if (is_obu_fh_style) return;
+
   nalu_list_t *list = mimic_file_export(settings[_i], false, false);
 
   // Create a new session and validate the authenticity of the file.
-  signed_video_t *sv = signed_video_create(settings[_i].codec);
+  signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
   // VSIPPSIPPSIPPSIPP (17 NALUs)
   //
@@ -1533,10 +2017,14 @@ START_TEST(file_export_without_dangling_end)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+  if (is_obu_fh_style) return;
+
   nalu_list_t *list = mimic_file_export(settings[_i], true, false);
 
   // Create a new session and validate the authenticity of the file.
-  signed_video_t *sv = signed_video_create(settings[_i].codec);
+  signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
   // VSIPPSIPPSIPPSIPPSI (19 NALUs)
   //
@@ -1569,12 +2057,17 @@ START_TEST(no_signature)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = nalu_list_create("IPPIPPIPPIPPI", settings[_i].codec);
+  SignedVideoCodec codec = settings[_i].codec;
+  bool use_obu_frame = settings[_i].use_obu_frame;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !use_obu_frame;
+  nalu_list_t *list = nalu_list_create("IPPIPPIPPIPPI", codec, use_obu_frame);
   nalu_list_check_str(list, "IPPIPPIPPIPPI");
 
   // Video is not signed, hence all NALUs are pending.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_SIGNED, false, 13, 0, 13, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, false, 0, 0};
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 13 * obu_factor;  // I/P
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_SIGNED, false,
+      received, 0, received, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, false, 0, 0};
   // Note that we are one frame off. The start of a GOP (the I) is reported as end of the previous
   // GOP. This is not a big deal, since the message is still clear; We have no signed video. We will
   // always have one GOP pending validation, since we wait for a potential SEI, and will validate
@@ -1587,7 +2080,7 @@ START_TEST(no_signature)
   //
   // pending_nalus = 4 + 7 + 10 + 13 = 34
   const struct validation_stats expected = {.unsigned_gops = 4,
-      .pending_nalus = 34,
+      .pending_nalus = 34,  // For AV1 FH do not count
       .has_no_timestamp = true,
       .final_validation = &final_validation};
 
@@ -1602,23 +2095,31 @@ START_TEST(multislice_no_signature)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  nalu_list_t *list = nalu_list_create("IiPpPpIiPpPpIiPpPpIiPpPpIi", settings[_i].codec);
+  SignedVideoCodec codec = settings[_i].codec;
+  bool use_obu_frame = settings[_i].use_obu_frame;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !use_obu_frame;
+  if (codec == SV_CODEC_AV1 && use_obu_frame) return;
+
+  nalu_list_t *list = nalu_list_create("IiPpPpIiPpPpIiPpPpIiPpPpIi", codec, use_obu_frame);
   nalu_list_check_str(list, "IiPpPpIiPpPpIiPpPpIiPpPpIi");
 
   // Video is not signed, hence all NALUs are pending.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_SIGNED, false, 26, 0, 26, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, false, 0, 0};
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 13 * obu_factor + 13;  // I/P + i/p
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_SIGNED, false,
+      received, 0, received, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, false, 0, 0};
   // We will always have one GOP pending validation, since we wait for a potential SEI, and will
   // validate upon the 'next' GOP transition.
   //
-  // IiPpPpI                   -> (PPPPPPP)  (pending, pending, pending, pending, pending, pending)
+  // IiPpPpI                   -> (PPPPPPP)                     (11 pending)
   // IiPpPpIiPpPpI             -> (PPPPPPPPPPPPP)
   // IiPpPpIiPpPpIiPpPpI       -> (PPPPPPPPPPPPPPPPPPP)
   // IiPpPpIiPpPpIiPpPpIiPpPpI -> (PPPPPPPPPPPPPPPPPPPPPPPPP)
   //
-  // pending_nalus = 7 + 13 + 19 + 25 = 64
+  // pending_nalus = 11 + 20 + 29 + 38 = 98 (AV1)
+  // pending_nalus = 7 + 13 + 19 + 25 = 64 (H26x)
   const struct validation_stats expected = {.unsigned_gops = 4,
-      .pending_nalus = 64,
+      .pending_nalus = 64,  // For AV1 FH does not count
       .has_no_timestamp = true,
       .final_validation = &final_validation};
 
@@ -1640,8 +2141,11 @@ END_TEST
  */
 START_TEST(late_public_key_and_no_sei_before_key_arrives)
 {
-  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+  if (is_obu_fh_style) return;
 
+  nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
   ck_assert(list);
   nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
 
@@ -1680,19 +2184,32 @@ START_TEST(fallback_to_gop_level)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  SignedVideoCodec codec = settings[_i].codec;
+  bool use_obu_frame = settings[_i].use_obu_frame;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !use_obu_frame;
+
   const size_t kFallbackSize = 10;
-  signed_video_t *sv = get_initialized_signed_video(settings[_i].codec, settings[_i].algo, false);
+  signed_video_t *sv = get_initialized_signed_video(codec, settings[_i].algo, false);
   ck_assert(sv);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
   ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * HASH_DIGEST_SIZE), SVI_OK);
 
   // Create a list of NALUs given the input string.
-  nalu_list_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPI", false);
-  nalu_list_check_str(list, "SIPPSIPPPPPPPPPPPPPPPPPPPPPPPPSIPPSI");
+  nalu_list_t *list =
+      create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPIP", false, use_obu_frame);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPSIPPPPPPPPPPPPPPPPPPPPPPPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPISPPPPPPPPPPPPPPPPPPPPPPPPISPPISP");
+  }
 
-  // Final validation is OK and all received NALUs, but the last one, are validated.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 36, 35, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // Final validation is OK and all received NALUs, but the last two, are validated.
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 33 * obu_factor + 4;  // I/P + S
+  const unsigned validated = 31 * obu_factor + 4;  // I/P + S
+  const unsigned pending = 2 * obu_factor;  // I/P + S
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NALU per GOP.
   struct validation_stats expected = {
       .valid_gops = 4, .pending_nalus = 4, .final_validation = &final_validation};
@@ -1713,10 +2230,13 @@ START_TEST(vendor_axis_communications_operation)
 
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
+  bool use_obu_frame = settings[_i].use_obu_frame;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !use_obu_frame;
   sign_algo_t algo = settings[_i].algo;
   SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
   signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
+  nalu_list_item_t **i = nalu_list_item_create_and_set_id('I', 0, codec, NULL, use_obu_frame);
+  nalu_list_item_t **p = nalu_list_item_create_and_set_id('P', 1, codec, NULL, use_obu_frame);
   nalu_list_item_t *sei = NULL;
   char *private_key = NULL;
   size_t private_key_size = 0;
@@ -1747,11 +2267,20 @@ START_TEST(vendor_axis_communications_operation)
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Add an I-NALU to trigger a SEI.
-  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, (*i)->data, (*i)->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
+  if (*(i + 1)) {
+    sv_rc = signed_video_add_nalu_for_signing(sv, (*(i + 1))->data, (*(i + 1))->data_size);
+    ck_assert_int_eq(sv_rc, SV_OK);
+  }
+  if (is_obu_fh_style) {
+    sv_rc = signed_video_add_nalu_for_signing(sv, (*p)->data, (*p)->data_size);
+    ck_assert_int_eq(sv_rc, SV_OK);
+  }
   sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sei = nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec);
+  sei =
+      nalu_list_create_item(nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, codec, NULL);
   ck_assert(tag_is_present(sei, codec, VENDOR_AXIS_COMMUNICATIONS_TAG));
   // Ownership of |nalu_to_prepend.nalu_data| has been transferred. Do not free memory.
   sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
@@ -1769,21 +2298,34 @@ START_TEST(vendor_axis_communications_operation)
   signed_video_authenticity_t *auth_report = NULL;
   signed_video_latest_validation_t *latest = NULL;
 
-  sv_rc = signed_video_add_nalu_and_authenticate(sv, sei->data, sei->data_size, &auth_report);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, (*i)->data, (*i)->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(!auth_report);
-  sv_rc = signed_video_add_nalu_and_authenticate(sv, i_nalu->data, i_nalu->data_size, &auth_report);
+  if (*(i + 1)) {
+    sv_rc = signed_video_add_nalu_and_authenticate(
+        sv, (*(i + 1))->data, (*(i + 1))->data_size, &auth_report);
+    ck_assert_int_eq(sv_rc, SV_OK);
+  }
+  ck_assert(!auth_report);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, sei->data, sei->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);
   if (auth_report) {
     latest = &(auth_report->latest_validation);
     ck_assert(latest);
-    ck_assert_int_eq(strcmp(latest->validation_str, ".P"), 0);
+    if (is_obu_fh_style) {
+      // The FH is validated OK, but the TG is pending a second verification
+      ck_assert_int_eq(strcmp(latest->validation_str, "_P."), 0);
+    } else {
+      ck_assert_int_eq(strcmp(latest->validation_str, "P."), 0);
+    }
     ck_assert_int_eq(latest->public_key_validation, SV_PUBKEY_VALIDATION_NOT_OK);
     ck_assert_int_eq(auth_report->accumulated_validation.authenticity, SV_AUTH_RESULT_OK);
     ck_assert_int_eq(auth_report->accumulated_validation.public_key_has_changed, false);
-    ck_assert_int_eq(auth_report->accumulated_validation.number_of_received_nalus, 2);
-    ck_assert_int_eq(auth_report->accumulated_validation.number_of_validated_nalus, 1);
-    ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_nalus, 1);
+    ck_assert_int_eq(
+        auth_report->accumulated_validation.number_of_received_nalus, 2 + is_obu_fh_style);
+    ck_assert_int_eq(
+        auth_report->accumulated_validation.number_of_validated_nalus, is_obu_fh_style);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_nalus, 2);
     ck_assert_int_eq(
         auth_report->accumulated_validation.public_key_validation, SV_PUBKEY_VALIDATION_NOT_OK);
     // We are done with auth_report.
@@ -1795,7 +2337,11 @@ START_TEST(vendor_axis_communications_operation)
 
   // Free nalu_list_item and session.
   nalu_list_free_item(sei);
-  nalu_list_free_item(i_nalu);
+  nalu_list_free_item(*i);
+  nalu_list_free_item(*(i + 1));
+  nalu_list_free_item(*p);
+  nalu_list_free_item(*(p + 1));
+  free(i);
   signed_video_free(sv);
 }
 END_TEST
@@ -1810,7 +2356,8 @@ generate_and_set_private_key_on_camera_side(struct sv_setting setting,
   char *private_key = NULL;
   size_t private_key_size = 0;
   signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, setting.codec);
+  nalu_list_item_t **i =
+      nalu_list_item_create_and_set_id('I', 0, setting.codec, NULL, setting.use_obu_frame);
 
   signed_video_t *sv = signed_video_create(setting.codec);
   ck_assert(sv);
@@ -1826,18 +2373,24 @@ generate_and_set_private_key_on_camera_side(struct sv_setting setting,
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Add an I-NALU to trigger a SEI.
-  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, (*i)->data, (*i)->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
+  if (*(i + 1)) {
+    sv_rc = signed_video_add_nalu_for_signing(sv, (*(i + 1))->data, (*(i + 1))->data_size);
+    ck_assert_int_eq(sv_rc, SV_OK);
+  }
   sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
   ck_assert_int_eq(sv_rc, SV_OK);
   *sei = nalu_list_create_item(
-      nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, setting.codec);
+      nalu_to_prepend.nalu_data, nalu_to_prepend.nalu_data_size, setting.codec, NULL);
   sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NOTHING);
   ck_assert(tag_is_present(*sei, setting.codec, PUBLIC_KEY_TAG) == add_public_key_to_sei);
 
-  nalu_list_free_item(i_nalu);
+  nalu_list_free_item(*i);
+  nalu_list_free_item(*(i + 1));
+  free(i);
   free(private_key);
 
   return sv;
@@ -1857,7 +2410,7 @@ validate_public_key_scenario(signed_video_t *sv,
   signed_video_authenticity_t *auth_report = NULL;
   signed_video_latest_validation_t *latest = NULL;
 
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
+  nalu_list_item_t **i = nalu_list_item_create_and_set_id('I', 0, codec, NULL, false);
   sv_rc = signed_video_add_nalu_and_authenticate(sv, sei->data, sei->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(!auth_report);
@@ -1870,8 +2423,11 @@ validate_public_key_scenario(signed_video_t *sv,
     // Since setting a public key after the session start is not supported, there is no point in
     // adding the i_nalu and authenticate.
   } else {
-    sv_rc =
-        signed_video_add_nalu_and_authenticate(sv, i_nalu->data, i_nalu->data_size, &auth_report);
+    sv_rc = signed_video_add_nalu_and_authenticate(sv, (*i)->data, (*i)->data_size, &auth_report);
+    if (*(i + 1)) {
+      sv_rc = signed_video_add_nalu_and_authenticate(
+          sv, (*(i + 1))->data, (*(i + 1))->data_size, &auth_report);
+    }
 
     if (public_key_present) {
       ck_assert_int_eq(sv_rc, SV_OK);
@@ -1898,7 +2454,9 @@ validate_public_key_scenario(signed_video_t *sv,
     signed_video_authenticity_report_free(auth_report);
   }
   // Free nalu_list_item and session.
-  nalu_list_free_item(i_nalu);
+  nalu_list_free_item(*i);
+  nalu_list_free_item(*(i + 1));
+  free(i);
 }
 
 /* Test description
@@ -1914,6 +2472,8 @@ START_TEST(test_public_key_scenarios)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  if (settings[_i].codec == SV_CODEC_AV1) return;
 
   struct pk_setting {
     bool pk_in_sei;
@@ -1993,10 +2553,13 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
+  if (codec == SV_CODEC_AV1) return;
+
+  SignedVideoReturnCode sv_rc;
   sign_algo_t algo = settings[_i].algo;
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
+  nalu_list_item_t **i =
+      nalu_list_item_create_and_set_id('I', 0, codec, NULL, settings[_i].use_obu_frame);
   nalu_list_item_t *sei = NULL;
   signed_video_t *sv_camera = NULL;
 
@@ -2023,9 +2586,13 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(!auth_report);
 
-  sv_rc =
-      signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv_vms, (*i)->data, (*i)->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);
+  if (*(i + 1)) {
+    sv_rc = signed_video_add_nalu_and_authenticate(
+        sv_vms, (*(i + 1))->data, (*(i + 1))->data_size, &auth_report);
+    ck_assert_int_eq(sv_rc, SV_OK);
+  }
 
   // TODO: This test is correct but currently one I-frame is not enough. The state "signature
   // present" will be used until the bug is fixed.
@@ -2034,7 +2601,9 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   signed_video_authenticity_report_free(auth_report);
   // Free nalu_list_item and session.
   nalu_list_free_item(sei);
-  nalu_list_free_item(i_nalu);
+  nalu_list_free_item(*i);
+  nalu_list_free_item(*(i + 1));
+  free(i);
   signed_video_free(sv_vms);
   signed_video_free(sv_camera);
   free(sign_info.private_key);
@@ -2053,8 +2622,11 @@ START_TEST(no_emulation_prevention_bytes)
   SignedVideoCodec codec = settings[_i].codec;
   SignedVideoReturnCode sv_rc;
 
+  if (codec == SV_CODEC_AV1) return;
+
   // Create a video with a single I-frame, and a SEI (to be created later).
-  nalu_list_item_t *i_nalu = nalu_list_item_create_and_set_id('I', 0, codec);
+  nalu_list_item_t **i =
+      nalu_list_item_create_and_set_id('I', 0, codec, NULL, settings[_i].use_obu_frame);
   nalu_list_item_t *sei = NULL;
 
   // Signing side
@@ -2088,7 +2660,7 @@ START_TEST(no_emulation_prevention_bytes)
 
   // Add I-frame for signing and get SEI frame.
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
-      sv, i_nalu->data, i_nalu->data_size, &g_testTimestamp);
+      sv, (*i)->data, (*i)->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   signed_video_nalu_to_prepend_t nalu_to_prepend = {0};
@@ -2109,7 +2681,7 @@ START_TEST(no_emulation_prevention_bytes)
   signed_video_nalu_data_free(nalu_to_prepend.nalu_data);
 
   // Create a SEI NAL Unit.
-  sei = nalu_list_create_item(sei_data, sei_data_size, codec);
+  sei = nalu_list_create_item(sei_data, sei_data_size, codec, NULL);
   sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(nalu_to_prepend.prepend_instruction == SIGNED_VIDEO_PREPEND_NOTHING);
@@ -2132,7 +2704,7 @@ START_TEST(no_emulation_prevention_bytes)
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(!auth_report);
   // Pass in the I-frame.
-  sv_rc = signed_video_add_nalu_and_authenticate(sv, i_nalu->data, i_nalu->data_size, &auth_report);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, (*i)->data, (*i)->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Read the authenticity report.
   if (auth_report) {
@@ -2158,7 +2730,8 @@ START_TEST(no_emulation_prevention_bytes)
 
   // End of validation, free memory.
   nalu_list_free_item(sei);
-  nalu_list_free_item(i_nalu);
+  nalu_list_free_item(*i);
+  free(i);
   signed_video_free(sv);
   free(private_key);
 }
@@ -2181,6 +2754,10 @@ START_TEST(with_blocked_signing)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+  if (is_obu_fh_style) return;
 
   nalu_list_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIP", settings[_i]);
   nalu_list_check_str(list, "SIPPSIPPSIPPSIPPSIPPSIP");
@@ -2215,6 +2792,57 @@ START_TEST(with_blocked_signing)
   // The last P is never validated since it was never signed.
   // It only appears in the final report.
   struct validation_stats expected = {.valid_gops = 6, .pending_nalus = 18};
+  validate_nalu_list(NULL, list, expected);
+
+  nalu_list_free(list);
+}
+END_TEST
+
+/* Test description
+ * Verify that if we manipulate a NALU, the authentication should become invalid. We do this for
+ * both a P- and an I-NALU, by replacing the NALU data with a modified NALU.
+ */
+START_TEST(add_tile_list)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  SignedVideoCodec codec = settings[_i].codec;
+  bool use_obu_frame = settings[_i].use_obu_frame;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !use_obu_frame;
+  if (codec != SV_CODEC_AV1) return;
+
+  nalu_list_t *list = create_signed_nalus("IPPIPPPIPPIP", settings[_i]);
+  if (!is_obu_fh_style) {
+    nalu_list_check_str(list, "SIPPSIPPPSIPPSIP");
+  } else {
+    nalu_list_check_str(list, "ISPPISPPPISPPISP");
+  }
+
+  // Add a TL P-frame, which consists of a FH and a TL
+  nalu_list_item_t **fh_tl = nalu_list_item_create_and_set_id('L', 0, codec, NULL, use_obu_frame);
+  nalu_list_append_item(list, *fh_tl, is_obu_fh_style ? 5 : 3);
+  nalu_list_append_item(list, *(fh_tl + 1), is_obu_fh_style ? 6 : 4);
+
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 12 * obu_factor + 4 + 2;  // I/P + S + TL
+  const unsigned validated = 10 * obu_factor + 4 + 2;  // I/P + S + TL
+  const unsigned pending = 2 * obu_factor;  // I/P
+  // All NALUs but the last 'I' are validated and since one NALU has been modified the authenticity
+  // is NOT OK.
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // One pending NALU per GOP.
+  struct validation_stats expected = {.valid_gops = 2,
+      .invalid_gops = 2,
+      .pending_nalus = 4,
+      .missed_nalus = -1,  // For AV1 FH does not count
+      .final_validation = &final_validation};
+  // For Frame level we can identify the I NALU, hence the linking between GOPs is intact.
+  if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
+    expected.valid_gops = 3;
+    expected.invalid_gops = 1;
+  }
   validate_nalu_list(NULL, list, expected);
 
   nalu_list_free(list);
@@ -2278,6 +2906,9 @@ signed_video_suite(void)
 #endif
   tcase_add_loop_test(tc, no_emulation_prevention_bytes, s, e);
   tcase_add_loop_test(tc, with_blocked_signing, s, e);
+  // AV1 specific tests
+  tcase_add_loop_test(tc, add_tile_list, s, e);
+  tcase_add_loop_test(tc, add_one_metadata_obu_after_signing, s, e);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);

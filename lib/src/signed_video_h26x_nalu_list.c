@@ -69,7 +69,9 @@ get_validation_status_from_nalu(const h26x_nalu_t *nalu)
 
   if (nalu->is_valid < 0) return 'E';
   if (nalu->is_valid == 0) return 'U';
-  if (nalu->is_hashable) {
+  if (nalu->is_hashable && (nalu->nalu_type != OBU_TYPE_FH)) {
+    // FHs are hashable, but hashed together with the following TG and stored as a hash in
+    // the TG item. Hence, mark it as not pending.
     return 'P';
   } else {
     return '_';

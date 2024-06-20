@@ -27,7 +27,6 @@
 #include "signed_video_internal.h"  // gop_info_t, gop_state_t, HASH_DIGEST_SIZE
 
 typedef struct _h26x_nalu_list_item_t h26x_nalu_list_item_t;
-
 typedef enum {
   NALU_TYPE_UNDEFINED = 0,
   NALU_TYPE_SEI = 1,
@@ -36,6 +35,7 @@ typedef enum {
   NALU_TYPE_PS = 4,  // Parameter Set: PPS/SPS/VPS
   NALU_TYPE_AUD = 5,
   NALU_TYPE_OTHER = 6,
+  OBU_TYPE_FH = 7,
 } SignedVideoFrameType;
 
 typedef enum {
@@ -54,6 +54,11 @@ nalu_type_to_char(const h26x_nalu_t *nalu);
 
 /* SEI UUID types */
 extern const uint8_t kUuidSignedVideo[UUID_LEN];
+
+struct _obu_st {
+  SignedVideoFrameType next;
+  SignedVideoFrameType previous;
+};
 
 /**
  * A struct representing the stream of NALUs, added to Signed Video for validating authenticity.
@@ -142,6 +147,7 @@ struct _h26x_nalu_t {
   bool is_first_nalu_part;  // True if the |nalu_data| includes the first part
   bool is_last_nalu_part;  // True if the |nalu_data| includes the last part
   bool with_epb;  // Hashable data may include emulation prevention bytes
+  bool is_obu_frame;
 };
 
 /* Internal APIs for gop_state_t functions */
@@ -188,7 +194,8 @@ parse_nalu_info(const uint8_t *nalu_data,
     size_t nalu_data_size,
     SignedVideoCodec codec,
     bool check_trailing_bytes,
-    bool is_auth_side);
+    bool is_auth_side,
+    obu_t *previous_obu);
 
 void
 copy_nalu_except_pointers(h26x_nalu_t *dst_nalu, const h26x_nalu_t *src_nalu);

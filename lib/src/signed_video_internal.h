@@ -38,6 +38,7 @@ typedef struct _sei_data_t sei_data_t;
 // Forward declare h26x_nalu_list_t here for signed_video_t.
 typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
 typedef struct _h26x_nalu_t h26x_nalu_t;
+typedef struct _obu_st obu_t;
 
 #if defined(_WIN32) || defined(_WIN64)
 #define ATTR_UNUSED
@@ -112,6 +113,7 @@ struct _signed_video_t {
   uint16_t last_two_bytes;
   SignedVideoCodec codec;  // Codec used in this session.
   h26x_nalu_t *last_nalu;  // Track last parsed h26x_nalu_t to pass on to next part
+  obu_t *previous_obu;
 
   // Private structures
   gop_info_t *gop_info;

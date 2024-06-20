@@ -75,14 +75,35 @@ const uint8_t p_nalu_h265[DUMMY_NALU_SIZE] = {0x02, 0x01, 0x00, 0x00, 0x80};
 const uint8_t pps_nalu_h265[DUMMY_NALU_SIZE] = {0x44, 0x01, 0x00, 0x00, 0x80};
 const uint8_t sei_nalu_h265[DUMMY_SEI_NALU_SIZE] = {0x4e, 0x01, 0x05, 0x11, 0xaa, 0xaa, 0xaa, 0xaa,
     0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x80};
+/* The AV1 pattern is as follows:
+ *
+ *  non-SEI
+ * |-- 2 bytes --|--  1 byte  --|-- 1 byte --|-- 1 byte --|
+ *   NALU header   slice header       id        stop bit
+ *
+ * SEI
+ * |-- 2 bytes --|-- 18 bytes --|-- 1 byte --|-- 1 byte --|
+ *   NALU header     sei data         id        stop bit
+ *
+ */
+const uint8_t I_av1[DUMMY_NALU_SIZE] = {0x32, 0x03, 0x10, 0x00, 0x80};
+const uint8_t P_av1[DUMMY_NALU_SIZE] = {0x32, 0x03, 0x30, 0x00, 0x80};
+const uint8_t I_fh_av1[DUMMY_NALU_SIZE] = {0x1a, 0x03, 0x10, 0x00, 0x80};
+const uint8_t P_fh_av1[DUMMY_NALU_SIZE] = {0x1a, 0x03, 0x30, 0x00, 0x80};
+const uint8_t I_tg_av1[DUMMY_NALU_SIZE] = {0x22, 0x03, 0x01, 0x00, 0x80};
+const uint8_t P_tg_av1[DUMMY_NALU_SIZE] = {0x22, 0x03, 0x02, 0x00, 0x80};
+const uint8_t P_tl_av1[DUMMY_NALU_SIZE] = {0x42, 0x03, 0x02, 0x00, 0x80};
+const uint8_t sh_av1[DUMMY_NALU_SIZE] = {0x0a, 0x03, 0x00, 0x00, 0x80};
+const uint8_t sei_av1[DUMMY_NALU_SIZE] = {0x2a, 0x03, 0x18, 0x00, 0x80};
+const uint8_t invalid_av1[DUMMY_NALU_SIZE] = {0x02, 0x03, 0xff, 0x00, 0xff};
 
 /* Helper that parses information from the NALU and returns a one character string (+ null
  * termination) representing the NALU type.
  */
 static char
-get_str_code(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
+get_str_code(const uint8_t *data, size_t data_size, SignedVideoCodec codec, obu_t *prev)
 {
-  h26x_nalu_t nalu = parse_nalu_info(data, data_size, codec, false, true);
+  h26x_nalu_t nalu = parse_nalu_info(data, data_size, codec, false, true, prev);
 
   char str;
   switch (nalu.nalu_type) {
@@ -105,6 +126,9 @@ get_str_code(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
         str = 'S';
       break;
     }
+    case OBU_TYPE_FH:
+      str = '\0';
+      break;
     default:
       str = '\0';
       break;
@@ -113,6 +137,80 @@ get_str_code(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
   free(nalu.nalu_data_wo_epb);
 
   return str;
+}
+
+static uint8_t **
+prepare_and_generate_obu(char str, uint8_t id, bool use_obu_frame)
+{
+  uint8_t **nalu_data = calloc(2, sizeof(uint8_t *));
+  nalu_data[0] = malloc(DUMMY_NALU_SIZE);
+  ck_assert(nalu_data[0]);
+  if (!use_obu_frame && (str == 'I' || str == 'P')) {
+    nalu_data[1] = malloc(DUMMY_NALU_SIZE);
+    ck_assert(nalu_data[1]);
+  }
+  if (str == 'L') {
+    nalu_data[1] = malloc(DUMMY_NALU_SIZE);
+    ck_assert(nalu_data[1]);
+  }
+  // Find out which type of NALU the string character is and point |nalu_data| to it.
+  switch (str) {
+    case 'I':
+      if (use_obu_frame) {
+        memcpy(nalu_data[0], I_av1, DUMMY_NALU_SIZE);
+        nalu_data[0][DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
+      } else {
+        memcpy(nalu_data[0], I_fh_av1, DUMMY_NALU_SIZE);
+        nalu_data[0][DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
+        memcpy(nalu_data[1], I_tg_av1, DUMMY_NALU_SIZE);
+        nalu_data[1][DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
+      }
+      break;
+    case 'i':
+      if (!use_obu_frame) {
+        memcpy(nalu_data[0], I_tg_av1, DUMMY_NALU_SIZE);
+        nalu_data[0][DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
+      }
+      break;
+    case 'P':
+      if (use_obu_frame) {
+        memcpy(nalu_data[0], P_av1, DUMMY_NALU_SIZE);
+        nalu_data[0][DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
+      } else {
+        memcpy(nalu_data[0], P_fh_av1, DUMMY_NALU_SIZE);
+        nalu_data[0][DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
+        memcpy(nalu_data[1], P_tg_av1, DUMMY_NALU_SIZE);
+        nalu_data[1][DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
+      }
+      break;
+    case 'p':
+      if (!use_obu_frame) {
+        memcpy(nalu_data[0], P_tg_av1, DUMMY_NALU_SIZE);
+        nalu_data[0][DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
+      }
+      break;
+    case 'L':  // P-frame TL
+      memcpy(nalu_data[0], P_fh_av1, DUMMY_NALU_SIZE);
+      nalu_data[0][DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
+      memcpy(nalu_data[1], P_tl_av1, DUMMY_NALU_SIZE);
+      nalu_data[1][DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
+      break;
+    case 'Z':
+      memcpy(nalu_data[0], sei_av1, DUMMY_NALU_SIZE);
+      nalu_data[0][DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
+      break;
+    case 'V':
+      memcpy(nalu_data[0], sh_av1, DUMMY_NALU_SIZE);
+      nalu_data[0][DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
+      break;
+    case 'X':
+    default:
+      memcpy(nalu_data[0], invalid_av1, DUMMY_NALU_SIZE);
+      nalu_data[0][DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
+      break;
+  }
+
+  return nalu_data;
 }
 
 /* Helper to allocate memory and generate a NAL Unit w/wo correct start code, followed by some
@@ -141,15 +239,9 @@ generate_nalu(bool valid_start_code,
   return nalu;
 }
 
-/**
- * nalu_list_item_t functions.
- */
-
-/* Creates a nalu_list_item_t from a |str| and |codec|. Then sets the |id|. */
-nalu_list_item_t *
-nalu_list_item_create_and_set_id(char str, uint8_t id, SignedVideoCodec codec)
+static uint8_t *
+prepare_and_generate_nalu(char str, uint8_t id, SignedVideoCodec codec, size_t *nalu_size)
 {
-  uint8_t *nalu = NULL;  // Final NALU with start code and id.
   const uint8_t *nalu_data = NULL;
   size_t nalu_data_size = DUMMY_NALU_SIZE;  // Change if we have a SEI NALU.
   bool start_code = true;  // Use a valid start code by default.
@@ -182,19 +274,50 @@ nalu_list_item_create_and_set_id(char str, uint8_t id, SignedVideoCodec codec)
       break;
   }
 
-  size_t nalu_size = 0;
-  nalu = generate_nalu(start_code, nalu_data, nalu_data_size, id, &nalu_size);
-  ck_assert(nalu);
-  ck_assert(nalu_size > 0);
-  ck_assert_int_eq(nalu[nalu_size - 2], id);  // Check id.
-  return nalu_list_create_item(nalu, nalu_size, codec);
+  return generate_nalu(start_code, nalu_data, nalu_data_size, id, nalu_size);
+}
+
+/**
+ * nalu_list_item_t functions.
+ */
+
+/* Creates a nalu_list_item_t from a |str| and |codec|. Then sets the |id|. */
+nalu_list_item_t **
+nalu_list_item_create_and_set_id(char str,
+    uint8_t id,
+    SignedVideoCodec codec,
+    obu_t *prev,
+    bool use_obu_frame)
+{
+  nalu_list_item_t **items = calloc(2, sizeof(nalu_list_item_t *));
+  if (codec != SV_CODEC_AV1) {
+    size_t nalu_size = 0;
+    uint8_t *nalu = NULL;
+    nalu = prepare_and_generate_nalu(str, id, codec, &nalu_size);
+    ck_assert(nalu);
+    ck_assert(nalu_size > 0);
+    ck_assert_int_eq(nalu[nalu_size - 2], id);  // Check id.
+    items[0] = nalu_list_create_item(nalu, nalu_size, codec, NULL);
+  } else {
+    obu_t prev_obu = {0};
+    if (!prev) prev = &prev_obu;
+    uint8_t **nalus = prepare_and_generate_obu(str, id, use_obu_frame);
+    ck_assert_int_eq(nalus[0][DUMMY_NALU_SIZE - 2], id);  // Check id.
+    items[0] = nalu_list_create_item(nalus[0], DUMMY_NALU_SIZE, codec, prev);
+    if (nalus[1]) {
+      ck_assert_int_eq(nalus[1][DUMMY_NALU_SIZE - 2], id);  // Check id.
+      items[1] = nalu_list_create_item(nalus[1], DUMMY_NALU_SIZE, codec, prev);
+    }
+    free(nalus);
+  }
+  return items;
 }
 
 /* Creates a new NALU list item. Takes pointers to the NALU data, the nalu data size and whether
  * the ownership is transfered to the item.
  */
 nalu_list_item_t *
-nalu_list_create_item(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
+nalu_list_create_item(const uint8_t *data, size_t data_size, SignedVideoCodec codec, obu_t *prev)
 {
   // Sanity check on input parameters.
   if (!data || data_size <= 0) return NULL;
@@ -204,7 +327,7 @@ nalu_list_create_item(const uint8_t *data, size_t data_size, SignedVideoCodec co
 
   item->data = (uint8_t *)data;
   item->data_size = data_size;
-  item->str_code = get_str_code(data, data_size, codec);
+  item->str_code = get_str_code(data, data_size, codec, prev);
 
   return item;
 }
@@ -353,21 +476,23 @@ nalu_list_print_item(nalu_list_item_t *item)
  * NALU list items.
  */
 nalu_list_t *
-nalu_list_create(const char *str, SignedVideoCodec codec)
+nalu_list_create(const char *str, SignedVideoCodec codec, bool use_obu_frame)
 {
   nalu_list_t *list = (nalu_list_t *)calloc(1, sizeof(nalu_list_t));
   ck_assert(list);
   list->codec = codec;
   uint8_t i = 0;
+  obu_t prev_obu = {0};
 
   while (str[i]) {
-    nalu_list_item_t *new_item = nalu_list_item_create_and_set_id(str[i], i, codec);
-    if (!new_item) {
-      // No character could be identified. Continue without adding.
-      i++;
-      continue;
+    nalu_list_item_t **new_items =
+        nalu_list_item_create_and_set_id(str[i], i, codec, &prev_obu, use_obu_frame);
+    for (int idx = 0; idx < 2; idx++) {
+      if (new_items[idx]) {
+        nalu_list_append_last_item(list, new_items[idx]);
+      }
     }
-    nalu_list_append_last_item(list, new_item);
+    free(new_items);
     i++;
   }
 
@@ -405,10 +530,14 @@ nalu_list_refresh(nalu_list_t *list)
     list->first_item = (list->first_item)->prev;
   }
   // Start from the first_item and count as well as updating the str_code.
+  int str_code_idx = 0;
   nalu_list_item_t *item = list->first_item;
   while (item) {
     // memcpy(&list->str_code[list->num_items], item->str_code, sizeof(char));
-    list->str_code[list->num_items] = item->str_code;
+    if (item->str_code != '\0') {
+      list->str_code[str_code_idx] = item->str_code;
+      str_code_idx++;
+    }
     list->num_items++;
 
     if (!item->next) break;
@@ -425,7 +554,7 @@ nalu_list_pop(nalu_list_t *list, int number_of_items)
   if (!list || number_of_items > list->num_items) return NULL;
 
   // Create an empty list.
-  nalu_list_t *new_list = nalu_list_create("", list->codec);
+  nalu_list_t *new_list = nalu_list_create("", list->codec, false);
   ck_assert(new_list);
   // Pop items from list and append to the new_list.
   while (number_of_items--) {
@@ -447,8 +576,7 @@ nalu_list_append_and_free(nalu_list_t *list, nalu_list_t *list_to_append)
   list->last_item->next = list_to_append->first_item;
   list_to_append->first_item->prev = list->last_item;
   // Update the str_code.
-  memcpy(&list->str_code[list->num_items], list_to_append->str_code,
-      sizeof(char) * list_to_append->num_items);
+  strcat(list->str_code, list_to_append->str_code);
   // Update the number of items.
   list->num_items += list_to_append->num_items;
   // Detach the first_ & last_item from the list_to_append.

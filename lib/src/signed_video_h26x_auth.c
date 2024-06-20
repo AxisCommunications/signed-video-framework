@@ -108,6 +108,9 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
     if (self->gop_state.no_gop_end_before_sei && self->gop_state.has_lost_sei) {
       self->gop_state.gop_transition_is_lost = true;
     }
+    if (self->gop_state.has_lost_sei) {
+      self->gop_info->global_gop_counter = exp_gop_number;
+    }
 
   SVI_CATCH()
   SVI_DONE(status)
@@ -866,7 +869,7 @@ validation_is_feasible(const h26x_nalu_list_item_t *item)
   // generated and attached to the same NALU that triggered the action.
   item = item->prev;
   while (item) {
-    if (item->nalu && item->nalu->is_hashable) {
+    if (item->nalu && item->nalu->is_hashable && item->validation_status == 'P') {
       break;
     }
     item = item->prev;
@@ -1011,8 +1014,15 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
   if (!self || !nalu_data || (nalu_data_size == 0)) return SVI_INVALID_PARAMETER;
 
   h26x_nalu_list_t *nalu_list = self->nalu_list;
-  h26x_nalu_t nalu = parse_nalu_info(nalu_data, nalu_data_size, self->codec, true, true);
+  h26x_nalu_t nalu =
+      parse_nalu_info(nalu_data, nalu_data_size, self->codec, true, true, self->previous_obu);
   DEBUG_LOG("Received a %s of size %zu B", nalu_type_to_str(&nalu), nalu.nalu_data_size);
+  if (nalu.nalu_type == OBU_TYPE_FH) {
+    nalu.is_last_nalu_part = false;
+  }
+  if (self->last_nalu->nalu_type == OBU_TYPE_FH) {
+    nalu.is_first_nalu_part = false;
+  }
   self->validation_flags.has_auth_result = false;
 
   self->accumulated_validation->number_of_received_nalus++;
@@ -1032,6 +1042,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
   SVI_CATCH()
   SVI_DONE(status)
 
+  copy_nalu_except_pointers(self->last_nalu, &nalu);
   // We need to make a copy of the |nalu| independently of failure.
   svi_rc copy_nalu_status = h26x_nalu_list_copy_last_item(nalu_list);
   // Make sure to return the first failure if both operations failed.

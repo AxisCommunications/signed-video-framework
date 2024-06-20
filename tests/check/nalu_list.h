@@ -25,6 +25,7 @@
 #include <string.h>  // size_t
 
 #include "lib/src/includes/signed_video_common.h"  // SignedVideoCodec
+#include "lib/src/signed_video_internal.h"  // obu_t
 
 #define DUMMY_NALU_SIZE (5)
 #define DUMMY_SEI_NALU_SIZE (22)
@@ -75,7 +76,7 @@ typedef struct _nalu_list_t {
 /* Creates a nalu_list with nalu_list_items based on the input string. The string is converted to
  * NALU list items. */
 nalu_list_t *
-nalu_list_create(const char *str, SignedVideoCodec codec);
+nalu_list_create(const char *str, SignedVideoCodec codec, bool use_obu_frame);
 
 /* Frees all the items in the list and the list itself. */
 void
@@ -125,14 +126,18 @@ nalu_list_print(nalu_list_t *list);
  **/
 
 /* Creates a nalu_list_item_t from a |str| and |codec|. Then sets the |id|. */
-nalu_list_item_t *
-nalu_list_item_create_and_set_id(char str, uint8_t id, SignedVideoCodec codec);
+nalu_list_item_t **
+nalu_list_item_create_and_set_id(char str,
+    uint8_t id,
+    SignedVideoCodec codec,
+    obu_t *prev,
+    bool use_obu_frame);
 
 /* Creates a new NALU list item. Takes pointers to the NALU data, the nalu data size. Memory
  * ownership is transfered.
  */
 nalu_list_item_t *
-nalu_list_create_item(const uint8_t *nalu, size_t nalu_size, SignedVideoCodec codec);
+nalu_list_create_item(const uint8_t *nalu, size_t nalu_size, SignedVideoCodec codec, obu_t *prev);
 
 /* Frees the item. */
 void
