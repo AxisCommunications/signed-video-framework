@@ -962,11 +962,11 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
         }
       } else {
         latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+        latest->public_key_has_changed = false;
       }
       latest->number_of_expected_picture_nalus = -1;
       latest->number_of_received_picture_nalus = -1;
       latest->number_of_pending_picture_nalus = h26x_nalu_list_num_pending_items(nalu_list);
-      latest->public_key_has_changed = false;
       self->validation_flags.has_auth_result = true;
     }
     return SV_OK;
