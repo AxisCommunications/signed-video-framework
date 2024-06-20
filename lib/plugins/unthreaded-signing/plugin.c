@@ -88,6 +88,8 @@ unthreaded_openssl_sign_hash(sv_unthreaded_plugin_t *self, const uint8_t *hash, 
   int idx = self->out_buffer_idx;
   if (idx < MAX_BUFFER_LENGTH) {
     status = openssl_sign_hash(&self->sign_data);
+  } else {
+    return SV_NOT_SUPPORTED;
   }
   if (status != SV_OK) return status;
   if (self->sign_data.signature_size > 0) {
