@@ -298,11 +298,11 @@ START_TEST(incorrect_operation)
   sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   // signed_video_get_sei(...) should be called after each signed_video_add_nalu_for_signing(...).
-  // After a P-nalu it is in principle OK, since there are no SEIs to get, due to an unthreaded
-  // signing plugin.
+  // After a P-nalu it is in principle OK, but there might be SEIs to get if the SEIs that are
+  // created didn't get fetched.
 
   sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
-  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
+  ck_assert_int_eq(sv_rc, SV_OK);
   // This is the first NAL Unit of the stream. We should have 1 NAL Unit to prepend. Pulling only
   // one should not be enough.
 
@@ -631,9 +631,6 @@ START_TEST(two_completed_seis_pending)
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
 
-  // Enable testing mode to add multiple SEIs.
-  sv->sv_test_on = true;
-
   char *private_key = NULL;
   size_t private_key_size = 0;
   test_stream_item_t *i_nalu_1 = test_stream_item_create_from_type('I', 0, codec);
@@ -748,8 +745,6 @@ START_TEST(two_completed_seis_pending_legacy)
 
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
-
-  sv->sv_test_on = true;
 
   char *private_key = NULL;
   size_t private_key_size = 0;
