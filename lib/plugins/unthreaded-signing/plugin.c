@@ -23,13 +23,10 @@
  * This signing plugin calls openssl_sign_hash() and stores the generated signature before return.
  * This signature is then copied to the user when sv_signing_plugin_get_signature().
  */
-#include <assert.h>  // assert
 #include <stdlib.h>  // calloc, memcpy
 
 #include "includes/signed_video_openssl.h"
 #include "includes/signed_video_signing_plugin.h"
-
-#define MAX_BUFFER_LENGTH 60  // Maximum length of the signature buffer
 
 #ifndef ATTR_UNUSED
 #if defined(_WIN32) || defined(_WIN64)
@@ -39,90 +36,40 @@
 #endif
 #endif
 
-/**
- * Structure to store the signature information.
- */
-typedef struct _signature_data_t {
-  uint8_t *signature;  // The signature of the |hash|.
-  size_t signature_size;  // The size of the |signature|.
-} signature_data_t;
-
 // Plugin handle to store the signature, etc.
 typedef struct _sv_unthreaded_plugin_t {
+  bool signature_generated;
   sign_or_verify_data_t sign_data;
-  int out_buffer_idx;
-  signature_data_t out_buffer[MAX_BUFFER_LENGTH];  // Buffer to store signature information
 } sv_unthreaded_plugin_t;
 
-/**
- * Shifts the elements in the signature data buffer to the left.
- */
-static void
-shift_out_buffer(sv_unthreaded_plugin_t *self)
-{
-  const int idx = self->out_buffer_idx;
-  assert(idx <= MAX_BUFFER_LENGTH);
-
-  // Store the address of the oldest signature.
-  uint8_t *oldest_signature = self->out_buffer[0].signature;
-
-  for (int j = 0; j < idx - 1; j++) {
-    self->out_buffer[j] = self->out_buffer[j + 1];
-  }
-
-  self->out_buffer[idx - 1].signature = oldest_signature;
-  self->out_buffer[idx - 1].signature_size = 0;
-  self->out_buffer_idx -= 1;
-}
-
-/**
- * Signs the given hash and stores the signature in the buffer.
- */
 static SignedVideoReturnCode
 unthreaded_openssl_sign_hash(sv_unthreaded_plugin_t *self, const uint8_t *hash, size_t hash_size)
 {
+  // If the generated signature has not been pulled a new signature cannot be generated without
+  // being overwritten.
+  if (self->signature_generated) return SV_NOT_SUPPORTED;
+
   SignedVideoReturnCode status = SV_UNKNOWN_FAILURE;
   // Borrow the |hash| by passing the pointer to |sign_data| for signing.
   self->sign_data.hash = (uint8_t *)hash;
   self->sign_data.hash_size = hash_size;
 
-  int idx = self->out_buffer_idx;
-  // Check if the buffer is full.
-  if (idx >= MAX_BUFFER_LENGTH) {
-    status = SV_NOT_SUPPORTED;
-    goto done;
-  }
-
-  // Perform the signing operation.
   status = openssl_sign_hash(&self->sign_data);
-  if (status != SV_OK) goto done;
+  self->signature_generated = (status == SV_OK) && (self->sign_data.signature_size > 0);
 
-  // Check if a valid signature was generated.
-  if (self->sign_data.signature_size == 0) {
-    status = SV_NOT_SUPPORTED;
-    goto done;
-  }
-
-  signature_data_t *out = &self->out_buffer[idx];
-  // Allocate memory for the signature if not already allocated.
-  if (!out->signature) {
-    out->signature = calloc(1, self->sign_data.max_signature_size);
-    if (!out->signature) {
-      // Handle memory allocation failure.
-      status = SV_MEMORY;
-      goto done;
-    }
-  }
-
-  // Copy the generated signature to the buffer.
-  memcpy(out->signature, self->sign_data.signature, self->sign_data.signature_size);
-  out->signature_size = self->sign_data.signature_size;
-
-  self->out_buffer_idx++;
-
-done:
   return status;
 }
+
+static bool
+unthreaded_openssl_has_signature(sv_unthreaded_plugin_t *self)
+{
+  if (self->signature_generated) {
+    self->signature_generated = false;
+    return true;
+  }
+  return false;
+}
+
 /**
  * Definitions of declared interfaces according to signed_video_signing_plugin.h.
  */
@@ -132,6 +79,7 @@ sv_signing_plugin_sign(void *handle, const uint8_t *hash, size_t hash_size)
 {
   sv_unthreaded_plugin_t *self = (sv_unthreaded_plugin_t *)handle;
   if (!self || !hash || hash_size == 0) return SV_INVALID_PARAMETER;
+
   return unthreaded_openssl_sign_hash(self, hash, hash_size);
 }
 
@@ -148,17 +96,15 @@ sv_signing_plugin_get_signature(void *handle,
 
   if (!self || !signature || !written_signature_size) return false;
 
-  bool has_signature = self->out_buffer_idx > 0;
+  bool has_signature = unthreaded_openssl_has_signature(self);
   if (has_signature) {
     // Copy signature if there is room for it.
-    if (max_signature_size < self->out_buffer[0].signature_size) {
+    if (max_signature_size < self->sign_data.signature_size) {
       *written_signature_size = 0;
-      has_signature = false;
     } else {
-      memcpy(signature, self->out_buffer[0].signature, self->out_buffer[0].signature_size);
-      *written_signature_size = self->out_buffer[0].signature_size;
+      memcpy(signature, self->sign_data.signature, self->sign_data.signature_size);
+      *written_signature_size = self->sign_data.signature_size;
     }
-    shift_out_buffer(self);
   }
   if (error) *error = SV_OK;
 
@@ -178,15 +124,8 @@ sv_signing_plugin_session_setup(const void *private_key, size_t private_key_size
     sv_signing_plugin_session_teardown((void *)self);
     self = NULL;
   }
-  return self;
-}
 
-static void
-out_buffer_teardown(sv_unthreaded_plugin_t *self)
-{
-  for (int i = 0; i < MAX_BUFFER_LENGTH; i++) {
-    free(self->out_buffer[i].signature);
-  }
+  return self;
 }
 
 void
@@ -195,7 +134,6 @@ sv_signing_plugin_session_teardown(void *handle)
   sv_unthreaded_plugin_t *self = (sv_unthreaded_plugin_t *)handle;
   if (!self) return;
 
-  out_buffer_teardown(self);
   openssl_free_key(self->sign_data.key);
   free(self->sign_data.signature);
   free(self);
