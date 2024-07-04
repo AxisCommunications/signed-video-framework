@@ -865,16 +865,6 @@ signed_video_set_using_golden_sei(signed_video_t *self, bool using_golden_sei)
 }
 
 SignedVideoReturnCode
-signed_video_set_linked_hash(signed_video_t *self, bool linked_hash_on)
-{
-  if (!self) return SV_INVALID_PARAMETER;
-  if (self->signing_started) return SV_NOT_SUPPORTED;
-
-  self->linked_hash_on = linked_hash_on;
-  return SV_OK;
-}
-
-SignedVideoReturnCode
 signed_video_set_max_sei_payload_size(signed_video_t *self, size_t max_sei_payload_size)
 {
   if (!self) return SV_INVALID_PARAMETER;

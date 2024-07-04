@@ -146,25 +146,6 @@ signed_video_compare_versions(const char* version1, const char* version2);
 bool
 signed_video_is_golden_sei(signed_video_t* self, const uint8_t* nalu, size_t nalu_size);
 
-/**
- * @brief Checks if a NALU uses linked hash
- *
- * A linked hash is the hash of the I-frame of the previous GOP. This function helps
- * in verifying whether a given NALU includes a linked hash, which ensures the video
- * stream maintains a chain of hashes linking each GOP to its predecessor.
- *
- * On the validation side, this function can be used to detect and store NALUs with
- * linked hashes for later use, such as during file export.
- * On the signing side, it can verify that a NALU is correctly using the linked hash
- * method before adding it to the stream.
- *
- * @param nalu A pointer to the NALU data
- * @param nalu_size Size of the |nalu|
- *
- * @returns True if |nalu| is using a linked hash
- */
-bool
-signed_video_using_linked_hash(signed_video_t* self, const uint8_t* nalu, size_t nalu_size);
 #ifdef __cplusplus
 }
 #endif
