@@ -35,6 +35,7 @@ typedef struct _gop_info_t gop_info_t;
 typedef struct _validation_flags_t validation_flags_t;
 typedef struct _gop_state_t gop_state_t;
 typedef struct _sei_data_t sei_data_t;
+typedef struct _linked_hash_t linked_hash_t;
 
 // Forward declare h26x_nalu_list_t here for signed_video_t.
 typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
@@ -111,6 +112,12 @@ struct _sei_data_t {
   size_t completed_sei_size;  // The final SEI size, set when it is completed
 };
 
+struct _linked_hash_t {
+  uint8_t linked_hash[MAX_HASH_SIZE];
+  uint8_t stored_hash[MAX_HASH_SIZE];
+  size_t hash_size;
+};
+
 struct _signed_video_t {
   // Members common to both signing and validation
   int code_version[SV_VERSION_BYTES];
@@ -143,6 +150,11 @@ struct _signed_video_t {
   bool is_golden_sei;  // Flag that tells if a SEI is a golden SEI
   bool using_golden_sei;  // Flag that tells if golden SEI prinsiple is used
   bool signing_started;
+  // TODO: Once the transition to linking to previous GOP is complete, the following flags will be unnecessary.
+  bool linked_hash_on;  // Flag that tells if signed video uses linked hash.
+  bool has_previous_gop_linked;  // Flags that tells previous gop has been linked.
+  bool linked_gop_generate_sei;  // Flag that tells while signed video using linked hash method
+                                 // generate SEI.
 
   // For signing plugin
   void *plugin_handle;
@@ -158,6 +170,7 @@ struct _signed_video_t {
 
   h26x_nalu_t *last_nalu;  // Track last parsed h26x_nalu_t to pass on to next part
 
+  linked_hash_t recived_linked_hash;  // Stores linked hash data for liked hash method.
   // Members associated with SEI writing
   uint16_t last_two_bytes;
   sei_data_t sei_data_buffer[MAX_SEI_DATA_BUFFER];
@@ -220,6 +233,8 @@ struct _gop_info_t {
   // when SV_AUTHENTICITY_LEVEL_FRAME.
   uint8_t tmp_hash[MAX_HASH_SIZE];  // Memory for storing a temporary hash needed when a NALU is
   // split in parts.
+  linked_hash_t linked_hash_data;  // Stores linked hash data for liked hash method.
+
   uint8_t *tmp_hash_ptr;
   uint8_t encoding_status;  // Stores potential errors when encoding, to transmit to the client
   // (authentication part).
@@ -236,6 +251,7 @@ struct _gop_info_t {
   // success, 0 for fail, and -1 for error.
   bool has_timestamp;  // True if timestamp exists and has not yet been written to SEI.
   int64_t timestamp;  // Unix epoch UTC timestamp of the first nalu in GOP
+  bool has_linked_hash;
 };
 
 void

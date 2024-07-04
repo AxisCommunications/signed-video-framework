@@ -577,6 +577,25 @@ signed_video_set_max_sei_payload_size(signed_video_t *self, size_t max_sei_paylo
 SignedVideoReturnCode
 signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid);
 
+/**
+ * @brief Configures Signed Video to use linked hash
+ *
+ * The linked hash is the hash of the I-frame of the previous GOP. By enabling this setting,
+ * the GENERAL_TAG is extended with the linked hash.
+ *
+ * This setting ensures that the video stream maintains a chain of hashes linking each GOP
+ * to its predecessor, thereby enhancing the integrity verification process.
+ *
+ * @param self Session struct pointer
+ * @param linked_hash_on Flag to enable or disable the linked hash.
+ *
+ * @returns SV_OK if the linked hash was successfully set,
+ *          SV_INVALID_PARAMETER if an invalid parameter was passed,
+ *          SV_NOT_SUPPORTED if set during an ongoing session.
+ */
+SignedVideoReturnCode
+signed_video_set_linked_hash(signed_video_t *self, bool linked_hash_on);
+
 #ifdef __cplusplus
 }
 #endif

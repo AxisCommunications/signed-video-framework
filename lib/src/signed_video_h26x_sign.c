@@ -293,9 +293,10 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
     // Add reserved byte(s).
     // The bit stream is illustrated below.
-    // reserved_byte = |epb|golden sei|0|0|0|0|0|0|
+    // reserved_byte = |epb|golden sei|linked hash|0|0|0|0|0|
     uint8_t reserved_byte = self->sei_epb << 7;
     reserved_byte |= self->is_golden_sei << 6;
+    reserved_byte |= self->linked_hash_on << 5;
     *payload_ptr++ = reserved_byte;
 
     size_t written_size = 0;
@@ -524,32 +525,48 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       self->frame_count++;  // It is ok for this variable to wrap around
     }
 
-    SV_THROW(hash_and_add(self, &nalu));
-    // Depending on the input NALU, we need to take different actions. If the input is an I-NALU we
-    // have a transition to a new GOP. Then we need to generate the necessary SEI-NALU(s) and put in
-    // prepend_list. For all other valid NALUs, simply hash and proceed.
-    if (nalu.is_first_nalu_in_gop && nalu.is_last_nalu_part) {
-      // An I-NALU indicates the start of a new GOP, hence prepend with SEI-NALUs. This also means
-      // that the signing feature is present.
-
-      // Store the timestamp for the first nalu in gop.
-      if (timestamp) {
-        self->gop_info->timestamp = *timestamp;
-        self->gop_info->has_timestamp = true;
-      }
-
-      uint8_t *payload = NULL;
-      uint8_t *payload_signature_ptr = NULL;
-
-      SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
-      // Add |payload| to buffer. Will be picked up again when the signature has been generated.
-      add_payload_to_buffer(self, payload, payload_signature_ptr);
-      // Now we are done with the previous GOP. The gop_hash was reset right after signing and
-      // adding it to the SEI NALU. Now it is time to start a new GOP, that is, hash and add this
-      // first NALU of the GOP.
+    // Process the NALU based on the presence of linked hash and whether it is the first NALU in the
+    // GOP
+    if (!(self->gop_info->has_linked_hash && nalu.is_first_nalu_in_gop)) {
+      // If there is no linked hash or it is not the first NALU in the GOP, hash and add the NALU
       SV_THROW(hash_and_add(self, &nalu));
+
+      // If linked hash is enabled, set the flag to prevent immediate SEI generation
+      if (self->linked_hash_on) {
+        self->linked_gop_generate_sei = false;
+      }
+    } else {
+      // If it is the first NALU in the GOP with a linked hash, mark SEI generation as needed
+      self->linked_gop_generate_sei = true;
     }
 
+    // Check if the linked hash is off or if SEI generation is needed
+    if (!self->linked_hash_on || self->linked_gop_generate_sei) {
+      // Depending on the input NALU, we need to take different actions. If the input is an I-NALU
+      // we have a transition to a new GOP. Then we need to generate the necessary SEI-NALU(s) and
+      // put in prepend_list. For all other valid NALUs, simply hash and proceed.
+      if (nalu.is_first_nalu_in_gop && nalu.is_last_nalu_part) {
+        // An I-NALU indicates the start of a new GOP, hence prepend with SEI-NALUs. This also means
+        // that the signing feature is present.
+
+        // Store the timestamp for the first nalu in gop.
+        if (timestamp) {
+          self->gop_info->timestamp = *timestamp;
+          self->gop_info->has_timestamp = true;
+        }
+
+        uint8_t *payload = NULL;
+        uint8_t *payload_signature_ptr = NULL;
+
+        SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
+        // Add |payload| to buffer. Will be picked up again when the signature has been generated.
+        add_payload_to_buffer(self, payload, payload_signature_ptr);
+        // Now we are done with the previous GOP. The gop_hash was reset right after signing and
+        // adding it to the SEI NALU. Now it is time to start a new GOP, that is, hash and add this
+        // first NALU of the GOP.
+        SV_THROW(hash_and_add(self, &nalu));
+      }
+    }
     // Only add a SEI if the current NALU is the primary picture NALU and of course if signing is
     // completed.
     if ((nalu.nalu_type == NALU_TYPE_I || nalu.nalu_type == NALU_TYPE_P) && nalu.is_primary_slice &&
@@ -844,6 +861,16 @@ signed_video_set_using_golden_sei(signed_video_t *self, bool using_golden_sei)
   if (self->signing_started) return SV_NOT_SUPPORTED;
 
   self->using_golden_sei = using_golden_sei;
+  return SV_OK;
+}
+
+SignedVideoReturnCode
+signed_video_set_linked_hash(signed_video_t *self, bool linked_hash_on)
+{
+  if (!self) return SV_INVALID_PARAMETER;
+  if (self->signing_started) return SV_NOT_SUPPORTED;
+
+  self->linked_hash_on = linked_hash_on;
   return SV_OK;
 }
 
