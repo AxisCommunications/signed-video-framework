@@ -181,6 +181,7 @@ struct _signed_video_t {
   // For signature verification
   sign_or_verify_data_t *verify_data;  // All necessary information to verify a signature.
 
+  uint8_t recived_nalu_list_hash[MAX_HASH_SIZE];
   // Shortcuts to authenticity information.
   // If no authenticity report has been set by the user the memory is allocated and used locally.
   // Otherwise, these members point to the corresponding members in |authenticity| below.
@@ -208,15 +209,19 @@ struct _gop_info_t {
   uint8_t *gop_hash;  // Pointing to the memory slot of the gop_hash in |hashes|.
   uint8_t hash_list[HASH_LIST_SIZE];  // Pointer to the list of hashes used for
   // SV_AUTHENTICITY_LEVEL_FRAME.
+  uint8_t nalu_hash_list[HASH_LIST_SIZE];
   size_t hash_list_size;  // The allowed size of the |hash_list|. This can be less than allocated.
   int list_idx;  // Pointing to next available slot in the |hash_list|. If something has gone wrong,
   // like exceeding available memory, |list_idx| = -1.
+  int nalu_list_idx;
   uint8_t gop_hash_init;  // The initialization value for the |gop_hash|.
   uint8_t *nalu_hash;  // Pointing to the memory slot of the NALU hash in |hashes|.
   uint8_t document_hash[MAX_HASH_SIZE];  // Memory for storing the document hash to be signed
   // when SV_AUTHENTICITY_LEVEL_FRAME.
+  uint8_t hash_of_nalu_hash_list[MAX_HASH_SIZE];
   uint8_t tmp_hash[MAX_HASH_SIZE];  // Memory for storing a temporary hash needed when a NALU is
   // split in parts.
+  size_t hash_size;
   uint8_t *tmp_hash_ptr;
   uint8_t encoding_status;  // Stores potential errors when encoding, to transmit to the client
   // (authentication part).

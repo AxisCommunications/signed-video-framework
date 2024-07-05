@@ -843,6 +843,40 @@ update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
 
   return status;
 }
+/* Copies the |nalu_hash| and updates the
+ * |list_idx|. Otherwise, sets the |list_idx| to -1 and proceeds.
+ */
+void
+copy_hash_to_nalu_hash_list(signed_video_t *self, const uint8_t *hash, size_t hash_size)
+{
+  if (!self || !hash) return;
+
+  uint8_t *hash_list = &self->gop_info->nalu_hash_list[0];
+  int *list_idx = &self->gop_info->nalu_list_idx;
+  // Check if there is room for another hash in the |nalu_hash_list|.
+  if (*list_idx + hash_size > sizeof(self->gop_info->nalu_hash_list)) *list_idx = -1;
+  if (*list_idx >= 0) {
+    // We have a valid |hash_list| and can copy the |nalu_hash| to it.
+    memcpy(&hash_list[*list_idx], hash, hash_size);
+    *list_idx += hash_size;
+  }
+}
+/* hash_the_hash_list()
+ * Takes all the hash nalus from |nalu_hash_list| and hash it.
+ */
+svrc_t
+hash_the_hash_list(signed_video_t *self)
+{
+  gop_info_t *gop_info = self->gop_info;
+  uint8_t *hash = gop_info->hash_of_nalu_hash_list;
+  size_t hash_list_size = gop_info->nalu_list_idx;
+  if(hash_list_size == 0) {
+    return SV_OK;
+  }
+  gop_info->hash_size = openssl_get_hash_size(self->crypto_handle);
+  svrc_t status = openssl_hash_data(self->crypto_handle,gop_info->nalu_hash_list , hash_list_size, hash);
+  return status;
+}
 
 /* Checks if there is enough room to copy the hash. If so, copies the |nalu_hash| and updates the
  * |list_idx|. Otherwise, sets the |list_idx| to -1 and proceeds. */
@@ -1033,6 +1067,13 @@ hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
     if (nalu->is_last_nalu_part) {
       // The end of the NALU has been reached. Update hash list and GOP hash.
       check_and_copy_hash_to_hash_list(self, nalu_hash, hash_size);
+      // Copy the NALU to the hash list if the NALU is not an SEI frame.
+      if (nalu->nalu_type == NALU_TYPE_I || nalu->nalu_type == NALU_TYPE_P) {
+        copy_hash_to_nalu_hash_list(self, nalu_hash, hash_size);
+      } else {
+        // If NALU is SEI reset the |nalu_hash_list_idx|.
+        self->gop_info->nalu_list_idx = 0;
+      }
       SV_THROW(update_gop_hash(self->crypto_handle, gop_info));
       update_num_nalus_in_gop_hash(self, nalu);
     }

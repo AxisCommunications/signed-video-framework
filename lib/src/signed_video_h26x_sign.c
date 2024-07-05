@@ -218,6 +218,8 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
+    // Hash the |nalu_hash_list| before write the computed hash to TLV.
+    SV_THROW(hash_the_hash_list(self));
     // Get the total payload size of all TLVs. Then compute the total size of the SEI NALU to be
     // generated. Add extra space for potential emulation prevention bytes.
     optional_tags_size = tlv_list_encode_or_get_size(self, optional_tags, num_optional_tags, NULL);
