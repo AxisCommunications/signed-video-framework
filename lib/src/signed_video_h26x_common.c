@@ -870,11 +870,11 @@ hash_the_hash_list(signed_video_t *self)
   gop_info_t *gop_info = self->gop_info;
   uint8_t *hash = gop_info->hash_of_nalu_hash_list;
   size_t hash_list_size = gop_info->nalu_list_idx;
-  if(hash_list_size == 0) {
+  if (hash_list_size == 0) {
     return SV_OK;
   }
-  gop_info->hash_size = openssl_get_hash_size(self->crypto_handle);
-  svrc_t status = openssl_hash_data(self->crypto_handle,gop_info->nalu_hash_list , hash_list_size, hash);
+  svrc_t status =
+      openssl_hash_data(self->crypto_handle, gop_info->nalu_hash_list, hash_list_size, hash);
   return status;
 }
 

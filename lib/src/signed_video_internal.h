@@ -143,6 +143,7 @@ struct _signed_video_t {
   bool is_golden_sei;  // Flag that tells if a SEI is a golden SEI
   bool using_golden_sei;  // Flag that tells if golden SEI prinsiple is used
   bool signing_started;
+  bool gop_hash_off;  // Flag that tells if the GENERAL TAG doesn't include GOP hash.
 
   // For signing plugin
   void *plugin_handle;
@@ -181,7 +182,6 @@ struct _signed_video_t {
   // For signature verification
   sign_or_verify_data_t *verify_data;  // All necessary information to verify a signature.
 
-  uint8_t recived_nalu_list_hash[MAX_HASH_SIZE];
   // Shortcuts to authenticity information.
   // If no authenticity report has been set by the user the memory is allocated and used locally.
   // Otherwise, these members point to the corresponding members in |authenticity| below.
@@ -190,11 +190,13 @@ struct _signed_video_t {
 
   signed_video_authenticity_t *authenticity;  // Pointer to the authenticity report of which results
   // will be written.
+  uint8_t received_gop_hash[MAX_HASH_SIZE];  // Received hash list after decoding SEI data while
+  // authenticating. |received_gop_hash| will be compared against |hash_list|.
 };
 
 typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;
 
-/**
+/**S
  * Information related to the GOP signature.
  * The |gop_hash| is a recursive hash. It is the hash of the memory [gop_hash, latest hash] and then
  * replaces the gop_hash location. This is used for signing, as it incorporates all information of
@@ -209,7 +211,6 @@ struct _gop_info_t {
   uint8_t *gop_hash;  // Pointing to the memory slot of the gop_hash in |hashes|.
   uint8_t hash_list[HASH_LIST_SIZE];  // Pointer to the list of hashes used for
   // SV_AUTHENTICITY_LEVEL_FRAME.
-  uint8_t nalu_hash_list[HASH_LIST_SIZE];
   size_t hash_list_size;  // The allowed size of the |hash_list|. This can be less than allocated.
   int list_idx;  // Pointing to next available slot in the |hash_list|. If something has gone wrong,
   // like exceeding available memory, |list_idx| = -1.
@@ -221,7 +222,6 @@ struct _gop_info_t {
   uint8_t hash_of_nalu_hash_list[MAX_HASH_SIZE];
   uint8_t tmp_hash[MAX_HASH_SIZE];  // Memory for storing a temporary hash needed when a NALU is
   // split in parts.
-  size_t hash_size;
   uint8_t *tmp_hash_ptr;
   uint8_t encoding_status;  // Stores potential errors when encoding, to transmit to the client
   // (authentication part).
@@ -238,6 +238,9 @@ struct _gop_info_t {
   // success, 0 for fail, and -1 for error.
   bool has_timestamp;  // True if timestamp exists and has not yet been written to SEI.
   int64_t timestamp;  // Unix epoch UTC timestamp of the first nalu in GOP
+
+  uint8_t nalu_hash_list[HASH_LIST_SIZE];  // TODO: This member of the GOP info struct is temporary
+  // and will be deprecated. For linking GOP hash feature, only |hash_list| will be used.
 };
 
 void
