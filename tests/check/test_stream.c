@@ -78,10 +78,6 @@ static const uint8_t pps_nalu_h265[DUMMY_NALU_SIZE] = {0x44, 0x01, 0x00, 0x00, 0
 static const uint8_t sei_nalu_h265[DUMMY_SEI_SIZE] = {0x4e, 0x01, 0x05, 0x11, 0xaa, 0xaa, 0xaa,
     0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x80};
 
-// Function declarations.
-static void
-test_stream_append_last_item(test_stream_t *list, test_stream_item_t *new_item);
-
 /* Helper that parses information from the NAL Unit |data| and returns a character
  * representing the NAL Unit type. */
 static char
@@ -469,7 +465,7 @@ test_stream_append_item(test_stream_t *list, test_stream_item_t *new_item, int i
 }
 
 /* Appends the |last_item| of a |list| with a |new_item|. */
-static void
+void
 test_stream_append_last_item(test_stream_t *list, test_stream_item_t *new_item)
 {
   if (!list || !new_item) return;

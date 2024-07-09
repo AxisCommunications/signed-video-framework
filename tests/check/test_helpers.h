@@ -123,4 +123,8 @@ modify_list_item(test_stream_t *list, int item_number, char type);
 bool
 tag_is_present(const test_stream_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t tag);
 
+/* Generates and returns a test stream based on legacy data. */
+test_stream_t *
+get_legacy_stream(int idx, SignedVideoCodec codec);
+
 #endif  // __TEST_HELPERS_H__

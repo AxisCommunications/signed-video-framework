@@ -80,6 +80,10 @@ test_stream_append_item(test_stream_t *list,
     test_stream_item_t *new_item,
     int item_number_to_append);
 
+/* Helper to append last item of a test stream. */
+void
+test_stream_append_last_item(test_stream_t *list, test_stream_item_t *new_item);
+
 /* Prepends the first_item of a list with a |new_item|. */
 void
 test_stream_prepend_first_item(test_stream_t *list, test_stream_item_t *new_item);
