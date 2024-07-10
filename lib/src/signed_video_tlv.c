@@ -215,7 +215,7 @@ encode_general(signed_video_t *self, uint8_t *data)
   size_t data_size = 0;
   uint32_t gop_counter = gop_info->global_gop_counter + 1;
   uint16_t num_nalus_in_gop_hash = gop_info->num_nalus_in_gop_hash;
-  const uint8_t version = 2;
+  const uint8_t version = 3;
   int64_t timestamp = self->gop_info->timestamp;
   uint8_t flags = 0;
 
@@ -277,11 +277,11 @@ encode_general(signed_video_t *self, uint8_t *data)
     write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 8) & 0x000000ff), epb);
     write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp)&0x000000ff), epb);
   }
-  if(!self->gop_hash_off) {
-    for (size_t i = 0; i < self->sign_data->hash_size; i++) {
-      write_byte(last_two_bytes, &data_ptr, gop_info->hash_of_nalu_hash_list[i], epb);
-    }
+  // Write hash of NALU hashes in GOP.
+  for (size_t i = 0; i < self->sign_data->hash_size; i++) {
+    write_byte(last_two_bytes, &data_ptr, gop_info->hash_of_nalu_hash_list[i], epb);
   }
+
   gop_info->global_gop_counter = gop_counter;
 
   return (data_ptr - data);
@@ -324,12 +324,13 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
         self->latest_validation->timestamp = gop_info->timestamp;
       }
     }
-    if(!self->gop_hash_off){
+
+    if (version >= 3) {
       size_t hash_size = data_size - (data_ptr - data);
       memcpy(self->received_gop_hash, data_ptr, hash_size);
       data_ptr += hash_size;
     }
-  
+
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
   SV_CATCH()
   SV_DONE(status)

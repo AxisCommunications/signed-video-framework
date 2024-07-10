@@ -156,6 +156,8 @@ struct _signed_video_t {
   // Frame counter and flag to handle recurrence
   bool has_recurrent_data;
   int frame_count;
+  uint8_t received_gop_hash[MAX_HASH_SIZE];  // Received hash list after decoding SEI data while
+  // authenticating. |received_gop_hash| will be compared against |hash_of_nalu_hash_list|.
 
   h26x_nalu_t *last_nalu;  // Track last parsed h26x_nalu_t to pass on to next part
 
@@ -190,13 +192,11 @@ struct _signed_video_t {
 
   signed_video_authenticity_t *authenticity;  // Pointer to the authenticity report of which results
   // will be written.
-  uint8_t received_gop_hash[MAX_HASH_SIZE];  // Received hash list after decoding SEI data while
-  // authenticating. |received_gop_hash| will be compared against |hash_list|.
 };
 
 typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;
 
-/**S
+/**
  * Information related to the GOP signature.
  * The |gop_hash| is a recursive hash. It is the hash of the memory [gop_hash, latest hash] and then
  * replaces the gop_hash location. This is used for signing, as it incorporates all information of
@@ -219,7 +219,7 @@ struct _gop_info_t {
   uint8_t *nalu_hash;  // Pointing to the memory slot of the NALU hash in |hashes|.
   uint8_t document_hash[MAX_HASH_SIZE];  // Memory for storing the document hash to be signed
   // when SV_AUTHENTICITY_LEVEL_FRAME.
-  uint8_t hash_of_nalu_hash_list[MAX_HASH_SIZE];
+  uint8_t hash_of_nalu_hash_list[MAX_HASH_SIZE];  // Hash of NALU hashes in GOP.
   uint8_t tmp_hash[MAX_HASH_SIZE];  // Memory for storing a temporary hash needed when a NALU is
   // split in parts.
   uint8_t *tmp_hash_ptr;
