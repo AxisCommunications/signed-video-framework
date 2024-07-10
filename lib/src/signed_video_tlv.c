@@ -301,7 +301,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
   svrc_t status = SV_UNKNOWN_FAILURE;
 
   SV_TRY()
-    SV_THROW_IF(version < 1 || version > 2, SV_INCOMPATIBLE_VERSION);
+    SV_THROW_IF(version < 1 || version > 3, SV_INCOMPATIBLE_VERSION);
 
     data_ptr += read_32bits(data_ptr, &gop_info->global_gop_counter);
     DEBUG_LOG("Found GOP counter = %u", gop_info->global_gop_counter);
