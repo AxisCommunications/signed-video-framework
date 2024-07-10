@@ -386,7 +386,8 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     SV_THROW_IF(!self->md_ctx, SV_VENDOR_ERROR);
     SV_THROW_IF(!self->public_key, SV_NOT_SUPPORTED);
     // Convert |public_key| to uncompressed Weierstrass form which will be part of |signed_data|.
-    pkey = (EVP_PKEY *)self->public_key;
+    // The |public_key| is on EVP_PKEY_CTX form.
+    pkey = EVP_PKEY_CTX_get0_pkey((EVP_PKEY_CTX *)self->public_key);
     SV_THROW_IF(!pkey, SV_EXTERNAL_ERROR);
     public_key_uncompressed_size = EVP_PKEY_get1_encoded_public_key(pkey, &public_key_uncompressed);
     // Check size and prefix of |public_key| after conversion.
@@ -664,7 +665,8 @@ set_axis_communications_public_key(void *handle,
   if (!handle || !public_key) return SV_INVALID_PARAMETER;
 
   sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
-  EVP_PKEY *pkey = (EVP_PKEY *)public_key;
+  // The |public_key| is on EVP_PKEY_CTX form.
+  EVP_PKEY *pkey = EVP_PKEY_CTX_get0_pkey((EVP_PKEY_CTX *)public_key);
 
   // If the Public key previously has been validated unsuccessful, skip checking type and size.
   if (self->supplemental_authenticity.public_key_validation == 0) {
