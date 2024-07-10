@@ -156,8 +156,6 @@ struct _signed_video_t {
   // Frame counter and flag to handle recurrence
   bool has_recurrent_data;
   int frame_count;
-  uint8_t received_gop_hash[MAX_HASH_SIZE];  // Received hash list after decoding SEI data while
-  // authenticating. |received_gop_hash| will be compared against |hash_of_nalu_hash_list|.
 
   h26x_nalu_t *last_nalu;  // Track last parsed h26x_nalu_t to pass on to next part
 
@@ -177,6 +175,8 @@ struct _signed_video_t {
   // reported through the authenticity_report.
   h26x_nalu_list_t *nalu_list;
   bool authentication_started;
+  uint8_t received_gop_hash[MAX_HASH_SIZE];  // Received hash list after decoding SEI data while
+  // authenticating. |received_gop_hash| will be compared against |hash_of_nalu_hash_list|.
 
   validation_flags_t validation_flags;
   gop_state_t gop_state;
