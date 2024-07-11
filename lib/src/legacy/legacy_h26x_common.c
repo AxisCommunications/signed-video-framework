@@ -122,15 +122,6 @@ version_str_to_bytes(int *arr, const char *str)
   return status;
 }
 
-static void
-product_info_free(signed_video_product_info_t *product_info)
-{
-  if (product_info) {
-    product_info_free_members(product_info);
-    free(product_info);
-  }
-}
-
 /**
  * @brief Helper function to create a gop_info_t struct
  *
@@ -865,9 +856,8 @@ legacy_sv_create(signed_video_t *parent)
     version_str_to_bytes(self->code_version, SIGNED_VIDEO_VERSION);
     self->codec = parent->codec;
 
-    self->product_info = calloc(1, sizeof(signed_video_product_info_t));
-    SV_THROW_IF_WITH_MSG(!self->product_info, SV_MEMORY, "Could not allocate product_info");
-    SV_THROW(transfer_product_info(self->product_info, parent->product_info));
+    // Borrow product_info from |parent|.
+    self->product_info = parent->product_info;
 
     // Borrow crypto handle from |parent|.
     self->crypto_handle = parent->crypto_handle;
@@ -952,7 +942,6 @@ legacy_sv_free(legacy_sv_t *self)
 
   legacy_h26x_nalu_list_free(self->nalu_list);
 
-  product_info_free(self->product_info);
   free(self->gop_info);
   free(self->pem_public_key.key);
 
