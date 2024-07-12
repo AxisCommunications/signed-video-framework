@@ -1050,15 +1050,11 @@ legacy_sv_add_nalu_and_authenticate(legacy_sv_t *self,
   // Return silently if there is no legacy validation.
   if (!self) return SV_OK;
 
-  // self->authentication_started = true;
-
   // If the user requests an authenticity report, initialize to NULL.
   if (authenticity) *authenticity = NULL;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    // SV_THROW(create_local_authenticity_report_if_needed(self));
-
     SV_THROW(legacy_sv_add_h26x_nalu(self, nalu_data, nalu_data_size));
     if (self->validation_flags.has_auth_result) {
       legacy_update_authenticity_report(self);

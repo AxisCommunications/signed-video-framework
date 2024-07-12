@@ -124,6 +124,16 @@ legacy_sv_add_nalu_and_authenticate(legacy_sv_t *self,
     size_t nalu_data_size,
     signed_video_authenticity_t **authenticity);
 
+/**
+ * @brief Gets the size of the NAL Unit list
+ *
+ * This function is necessary to update the authenticity report from the parent Signed
+ * Video session.
+ *
+ * @param self Pointer to the legacy_sv_t object
+ *
+ * @return Number of NAL Units (items) in the nalu_list
+ */
 int
 legacy_get_nalu_list_items(legacy_sv_t *self);
 
