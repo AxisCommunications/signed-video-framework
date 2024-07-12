@@ -80,7 +80,10 @@ struct validation_stats {
  * like reset.
  */
 static void
-validate_nalu_list(signed_video_t *sv, test_stream_t *list, struct validation_stats expected)
+validate_nalu_list(signed_video_t *sv,
+    test_stream_t *list,
+    struct validation_stats expected,
+    bool check_version)
 {
   if (!list) return;
 
@@ -153,7 +156,7 @@ validate_nalu_list(signed_video_t *sv, test_stream_t *list, struct validation_st
         ck_assert_int_eq(strcmp(auth_report->product_info.address, ADDR), 0);
         // Check if code version used when signing the video is equal to the code version used when
         // validating the authenticity.
-        if (strlen(auth_report->version_on_signing_side) != 0) {
+        if (check_version && strlen(auth_report->version_on_signing_side) != 0) {
           ck_assert(!signed_video_compare_versions(
               auth_report->version_on_signing_side, auth_report->this_version));
         }
@@ -268,7 +271,7 @@ START_TEST(intact_stream)
   // One pending NAL Unit per GOP.
   struct validation_stats expected = {
       .valid_gops = 7, .pending_nalus = 7, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -288,7 +291,7 @@ START_TEST(intact_multislice_stream)
   // One pending NAL Unit per GOP.
   struct validation_stats expected = {
       .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -309,7 +312,7 @@ START_TEST(intact_stream_with_splitted_nalus)
   // For expected values see the "intact_stream" test above.
   struct validation_stats expected = {
       .valid_gops = 7, .pending_nalus = 7, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -332,7 +335,7 @@ START_TEST(intact_stream_with_pps_nalu_stream)
   // One pending NAL Unit per GOP.
   struct validation_stats expected = {
       .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -364,7 +367,7 @@ START_TEST(intact_stream_with_pps_bytestream)
       SV_AUTH_RESULT_OK, false, 11, 10, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {
       .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -384,7 +387,7 @@ START_TEST(intact_ms_stream_with_pps_nalu_stream)
   // One pending NAL Unit per GOP.
   struct validation_stats expected = {
       .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -411,7 +414,7 @@ START_TEST(intact_ms_stream_with_pps_bytestream)
   // One pending NAL Unit per GOP.
   struct validation_stats expected = {
       .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -439,7 +442,7 @@ START_TEST(intact_with_undefined_nalu_in_stream)
   // One pending NAL Unit per GOP.
   struct validation_stats expected = {
       .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -459,7 +462,7 @@ START_TEST(intact_with_undefined_multislice_nalu_in_stream)
   // One pending NAL Unit per GOP.
   struct validation_stats expected = {
       .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -502,7 +505,7 @@ START_TEST(remove_one_p_nalu)
     expected.invalid_gops = 0;
     expected.final_validation->authenticity = SV_AUTH_RESULT_OK_WITH_MISSING_INFO;
   }
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -544,7 +547,7 @@ START_TEST(interchange_two_p_nalus)
     expected.invalid_gops = 1;
     expected.final_validation->number_of_validated_nalus = 14;
   }
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -580,7 +583,7 @@ START_TEST(modify_one_p_nalu)
     expected.valid_gops = 3;
     expected.invalid_gops = 1;
   }
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -614,7 +617,7 @@ START_TEST(modify_one_i_nalu)
     expected.valid_gops = 2;
     expected.invalid_gops = 2;
   }
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -655,7 +658,7 @@ START_TEST(remove_the_g_nalu)
       .pending_nalus = 8,
       .final_validation = &final_validation};
 
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -702,7 +705,7 @@ START_TEST(remove_the_i_nalu)
     expected.valid_gops = 3;
     expected.invalid_gops = 2;
   }
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -739,7 +742,7 @@ START_TEST(remove_the_gi_nalus)
       .missed_nalus = -2,
       .pending_nalus = 4,
       .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -774,7 +777,7 @@ START_TEST(sei_arrives_late)
   // pending NAL Unit (the P frame right before).
   struct validation_stats expected = {
       .valid_gops = 4, .pending_nalus = 5, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -845,7 +848,7 @@ START_TEST(all_seis_arrive_late)
       .unsigned_gops = 1,
       .pending_nalus = 32,
       .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -893,7 +896,7 @@ START_TEST(all_seis_arrive_late_first_gop_scrapped)
       .has_signature = 2,
       .pending_nalus = 21,
       .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -938,7 +941,7 @@ START_TEST(lost_g_before_late_sei_arrival)
       .invalid_gops = 1,
       .pending_nalus = 5,
       .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -999,7 +1002,7 @@ START_TEST(lost_g_and_gop_with_late_sei_arrival)
       .pending_nalus = 6,
       .has_signature = 1,
       .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -1053,7 +1056,7 @@ START_TEST(lost_all_nalus_between_two_seis)
     expected.valid_gops = 3;
     expected.invalid_gops = 2;
   }
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -1085,7 +1088,7 @@ START_TEST(add_one_sei_nalu_after_signing)
   // One pending NAL Unit per GOP.
   struct validation_stats expected = {
       .valid_gops = 4, .pending_nalus = 4, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -1131,7 +1134,7 @@ START_TEST(camera_reset_on_signing_side)
       .public_key_has_changed = true,
       .final_validation = &final_validation};
 
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
   test_stream_free(list);
 }
 END_TEST
@@ -1174,7 +1177,7 @@ START_TEST(detect_change_of_public_key)
       .public_key_has_changed = true,
       .final_validation = &final_validation};
 
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -1219,7 +1222,7 @@ mimic_au_fast_forward_and_get_list(signed_video_t *sv, struct sv_setting setting
   // Total number of pending NAL Units = 1 + 1 = 2
   struct validation_stats expected = {
       .valid_gops = 2, .pending_nalus = 2, .final_validation = &final_validation};
-  validate_nalu_list(sv, pre_fast_forward, expected);
+  validate_nalu_list(sv, pre_fast_forward, expected, true);
   test_stream_free(pre_fast_forward);
 
   // Mimic fast forward by removing 7 NAL Units ending up at the second next SEI: PSIPP SIPPSIPPSI.
@@ -1263,7 +1266,7 @@ START_TEST(fast_forward_stream_with_reset)
       .has_signature = 1,
       .final_validation = &final_validation};
 
-  validate_nalu_list(sv, list, expected);
+  validate_nalu_list(sv, list, expected, true);
   // Free list and session.
   signed_video_free(sv);
   test_stream_free(list);
@@ -1297,7 +1300,7 @@ START_TEST(fast_forward_stream_without_reset)
       .pending_nalus = 3,
       .final_validation = &final_validation};
 
-  validate_nalu_list(sv, list, expected);
+  validate_nalu_list(sv, list, expected, true);
 
   // Free list and session.
   test_stream_free(list);
@@ -1330,7 +1333,7 @@ mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_se
   // Total number of pending NAL Units = 2 + 2 = 4
   struct validation_stats expected = {
       .valid_gops = 2, .pending_nalus = 4, .final_validation = &final_validation};
-  validate_nalu_list(sv, pre_fast_forward, expected);
+  validate_nalu_list(sv, pre_fast_forward, expected, true);
   test_stream_free(pre_fast_forward);
 
   // Mimic fast forward by removing 7 NAL Units ending up at the start of a later GOP: PPIPSPP
@@ -1373,7 +1376,7 @@ START_TEST(fast_forward_stream_with_delayed_seis)
       .has_signature = 1,
       .final_validation = &final_validation};
 
-  validate_nalu_list(sv, list, expected);
+  validate_nalu_list(sv, list, expected, true);
   // Free list and session.
   signed_video_free(sv);
   test_stream_free(list);
@@ -1468,7 +1471,7 @@ START_TEST(file_export_with_dangling_end)
       .has_signature = 1,
       .final_validation = &final_validation};
 
-  validate_nalu_list(sv, list, expected);
+  validate_nalu_list(sv, list, expected, true);
 
   // Free list and session.
   signed_video_free(sv);
@@ -1502,7 +1505,7 @@ START_TEST(file_export_without_dangling_end)
       .pending_nalus = 5,
       .has_signature = 1,
       .final_validation = &final_validation};
-  validate_nalu_list(sv, list, expected);
+  validate_nalu_list(sv, list, expected, true);
   // Free list and session.
   signed_video_free(sv);
   test_stream_free(list);
@@ -1539,7 +1542,7 @@ START_TEST(no_signature)
       .has_no_timestamp = true,
       .final_validation = &final_validation};
 
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -1570,7 +1573,7 @@ START_TEST(multislice_no_signature)
       .has_no_timestamp = true,
       .final_validation = &final_validation};
 
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -1606,7 +1609,7 @@ START_TEST(late_public_key_and_no_sei_before_key_arrives)
       .invalid_gops = 2,
       .pending_nalus = 10,
       .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_item_free(g_1);
   test_stream_free(list);
@@ -1646,7 +1649,7 @@ START_TEST(fallback_to_gop_level)
   // One pending NAL Unit per GOP.
   struct validation_stats expected = {
       .valid_gops = 4, .pending_nalus = 4, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
   signed_video_free(sv);
@@ -2184,7 +2187,7 @@ START_TEST(with_blocked_signing)
   // The last P is never validated since it was never signed.
   // It only appears in the final report.
   struct validation_stats expected = {.valid_gops = 6, .pending_nalus = 18};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -2263,10 +2266,34 @@ START_TEST(golden_sei_principle)
       .pending_nalus = 4,
       .has_signature = 1,
       .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected);
+  validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
   free(private_key);
+}
+END_TEST
+
+/* Test description
+ * Verify that a valid authentication is returned if all NALUs are added in the correct
+ * order and the stream was generated from a legacy setup (tag v1.1.29).
+ */
+START_TEST(legacy_stream)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  test_stream_t *list = get_legacy_stream(_i, settings[_i].codec);
+  if (!list) return;
+
+  // All NALUs but the last 'I' are validated.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 15, 13, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // One pending NALU per GOP.
+  struct validation_stats expected = {
+      .valid_gops = 4, .pending_nalus = 4, .final_validation = &final_validation};
+  validate_nalu_list(NULL, list, expected, false);
+
+  test_stream_free(list);
 }
 END_TEST
 
@@ -2328,6 +2355,7 @@ signed_video_suite(void)
 #endif
   tcase_add_loop_test(tc, no_emulation_prevention_bytes, s, e);
   tcase_add_loop_test(tc, with_blocked_signing, s, e);
+  tcase_add_loop_test(tc, legacy_stream, s, e);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);

@@ -29,6 +29,7 @@
 #include "includes/signed_video_common.h"  // signed_video_t
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
+#include "legacy_validation.h"  // legacy_sv_t
 #include "signed_video_defines.h"  // svrc_t, sv_tlv_tag_t
 
 typedef struct _gop_info_t gop_info_t;
@@ -193,6 +194,9 @@ struct _signed_video_t {
 
   signed_video_authenticity_t *authenticity;  // Pointer to the authenticity report of which results
   // will be written.
+
+  // Legacy validation
+  legacy_sv_t *legacy_sv;
 };
 
 typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;
