@@ -853,8 +853,11 @@ compute_partial_gop_hash(signed_video_t *self)
   gop_info_t *gop_info = self->gop_info;
   uint8_t *hash = gop_info->computed_gop_hash;
   if (gop_info->list_idx < 0) {
-    // TODO: When list_idx is greater than 0, it means hash_list run out of memory and partial
-    // GOP hash can't be computed. In this case,instead of DOCUMENT_HASH, GOP_HASH should be used.
+    // TODO: When list_idx < 0, it indicates that there was insufficient memory allocated for the
+    // hash_list to add another hash. As a result, Signed Video will operate with a GOP level
+    // authenticity. The current implementation of the new gop_hash cannot handle this fallback
+    // scenario because it is computed from the hash_list, which is currently in a compromised
+    // state. This implementation needs to be reworked to properly handle this condition.
     return SV_OK;
   }
   if (gop_info->list_idx == 0) {
