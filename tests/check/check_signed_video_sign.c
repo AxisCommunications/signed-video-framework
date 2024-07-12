@@ -985,7 +985,7 @@ START_TEST(limited_sei_payload_size)
   if (settings[_i].auth_level != SV_AUTHENTICITY_LEVEL_FRAME) return;
 
   // Select an upper payload limit which is less then the size of the last SEI.
-  const size_t max_sei_payload_size = 1000;
+  const size_t max_sei_payload_size = 1035;
   settings[_i].max_sei_payload_size = max_sei_payload_size;
   test_stream_t *list = create_signed_nalus("IPPIPPPPPPI", settings[_i]);
   test_stream_check_types(list, "SIPPSIPPPPPPSI");

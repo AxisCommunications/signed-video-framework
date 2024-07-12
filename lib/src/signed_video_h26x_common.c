@@ -1297,25 +1297,3 @@ signed_video_is_golden_sei(signed_video_t *self, const uint8_t *nalu, size_t nal
   free(parsed_nalu.nalu_data_wo_epb);
   return parsed_nalu.is_golden_sei;
 };
-
-bool
-signed_video_using_linked_hash(signed_video_t *self, const uint8_t *nalu, size_t nalu_size)
-{
-  if (!self || !nalu || (nalu_size == 0)) return false;
-
-  h26x_nalu_t parsed_nalu = parse_nalu_info(nalu, nalu_size, self->codec, false, true);
-  uint8_t reserved_byte = parsed_nalu.reserved_byte;
-  free(parsed_nalu.nalu_data_wo_epb);
-  return (reserved_byte & (1 << 5)) != 0;
-};
-
-bool
-signed_video_using_gop_hash(signed_video_t *self, const uint8_t *nalu, size_t nalu_size)
-{
-  if (!self || !nalu || (nalu_size == 0)) return false;
-
-  h26x_nalu_t parsed_nalu = parse_nalu_info(nalu, nalu_size, self->codec, false, true);
-  uint8_t reserved_byte = parsed_nalu.reserved_byte;
-  free(parsed_nalu.nalu_data_wo_epb);
-  return (reserved_byte & (1 << 4)) != 0;
-};
