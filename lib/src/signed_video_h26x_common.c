@@ -844,6 +844,30 @@ update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
   return status;
 }
 
+/* compute_partial_gop_hash()
+ * Takes all the NALU hashes from |hash_list| and hash it.
+ */
+svrc_t
+compute_partial_gop_hash(signed_video_t *self)
+{
+  gop_info_t *gop_info = self->gop_info;
+  uint8_t *hash = gop_info->computed_gop_hash;
+  if (gop_info->list_idx < 0) {
+    // TODO: When list_idx < 0, it indicates that there was insufficient memory allocated for the
+    // hash_list to add another hash. As a result, Signed Video will operate with a GOP level
+    // authenticity. The current implementation of the new gop_hash cannot handle this fallback
+    // scenario because it is computed from the hash_list, which is currently in a compromised
+    // state. This implementation needs to be reworked to properly handle this condition.
+    return SV_OK;
+  }
+  if (gop_info->list_idx == 0) {
+    // The list index is zero, which is means list is empty and there is nothing to compute.
+    return SV_OK;
+  }
+
+  return openssl_hash_data(self->crypto_handle, gop_info->hash_list, gop_info->list_idx, hash);
+}
+
 /* Checks if there is enough room to copy the hash. If so, copies the |nalu_hash| and updates the
  * |list_idx|. Otherwise, sets the |list_idx| to -1 and proceeds. */
 void

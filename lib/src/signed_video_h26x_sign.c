@@ -296,6 +296,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     // reserved_byte = |epb|golden sei|0|0|0|0|0|0|
     uint8_t reserved_byte = self->sei_epb << 7;
     reserved_byte |= self->is_golden_sei << 6;
+    reserved_byte |= !self->gop_hash_off << 4;
     *payload_ptr++ = reserved_byte;
 
     size_t written_size = 0;
@@ -537,6 +538,9 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
 
       uint8_t *payload = NULL;
       uint8_t *payload_signature_ptr = NULL;
+
+      // Hash the |hash_list| before write the computed GOP hash to TLV.
+      SV_THROW(compute_partial_gop_hash(self));
 
       SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
       // Add |payload| to buffer. Will be picked up again when the signature has been generated.

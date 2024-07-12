@@ -215,7 +215,7 @@ encode_general(signed_video_t *self, uint8_t *data)
   size_t data_size = 0;
   uint32_t gop_counter = gop_info->global_gop_counter + 1;
   uint16_t num_nalus_in_gop_hash = gop_info->num_nalus_in_gop_hash;
-  const uint8_t version = 2;
+  const uint8_t version = 3;
   int64_t timestamp = self->gop_info->timestamp;
   uint8_t flags = 0;
 
@@ -226,6 +226,7 @@ encode_general(signed_video_t *self, uint8_t *data)
   //  - signed video version (SV_VERSION_BYTES bytes)
   //  - flags (1 byte)
   //  - timestamp (8 bytes) requires version 2+
+  //  - computed_gop_hash (hash_size bytes) requires version 3+
 
   // Get size of data
   data_size += sizeof(version);
@@ -236,7 +237,7 @@ encode_general(signed_video_t *self, uint8_t *data)
   if (gop_info->has_timestamp) {
     data_size += sizeof(timestamp);
   }
-
+  data_size += self->sign_data->hash_size;
   if (!data) {
     DEBUG_LOG("General tag has size %zu", data_size);
     return data_size;
@@ -277,6 +278,10 @@ encode_general(signed_video_t *self, uint8_t *data)
     write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 8) & 0x000000ff), epb);
     write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp)&0x000000ff), epb);
   }
+  // Write GOP hash; hash_size bytes
+  for (size_t i = 0; i < self->sign_data->hash_size; i++) {
+    write_byte(last_two_bytes, &data_ptr, gop_info->computed_gop_hash[i], epb);
+  }
 
   gop_info->global_gop_counter = gop_counter;
 
@@ -297,7 +302,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
   svrc_t status = SV_UNKNOWN_FAILURE;
 
   SV_TRY()
-    SV_THROW_IF(version < 1 || version > 2, SV_INCOMPATIBLE_VERSION);
+    SV_THROW_IF(version < 1 || version > 3, SV_INCOMPATIBLE_VERSION);
 
     data_ptr += read_32bits(data_ptr, &gop_info->global_gop_counter);
     DEBUG_LOG("Found GOP counter = %u", gop_info->global_gop_counter);
@@ -319,6 +324,12 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
         data_ptr += read_64bits_signed(data_ptr, &gop_info->timestamp);
         self->latest_validation->timestamp = gop_info->timestamp;
       }
+    }
+
+    if (version >= 3) {
+      size_t hash_size = data_size - (data_ptr - data);
+      memcpy(self->received_gop_hash, data_ptr, hash_size);
+      data_ptr += hash_size;
     }
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
