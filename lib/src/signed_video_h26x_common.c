@@ -845,17 +845,20 @@ update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
 }
 
 /* compute_partial_gop_hash()
- * Takes all the hash nalus from |hash_list| and hash it.
+ * Takes all the NALU hashes from |hash_list| and hash it.
  */
 svrc_t
 compute_partial_gop_hash(signed_video_t *self)
 {
   gop_info_t *gop_info = self->gop_info;
   uint8_t *hash = gop_info->computed_gop_hash;
-  if (gop_info->list_idx <= 0) {
-    // The list index is out of bounds (either zero or negative).
-    // TODO: Handle cases where list_idx is negative by returning SV_INVALID_PARAMETER for invalid
-    // list index.
+  if (gop_info->list_idx < 0) {
+    // TODO: When list_idx is greater than 0, it means hash_list run out of memory and partial
+    // GOP hash can't be computed. In this case,instead of DOCUMENT_HASH, GOP_HASH should be used.
+    return SV_OK;
+  }
+  if (gop_info->list_idx == 0) {
+    // The list index is zero, which is means list is empty and there is nothing to compute.
     return SV_OK;
   }
 
