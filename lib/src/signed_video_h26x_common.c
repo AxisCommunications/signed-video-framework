@@ -844,21 +844,22 @@ update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
   return status;
 }
 
-/* hash_the_hash_list()
+/* compute_partial_gop_hash()
  * Takes all the hash nalus from |hash_list| and hash it.
  */
 svrc_t
-hash_the_hash_list(signed_video_t *self)
+compute_partial_gop_hash(signed_video_t *self)
 {
   gop_info_t *gop_info = self->gop_info;
   uint8_t *hash = gop_info->computed_gop_hash;
   if (gop_info->list_idx <= 0) {
+    // The list index is out of bounds (either zero or negative).
+    // TODO: Handle cases where list_idx is negative by returning SV_INVALID_PARAMETER for invalid
+    // list index.
     return SV_OK;
   }
 
-  svrc_t status =
-      openssl_hash_data(self->crypto_handle, gop_info->hash_list, gop_info->list_idx, hash);
-  return status;
+  return openssl_hash_data(self->crypto_handle, gop_info->hash_list, gop_info->list_idx, hash);
 }
 
 /* Checks if there is enough room to copy the hash. If so, copies the |nalu_hash| and updates the

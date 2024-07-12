@@ -188,7 +188,7 @@ svrc_t
 hash_and_add_for_auth(signed_video_t *signed_video, h26x_nalu_list_item_t *item);
 
 svrc_t
-hash_the_hash_list(signed_video_t *self);
+compute_partial_gop_hash(signed_video_t *self);
 
 h26x_nalu_t
 parse_nalu_info(const uint8_t *nalu_data,
