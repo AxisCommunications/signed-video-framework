@@ -904,17 +904,14 @@ update_hash(signed_video_t *self,
 }
 
 static svrc_t
-get_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
+set_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
 {
   if (!self || !hash) return SV_INVALID_PARAMETER;
   gop_info_t *gop_info = self->gop_info;
-
-  uint8_t *linked_hash = &gop_info->linked_hash_data.stored_hash[0];
-  size_t *linked_hash_size = &gop_info->linked_hash_data.hash_size;
+  memcpy(gop_info->linked_hash_data.linked_hash, gop_info->linked_hash_data.stored_hash,
+      self->sign_data->hash_size);
+  uint8_t *linked_hash = gop_info->linked_hash_data.stored_hash;
   memcpy(linked_hash, hash, hash_size);
-
-  *linked_hash_size = hash_size;
-  self->gop_info->has_linked_hash = true;
   return SV_OK;
 }
 /* simply_hash()
@@ -977,7 +974,7 @@ hash_and_copy_to_ref(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *has
     // Copy the |nalu_hash| to |reference_hash| to be used in hash_with_reference().
     memcpy(reference_hash, hash, hash_size);
     // Copy the |hash| to |linked_hash| while linked hash prinsiple is used.
-    if (self->linked_hash_on) get_linked_hash(self, hash, hash_size);
+    if (self->linked_hash_on) set_linked_hash(self, hash, hash_size);
     // Tell the user there is a new reference hash.
     gop_info->has_reference_hash = true;
   SV_CATCH()

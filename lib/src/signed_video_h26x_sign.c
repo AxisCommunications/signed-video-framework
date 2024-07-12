@@ -524,24 +524,32 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       }
       self->frame_count++;  // It is ok for this variable to wrap around
     }
+    if (self->linked_hash_on) {
+      // Process the NALU based on the presence of linked hash and whether it is the first NALU in
+      // the GOP
+      // TODO: Every I frame triggers an SEI frame to be generated. When the NALU is an I frame and
+      // the linked hash has been stored, the SEI can be generated. After this, the NALU for the
+      // next GOP is hashed and added.
+      if (nalu.is_first_nalu_in_gop && nalu.is_last_nalu_part) {
+        // Store the timestamp for the first nalu in gop.
+        if (timestamp) {
+          self->gop_info->timestamp = *timestamp;
+          self->gop_info->has_timestamp = true;
+        }
 
-    // Process the NALU based on the presence of linked hash and whether it is the first NALU in the
-    // GOP
-    if (!(self->gop_info->has_linked_hash && nalu.is_first_nalu_in_gop)) {
-      // If there is no linked hash or it is not the first NALU in the GOP, hash and add the NALU
-      SV_THROW(hash_and_add(self, &nalu));
+        uint8_t *payload = NULL;
+        uint8_t *payload_signature_ptr = NULL;
 
-      // If linked hash is enabled, set the flag to prevent immediate SEI generation
-      if (self->linked_hash_on) {
-        self->linked_gop_generate_sei = false;
+        SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
+        // Add |payload| to buffer. Will be picked up again when the signature has been generated.
+        add_payload_to_buffer(self, payload, payload_signature_ptr);
+        // The previous GOP is now completed. The gop_hash was reset right after signing and
+        // adding it to the SEI NALU. It is now time to start a new GOP, meaning the first NALU
+        // of the GOP has to be hashed and added.
       }
+      SV_THROW(hash_and_add(self, &nalu));
     } else {
-      // If it is the first NALU in the GOP with a linked hash, mark SEI generation as needed
-      self->linked_gop_generate_sei = true;
-    }
-
-    // Check if the linked hash is off or if SEI generation is needed
-    if (!self->linked_hash_on || self->linked_gop_generate_sei) {
+      SV_THROW(hash_and_add(self, &nalu));
       // Depending on the input NALU, we need to take different actions. If the input is an I-NALU
       // we have a transition to a new GOP. Then we need to generate the necessary SEI-NALU(s) and
       // put in prepend_list. For all other valid NALUs, simply hash and proceed.

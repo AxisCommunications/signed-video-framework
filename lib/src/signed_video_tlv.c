@@ -282,8 +282,6 @@ encode_general(signed_video_t *self, uint8_t *data)
   for (size_t i = 0; i < self->sign_data->hash_size; i++) {
     write_byte(last_two_bytes, &data_ptr, gop_info->linked_hash_data.linked_hash[i], epb);
   }
-  memcpy(gop_info->linked_hash_data.linked_hash, gop_info->linked_hash_data.stored_hash,
-      gop_info->linked_hash_data.hash_size);
 
   gop_info->global_gop_counter = gop_counter;
 
@@ -329,11 +327,9 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
     }
     if (version >= 3) {
       // Calculate the size of linked_hash_data and gop_hash_data
-      size_t remaining_size = data_size - (data_ptr - data);
-      size_t hash_size = remaining_size;
-      gop_info->linked_hash_data.hash_size = hash_size;
+      size_t hash_size = data_size - (data_ptr - data);
       // Decode linked hash data
-      memcpy(gop_info->linked_hash_data.linked_hash, data_ptr, hash_size);
+      memcpy(self->received_linked_hash.linked_hash, data_ptr, hash_size);
       data_ptr += hash_size;
     }
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
