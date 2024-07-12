@@ -143,7 +143,8 @@ struct _signed_video_t {
   bool is_golden_sei;  // Flag that tells if a SEI is a golden SEI
   bool using_golden_sei;  // Flag that tells if golden SEI prinsiple is used
   bool signing_started;
-  bool gop_hash_off;  // Flag that tells if the GENERAL TAG doesn't include GOP hash.
+  bool gop_hash_off;  // Flag indicating if the GENERAL TAG doesn't include GOP hash.
+  // TODO: |gop_hash_off| will be deprecated when the feature is fully integrated.
 
   // For signing plugin
   void *plugin_handle;
@@ -176,7 +177,7 @@ struct _signed_video_t {
   h26x_nalu_list_t *nalu_list;
   bool authentication_started;
   uint8_t received_gop_hash[MAX_HASH_SIZE];  // Received hash list after decoding SEI data while
-  // authenticating. |received_gop_hash| will be compared against |hash_of_nalu_hash_list|.
+  // authenticating. |received_gop_hash| will be compared against |computed_gop_hash|.
 
   validation_flags_t validation_flags;
   gop_state_t gop_state;
@@ -214,12 +215,11 @@ struct _gop_info_t {
   size_t hash_list_size;  // The allowed size of the |hash_list|. This can be less than allocated.
   int list_idx;  // Pointing to next available slot in the |hash_list|. If something has gone wrong,
   // like exceeding available memory, |list_idx| = -1.
-  int nalu_list_idx;
   uint8_t gop_hash_init;  // The initialization value for the |gop_hash|.
   uint8_t *nalu_hash;  // Pointing to the memory slot of the NALU hash in |hashes|.
   uint8_t document_hash[MAX_HASH_SIZE];  // Memory for storing the document hash to be signed
   // when SV_AUTHENTICITY_LEVEL_FRAME.
-  uint8_t hash_of_nalu_hash_list[MAX_HASH_SIZE];  // Hash of NALU hashes in GOP.
+  uint8_t computed_gop_hash[MAX_HASH_SIZE];  // Hash of NALU hashes in GOP.
   uint8_t tmp_hash[MAX_HASH_SIZE];  // Memory for storing a temporary hash needed when a NALU is
   // split in parts.
   uint8_t *tmp_hash_ptr;
@@ -241,6 +241,7 @@ struct _gop_info_t {
 
   uint8_t nalu_hash_list[HASH_LIST_SIZE];  // TODO: This member of the GOP info struct is temporary
   // and will be deprecated. For linking GOP hash feature, only |hash_list| will be used.
+  int nalu_list_idx;  // Pointing to next available slot in the |nalu_hash_list|.
 };
 
 void

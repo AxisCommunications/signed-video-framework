@@ -226,6 +226,7 @@ encode_general(signed_video_t *self, uint8_t *data)
   //  - signed video version (SV_VERSION_BYTES bytes)
   //  - flags (1 byte)
   //  - timestamp (8 bytes) requires version 2+
+  //  - computed_gop_hash (hash_size bytes) requires version 3+
 
   // Get size of data
   data_size += sizeof(version);
@@ -277,9 +278,9 @@ encode_general(signed_video_t *self, uint8_t *data)
     write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 8) & 0x000000ff), epb);
     write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp)&0x000000ff), epb);
   }
-  // Write hash of NALU hashes in GOP.
+  // Write GOP hash; hash_size bytes
   for (size_t i = 0; i < self->sign_data->hash_size; i++) {
-    write_byte(last_two_bytes, &data_ptr, gop_info->hash_of_nalu_hash_list[i], epb);
+    write_byte(last_two_bytes, &data_ptr, gop_info->computed_gop_hash[i], epb);
   }
 
   gop_info->global_gop_counter = gop_counter;

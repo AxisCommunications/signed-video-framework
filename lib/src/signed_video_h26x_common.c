@@ -845,13 +845,13 @@ update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
 }
 
 /* hash_the_hash_list()
- * Takes all the hash nalus from |nalu_hash_list| and hash it.
+ * Takes all the hash nalus from |hash_list| and hash it.
  */
 svrc_t
 hash_the_hash_list(signed_video_t *self)
 {
   gop_info_t *gop_info = self->gop_info;
-  uint8_t *hash = gop_info->hash_of_nalu_hash_list;
+  uint8_t *hash = gop_info->computed_gop_hash;
   if (gop_info->list_idx <= 0) {
     return SV_OK;
   }
