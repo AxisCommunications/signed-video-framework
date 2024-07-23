@@ -29,6 +29,7 @@
 #include "includes/signed_video_common.h"  // signed_video_t
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
+#include "legacy_validation.h"  // legacy_sv_t
 #include "signed_video_defines.h"  // svrc_t, sv_tlv_tag_t
 
 typedef struct _gop_info_t gop_info_t;
@@ -151,6 +152,8 @@ struct _signed_video_t {
   // TODO: Once the transition to linking to previous GOP is complete, the following flag will be
   // unnecessary.
   bool linked_hash_on;  // Flag that tells if signed video uses linked hash.
+  bool gop_hash_off;  // Flag indicating if the GENERAL TAG doesn't include GOP hash.
+  // TODO: |gop_hash_off| will be deprecated when the feature is fully integrated.
 
   // For signing plugin
   void *plugin_handle;
@@ -183,6 +186,8 @@ struct _signed_video_t {
   // reported through the authenticity_report.
   h26x_nalu_list_t *nalu_list;
   bool authentication_started;
+  uint8_t received_gop_hash[MAX_HASH_SIZE];  // Received hash list after decoding SEI data while
+  // authenticating. |received_gop_hash| will be compared against |computed_gop_hash|.
 
   validation_flags_t validation_flags;
   gop_state_t gop_state;
@@ -199,8 +204,8 @@ struct _signed_video_t {
   signed_video_authenticity_t *authenticity;  // Pointer to the authenticity report of which results
   // will be written.
 
-  // Members only used by tests
-  bool sv_test_on;  // Flag to enable behaviors that should only be seen in tests.
+  // Legacy validation
+  legacy_sv_t *legacy_sv;
 };
 
 typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;
@@ -227,6 +232,7 @@ struct _gop_info_t {
   uint8_t *nalu_hash;  // Pointing to the memory slot of the NALU hash in |hashes|.
   uint8_t document_hash[MAX_HASH_SIZE];  // Memory for storing the document hash to be signed
   // when SV_AUTHENTICITY_LEVEL_FRAME.
+  uint8_t computed_gop_hash[MAX_HASH_SIZE];  // Hash of NALU hashes in GOP.
   uint8_t tmp_hash[MAX_HASH_SIZE];  // Memory for storing a temporary hash needed when a NALU is
   // split in parts.
   linked_hash_t linked_hash_data;  // Stores linked hash data for liked hash method.
@@ -247,6 +253,10 @@ struct _gop_info_t {
   // success, 0 for fail, and -1 for error.
   bool has_timestamp;  // True if timestamp exists and has not yet been written to SEI.
   int64_t timestamp;  // Unix epoch UTC timestamp of the first nalu in GOP
+
+  uint8_t nalu_hash_list[HASH_LIST_SIZE];  // TODO: This member of the GOP info struct is temporary
+  // and will be deprecated. For linking GOP hash feature, only |hash_list| will be used.
+  int nalu_list_idx;  // Pointing to next available slot in the |nalu_hash_list|.
 };
 
 void

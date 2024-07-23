@@ -19,69 +19,51 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 #include <assert.h>  // assert
-#include <stdbool.h>  // bool
-#include <stdint.h>  // uint8_t
 #include <stdio.h>  // sscanf
-#include <stdlib.h>  // free, calloc, malloc
-#include <string.h>  // size_t
 
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
-#include "axis-communications/sv_vendor_axis_communications_internal.h"
-#endif
-#include "includes/signed_video_common.h"
-#include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
-#include "includes/signed_video_signing_plugin.h"
+#include "legacy/legacy_h26x_internal.h"  // Has public declarations
+#include "legacy/legacy_h26x_nalu_list.h"  // legacy_h26x_nalu_list_create()
+#include "legacy/legacy_internal.h"  // Has public declarations
+#include "legacy_validation.h"  // Has public declarations
 #include "signed_video_authenticity.h"  // latest_validation_init()
-#include "signed_video_defines.h"  // svrc_t
-#include "signed_video_h26x_internal.h"  // h26x_nalu_list_item_t
-#include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_create()
-#include "signed_video_internal.h"  // gop_info_t, gop_state_t, MAX_HASH_SIZE, DEFAULT_HASH_SIZE
-#include "signed_video_openssl_internal.h"
-#include "signed_video_tlv.h"  // read_32bits()
+#include "signed_video_openssl_internal.h"  // openssl_hash_data
+#include "signed_video_tlv.h"  // read_32bits(), read_byte()
 
-#define USER_DATA_UNREGISTERED 5
-#define H264_NALU_HEADER_LEN 1  // length of forbidden_zero_bit, nal_ref_idc and nal_unit_type
-#define H265_NALU_HEADER_LEN 2  // length of nal_unit_header as per ISO/ITU spec
 // The salt added to the recursive hash to get the final gop_hash
 #define GOP_HASH_SALT 1
-
-static bool
-version_str_to_bytes(int *arr, const char *str);
-
-static gop_info_t *
-gop_info_create(void);
-static void
-gop_info_free(gop_info_t *gop_info);
-
-static size_t
-h264_get_payload_size(const uint8_t *data, size_t *payload_size);
-static SignedVideoUUIDType
-h264_get_uuid_sei_type(const uint8_t *uuid);
-static void
-remove_epb_from_sei_payload(h26x_nalu_t *nalu);
+#define LEGACY_USER_DATA_UNREGISTERED 5
+#define LEGACY_H264_NALU_HEADER_LEN 1
+#define LEGACY_H265_NALU_HEADER_LEN 2
 
 /* Hash wrapper functions */
-typedef svrc_t (*hash_wrapper_t)(signed_video_t *, const h26x_nalu_t *, uint8_t *, size_t);
-static hash_wrapper_t
-get_hash_wrapper(signed_video_t *self, const h26x_nalu_t *nalu);
+typedef svrc_t (
+    *legacy_hash_wrapper_t)(legacy_sv_t *, const legacy_h26x_nalu_t *, uint8_t *, size_t);
+static legacy_hash_wrapper_t
+legacy_get_hash_wrapper(legacy_sv_t *self, const legacy_h26x_nalu_t *nalu);
 static svrc_t
-update_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *hash, size_t hash_size);
-static svrc_t
-simply_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *hash, size_t hash_size);
-static svrc_t
-hash_and_copy_to_ref(signed_video_t *self,
-    const h26x_nalu_t *nalu,
+legacy_update_hash(legacy_sv_t *self,
+    const legacy_h26x_nalu_t *nalu,
     uint8_t *hash,
     size_t hash_size);
 static svrc_t
-hash_with_reference(signed_video_t *self,
-    const h26x_nalu_t *nalu,
+legacy_simply_hash(legacy_sv_t *self,
+    const legacy_h26x_nalu_t *nalu,
+    uint8_t *hash,
+    size_t hash_size);
+static svrc_t
+legacy_hash_and_copy_to_ref(legacy_sv_t *self,
+    const legacy_h26x_nalu_t *nalu,
+    uint8_t *hash,
+    size_t hash_size);
+static svrc_t
+legacy_hash_with_reference(legacy_sv_t *self,
+    const legacy_h26x_nalu_t *nalu,
     uint8_t *buddy_hash,
     size_t hash_size);
 
 #ifdef SIGNED_VIDEO_DEBUG
 char *
-nalu_type_to_str(const h26x_nalu_t *nalu)
+legacy_nalu_type_to_str(const legacy_h26x_nalu_t *nalu)
 {
   switch (nalu->nalu_type) {
     case NALU_TYPE_SEI:
@@ -104,7 +86,7 @@ nalu_type_to_str(const h26x_nalu_t *nalu)
 #endif
 
 char
-nalu_type_to_char(const h26x_nalu_t *nalu)
+legacy_nalu_type_to_char(const legacy_h26x_nalu_t *nalu)
 {
   // If no NALU is present, mark as missing, i.e., empty ' '.
   if (!nalu) return ' ';
@@ -128,61 +110,6 @@ nalu_type_to_char(const h26x_nalu_t *nalu)
   }
 }
 
-/* Declared in signed_video_internal.h */
-// SEI UUID types
-const uint8_t kUuidSignedVideo[UUID_LEN] = {
-    0x53, 0x69, 0x67, 0x6e, 0x65, 0x64, 0x20, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x2e, 0x2e, 0x30};
-
-static sign_or_verify_data_t *
-sign_or_verify_data_create()
-{
-  sign_or_verify_data_t *self = (sign_or_verify_data_t *)calloc(1, sizeof(sign_or_verify_data_t));
-  if (self) {
-    self->hash = calloc(1, MAX_HASH_SIZE);
-    if (!self->hash) {
-      free(self);
-      self = NULL;
-    } else {
-      self->hash_size = DEFAULT_HASH_SIZE;
-    }
-  }
-  return self;
-}
-
-static void
-sign_or_verify_data_free(sign_or_verify_data_t *self)
-{
-  if (!self) return;
-
-  openssl_free_key(self->key);
-  free(self->hash);
-  free(self->signature);
-  free(self);
-}
-
-static signed_video_product_info_t *
-product_info_create()
-{
-  return (signed_video_product_info_t *)calloc(1, sizeof(signed_video_product_info_t));
-}
-
-void
-product_info_free_members(signed_video_product_info_t *product_info)
-{
-  if (product_info) {
-    free(product_info->hardware_id);
-    product_info->hardware_id = NULL;
-    free(product_info->firmware_version);
-    product_info->firmware_version = NULL;
-    free(product_info->serial_number);
-    product_info->serial_number = NULL;
-    free(product_info->manufacturer);
-    product_info->manufacturer = NULL;
-    free(product_info->address);
-    product_info->address = NULL;
-  }
-}
-
 /* Reads the version string and puts the Major.Minor.Patch in the first, second and third element of
  * the array, respectively */
 static bool
@@ -195,32 +122,15 @@ version_str_to_bytes(int *arr, const char *str)
   return status;
 }
 
-/* Puts Major, Minor and Patch from a version array to a version string */
-void
-bytes_to_version_str(const int *arr, char *str)
-{
-  if (!arr || !str) return;
-  sprintf(str, "v%d.%d.%d", arr[0], arr[1], arr[2]);
-}
-
-static void
-product_info_free(signed_video_product_info_t *product_info)
-{
-  if (product_info) {
-    product_info_free_members(product_info);
-    free(product_info);
-  }
-}
-
 /**
  * @brief Helper function to create a gop_info_t struct
  *
  * Allocate gop_info struct and initialize
  */
-static gop_info_t *
-gop_info_create(void)
+static legacy_gop_info_t *
+legacy_gop_info_create(void)
 {
-  gop_info_t *gop_info = (gop_info_t *)calloc(1, sizeof(gop_info_t));
+  legacy_gop_info_t *gop_info = calloc(1, sizeof(legacy_gop_info_t));
   if (!gop_info) return NULL;
 
   gop_info->gop_hash_init = GOP_HASH_SALT;
@@ -233,22 +143,13 @@ gop_info_create(void)
   gop_info->nalu_hash = gop_info->hashes + DEFAULT_HASH_SIZE;
 
   // Set hash_list_size to same as what is allocated.
-  if (set_hash_list_size(gop_info, HASH_LIST_SIZE) != SV_OK) {
-    gop_info_free(gop_info);
-    gop_info = NULL;
-  }
+  gop_info->hash_list_size = HASH_LIST_SIZE;
 
   return gop_info;
 }
 
 static void
-gop_info_free(gop_info_t *gop_info)
-{
-  free(gop_info);
-}
-
-static void
-gop_info_reset(gop_info_t *gop_info)
+legacy_gop_info_reset(legacy_gop_info_t *gop_info)
 {
   gop_info->verified_signature_hash = -1;
   // If a reset is forced, the stored hashes in |hash_list| have no meaning anymore.
@@ -258,74 +159,19 @@ gop_info_reset(gop_info_t *gop_info)
 }
 
 svrc_t
-set_hash_list_size(gop_info_t *gop_info, size_t hash_list_size)
-{
-  if (!gop_info) return SV_INVALID_PARAMETER;
-  if (hash_list_size > HASH_LIST_SIZE) return SV_NOT_SUPPORTED;
-
-  gop_info->hash_list_size = hash_list_size;
-  return SV_OK;
-}
-
-svrc_t
-reset_gop_hash(signed_video_t *self)
+legacy_reset_gop_hash(legacy_sv_t *self)
 {
   if (!self) return SV_INVALID_PARAMETER;
 
-  gop_info_t *gop_info = self->gop_info;
+  legacy_gop_info_t *gop_info = self->gop_info;
   assert(gop_info);
 
   gop_info->num_nalus_in_gop_hash = 0;
   return openssl_hash_data(self->crypto_handle, &gop_info->gop_hash_init, 1, gop_info->gop_hash);
 }
 
-/**
- * Checks a pointer to member in struct if it's allocated, and correct size, then copies over the
- * data to that member.
- *
- * If new_data_ptr is the empty string then the member will be freed. If it's null then this
- * function will do nothing. Member pointers must not be null, i.e. member_ptr and member_size_ptr.
- *
- * Assumptions:
- *  - if the new_data_pointer is null then new_data_size is zero.
- *  - new_data_size should include the null-terminator.
- *  - if member_ptr points to some memory then member_size_ptr should point to a value of that size.
- *    Otherwise, if member_ptr points to null, then member_size_ptr should point to zero.
- *
- * Restrictions:
- *  - member_ptr can't be set to the empty string
- */
-svrc_t
-struct_member_memory_allocated_and_copy(void **member_ptr,
-    uint8_t *member_size_ptr,
-    const void *new_data_ptr,
-    const uint8_t new_data_size)
-{
-  if (!member_size_ptr || !member_ptr) {
-    return SV_INVALID_PARAMETER;
-  } else if (!new_data_size) {
-    // New size is zero, doing nothing
-    return SV_OK;
-  } else if (new_data_size == 1 && *(char *)new_data_ptr == '\0') {
-    // Reset member on empty string, i.e. ""
-    free(*member_ptr);
-    *member_ptr = NULL;
-    *member_size_ptr = 0;
-    return SV_OK;
-  }
-  // The allocated size must be exact or reset on empty string, i.e., ""
-  if (*member_size_ptr != new_data_size) {
-    DEBUG_LOG("Member size diff, re-allocating");
-    *member_ptr = realloc(*member_ptr, new_data_size);
-    if (*member_ptr == NULL) return SV_MEMORY;
-  }
-  memcpy(*member_ptr, new_data_ptr, new_data_size);
-  *member_size_ptr = new_data_size;
-  return SV_OK;
-}
-
 static size_t
-h264_get_payload_size(const uint8_t *data, size_t *payload_size)
+legacy_get_payload_size(const uint8_t *data, size_t *payload_size)
 {
   const uint8_t *data_ptr = data;
   // Get payload size (including uuid). We assume the data points to the size bytes.
@@ -338,7 +184,7 @@ h264_get_payload_size(const uint8_t *data, size_t *payload_size)
 }
 
 static SignedVideoUUIDType
-h264_get_uuid_sei_type(const uint8_t *uuid)
+legacy_get_uuid_sei_type(const uint8_t *uuid)
 {
   if (!uuid) return UUID_TYPE_UNDEFINED;
 
@@ -348,7 +194,7 @@ h264_get_uuid_sei_type(const uint8_t *uuid)
 }
 
 static bool
-parse_h264_nalu_header(h26x_nalu_t *nalu)
+legacy_parse_h264_nalu_header(legacy_h26x_nalu_t *nalu)
 {
   // Parse the H264 NAL Unit Header
   uint8_t nalu_header = *(nalu->hashable_data);
@@ -358,7 +204,7 @@ parse_h264_nalu_header(h26x_nalu_t *nalu)
   bool nalu_header_is_valid = false;
 
   // First slice in the current NALU or not
-  nalu->is_primary_slice = *(nalu->hashable_data + H264_NALU_HEADER_LEN) & 0x80;
+  nalu->is_primary_slice = *(nalu->hashable_data + LEGACY_H264_NALU_HEADER_LEN) & 0x80;
 
   // Verify that NALU type and nal_ref_idc follow standard.
   switch (nalu_type) {
@@ -411,7 +257,7 @@ parse_h264_nalu_header(h26x_nalu_t *nalu)
 }
 
 static bool
-parse_h265_nalu_header(h26x_nalu_t *nalu)
+legacy_parse_h265_nalu_header(legacy_h26x_nalu_t *nalu)
 {
   // Parse the H265 NAL Unit Header
   uint8_t nalu_header = *(nalu->hashable_data);
@@ -429,7 +275,7 @@ parse_h265_nalu_header(h26x_nalu_t *nalu)
   }
 
   // First slice in the current NALU or not
-  nalu->is_primary_slice = (*(nalu->hashable_data + H265_NALU_HEADER_LEN) & 0x80);
+  nalu->is_primary_slice = (*(nalu->hashable_data + LEGACY_H265_NALU_HEADER_LEN) & 0x80);
 
   // Verify that NALU type and nal_ref_idc follow standard.
   switch (nalu_type) {
@@ -530,7 +376,7 @@ parse_h265_nalu_header(h26x_nalu_t *nalu)
  * If emulation prevention bytes are present, temporary memory is allocated to hold the new tlv
  * data. Once emulation prevention bytes have been removed the new tlv data can be decoded. */
 static void
-remove_epb_from_sei_payload(h26x_nalu_t *nalu)
+legacy_remove_epb_from_sei_payload(legacy_h26x_nalu_t *nalu)
 {
   assert(nalu);
   if (!nalu->is_hashable || !nalu->is_gop_sei || (nalu->is_valid <= 0)) return;
@@ -587,15 +433,15 @@ remove_epb_from_sei_payload(h26x_nalu_t *nalu)
  * Emulation prevention bytes may have been removed and if so, memory has been allocated. The user
  * is responsible for freeing |nalu_data_wo_epb|.
  */
-h26x_nalu_t
-parse_nalu_info(const uint8_t *nalu_data,
+legacy_h26x_nalu_t
+legacy_parse_nalu_info(const uint8_t *nalu_data,
     size_t nalu_data_size,
     SignedVideoCodec codec,
     bool check_trailing_bytes,
     bool is_auth_side)
 {
   uint32_t nalu_header_len = 0;
-  h26x_nalu_t nalu = {0};
+  legacy_h26x_nalu_t nalu = {0};
   // Initialize NALU
   nalu.nalu_data = nalu_data;
   nalu.nalu_data_size = nalu_data_size;
@@ -631,11 +477,11 @@ parse_nalu_info(const uint8_t *nalu_data,
   nalu.start_code = start_code;
 
   if (codec == SV_CODEC_H264) {
-    nalu_header_is_valid = parse_h264_nalu_header(&nalu);
-    nalu_header_len = H264_NALU_HEADER_LEN;
+    nalu_header_is_valid = legacy_parse_h264_nalu_header(&nalu);
+    nalu_header_len = LEGACY_H264_NALU_HEADER_LEN;
   } else {
-    nalu_header_is_valid = parse_h265_nalu_header(&nalu);
-    nalu_header_len = H265_NALU_HEADER_LEN;
+    nalu_header_is_valid = legacy_parse_h265_nalu_header(&nalu);
+    nalu_header_len = LEGACY_H265_NALU_HEADER_LEN;
   }
   // If a correct NALU header could not be parsed, mark as invalid.
   nalu.is_valid = nalu_header_is_valid;
@@ -662,10 +508,10 @@ parse_nalu_info(const uint8_t *nalu_data,
     // Check user_data_unregistered
     uint8_t user_data_unregistered = *payload;
     payload++;
-    if (user_data_unregistered == USER_DATA_UNREGISTERED) {
+    if (user_data_unregistered == LEGACY_USER_DATA_UNREGISTERED) {
       // Decode payload size and compute emulation prevention bytes
       size_t payload_size = 0;
-      size_t read_bytes = h264_get_payload_size(payload, &payload_size);
+      size_t read_bytes = legacy_get_payload_size(payload, &payload_size);
       payload += read_bytes;
       nalu.payload = payload;
       nalu.payload_size = payload_size;
@@ -682,7 +528,7 @@ parse_nalu_info(const uint8_t *nalu_data,
       DEBUG_LOG("Computed %d emulation prevention byte(s)", nalu.emulation_prevention_bytes);
 
       // Decode UUID type
-      nalu.uuid_type = h264_get_uuid_sei_type(payload);
+      nalu.uuid_type = legacy_get_uuid_sei_type(payload);
     } else {
       // We only have UUID if SEI-NALU is user_data_unregistered
       nalu.uuid_type = UUID_TYPE_UNDEFINED;
@@ -692,7 +538,7 @@ parse_nalu_info(const uint8_t *nalu_data,
     // Only Signed Video generated SEI-NALUs are valid and hashable.
     nalu.is_hashable = nalu.is_gop_sei && is_auth_side;
 
-    remove_epb_from_sei_payload(&nalu);
+    legacy_remove_epb_from_sei_payload(&nalu);
   }
 
   return nalu;
@@ -704,11 +550,11 @@ parse_nalu_info(const uint8_t *nalu_data,
  * Copies all members, but the pointers from |src_nalu| to |dst_nalu|. All pointers and set to NULL.
  */
 void
-copy_nalu_except_pointers(h26x_nalu_t *dst_nalu, const h26x_nalu_t *src_nalu)
+legacy_copy_nalu_except_pointers(legacy_h26x_nalu_t *dst_nalu, const legacy_h26x_nalu_t *src_nalu)
 {
   if (!dst_nalu || !src_nalu) return;
 
-  memcpy(dst_nalu, src_nalu, sizeof(h26x_nalu_t));
+  memcpy(dst_nalu, src_nalu, sizeof(legacy_h26x_nalu_t));
   // Set pointers to NULL, since memory is not transfered to next NALU.
   dst_nalu->nalu_data = NULL;
   dst_nalu->hashable_data = NULL;
@@ -718,35 +564,18 @@ copy_nalu_except_pointers(h26x_nalu_t *dst_nalu, const h26x_nalu_t *src_nalu)
   dst_nalu->nalu_data_wo_epb = NULL;
 }
 
-/* Helper function to public APIs */
-
-/* Internal APIs for validation_flags_t functions */
-
-/* Prints the |validation_flags| */
-void
-validation_flags_print(const validation_flags_t *validation_flags)
+static void
+legacy_validation_flags_init(legacy_validation_flags_t *validation_flags)
 {
   if (!validation_flags) return;
 
-  DEBUG_LOG("         has_auth_result: %u", validation_flags->has_auth_result);
-  DEBUG_LOG("     is_first_validation: %u", validation_flags->is_first_validation);
-  DEBUG_LOG("         signing_present: %u", validation_flags->signing_present);
-  DEBUG_LOG("            is_first_sei: %u", validation_flags->is_first_sei);
-  DEBUG_LOG("         hash_algo_known: %u", validation_flags->hash_algo_known);
-  DEBUG_LOG("");
-}
-
-void
-validation_flags_init(validation_flags_t *validation_flags)
-{
-  if (!validation_flags) return;
-
-  memset(validation_flags, 0, sizeof(validation_flags_t));
+  memset(validation_flags, 0, sizeof(legacy_validation_flags_t));
   validation_flags->is_first_validation = true;
 }
 
 void
-update_validation_flags(validation_flags_t *validation_flags, h26x_nalu_t *nalu)
+legacy_update_validation_flags(legacy_validation_flags_t *validation_flags,
+    legacy_h26x_nalu_t *nalu)
 {
   if (!validation_flags || !nalu) return;
 
@@ -755,28 +584,12 @@ update_validation_flags(validation_flags_t *validation_flags, h26x_nalu_t *nalu)
   validation_flags->signing_present |= nalu->is_gop_sei;
 }
 
-/* Internal APIs for gop_state_t functions */
-
-/* Prints the |gop_state| */
-void
-gop_state_print(const gop_state_t *gop_state)
-{
-  if (!gop_state) return;
-
-  DEBUG_LOG("                 has_sei: %u", gop_state->has_sei);
-  DEBUG_LOG("validate_after_next_nalu: %u", gop_state->validate_after_next_nalu);
-  DEBUG_LOG("   no_gop_end_before_sei: %u", gop_state->no_gop_end_before_sei);
-  DEBUG_LOG("            has_lost_sei: %u", gop_state->has_lost_sei);
-  DEBUG_LOG("  gop_transition_is_lost: %u", gop_state->gop_transition_is_lost);
-  DEBUG_LOG("");
-}
-
 /* Updates the |gop_state| w.r.t. a |nalu|.
  *
  * Since auth_state is updated along the way, the only thing we need to update is |has_sei| to
  * know if we have received a signature for this GOP. */
 void
-gop_state_update(gop_state_t *gop_state, h26x_nalu_t *nalu)
+legacy_gop_state_update(legacy_gop_state_t *gop_state, legacy_h26x_nalu_t *nalu)
 {
   if (!gop_state || !nalu) return;
 
@@ -788,7 +601,7 @@ gop_state_update(gop_state_t *gop_state, h26x_nalu_t *nalu)
 
 /* Resets the |gop_state| after validating a GOP. */
 void
-gop_state_reset(gop_state_t *gop_state)
+legacy_gop_state_reset(legacy_gop_state_t *gop_state)
 {
   if (!gop_state) return;
 
@@ -799,24 +612,8 @@ gop_state_reset(gop_state_t *gop_state)
   gop_state->validate_after_next_nalu = false;
 }
 
-/* Others */
-
-void
-update_num_nalus_in_gop_hash(signed_video_t *self, const h26x_nalu_t *nalu)
-{
-  if (!self || !nalu) return;
-
-  if (!nalu->is_gop_sei) {
-    self->gop_info->num_nalus_in_gop_hash++;
-    if (self->gop_info->num_nalus_in_gop_hash == 0) {
-      DEBUG_LOG("Wraparound in |num_nalus_in_gop_hash|");
-      // This will not fail validation, but may produce incorrect statistics.
-    }
-  }
-}
-
 svrc_t
-update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
+legacy_update_gop_hash(void *crypto_handle, legacy_gop_info_t *gop_info)
 {
   if (!gop_info) return SV_INVALID_PARAMETER;
 
@@ -844,68 +641,26 @@ update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
   return status;
 }
 
-/* compute_partial_gop_hash()
- * Takes all the NALU hashes from |hash_list| and hash it.
- */
-svrc_t
-compute_partial_gop_hash(signed_video_t *self)
-{
-  gop_info_t *gop_info = self->gop_info;
-  uint8_t *hash = gop_info->computed_gop_hash;
-  if (gop_info->list_idx < 0) {
-    // TODO: When list_idx < 0, it indicates that there was insufficient memory allocated for the
-    // hash_list to add another hash. As a result, Signed Video will operate with a GOP level
-    // authenticity. The current implementation of the new gop_hash cannot handle this fallback
-    // scenario because it is computed from the hash_list, which is currently in a compromised
-    // state. This implementation needs to be reworked to properly handle this condition.
-    return SV_OK;
-  }
-  if (gop_info->list_idx == 0) {
-    // The list index is zero, which is means list is empty and there is nothing to compute.
-    return SV_OK;
-  }
-
-  return openssl_hash_data(self->crypto_handle, gop_info->hash_list, gop_info->list_idx, hash);
-}
-
-/* Checks if there is enough room to copy the hash. If so, copies the |nalu_hash| and updates the
- * |list_idx|. Otherwise, sets the |list_idx| to -1 and proceeds. */
-void
-check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size_t hash_size)
-{
-  if (!self || !hash) return;
-
-  uint8_t *hash_list = &self->gop_info->hash_list[0];
-  int *list_idx = &self->gop_info->list_idx;
-  // Check if there is room for another hash in the |hash_list|.
-  if (*list_idx + hash_size > self->gop_info->hash_list_size) *list_idx = -1;
-  if (*list_idx >= 0) {
-    // We have a valid |hash_list| and can copy the |nalu_hash| to it.
-    memcpy(&hash_list[*list_idx], hash, hash_size);
-    *list_idx += hash_size;
-  }
-}
-
 /* A getter that determines which hash wrapper to use and returns it. */
-static hash_wrapper_t
-get_hash_wrapper(signed_video_t *self, const h26x_nalu_t *nalu)
+static legacy_hash_wrapper_t
+legacy_get_hash_wrapper(legacy_sv_t *self, const legacy_h26x_nalu_t *nalu)
 {
   assert(self && nalu);
 
   if (!nalu->is_last_nalu_part) {
     // If this is not the last part of a NALU, update the hash.
-    return update_hash;
+    return legacy_update_hash;
   } else if (nalu->is_gop_sei) {
     // A SEI, i.e., the document_hash, is hashed without reference, since that one may be verified
     // separately.
-    return simply_hash;
+    return legacy_simply_hash;
   } else if (nalu->is_first_nalu_in_gop && !self->gop_info->has_reference_hash) {
     // If the current NALU |is_first_nalu_in_gop| and we do not already have a reference, we should
     // |simply_hash| and copy the hash to reference.
-    return hash_and_copy_to_ref;
+    return legacy_hash_and_copy_to_ref;
   } else {
     // All other NALUs should be hashed together with the reference.
-    return hash_with_reference;
+    return legacy_hash_with_reference;
   }
 }
 
@@ -915,8 +670,8 @@ get_hash_wrapper(signed_video_t *self, const h26x_nalu_t *nalu)
  *
  * takes the |hashable_data| from the NALU, and updates the hash in |crypto_handle|. */
 static svrc_t
-update_hash(signed_video_t *self,
-    const h26x_nalu_t *nalu,
+legacy_update_hash(legacy_sv_t *self,
+    const legacy_h26x_nalu_t *nalu,
     uint8_t ATTR_UNUSED *hash,
     size_t ATTR_UNUSED hash_size)
 {
@@ -927,22 +682,14 @@ update_hash(signed_video_t *self,
   return openssl_update_hash(self->crypto_handle, hashable_data, hashable_data_size);
 }
 
-static svrc_t
-set_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
-{
-  if (!self || !hash) return SV_INVALID_PARAMETER;
-  gop_info_t *gop_info = self->gop_info;
-  memcpy(gop_info->linked_hash_data.linked_hash, gop_info->linked_hash_data.stored_hash,
-      self->sign_data->hash_size);
-  uint8_t *linked_hash = gop_info->linked_hash_data.stored_hash;
-  memcpy(linked_hash, hash, hash_size);
-  return SV_OK;
-}
 /* simply_hash()
  *
  * takes the |hashable_data| from the NALU, hash it and store the hash in |nalu_hash|. */
 static svrc_t
-simply_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *hash, size_t hash_size)
+legacy_simply_hash(legacy_sv_t *self,
+    const legacy_h26x_nalu_t *nalu,
+    uint8_t *hash,
+    size_t hash_size)
 {
   // It should not be possible to end up here unless the NALU data includes the last part.
   assert(nalu && nalu->is_last_nalu_part && hash);
@@ -953,7 +700,7 @@ simply_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *hash, size_t
     // Entire NALU can be hashed in one part.
     return openssl_hash_data(self->crypto_handle, hashable_data, hashable_data_size, hash);
   } else {
-    svrc_t status = update_hash(self, nalu, hash, hash_size);
+    svrc_t status = legacy_update_hash(self, nalu, hash, hash_size);
     if (status == SV_OK) {
       // Finalize the ongoing hash of NALU parts.
       status = openssl_finalize_hash(self->crypto_handle, hash);
@@ -977,11 +724,14 @@ simply_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *hash, size_t
  * This is needed for the first NALU of a GOP, which serves as a reference. The member variable
  * |has_reference_hash| is set to true after a successful operation. */
 static svrc_t
-hash_and_copy_to_ref(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *hash, size_t hash_size)
+legacy_hash_and_copy_to_ref(legacy_sv_t *self,
+    const legacy_h26x_nalu_t *nalu,
+    uint8_t *hash,
+    size_t hash_size)
 {
   assert(self && nalu && hash);
 
-  gop_info_t *gop_info = self->gop_info;
+  legacy_gop_info_t *gop_info = self->gop_info;
   // First hash in |hash_buddies| is the |reference_hash|.
   uint8_t *reference_hash = &gop_info->hash_buddies[0];
 
@@ -993,12 +743,10 @@ hash_and_copy_to_ref(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *has
       memcpy(hash, gop_info->tmp_hash_ptr, hash_size);
     } else {
       // Hash NALU data and store as |nalu_hash|.
-      SV_THROW(simply_hash(self, nalu, hash, hash_size));
+      SV_THROW(legacy_simply_hash(self, nalu, hash, hash_size));
     }
     // Copy the |nalu_hash| to |reference_hash| to be used in hash_with_reference().
     memcpy(reference_hash, hash, hash_size);
-    // Copy the |hash| to |linked_hash| while linked hash prinsiple is used.
-    if (self->linked_hash_on) set_linked_hash(self, hash, hash_size);
     // Tell the user there is a new reference hash.
     gop_info->has_reference_hash = true;
   SV_CATCH()
@@ -1018,21 +766,21 @@ hash_and_copy_to_ref(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *has
  * This hash wrapper should be used for all NALUs except the initial one (the reference).
  */
 static svrc_t
-hash_with_reference(signed_video_t *self,
-    const h26x_nalu_t *nalu,
+legacy_hash_with_reference(legacy_sv_t *self,
+    const legacy_h26x_nalu_t *nalu,
     uint8_t *buddy_hash,
     size_t hash_size)
 {
   assert(self && nalu && buddy_hash);
 
-  gop_info_t *gop_info = self->gop_info;
+  legacy_gop_info_t *gop_info = self->gop_info;
   // Second hash in |hash_buddies| is the |nalu_hash|.
   uint8_t *nalu_hash = &gop_info->hash_buddies[hash_size];
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Hash NALU data and store as |nalu_hash|.
-    SV_THROW(simply_hash(self, nalu, nalu_hash, hash_size));
+    SV_THROW(legacy_simply_hash(self, nalu, nalu_hash, hash_size));
     // Hash reference hash together with the |nalu_hash| and store in |buddy_hash|.
     SV_THROW(
         openssl_hash_data(self->crypto_handle, gop_info->hash_buddies, hash_size * 2, buddy_hash));
@@ -1043,65 +791,20 @@ hash_with_reference(signed_video_t *self,
 }
 
 svrc_t
-hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
-{
-  if (!self || !nalu) return SV_INVALID_PARAMETER;
-
-  if (!nalu->is_hashable) {
-    DEBUG_LOG("This NALU (type %d) was not hashed", nalu->nalu_type);
-    return SV_OK;
-  }
-
-  gop_info_t *gop_info = self->gop_info;
-  uint8_t *nalu_hash = gop_info->nalu_hash;
-  assert(nalu_hash);
-  size_t hash_size = self->sign_data->hash_size;
-
-  svrc_t status = SV_UNKNOWN_FAILURE;
-  SV_TRY()
-    if (nalu->is_first_nalu_part && !nalu->is_last_nalu_part) {
-      // If this is the first part of a non-complete NALU, initialize the |crypto_handle| to enable
-      // sequentially updating the hash with more parts.
-      SV_THROW(openssl_init_hash(self->crypto_handle));
-    }
-    // Select hash function, hash the NALU and store as 'latest hash'
-    hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
-    SV_THROW(hash_wrapper(self, nalu, nalu_hash, hash_size));
-    if (nalu->is_last_nalu_part) {
-      // The end of the NALU has been reached. Update hash list and GOP hash.
-      check_and_copy_hash_to_hash_list(self, nalu_hash, hash_size);
-      SV_THROW(update_gop_hash(self->crypto_handle, gop_info));
-      update_num_nalus_in_gop_hash(self, nalu);
-    }
-  SV_CATCH()
-  {
-    // If we fail, the |hash_list| is not trustworthy.
-    gop_info->list_idx = -1;
-  }
-  SV_DONE(status)
-
-  return status;
-}
-
-svrc_t
-hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
+legacy_hash_and_add_for_auth(legacy_sv_t *self, legacy_h26x_nalu_list_item_t *item)
 {
   if (!self || !item) return SV_INVALID_PARAMETER;
 
-  const h26x_nalu_t *nalu = item->nalu;
+  const legacy_h26x_nalu_t *nalu = item->nalu;
   if (!nalu) return SV_INVALID_PARAMETER;
 
   if (!nalu->is_hashable) {
     DEBUG_LOG("This NALU (type %d) was not hashed.", nalu->nalu_type);
     return SV_OK;
   }
-  if (!self->validation_flags.hash_algo_known) {
-    DEBUG_LOG("NALU will be hashed when hash algo is known.");
-    return SV_OK;
-  }
 
-  gop_info_t *gop_info = self->gop_info;
-  gop_state_t *gop_state = &self->gop_state;
+  legacy_gop_info_t *gop_info = self->gop_info;
+  legacy_gop_state_t *gop_state = &self->gop_state;
 
   uint8_t *nalu_hash = NULL;
   nalu_hash = item->hash;
@@ -1111,7 +814,7 @@ hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Select hash wrapper, hash the NALU and store as |nalu_hash|.
-    hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
+    legacy_hash_wrapper_t hash_wrapper = legacy_get_hash_wrapper(self, nalu);
     SV_THROW(hash_wrapper(self, nalu, nalu_hash, hash_size));
     // Check if we have a potential transition to a new GOP. This happens if the current NALU
     // |is_first_nalu_in_gop|. If we have lost the first NALU of a GOP we can still make a guess by
@@ -1123,7 +826,7 @@ hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
       // Hash the NALU again, but this time store the hash as a |second_hash|. This is needed since
       // the current NALU belongs to both the ended and the started GOP. Note that we need to get
       // the hash wrapper again since conditions may have changed.
-      hash_wrapper = get_hash_wrapper(self, nalu);
+      hash_wrapper = legacy_get_hash_wrapper(self, nalu);
       free(item->second_hash);
       item->second_hash = malloc(MAX_HASH_SIZE);
       SV_THROW_IF(!item->second_hash, SV_MEMORY);
@@ -1137,78 +840,65 @@ hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
 }
 
 /* Public signed_video_common.h APIs */
-signed_video_t *
-signed_video_create(SignedVideoCodec codec)
+legacy_sv_t *
+legacy_sv_create(signed_video_t *parent)
 {
-  signed_video_t *self = NULL;
+  legacy_sv_t *self = NULL;
   svrc_t status = SV_UNKNOWN_FAILURE;
 
-  DEBUG_LOG("Creating signed-video from code version %s", SIGNED_VIDEO_VERSION);
+  DEBUG_LOG("Creating legacy signed-video from code version %s", SIGNED_VIDEO_VERSION);
 
   SV_TRY()
-    SV_THROW_IF((codec < 0) || (codec >= SV_CODEC_NUM), SV_INVALID_PARAMETER);
-
-    self = (signed_video_t *)calloc(1, sizeof(signed_video_t));
+    self = calloc(1, sizeof(legacy_sv_t));
     SV_THROW_IF(!self, SV_MEMORY);
 
     // Initialize common members
     version_str_to_bytes(self->code_version, SIGNED_VIDEO_VERSION);
-    self->codec = codec;
+    self->codec = parent->codec;
 
-    self->product_info = product_info_create();
-    SV_THROW_IF_WITH_MSG(!self->product_info, SV_MEMORY, "Could not allocate product_info");
+    // Borrow product_info from |parent|.
+    self->product_info = parent->product_info;
 
-    // Setup crypto handle.
-    self->crypto_handle = openssl_create_handle();
+    // Borrow crypto handle from |parent|.
+    self->crypto_handle = parent->crypto_handle;
     SV_THROW_IF(!self->crypto_handle, SV_EXTERNAL_ERROR);
 
-    self->gop_info = gop_info_create();
+    self->gop_info = legacy_gop_info_create();
     SV_THROW_IF_WITH_MSG(!self->gop_info, SV_MEMORY, "Could not allocate gop_info");
-    SV_THROW_WITH_MSG(reset_gop_hash(self), "Could not reset gop_hash");
+    SV_THROW_WITH_MSG(legacy_reset_gop_hash(self), "Could not reset gop_hash");
 
-    // Setup vendor handle.
+    // Borrow vendor handle from |parent|.
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
-    self->vendor_handle = sv_vendor_axis_communications_setup();
+    self->vendor_handle = parent->vendor_handle;
     SV_THROW_IF(!self->vendor_handle, SV_MEMORY);
 #endif
 
-    // Initialize signing members
-    // Signing plugin is setup when the private key is set.
-    self->authenticity_level = DEFAULT_AUTHENTICITY_LEVEL;
-    self->recurrence = RECURRENCE_ALWAYS;
-    self->add_public_key_to_sei = true;
-    self->sei_epb = true;
-    self->signing_started = false;
-    self->sign_data = sign_or_verify_data_create();
-    self->sign_data->hash_size = openssl_get_hash_size(self->crypto_handle);
-    // Make sure the hash size matches the default hash size.
-    SV_THROW_IF(self->sign_data->hash_size != DEFAULT_HASH_SIZE, SV_EXTERNAL_ERROR);
-
-    self->has_recurrent_data = false;
-    self->frame_count = 0;
-
-    self->last_nalu = (h26x_nalu_t *)calloc(1, sizeof(h26x_nalu_t));
-    SV_THROW_IF(!self->last_nalu, SV_MEMORY);
-    // Mark the last NALU as complete, hence, no ongoing hashing is present.
-    self->last_nalu->is_last_nalu_part = true;
-
-    self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
-
     // Initialize validation members
-    self->nalu_list = h26x_nalu_list_create();
-    // No need to check if |nalu_list| is a nullptr, since it is only of importance on the
-    // authentication side. The check is done there instead.
-    self->authentication_started = false;
+    self->nalu_list = legacy_h26x_nalu_list_create();
+    SV_THROW_IF(!self->nalu_list, SV_MEMORY);
 
-    validation_flags_init(&(self->validation_flags));
-    gop_state_reset(&(self->gop_state));
+    legacy_validation_flags_init(&(self->validation_flags));
+    legacy_gop_state_reset(&(self->gop_state));
     self->has_public_key = false;
 
-    self->verify_data = sign_or_verify_data_create();
-    self->verify_data->hash_size = openssl_get_hash_size(self->crypto_handle);
+    // Borrow |verify_data| from parent
+    self->verify_data = parent->verify_data;
+
+    // Set shortcuts to authenticity report in |parent|.
+    self->latest_validation = &parent->authenticity->latest_validation;
+    self->accumulated_validation = &parent->authenticity->accumulated_validation;
+    self->authenticity = parent->authenticity;
+    if (parent->has_public_key && parent->pem_public_key.key) {
+      self->pem_public_key.key = malloc(parent->pem_public_key.key_size);
+      SV_THROW_IF(!self->pem_public_key.key, SV_MEMORY);
+      memcpy(self->pem_public_key.key, parent->pem_public_key.key, parent->pem_public_key.key_size);
+      self->pem_public_key.key_size = parent->pem_public_key.key_size;
+      self->has_public_key = parent->has_public_key;
+    }
+    self->parent = parent;
   SV_CATCH()
   {
-    signed_video_free(self);
+    legacy_sv_free(self);
     self = NULL;
   }
   SV_DONE(status)
@@ -1217,31 +907,27 @@ signed_video_create(SignedVideoCodec codec)
   return self;
 }
 
-SignedVideoReturnCode
-signed_video_reset(signed_video_t *self)
+svrc_t
+legacy_sv_reset(legacy_sv_t *self)
 {
+  if (!self) return SV_OK;
+
   svrc_t status = SV_UNKNOWN_FAILURE;
-
   SV_TRY()
-    SV_THROW_IF(!self, SV_INVALID_PARAMETER);
-    DEBUG_LOG("Resetting signed session");
+    DEBUG_LOG("Resetting legacy signed session");
     // Reset session states
-    SV_THROW(legacy_sv_reset(self->legacy_sv));
-    self->signing_started = false;
-    gop_info_reset(self->gop_info);
+    legacy_gop_info_reset(self->gop_info);
 
-    gop_state_reset(&(self->gop_state));
-    validation_flags_init(&(self->validation_flags));
+    legacy_gop_state_reset(&(self->gop_state));
+    legacy_validation_flags_init(&(self->validation_flags));
     latest_validation_init(self->latest_validation);
     accumulated_validation_init(self->accumulated_validation);
     // Empty the |nalu_list|.
-    h26x_nalu_list_free_items(self->nalu_list);
+    legacy_h26x_nalu_list_free_items(self->nalu_list);
 
-    memset(self->last_nalu, 0, sizeof(h26x_nalu_t));
-    self->last_nalu->is_last_nalu_part = true;
     SV_THROW(openssl_init_hash(self->crypto_handle));
 
-    SV_THROW(reset_gop_hash(self));
+    SV_THROW(legacy_reset_gop_hash(self));
   SV_CATCH()
   SV_DONE(status)
 
@@ -1249,76 +935,15 @@ signed_video_reset(signed_video_t *self)
 }
 
 void
-signed_video_free(signed_video_t *self)
+legacy_sv_free(legacy_sv_t *self)
 {
-  DEBUG_LOG("Free signed video %p", self);
+  DEBUG_LOG("Free legacy signed video %p", self);
   if (!self) return;
 
-  // Free the legacy validation if present.
-  legacy_sv_free(self->legacy_sv);
+  legacy_h26x_nalu_list_free(self->nalu_list);
 
-  // Teardown the plugin before closing.
-  sv_signing_plugin_session_teardown(self->plugin_handle);
-  // Teardown the vendor handle.
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
-  sv_vendor_axis_communications_teardown(self->vendor_handle);
-#endif
-  // Teardown the crypto handle.
-  openssl_free_handle(self->crypto_handle);
-
-  // Free any pending SEIs
-  free_sei_data_buffer(self->sei_data_buffer);
-
-  free(self->last_nalu);
-  h26x_nalu_list_free(self->nalu_list);
-
-  signed_video_authenticity_report_free(self->authenticity);
-  product_info_free(self->product_info);
-  gop_info_free(self->gop_info);
-  sign_or_verify_data_free(self->sign_data);
-  sign_or_verify_data_free(self->verify_data);
+  free(self->gop_info);
   free(self->pem_public_key.key);
 
   free(self);
 }
-
-const char *
-signed_video_get_version()
-{
-  return SIGNED_VIDEO_VERSION;
-}
-
-int
-signed_video_compare_versions(const char *version1, const char *version2)
-{
-  int status = -1;
-  if (!version1 || !version2) return status;
-
-  int arr1[SV_VERSION_BYTES] = {0};
-  int arr2[SV_VERSION_BYTES] = {0};
-  if (!version_str_to_bytes(arr1, version1)) goto error;
-  if (!version_str_to_bytes(arr2, version2)) goto error;
-
-  int result = 0;
-  int j = 0;
-  while (result == 0 && j < SV_VERSION_BYTES) {
-    result = arr1[j] - arr2[j];
-    j++;
-  }
-  if (result == 0) status = 0;  // |version1| equals to |version2|
-  if (result > 0) status = 1;  // |version1| newer than |version2|
-  if (result < 0) status = 2;  // |version2| newer than |version1|
-
-error:
-  return status;
-}
-
-bool
-signed_video_is_golden_sei(signed_video_t *self, const uint8_t *nalu, size_t nalu_size)
-{
-  if (!self || !nalu || (nalu_size == 0)) return false;
-
-  h26x_nalu_t parsed_nalu = parse_nalu_info(nalu, nalu_size, self->codec, false, true);
-  free(parsed_nalu.nalu_data_wo_epb);
-  return parsed_nalu.is_golden_sei;
-};

@@ -18,45 +18,22 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+#include "legacy/legacy_h26x_nalu_list.h"
+
 #include <assert.h>
-#ifdef SIGNED_VIDEO_DEBUG
-#include <stdio.h>  // printf
-
-#include "signed_video_internal.h"  // SHA_HASH_SIZE
-#endif
-#include <stdint.h>
 #include <stdlib.h>  // calloc, malloc, free, size_t
-#include <string.h>  // memcpy
 
-#include "signed_video_h26x_nalu_list.h"
+#include "includes/signed_video_common.h"  // Return codes
 
-/* Declarations of static h26x_nalu_list_item_t functions. */
-static h26x_nalu_list_item_t *
-h26x_nalu_list_item_create(const h26x_nalu_t *nalu);
 static void
-h26x_nalu_list_item_free(h26x_nalu_list_item_t *item);
-static void
-h26x_nalu_list_item_append_item(h26x_nalu_list_item_t *list_item, h26x_nalu_list_item_t *new_item);
-static void
-h26x_nalu_list_item_prepend_item(h26x_nalu_list_item_t *list_item, h26x_nalu_list_item_t *new_item);
-#ifdef SIGNED_VIDEO_DEBUG
-static void
-h26x_nalu_list_item_print(const h26x_nalu_list_item_t *item);
-#endif
-
-/* Declarations of static h26x_nalu_list_t functions. */
-static void
-h26x_nalu_list_remove_and_free_item(h26x_nalu_list_t *list,
-    const h26x_nalu_list_item_t *item_to_remove);
-static void
-h26x_nalu_list_refresh(h26x_nalu_list_t *list);
+legacy_h26x_nalu_list_refresh(legacy_h26x_nalu_list_t *list);
 
 /* Helper functions. */
 
 /* Determines and returns the validation status character from a h26x_nalu_t object.
  */
 static char
-get_validation_status_from_nalu(const h26x_nalu_t *nalu)
+legacy_get_validation_status_from_nalu(const legacy_h26x_nalu_t *nalu)
 {
   if (!nalu) return '\0';
 
@@ -82,15 +59,15 @@ get_validation_status_from_nalu(const h26x_nalu_t *nalu)
 
 /* Creates a new NALU list item and sets the pointer to the |nalu|. A NULL pointer is a valid input,
  * which will create an empty item. */
-static h26x_nalu_list_item_t *
-h26x_nalu_list_item_create(const h26x_nalu_t *nalu)
+static legacy_h26x_nalu_list_item_t *
+legacy_h26x_nalu_list_item_create(const legacy_h26x_nalu_t *nalu)
 {
-  h26x_nalu_list_item_t *item = (h26x_nalu_list_item_t *)calloc(1, sizeof(h26x_nalu_list_item_t));
+  legacy_h26x_nalu_list_item_t *item = calloc(1, sizeof(legacy_h26x_nalu_list_item_t));
   if (!item) return NULL;
 
-  item->nalu = (h26x_nalu_t *)nalu;
+  item->nalu = (legacy_h26x_nalu_t *)nalu;
   item->taken_ownership_of_nalu = false;
-  item->validation_status = get_validation_status_from_nalu(nalu);
+  item->validation_status = legacy_get_validation_status_from_nalu(nalu);
 
   return item;
 }
@@ -98,7 +75,7 @@ h26x_nalu_list_item_create(const h26x_nalu_t *nalu)
 /* Frees the |item|. Also frees the |nalu| data, hence this operation should be used with care if it
  * is used by others. */
 static void
-h26x_nalu_list_item_free(h26x_nalu_list_item_t *item)
+legacy_h26x_nalu_list_item_free(legacy_h26x_nalu_list_item_t *item)
 {
   if (!item) return;
 
@@ -106,7 +83,6 @@ h26x_nalu_list_item_free(h26x_nalu_list_item_t *item)
   if (item->taken_ownership_of_nalu) {
     if (item->nalu) {
       free(item->nalu->nalu_data_wo_epb);
-      free(item->nalu->pending_nalu_data);
     }
     free(item->nalu);
   }
@@ -116,11 +92,12 @@ h26x_nalu_list_item_free(h26x_nalu_list_item_t *item)
 
 /* Appends a |list_item| with a |new_item|. Assumes |list_item| and |new_item| exists. */
 static void
-h26x_nalu_list_item_append_item(h26x_nalu_list_item_t *list_item, h26x_nalu_list_item_t *new_item)
+legacy_h26x_nalu_list_item_append_item(legacy_h26x_nalu_list_item_t *list_item,
+    legacy_h26x_nalu_list_item_t *new_item)
 {
   assert(list_item && new_item);
 
-  h26x_nalu_list_item_t *next_item = list_item->next;
+  legacy_h26x_nalu_list_item_t *next_item = list_item->next;
 
   if (next_item != NULL) {
     next_item->prev = new_item;
@@ -132,11 +109,12 @@ h26x_nalu_list_item_append_item(h26x_nalu_list_item_t *list_item, h26x_nalu_list
 
 /* Prepends a |list_item| with a |new_item|. Assumes |list_item| and |new_item| exists. */
 static void
-h26x_nalu_list_item_prepend_item(h26x_nalu_list_item_t *list_item, h26x_nalu_list_item_t *new_item)
+legacy_h26x_nalu_list_item_prepend_item(legacy_h26x_nalu_list_item_t *list_item,
+    legacy_h26x_nalu_list_item_t *new_item)
 {
   assert(list_item && new_item);
 
-  h26x_nalu_list_item_t *prev_item = list_item->prev;
+  legacy_h26x_nalu_list_item_t *prev_item = list_item->prev;
 
   if (prev_item != NULL) {
     new_item->prev = prev_item;
@@ -146,61 +124,17 @@ h26x_nalu_list_item_prepend_item(h26x_nalu_list_item_t *list_item, h26x_nalu_lis
   new_item->next = list_item;
 }
 
-#ifdef SIGNED_VIDEO_DEBUG
-/* Prints the members of an |item|. */
-static void
-h26x_nalu_list_item_print(const h26x_nalu_list_item_t *item)
-{
-  // h26x_nalu_t *nalu;
-  // char validation_status;
-  // uint8_t hash[MAX_HASH_SIZE];
-  // uint8_t *second_hash;
-  // bool taken_ownership_of_nalu;
-  // bool need_second_verification;
-  // bool first_verification_not_authentic;
-  // bool has_been_decoded;
-  // bool used_in_gop_hash;
-
-  if (!item) return;
-
-  char *nalu_type_str = !item->nalu
-      ? "This NALU is missing"
-      : (item->nalu->is_gop_sei ? "SEI" : (item->nalu->is_first_nalu_in_gop ? "I" : "Other"));
-  char validation_status_str[2] = {'\0'};
-  memcpy(validation_status_str, &item->validation_status, 1);
-
-  printf("NALU type = %s\n", nalu_type_str);
-  printf("validation_status = %s%s%s%s%s%s\n", validation_status_str,
-      (item->taken_ownership_of_nalu ? ", taken_ownership_of_nalu" : ""),
-      (item->need_second_verification ? ", need_second_verification" : ""),
-      (item->first_verification_not_authentic ? ", first_verification_not_authentic" : ""),
-      (item->has_been_decoded ? ", has_been_decoded" : ""),
-      (item->used_in_gop_hash ? ", used_in_gop_hash" : ""));
-  printf("item->hash     ");
-  for (size_t i = 0; i < item->hash_size; i++) {
-    printf("%02x", item->hash[i]);
-  }
-  if (item->second_hash) {
-    printf("\nitem->second_hash ");
-    for (size_t i = 0; i < item->hash_size; i++) {
-      printf("%02x", item->second_hash[i]);
-    }
-  }
-  printf("\n");
-}
-#endif
-
 /**
  * Static h26x_nalu_list_t functions.
  */
 
 /* Finds and removes |item_to_remove| from the |list|. The |item_to_remove| is then freed. */
 static void
-h26x_nalu_list_remove_and_free_item(h26x_nalu_list_t *list,
-    const h26x_nalu_list_item_t *item_to_remove)
+legacy_h26x_nalu_list_remove_and_free_item(legacy_h26x_nalu_list_t *list,
+    const legacy_h26x_nalu_list_item_t *item_to_remove)
 {
   // Find the |item_to_remove|.
-  h26x_nalu_list_item_t *item = list->first_item;
+  legacy_h26x_nalu_list_item_t *item = list->first_item;
   while (item && (item != item_to_remove)) item = item->next;
 
   if (!item) return;  // Did not find the |item_to_remove|.
@@ -210,20 +144,20 @@ h26x_nalu_list_remove_and_free_item(h26x_nalu_list_t *list,
   if (item->prev) item->prev->next = item->next;
   if (item->next) item->next->prev = item->prev;
 
-  // Fix the broken list. To use h26x_nalu_list_refresh(), first_item needs to be part of the list.
-  // If |item_to_remove| was that first_item, we need to set a new one.
+  // Fix the broken list. To use legacy_h26x_nalu_list_refresh(), first_item needs to be part of the
+  // list. If |item_to_remove| was that first_item, we need to set a new one.
   if (list->first_item == item) list->first_item = item->next;
   if (list->last_item == item) list->last_item = item->prev;
-  h26x_nalu_list_refresh(list);
+  legacy_h26x_nalu_list_refresh(list);
 
-  h26x_nalu_list_item_free(item);
+  legacy_h26x_nalu_list_item_free(item);
 }
 
 /* Makes a refresh on the list. Helpful if the list is out of sync. Rewinds the |first_item| to the
  * beginning and loops through all items to compute |num_items| and set the |last_item|. Note that
  * the |first_item| has to be represented somewhere in the |list|. */
 static void
-h26x_nalu_list_refresh(h26x_nalu_list_t *list)
+legacy_h26x_nalu_list_refresh(legacy_h26x_nalu_list_t *list)
 {
   if (!list) return;
 
@@ -234,7 +168,7 @@ h26x_nalu_list_refresh(h26x_nalu_list_t *list)
     list->first_item = (list->first_item)->prev;
   }
   // Start from the first_item and count num_items.
-  h26x_nalu_list_item_t *item = list->first_item;
+  legacy_h26x_nalu_list_item_t *item = list->first_item;
   while (item) {
     list->num_items++;
 
@@ -246,10 +180,11 @@ h26x_nalu_list_refresh(h26x_nalu_list_t *list)
 
 /* Checks if the |item_to_find| is an item in the |list|. Returns true if so, otherwise false. */
 static bool
-is_in_list(const h26x_nalu_list_t *list, const h26x_nalu_list_item_t *item_to_find)
+legacy_is_in_list(const legacy_h26x_nalu_list_t *list,
+    const legacy_h26x_nalu_list_item_t *item_to_find)
 {
   bool found_item = false;
-  const h26x_nalu_list_item_t *item = list->first_item;
+  const legacy_h26x_nalu_list_item_t *item = list->first_item;
   while (item) {
     if (item == item_to_find) {
       found_item = true;
@@ -265,48 +200,48 @@ is_in_list(const h26x_nalu_list_t *list, const h26x_nalu_list_item_t *item_to_fi
  */
 
 /* Creates and returns a nalu list. */
-h26x_nalu_list_t *
-h26x_nalu_list_create()
+legacy_h26x_nalu_list_t *
+legacy_h26x_nalu_list_create()
 {
-  return (h26x_nalu_list_t *)calloc(1, sizeof(h26x_nalu_list_t));
+  return calloc(1, sizeof(legacy_h26x_nalu_list_t));
 }
 
 /* Frees all the items in the list and the list itself. */
 void
-h26x_nalu_list_free(h26x_nalu_list_t *list)
+legacy_h26x_nalu_list_free(legacy_h26x_nalu_list_t *list)
 {
   if (!list) return;
-  h26x_nalu_list_free_items(list);
+  legacy_h26x_nalu_list_free_items(list);
   free(list);
 }
 
 /* Removes and frees all the items in the |list|. */
 void
-h26x_nalu_list_free_items(h26x_nalu_list_t *list)
+legacy_h26x_nalu_list_free_items(legacy_h26x_nalu_list_t *list)
 {
   if (!list) return;
   // Pop all items and free them.
   while (list->first_item) {
-    h26x_nalu_list_remove_and_free_item(list, list->first_item);
+    legacy_h26x_nalu_list_remove_and_free_item(list, list->first_item);
   }
 }
 
 /* Appends the |last_item| of the |list| with a new item. The new item has a pointer to |nalu|, but
  * does not take ownership of it. */
 svrc_t
-h26x_nalu_list_append(h26x_nalu_list_t *list, const h26x_nalu_t *nalu)
+legacy_h26x_nalu_list_append(legacy_h26x_nalu_list_t *list, const legacy_h26x_nalu_t *nalu)
 {
   if (!list || !nalu) return SV_INVALID_PARAMETER;
 
-  h26x_nalu_list_item_t *new_item = h26x_nalu_list_item_create(nalu);
+  legacy_h26x_nalu_list_item_t *new_item = legacy_h26x_nalu_list_item_create(nalu);
   if (!new_item) return SV_MEMORY;
 
-  // List is empty. Set |new_item| as first_item. The h26x_nalu_list_refresh() call will fix the
-  // rest of the list.
+  // List is empty. Set |new_item| as first_item. The legacy_h26x_nalu_list_refresh() call will fix
+  // the rest of the list.
   if (!list->first_item) list->first_item = new_item;
-  if (list->last_item) h26x_nalu_list_item_append_item(list->last_item, new_item);
+  if (list->last_item) legacy_h26x_nalu_list_item_append_item(list->last_item, new_item);
 
-  h26x_nalu_list_refresh(list);
+  legacy_h26x_nalu_list_refresh(list);
 
   return SV_OK;
 }
@@ -316,42 +251,27 @@ h26x_nalu_list_append(h26x_nalu_list_t *list, const h26x_nalu_t *nalu)
  * released. If the |nalu| could not be copied it will be a NULL pointer. If hash algo is
  * not known the |hashable_data| is copied so the NALU can be hashed later. */
 svrc_t
-h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list, bool hash_algo_known)
+legacy_h26x_nalu_list_copy_last_item(legacy_h26x_nalu_list_t *list)
 {
   if (!list) return SV_INVALID_PARAMETER;
 
-  h26x_nalu_t *copied_nalu = NULL;
-  uint8_t *nalu_data = NULL;
-  uint8_t *hashable_data = NULL;
+  legacy_h26x_nalu_t *copied_nalu = NULL;
   uint8_t *nalu_data_wo_epb = NULL;
-  h26x_nalu_list_item_t *item = list->last_item;
-  int hashable_data_offset = item->nalu->hashable_data - item->nalu->nalu_data;
+  legacy_h26x_nalu_list_item_t *item = list->last_item;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_IF(!item->nalu, SV_UNKNOWN_FAILURE);
-    copied_nalu = (h26x_nalu_t *)malloc(sizeof(h26x_nalu_t));
+    copied_nalu = malloc(sizeof(legacy_h26x_nalu_t));
     SV_THROW_IF(!copied_nalu, SV_MEMORY);
     if (item->nalu->tlv_data) {
       nalu_data_wo_epb = malloc(item->nalu->tlv_size);
       SV_THROW_IF(!nalu_data_wo_epb, SV_MEMORY);
       memcpy(nalu_data_wo_epb, item->nalu->tlv_data, item->nalu->tlv_size);
     }
-    // If the library does not know which hash algo to use, store the |hashable_data| for later.
-    if (!hash_algo_known) {
-      nalu_data = malloc(item->nalu->nalu_data_size);
-      SV_THROW_IF(!nalu_data, SV_MEMORY);
-      memcpy(nalu_data, item->nalu->nalu_data, item->nalu->nalu_data_size);
-      if (item->nalu->is_hashable) {
-        hashable_data = nalu_data + hashable_data_offset;
-      }
-    }
-    copy_nalu_except_pointers(copied_nalu, item->nalu);
+    legacy_copy_nalu_except_pointers(copied_nalu, item->nalu);
     copied_nalu->nalu_data_wo_epb = nalu_data_wo_epb;
     copied_nalu->tlv_data = copied_nalu->nalu_data_wo_epb;
-    copied_nalu->pending_nalu_data = nalu_data;
-    copied_nalu->nalu_data = copied_nalu->pending_nalu_data;
-    copied_nalu->hashable_data = hashable_data;
   SV_CATCH()
   {
     free(nalu_data_wo_epb);  // At this point, nalu_data_wo_epb is actually NULL.
@@ -374,12 +294,13 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list, bool hash_algo_known)
 
 /* Append or prepend the |item| of the |list| with |num_missing| NALUs. */
 svrc_t
-h26x_nalu_list_add_missing(h26x_nalu_list_t *list,
+legacy_h26x_nalu_list_add_missing(legacy_h26x_nalu_list_t *list,
     int num_missing,
     bool append,
-    h26x_nalu_list_item_t *item)
+    legacy_h26x_nalu_list_item_t *item)
 {
-  if (!list || !item || !is_in_list(list, item) || num_missing < 0) return SV_INVALID_PARAMETER;
+  if (!list || !item || !legacy_is_in_list(list, item) || num_missing < 0)
+    return SV_INVALID_PARAMETER;
   if (num_missing == 0) return SV_OK;
 
   int added_items = 0;
@@ -387,16 +308,16 @@ h26x_nalu_list_add_missing(h26x_nalu_list_t *list,
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     for (added_items = 0; added_items < num_missing; added_items++) {
-      h26x_nalu_list_item_t *missing_nalu = h26x_nalu_list_item_create(NULL);
+      legacy_h26x_nalu_list_item_t *missing_nalu = legacy_h26x_nalu_list_item_create(NULL);
       SV_THROW_IF(!missing_nalu, SV_MEMORY);
 
       missing_nalu->validation_status = 'M';
       if (append) {
-        h26x_nalu_list_item_append_item(item, missing_nalu);
+        legacy_h26x_nalu_list_item_append_item(item, missing_nalu);
       } else {
-        h26x_nalu_list_item_prepend_item(item, missing_nalu);
+        legacy_h26x_nalu_list_item_prepend_item(item, missing_nalu);
       }
-      h26x_nalu_list_refresh(list);
+      legacy_h26x_nalu_list_refresh(list);
     }
 
   SV_CATCH()
@@ -412,22 +333,22 @@ h26x_nalu_list_add_missing(h26x_nalu_list_t *list,
  * SEI is marked as 'U' since it is not associated with this recording. The screening keeps going
  * until we find the decoded SEI. */
 void
-h26x_nalu_list_remove_missing_items(h26x_nalu_list_t *list)
+legacy_h26x_nalu_list_remove_missing_items(legacy_h26x_nalu_list_t *list)
 {
   if (!list) return;
 
   bool found_first_pending_nalu = false;
   bool found_decoded_sei = false;
-  h26x_nalu_list_item_t *item = list->first_item;
+  legacy_h26x_nalu_list_item_t *item = list->first_item;
   while (item && !(found_first_pending_nalu && found_decoded_sei)) {
     // Reset the invalid verification failure if we have not past the first pending item.
 
     if (!found_first_pending_nalu) item->first_verification_not_authentic = false;
     // Remove the missing NALU in the front.
     if (item->validation_status == 'M' && (item == list->first_item)) {
-      const h26x_nalu_list_item_t *item_to_remove = item;
+      const legacy_h26x_nalu_list_item_t *item_to_remove = item;
       item = item->next;
-      h26x_nalu_list_remove_and_free_item(list, item_to_remove);
+      legacy_h26x_nalu_list_remove_and_free_item(list, item_to_remove);
       continue;
     }
     if (item->has_been_decoded && item->validation_status != 'U') {
@@ -443,12 +364,12 @@ h26x_nalu_list_remove_missing_items(h26x_nalu_list_t *list)
 }
 
 /* Searches for, and returns, the next pending SEI item. */
-h26x_nalu_list_item_t *
-h26x_nalu_list_get_next_sei_item(const h26x_nalu_list_t *list)
+legacy_h26x_nalu_list_item_t *
+legacy_h26x_nalu_list_get_next_sei_item(const legacy_h26x_nalu_list_t *list)
 {
   if (!list) return NULL;
 
-  h26x_nalu_list_item_t *item = list->first_item;
+  legacy_h26x_nalu_list_item_t *item = list->first_item;
   while (item) {
     if (item->nalu && item->nalu->is_gop_sei && item->validation_status == 'P') break;
     item = item->next;
@@ -463,7 +384,7 @@ h26x_nalu_list_get_next_sei_item(const h26x_nalu_list_t *list)
  * and return true if any valid NALUs, including those pending a second verification, are present.
  */
 bool
-h26x_nalu_list_get_stats(const h26x_nalu_list_t *list,
+legacy_h26x_nalu_list_get_stats(const legacy_h26x_nalu_list_t *list,
     int *num_invalid_nalus,
     int *num_missing_nalus)
 {
@@ -474,7 +395,7 @@ h26x_nalu_list_get_stats(const h26x_nalu_list_t *list,
   bool has_valid_nalus = false;
 
   // From the list, get number of invalid NALUs and number of missing NALUs.
-  h26x_nalu_list_item_t *item = list->first_item;
+  legacy_h26x_nalu_list_item_t *item = list->first_item;
   while (item) {
     if (item->validation_status == 'M') local_num_missing_nalus++;
     if (item->validation_status == 'N' || item->validation_status == 'E') local_num_invalid_nalus++;
@@ -499,12 +420,12 @@ h26x_nalu_list_get_stats(const h26x_nalu_list_t *list,
 
 /* Counts and returns number of items pending validation. */
 int
-h26x_nalu_list_num_pending_items(const h26x_nalu_list_t *list)
+legacy_h26x_nalu_list_num_pending_items(const legacy_h26x_nalu_list_t *list)
 {
   if (!list) return 0;
 
   int num_pending_nalus = 0;
-  h26x_nalu_list_item_t *item = list->first_item;
+  legacy_h26x_nalu_list_item_t *item = list->first_item;
   while (item) {
     if (item->validation_status == 'P') num_pending_nalus++;
     item = item->next;
@@ -517,23 +438,24 @@ h26x_nalu_list_num_pending_items(const h26x_nalu_list_t *list)
  * returns that string if VALIDATION_STR is set. Transforms all |nalu_type| characters of the items
  * in the |list| into a char string and returns that string if NALU_STR is set. */
 char *
-h26x_nalu_list_get_str(const h26x_nalu_list_t *list, NaluListStringType str_type)
+legacy_h26x_nalu_list_get_str(const legacy_h26x_nalu_list_t *list,
+    LegacyNaluListStringType str_type)
 {
   if (!list) return NULL;
   // Allocate memory for all items + a null terminated character.
   char *dst_str = calloc(1, list->num_items + 1);
   if (!dst_str) return NULL;
 
-  h26x_nalu_list_item_t *item = list->first_item;
+  legacy_h26x_nalu_list_item_t *item = list->first_item;
   int idx = 0;
   while (item) {
     char src = 'U';
     switch (str_type) {
-      case NALU_STR:
-        src = nalu_type_to_char(item->nalu);
+      case LEGACY_NALU_STR:
+        src = legacy_nalu_type_to_char(item->nalu);
         break;
       default:
-      case VALIDATION_STR:
+      case LEGACY_VALIDATION_STR:
         src = item->validation_status;
         break;
     }
@@ -547,36 +469,20 @@ h26x_nalu_list_get_str(const h26x_nalu_list_t *list, NaluListStringType str_type
 
 /* Cleans up the list by removing the validated items. */
 unsigned int
-h26x_nalu_list_clean_up(h26x_nalu_list_t *list)
+legacy_h26x_nalu_list_clean_up(legacy_h26x_nalu_list_t *list)
 {
   if (!list) return 0;
 
   // Remove validated items.
   unsigned int removed_items = 0;
-  h26x_nalu_list_item_t *item = list->first_item;
+  legacy_h26x_nalu_list_item_t *item = list->first_item;
   while (item && item->validation_status != 'P' && !item->need_second_verification) {
     if (item->validation_status != 'M') {
       removed_items++;
     }
-    h26x_nalu_list_remove_and_free_item(list, list->first_item);
+    legacy_h26x_nalu_list_remove_and_free_item(list, list->first_item);
     item = list->first_item;
   }
 
   return removed_items;
-}
-
-/* Prints all items in the list. */
-void
-h26x_nalu_list_print(const h26x_nalu_list_t *list)
-{
-  if (!list) return;
-#ifdef SIGNED_VIDEO_DEBUG
-  const h26x_nalu_list_item_t *item = list->first_item;
-  printf("\n");
-  while (item) {
-    h26x_nalu_list_item_print(item);
-    item = item->next;
-  }
-  printf("\n");
-#endif
 }

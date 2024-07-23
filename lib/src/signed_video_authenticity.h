@@ -86,4 +86,16 @@ allocate_memory_and_copy_string(char **dst_str, const char *src_str);
 void
 update_authenticity_report(signed_video_t *self);
 
+/**
+ * @brief Updates a signed_video_accumulated_validation_t struct
+ *
+ * Updates an accumulated validation with the |latest| one.
+ *
+ * @param latest The input to the |accumulated| validation.
+ * @param accumulated The |accumulated| validation to update.
+ */
+void
+update_accumulated_validation(const signed_video_latest_validation_t *latest,
+    signed_video_accumulated_validation_t *accumulated);
+
 #endif  // __SIGNED_VIDEO_AUTHENTICITY_H__

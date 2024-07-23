@@ -123,7 +123,7 @@ struct _h26x_nalu_t {
   size_t nalu_data_size;  // The total size of the NALU data
   const uint8_t *hashable_data;  // The NALU data for potential hashing
   size_t hashable_data_size;  // Size of the data to hash, excluding stop bit
-  uint8_t *pending_hashable_data;  // The NALU data for potential hashing
+  uint8_t *pending_nalu_data;  // The NALU data for potential hashing
   SignedVideoFrameType nalu_type;  // Frame type: I, P, SPS, PPS, VPS or SEI
   SignedVideoUUIDType uuid_type;  // UUID type if a SEI nalu
   int is_valid;  // Is a valid H26x NALU (1), invalid (0) or has errors (-1)
@@ -186,6 +186,9 @@ hash_and_add(signed_video_t *signed_video, const h26x_nalu_t *nalu);
 
 svrc_t
 hash_and_add_for_auth(signed_video_t *signed_video, h26x_nalu_list_item_t *item);
+
+svrc_t
+compute_partial_gop_hash(signed_video_t *self);
 
 h26x_nalu_t
 parse_nalu_info(const uint8_t *nalu_data,

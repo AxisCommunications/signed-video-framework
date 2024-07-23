@@ -8,6 +8,7 @@ signedvideoframework_public_headers = files(
 )
 
 signedvideoframework_sources = files(
+  'legacy_validation.h',
   'signed_video_authenticity.c',
   'signed_video_authenticity.h',
   'signed_video_defines.h',
@@ -23,9 +24,21 @@ signedvideoframework_sources = files(
   'signed_video_tlv.h',
 )
 
+legacy_sources = files(
+  'legacy/legacy_h26x_auth.c',
+  'legacy/legacy_h26x_common.c',
+  'legacy/legacy_h26x_internal.h',
+  'legacy/legacy_h26x_nalu_list.c',
+  'legacy/legacy_h26x_nalu_list.h',
+  'legacy/legacy_internal.h',
+  'legacy/legacy_tlv.c',
+  'legacy/legacy_tlv.h',
+)
+
 # Until plugin management is in place the plugin file(s) are added to the sources.
 signedvideoframework_sources += plugin_sources
 signedvideoframework_sources += vendor_sources
+signedvideoframework_sources += legacy_sources
 
 openssl_dep = dependency('openssl', required : true, version : '>=3.0.0')
 

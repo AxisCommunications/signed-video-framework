@@ -40,9 +40,6 @@ transfer_authenticity(signed_video_authenticity_t *dst, const signed_video_authe
 /* Init and update functions. */
 static void
 authenticity_report_init(signed_video_authenticity_t *authenticity_report);
-static void
-update_accumulated_validation(const signed_video_latest_validation_t *latest,
-    signed_video_accumulated_validation_t *accumulated);
 /* Setters. */
 static void
 set_authenticity_shortcuts(signed_video_t *signed_video);
@@ -221,7 +218,7 @@ authenticity_report_init(signed_video_authenticity_t *authenticity_report)
   accumulated_validation_init(&authenticity_report->accumulated_validation);
 }
 
-static void
+void
 update_accumulated_validation(const signed_video_latest_validation_t *latest,
     signed_video_accumulated_validation_t *accumulated)
 {
@@ -256,6 +253,9 @@ void
 update_authenticity_report(signed_video_t *self)
 {
   assert(self && self->authenticity);
+
+  // Skip if validation is handled by the legacy code.
+  if (self->legacy_sv) return;
 
   char *nalu_str = h26x_nalu_list_get_str(self->nalu_list, NALU_STR);
   char *validation_str = h26x_nalu_list_get_str(self->nalu_list, VALIDATION_STR);
@@ -322,7 +322,9 @@ signed_video_get_authenticity_report(signed_video_t *self)
     } else {
       // At this point, all validated NALUs up to the first pending NALU have been removed from the
       // |nalu_list|, hence number of pending NALUs equals number of items in the |nalu_list|.
-      accumulated->number_of_pending_nalus = self->nalu_list->num_items;
+      accumulated->number_of_pending_nalus = self->legacy_sv
+          ? legacy_get_nalu_list_items(self->legacy_sv)
+          : self->nalu_list->num_items;
     }
 
     SV_THROW(transfer_authenticity(authenticity_report, self->authenticity));

@@ -7,11 +7,11 @@ tests = [
     ],
     ['unittest_sign',
       [
-        'test_stream.h',
+        'check_signed_video_sign.c',
         'test_stream.c',
-        'test_helpers.h',
+        'test_stream.h',
         'test_helpers.c',
-        'check_signed_video_sign.c'
+        'test_helpers.h'
       ]
     ],
 ]
@@ -21,11 +21,12 @@ if (get_option('signingplugin') != 'threaded_unless_check_dep')
   tests += [
       ['unittest_auth',
         [ 
-          'test_stream.h',
+          'check_signed_video_auth.c',
+          'legacy_test_data.c',
           'test_stream.c',
-          'test_helpers.h',
+          'test_stream.h',
           'test_helpers.c',
-          'check_signed_video_auth.c'
+          'test_helpers.h'
         ] 
       ] 
   ]
