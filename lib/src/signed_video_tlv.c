@@ -284,7 +284,7 @@ encode_general(signed_video_t *self, uint8_t *data)
 
   // Write linked hash; hash_size bytes
   for (size_t i = 0; i < self->sign_data->hash_size; i++) {
-    write_byte(last_two_bytes, &data_ptr, gop_info->linked_hash_data.linked_hash[i], epb);
+    write_byte(last_two_bytes, &data_ptr, gop_info->linked_hashes[i], epb);
   }
   // Write GOP hash; hash_size bytes
   for (size_t i = 0; i < self->sign_data->hash_size; i++) {
@@ -337,7 +337,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
       // Calculate the size of linked_hash data and gop_hash data
       size_t hash_size = (data_size - (data_ptr - data)) / 2;
       // Decode linked hash data
-      memcpy(self->received_linked_hash.linked_hash, data_ptr, hash_size);
+      memcpy(self->received_linked_hash, data_ptr, hash_size);
       data_ptr += hash_size;
       // Decode gop_hash data
       memcpy(self->received_gop_hash, data_ptr, hash_size);

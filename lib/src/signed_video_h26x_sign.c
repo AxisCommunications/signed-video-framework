@@ -524,10 +524,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     }
     if (self->linked_hash_on) {
       // Process the NALU based on the presence of linked hash and whether it is the first NALU in
-      // the GOP
-      // TODO: Every I frame triggers an SEI frame to be generated. When the NALU is an I frame and
-      // the linked hash has been stored, the SEI can be generated. After this, the NALU for the
-      // next GOP is hashed and added.
+      // the GOP.
       if (nalu.is_first_nalu_in_gop && nalu.is_last_nalu_part) {
         // Store the timestamp for the first nalu in gop.
         if (timestamp) {
@@ -545,8 +542,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
         // Add |payload| to buffer. Will be picked up again when the signature has been generated.
         add_payload_to_buffer(self, payload, payload_signature_ptr);
         // The previous GOP is now completed. The gop_hash was reset right after signing and
-        // adding it to the SEI NALU. It is now time to start a new GOP, meaning the first NALU
-        // of the GOP has to be hashed and added.
+        // adding it to the SEI.
       }
       SV_THROW(hash_and_add(self, &nalu));
     } else {
