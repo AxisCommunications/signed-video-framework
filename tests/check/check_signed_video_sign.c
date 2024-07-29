@@ -516,9 +516,6 @@ START_TEST(sei_increase_with_gop_length)
   SignedVideoReturnCode sv_rc;
   char *private_key = NULL;
   size_t private_key_size = 0;
-  // Setup the key
-  sv_rc = settings[_i].generate_key(NULL, &private_key, &private_key_size);
-
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
 
@@ -557,6 +554,8 @@ START_TEST(sei_increase_with_gop_length)
   test_stream_item_free(sei_2);
   test_stream_item_free(sei_3);
   test_stream_free(list);
+  free(private_key);
+  signed_video_free(sv);
 }
 END_TEST
 
