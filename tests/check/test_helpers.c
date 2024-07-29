@@ -33,6 +33,9 @@
 #define RSA_PRIVATE_KEY_ALLOC_BYTES 2000
 #define ECDSA_PRIVATE_KEY_ALLOC_BYTES 1000
 
+#define EC_KEY signed_video_generate_ecdsa_private_key
+#define RSA_KEY signed_video_generate_rsa_private_key
+
 // A dummy certificate chain with three certificates as expected. The last certificate has no
 // ending  '\n' to excercise more of the code.
 const char *axisDummyCertificateChain =
@@ -59,16 +62,22 @@ const char *axisDummyCertificateChain =
 
 const int64_t g_testTimestamp = 42;
 
+// struct sv_setting {
+//   SignedVideoCodec codec;
+//   SignedVideoAuthenticityLevel auth_level;
+//   generate_key_fcn_t generate_key;
+//   size_t max_sei_payload_size;
+//   const char *hash_algo_name;
+// };
 struct sv_setting settings[NUM_SETTINGS] = {
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, signed_video_generate_ecdsa_private_key, 0, NULL},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, signed_video_generate_ecdsa_private_key, 0, NULL},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, signed_video_generate_ecdsa_private_key, 0, NULL},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, signed_video_generate_ecdsa_private_key, 0, NULL},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, EC_KEY, 0, NULL},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, EC_KEY, 0, NULL},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, EC_KEY, 0, NULL},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, EC_KEY, 0, NULL},
     // Special cases
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, signed_video_generate_rsa_private_key, 0, NULL},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, signed_video_generate_rsa_private_key, 0, NULL},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, signed_video_generate_ecdsa_private_key, 0,
-        "sha512"},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, RSA_KEY, 0, NULL},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, RSA_KEY, 0, NULL},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, EC_KEY, 0, "sha512"},
 };
 
 static char private_key_rsa[RSA_PRIVATE_KEY_ALLOC_BYTES];
@@ -205,10 +214,10 @@ get_initialized_signed_video(SignedVideoCodec codec,
   size_t private_key_size = 0;
   SignedVideoReturnCode rc;
 
-  if (generate_key == signed_video_generate_ecdsa_private_key) {
+  if (generate_key == EC_KEY) {
     private_key = private_key_ecdsa;
     private_key_size = private_key_size_ecdsa;
-  } else if (generate_key == signed_video_generate_rsa_private_key) {
+  } else if (generate_key == RSA_KEY) {
     private_key = private_key_rsa;
     private_key_size = private_key_size_rsa;
   } else {
