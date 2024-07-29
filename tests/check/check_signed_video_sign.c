@@ -30,6 +30,7 @@
 #endif
 #include "lib/src/signed_video_h26x_internal.h"  // h26x_nalu_t
 #include "lib/src/signed_video_internal.h"  // set_hash_list_size()
+#include "lib/src/signed_video_tlv.h"  // tlv_has_{optional, mandatory}_tags()
 #include "test_helpers.h"
 #include "test_stream.h"
 
@@ -41,6 +42,85 @@ setup()
 static void
 teardown()
 {
+}
+
+static void
+verify_seis(test_stream_t *list, struct sv_setting setting)
+{
+  if (!list) {
+    return;
+  }
+
+  int num_seis = 0;
+  size_t sei_size = 0;
+  test_stream_item_t *item = list->first_item;
+  while (item) {
+    h26x_nalu_t nalu_info = parse_nalu_info(item->data, item->data_size, list->codec, false, true);
+    if (nalu_info.is_gop_sei) {
+      if (num_seis == 0) {
+        // Set the SEI size for the first detected SEI.
+        sei_size = item->data_size;
+      }
+      num_seis++;
+      const bool has_signature = tag_is_present(item, list->codec, SIGNATURE_TAG);
+      const bool has_hash_list = tag_is_present(item, list->codec, HASH_LIST_TAG);
+      const bool has_optional_tags = tlv_has_optional_tags(nalu_info.tlv_data, nalu_info.tlv_size);
+      const bool has_mandatory_tags =
+          tlv_has_mandatory_tags(nalu_info.tlv_data, nalu_info.tlv_size);
+
+      ck_assert_int_eq(nalu_info.with_epb, setting.ep_before_signing);
+      // Verify SEI sizes if emulation prevention is turned off.
+      if (setting.auth_level == SV_AUTHENTICITY_LEVEL_GOP && !setting.ep_before_signing) {
+        // For GOP level authenticity, all SEIs should have the same size
+        ck_assert(item->data_size == sei_size);
+      }
+      // Verify that SEI sizes increase over time.
+      if (setting.increased_sei_size) {
+        ck_assert_int_ge(item->data_size, sei_size);
+        sei_size = item->data_size;
+      }
+      if (setting.max_sei_payload_size > 0) {
+        // Verify the SEI size. This overrides the authenticity level.
+        ck_assert_uint_le(nalu_info.payload_size, setting.max_sei_payload_size);
+      } else if (!nalu_info.is_golden_sei) {
+        // Check that there is no hash list in GOP authenticity level.
+        setting.auth_level == SV_AUTHENTICITY_LEVEL_GOP ? ck_assert(!has_hash_list)
+                                                        : ck_assert(has_hash_list);
+      }
+      // Verify that a golden SEI can only occur as a first SEI (in tests).
+      if (num_seis == 1) {
+        ck_assert_int_eq(nalu_info.is_golden_sei, setting.with_golden_sei);
+      } else {
+        ck_assert_int_eq(nalu_info.is_golden_sei, false);
+      }
+      // Verify that a golden SEI does not have mandatory tags, but all others do.
+      ck_assert(nalu_info.is_golden_sei ^ has_mandatory_tags);
+      // When a stream is set up to use golden SEIs only the golden SEI should include the
+      // partial tags.
+      if (setting.with_golden_sei) {
+        ck_assert(!(nalu_info.is_golden_sei ^ has_optional_tags));
+      } else {
+        ck_assert(has_optional_tags);
+        // Verify that signatures follow the signing_frequency.
+        if (num_seis % setting.signing_frequency == 0) {
+          ck_assert(has_signature);
+        } else {
+          ck_assert(!has_signature);
+        }
+      }
+      // Verify that a golden SEI has a signature.
+      if (nalu_info.is_golden_sei) {
+        ck_assert(has_signature);
+      }
+#ifdef PRINT_DECODED_SEI
+      // TODO: To be implemented
+      printf("\n--- SEI # %d ---\n", num_seis);
+      signed_video_parse_sei(item->data, item->data_size, list->codec);
+#endif
+    }
+    free(nalu_info.nalu_data_wo_epb);
+    item = item->next;
+  }
 }
 
 /* Get SEIs from the session |sv|. If |num_seis_to_get| < 0, all available SEIs are
@@ -451,6 +531,7 @@ START_TEST(correct_nalu_sequence_without_eos)
 
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPP", settings[_i]);
   test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPPSIPP");
+  verify_seis(list, settings[_i]);
   test_stream_free(list);
 }
 END_TEST
@@ -478,6 +559,7 @@ START_TEST(correct_multislice_sequence_with_eos)
 
   test_stream_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i]);
   test_stream_check_types(list, "SIiPpPpSIiPpPpS");
+  verify_seis(list, settings[_i]);
   test_stream_free(list);
 }
 END_TEST
@@ -490,6 +572,7 @@ START_TEST(correct_multislice_nalu_sequence_without_eos)
 
   test_stream_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i]);
   test_stream_check_types(list, "SIiPpPpSIiPpPp");
+  verify_seis(list, settings[_i]);
   test_stream_free(list);
 }
 END_TEST
@@ -511,50 +594,18 @@ START_TEST(sei_increase_with_gop_length)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
-  SignedVideoCodec codec = settings[_i].codec;
-  SignedVideoReturnCode sv_rc;
-  char *private_key = NULL;
-  size_t private_key_size = 0;
-  signed_video_t *sv = signed_video_create(codec);
-  ck_assert(sv);
+  // Turn off emulation prevention
+  settings[_i].ep_before_signing = false;
+  // Enable verifying increased size of SEIs
+  settings[_i].increased_sei_size = true;
 
-  sv_rc = settings[_i].generate_key(NULL, &private_key, &private_key_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_hash_algo(sv, settings[_i].hash_algo_name);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_sei_epb(sv, false);
+  signed_video_t *sv = get_initialized_signed_video(settings[_i], false);
+  ck_assert(sv);
 
   test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPI", false);
   test_stream_check_types(list, "SIPPSIPPPPPSI");
-  test_stream_item_t *sei_3 = test_stream_item_remove(list, 12);
-  test_stream_item_check_type(sei_3, 'S');
-  test_stream_item_t *sei_2 = test_stream_item_remove(list, 5);
-  test_stream_item_check_type(sei_2, 'S');
-  test_stream_item_t *sei_1 = test_stream_item_remove(list, 1);
-  test_stream_item_check_type(sei_1, 'S');
-  if (auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
-    // Verify constant size. Note that the size differs if more emulation prevention bytes have
-    // been added in one SEI compared to the other. Allow for one extra byte.
-    ck_assert_int_le(abs((int)sei_1->data_size - (int)sei_2->data_size), 1);
-    ck_assert_int_le(abs((int)sei_2->data_size - (int)sei_3->data_size), 1);
-  } else if (auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    // Verify increased size.
-    ck_assert_uint_lt(sei_1->data_size, sei_2->data_size);
-    ck_assert_uint_lt(sei_2->data_size, sei_3->data_size);
-  } else {
-    // We should not end up here.
-    ck_assert(false);
-  }
-  test_stream_item_free(sei_1);
-  test_stream_item_free(sei_2);
-  test_stream_item_free(sei_3);
+  verify_seis(list, settings[_i]);
   test_stream_free(list);
-  free(private_key);
   signed_video_free(sv);
 }
 END_TEST
@@ -622,6 +673,7 @@ START_TEST(undefined_nalu_in_sequence)
 
   test_stream_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
   test_stream_check_types(list, "SIPXPSIPPSI");
+  verify_seis(list, settings[_i]);
   test_stream_free(list);
 }
 END_TEST
@@ -910,6 +962,7 @@ START_TEST(correct_signing_nalus_in_parts)
 
   test_stream_t *list = create_signed_splitted_nalus("IPPIPP", settings[_i]);
   test_stream_check_types(list, "SIPPSIPP");
+  verify_seis(list, settings[_i]);
   test_stream_free(list);
 }
 END_TEST
@@ -1010,6 +1063,7 @@ START_TEST(limited_sei_payload_size)
   settings[_i].ep_before_signing = false;
   test_stream_t *list = create_signed_nalus("IPPIPPPPPPI", settings[_i]);
   test_stream_check_types(list, "SIPPSIPPPPPPSI");
+  verify_seis(list, settings[_i]);
 
   // Extract the SEIs and check their sizes, which should be smaller than |max_sei_payload_size|.
   int sei_idx[3] = {13, 5, 1};
