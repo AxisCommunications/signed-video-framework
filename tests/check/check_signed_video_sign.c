@@ -1008,6 +1008,8 @@ START_TEST(limited_sei_payload_size)
   // Select an upper payload limit which is less then the size of the last SEI.
   const size_t max_sei_payload_size = 1110;
   settings[_i].max_sei_payload_size = max_sei_payload_size;
+  // Write SEIs without emulation prevention to avoid inserting unpredictable bytes.
+  settings[_i].ep_before_signing = false;
   test_stream_t *list = create_signed_nalus("IPPIPPPPPPI", settings[_i]);
   test_stream_check_types(list, "SIPPSIPPPPPPSI");
 
