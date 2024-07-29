@@ -512,8 +512,27 @@ START_TEST(sei_increase_with_gop_length)
   // |settings|; See signed_video_helpers.h.
 
   SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
+  SignedVideoCodec codec = settings[_i].codec;
+  SignedVideoReturnCode sv_rc;
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+  // Setup the key
+  sv_rc = settings[_i].generate_key(NULL, &private_key, &private_key_size);
 
-  test_stream_t *list = create_signed_nalus("IPPIPPPPPI", settings[_i]);
+  signed_video_t *sv = signed_video_create(codec);
+  ck_assert(sv);
+
+  sv_rc = settings[_i].generate_key(NULL, &private_key, &private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_hash_algo(sv, settings[_i].hash_algo_name);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_set_sei_epb(sv, false);
+
+  test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPI", false);
   test_stream_check_types(list, "SIPPSIPPPPPSI");
   test_stream_item_t *sei_3 = test_stream_item_remove(list, 12);
   test_stream_item_check_type(sei_3, 'S');
@@ -988,7 +1007,7 @@ START_TEST(limited_sei_payload_size)
   if (settings[_i].auth_level != SV_AUTHENTICITY_LEVEL_FRAME) return;
 
   // Select an upper payload limit which is less then the size of the last SEI.
-  const size_t max_sei_payload_size = 1000;
+  const size_t max_sei_payload_size = 1110;
   settings[_i].max_sei_payload_size = max_sei_payload_size;
   test_stream_t *list = create_signed_nalus("IPPIPPPPPPI", settings[_i]);
   test_stream_check_types(list, "SIPPSIPPPPPPSI");

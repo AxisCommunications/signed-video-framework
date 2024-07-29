@@ -886,6 +886,26 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
   }
 }
 
+static svrc_t
+update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
+{
+  if (!self || !hash) return SV_INVALID_PARAMETER;
+  if (self->authentication_started) {
+    if (hash_size != self->verify_data->hash_size) return SV_INVALID_PARAMETER;
+  } else {
+    if (hash_size != self->sign_data->hash_size) return SV_INVALID_PARAMETER;
+  }
+  gop_info_t *gop_info = self->gop_info;
+  uint8_t *stored_hash = &gop_info->linked_hashes[hash_size];
+  uint8_t *linked_hash = &gop_info->linked_hashes[0];
+  // Move the content of stored_hash to linked_hash
+  memmove(linked_hash, stored_hash, hash_size);
+  // Copy the new hash to stored_hash
+  memcpy(stored_hash, hash, hash_size);
+
+  return SV_OK;
+}
+
 /* A getter that determines which hash wrapper to use and returns it. */
 static hash_wrapper_t
 get_hash_wrapper(signed_video_t *self, const h26x_nalu_t *nalu)
@@ -986,6 +1006,8 @@ hash_and_copy_to_ref(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *has
     }
     // Copy the |nalu_hash| to |reference_hash| to be used in hash_with_reference().
     memcpy(reference_hash, hash, hash_size);
+    // Copy the |hash| to |linked_hash|.
+    SV_THROW(update_linked_hash(self, hash, hash_size));
     // Tell the user there is a new reference hash.
     gop_info->has_reference_hash = true;
   SV_CATCH()

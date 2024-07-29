@@ -144,6 +144,9 @@ struct _signed_video_t {
   bool is_golden_sei;  // Flag that tells if a SEI is a golden SEI
   bool using_golden_sei;  // Flag that tells if golden SEI prinsiple is used
   bool signing_started;
+  // TODO: Once the transition to linking to previous GOP is complete, the following flag will be
+  // unnecessary.
+  bool linked_hash_on;  // Flag that tells if signed video uses linked hash.
   bool gop_hash_off;  // Flag indicating if the GENERAL TAG doesn't include GOP hash.
   // TODO: |gop_hash_off| will be deprecated when the feature is fully integrated.
 
@@ -161,6 +164,7 @@ struct _signed_video_t {
 
   h26x_nalu_t *last_nalu;  // Track last parsed h26x_nalu_t to pass on to next part
 
+  uint8_t received_linked_hash[MAX_HASH_SIZE];  // Stores linked hash data for liked hash method.
   // Members associated with SEI writing
   uint16_t last_two_bytes;
   sei_data_t sei_data_buffer[MAX_SEI_DATA_BUFFER];
@@ -226,6 +230,8 @@ struct _gop_info_t {
   uint8_t computed_gop_hash[MAX_HASH_SIZE];  // Hash of NALU hashes in GOP.
   uint8_t tmp_hash[MAX_HASH_SIZE];  // Memory for storing a temporary hash needed when a NALU is
   // split in parts.
+  uint8_t linked_hashes[2 * MAX_HASH_SIZE];  // Stores linked hash data for liked hash method.
+
   uint8_t *tmp_hash_ptr;
   uint8_t encoding_status;  // Stores potential errors when encoding, to transmit to the client
   // (authentication part).

@@ -226,6 +226,7 @@ encode_general(signed_video_t *self, uint8_t *data)
   //  - signed video version (SV_VERSION_BYTES bytes)
   //  - flags (1 byte)
   //  - timestamp (8 bytes) requires version 2+
+  //  - linked_hash (hash_size bytes) requires version 3+
   //  - computed_gop_hash (hash_size bytes) requires version 3+
 
   // Get size of data
@@ -238,6 +239,8 @@ encode_general(signed_video_t *self, uint8_t *data)
     data_size += sizeof(timestamp);
   }
   data_size += self->sign_data->hash_size;
+  data_size += self->sign_data->hash_size;
+
   if (!data) {
     DEBUG_LOG("General tag has size %zu", data_size);
     return data_size;
@@ -277,6 +280,11 @@ encode_general(signed_video_t *self, uint8_t *data)
     write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 16) & 0x000000ff), epb);
     write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 8) & 0x000000ff), epb);
     write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp)&0x000000ff), epb);
+  }
+
+  // Write linked hash; hash_size bytes
+  for (size_t i = 0; i < self->sign_data->hash_size; i++) {
+    write_byte(last_two_bytes, &data_ptr, gop_info->linked_hashes[i], epb);
   }
   // Write GOP hash; hash_size bytes
   for (size_t i = 0; i < self->sign_data->hash_size; i++) {
@@ -325,9 +333,13 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
         self->latest_validation->timestamp = gop_info->timestamp;
       }
     }
-
     if (version >= 3) {
-      size_t hash_size = data_size - (data_ptr - data);
+      // Calculate the size of linked_hash data and gop_hash data
+      size_t hash_size = (data_size - (data_ptr - data)) / 2;
+      // Decode linked hash data
+      memcpy(self->received_linked_hash, data_ptr, hash_size);
+      data_ptr += hash_size;
+      // Decode gop_hash data
       memcpy(self->received_gop_hash, data_ptr, hash_size);
       data_ptr += hash_size;
     }
