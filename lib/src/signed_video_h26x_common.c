@@ -886,6 +886,26 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
   }
 }
 
+static svrc_t
+update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
+{
+  if (!self || !hash) return SV_INVALID_PARAMETER;
+  if (self->authentication_started) {
+    if (hash_size != self->verify_data->hash_size) return SV_INVALID_PARAMETER;
+  } else {
+    if (hash_size != self->sign_data->hash_size) return SV_INVALID_PARAMETER;
+  }
+  gop_info_t *gop_info = self->gop_info;
+  uint8_t *stored_hash = &gop_info->linked_hashes[hash_size];
+  uint8_t *linked_hash = &gop_info->linked_hashes[0];
+  // Move the content of stored_hash to linked_hash
+  memmove(linked_hash, stored_hash, hash_size);
+  // Copy the new hash to stored_hash
+  memcpy(stored_hash, hash, hash_size);
+
+  return SV_OK;
+}
+
 /* A getter that determines which hash wrapper to use and returns it. */
 static hash_wrapper_t
 get_hash_wrapper(signed_video_t *self, const h26x_nalu_t *nalu)
@@ -927,21 +947,6 @@ update_hash(signed_video_t *self,
   return openssl_update_hash(self->crypto_handle, hashable_data, hashable_data_size);
 }
 
-static svrc_t
-update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
-{
-  if (!self || !hash) return SV_INVALID_PARAMETER;
-
-  gop_info_t *gop_info = self->gop_info;
-  uint8_t *stored_hash = &gop_info->linked_hashes[hash_size];
-  uint8_t *linked_hash = &gop_info->linked_hashes[0];
-  // Move the content of stored_hash to linked_hash
-  memmove(linked_hash, stored_hash, self->sign_data->hash_size);
-  // Copy the new hash to stored_hash
-  memcpy(stored_hash, hash, self->sign_data->hash_size);
-
-  return SV_OK;
-}
 /* simply_hash()
  *
  * takes the |hashable_data| from the NALU, hash it and store the hash in |nalu_hash|. */

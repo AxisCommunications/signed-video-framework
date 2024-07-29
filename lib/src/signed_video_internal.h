@@ -112,11 +112,6 @@ struct _sei_data_t {
   size_t completed_sei_size;  // The final SEI size, set when it is completed
 };
 
-typedef struct {
-  uint8_t linked_hash[MAX_HASH_SIZE];
-  uint8_t stored_hash[MAX_HASH_SIZE];
-} linked_hash_t;
-
 struct _signed_video_t {
   // Members common to both signing and validation
   int code_version[SV_VERSION_BYTES];
