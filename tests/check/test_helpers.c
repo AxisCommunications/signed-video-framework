@@ -178,18 +178,8 @@ create_signed_splitted_nalus_int(const char *str,
 {
   if (!str) return NULL;
 
-  signed_video_t *sv =
-      get_initialized_signed_video(settings.codec, settings.generate_key, new_private_key);
+  signed_video_t *sv = get_initialized_signed_video(settings, new_private_key);
   ck_assert(sv);
-  ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
-  ck_assert_int_eq(signed_video_set_max_sei_payload_size(sv, settings.max_sei_payload_size), SV_OK);
-  ck_assert_int_eq(signed_video_set_hash_algo(sv, settings.hash_algo_name), SV_OK);
-  ck_assert_int_eq(signed_video_set_sei_epb(sv, settings.ep_before_signing), SV_OK);
-  ck_assert_int_eq(signed_video_set_using_golden_sei(sv, settings.with_golden_sei), SV_OK);
-
-  if (settings.with_golden_sei) {
-    ck_assert_int_eq(signed_video_generate_golden_sei(sv), SV_OK);
-  }
 
   // Create a test stream of NAL Units given the input string.
   test_stream_t *list = create_signed_nalus_with_sv(sv, str, split_nalus);
@@ -212,20 +202,17 @@ create_signed_splitted_nalus(const char *str, struct sv_setting settings)
 
 /* Creates and initializes a signed video session. */
 signed_video_t *
-get_initialized_signed_video(SignedVideoCodec codec,
-    generate_key_fcn_t generate_key,
-    bool new_private_key)
+get_initialized_signed_video(struct sv_setting settings, bool new_private_key)
 {
-  signed_video_t *sv = signed_video_create(codec);
+  signed_video_t *sv = signed_video_create(settings.codec);
   ck_assert(sv);
   char *private_key = NULL;
   size_t private_key_size = 0;
-  SignedVideoReturnCode rc;
 
-  if (generate_key == EC_KEY) {
+  if (settings.generate_key == EC_KEY) {
     private_key = private_key_ecdsa;
     private_key_size = private_key_size_ecdsa;
-  } else if (generate_key == RSA_KEY) {
+  } else if (settings.generate_key == RSA_KEY) {
     private_key = private_key_rsa;
     private_key_size = private_key_size_rsa;
   } else {
@@ -239,18 +226,23 @@ get_initialized_signed_video(SignedVideoCodec codec,
   if (private_key_size == 0 || new_private_key) {
     char *tmp_key = NULL;
     size_t tmp_key_size = 0;
-    rc = generate_key("./", &tmp_key, &tmp_key_size);
-    ck_assert_int_eq(rc, SV_OK);
+    ck_assert_int_eq(settings.generate_key("./", &tmp_key, &tmp_key_size), SV_OK);
     memcpy(private_key, tmp_key, tmp_key_size);
     private_key_size = tmp_key_size;
     free(tmp_key);
   }
   ck_assert(private_key && private_key_size > 0);
-  rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
-  ck_assert_int_eq(rc, SV_OK);
+  ck_assert_int_eq(signed_video_set_private_key_new(sv, private_key, private_key_size), SV_OK);
+  ck_assert_int_eq(signed_video_set_product_info(sv, HW_ID, FW_VER, SER_NO, MANUFACT, ADDR), SV_OK);
+  ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
+  ck_assert_int_eq(signed_video_set_max_sei_payload_size(sv, settings.max_sei_payload_size), SV_OK);
+  ck_assert_int_eq(signed_video_set_hash_algo(sv, settings.hash_algo_name), SV_OK);
+  ck_assert_int_eq(signed_video_set_sei_epb(sv, settings.ep_before_signing), SV_OK);
+  ck_assert_int_eq(signed_video_set_using_golden_sei(sv, settings.with_golden_sei), SV_OK);
 
-  rc = signed_video_set_product_info(sv, HW_ID, FW_VER, SER_NO, MANUFACT, ADDR);
-  ck_assert_int_eq(rc, SV_OK);
+  if (settings.with_golden_sei) {
+    ck_assert_int_eq(signed_video_generate_golden_sei(sv), SV_OK);
+  }
 
   return sv;
 }

@@ -60,16 +60,12 @@ extern const char *axisDummyCertificateChain;
 
 extern const int64_t g_testTimestamp;
 
-/* Creates a signed_video_t session and initialize it by setting
- * 1. a private key
- * 2. product info strings
+/* Creates a signed_video_t session and initialize it from settings
  *
  * new_private_key = Generate a new private key, otherwise read from an existing file.
  * This is useful for testing the signing part and generating a signed stream of nalus. */
 signed_video_t *
-get_initialized_signed_video(SignedVideoCodec codec,
-    generate_key_fcn_t generate_key,
-    bool new_private_key);
+get_initialized_signed_video(struct sv_setting settings, bool new_private_key);
 
 /* See function create_signed_nalus_int */
 test_stream_t *
