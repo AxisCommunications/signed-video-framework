@@ -66,18 +66,19 @@ const int64_t g_testTimestamp = 42;
 //   SignedVideoCodec codec;
 //   SignedVideoAuthenticityLevel auth_level;
 //   generate_key_fcn_t generate_key;
+//   bool ep_before_signing;
 //   size_t max_sei_payload_size;
 //   const char *hash_algo_name;
 // };
 struct sv_setting settings[NUM_SETTINGS] = {
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, EC_KEY, 0, NULL},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, EC_KEY, 0, NULL},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, EC_KEY, 0, NULL},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, EC_KEY, 0, NULL},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, EC_KEY, true, 0, NULL},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, EC_KEY, true, 0, NULL},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, EC_KEY, true, 0, NULL},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, EC_KEY, true, 0, NULL},
     // Special cases
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, RSA_KEY, 0, NULL},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, RSA_KEY, 0, NULL},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, EC_KEY, 0, "sha512"},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, RSA_KEY, true, 0, NULL},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, RSA_KEY, true, 0, NULL},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, EC_KEY, true, 0, "sha512"},
 };
 
 static char private_key_rsa[RSA_PRIVATE_KEY_ALLOC_BYTES];
@@ -182,6 +183,7 @@ create_signed_splitted_nalus_int(const char *str,
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
   ck_assert_int_eq(signed_video_set_max_sei_payload_size(sv, settings.max_sei_payload_size), SV_OK);
   ck_assert_int_eq(signed_video_set_hash_algo(sv, settings.hash_algo_name), SV_OK);
+  ck_assert_int_eq(signed_video_set_sei_epb(sv, settings.ep_before_signing), SV_OK);
 
   // Create a test stream of NAL Units given the input string.
   test_stream_t *list = create_signed_nalus_with_sv(sv, str, split_nalus);
