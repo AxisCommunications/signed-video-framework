@@ -940,6 +940,7 @@ decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
         self->crypto_handle, hash_algo_encoded_oid, hash_algo_encoded_oid_size));
     self->validation_flags.hash_algo_known = true;
     self->verify_data->hash_size = openssl_get_hash_size(self->crypto_handle);
+    self->gop_info->nalu_hash = self->gop_info->hashes + self->verify_data->hash_size;
     data_ptr += hash_algo_encoded_oid_size;
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
