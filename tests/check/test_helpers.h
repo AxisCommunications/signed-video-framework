@@ -51,6 +51,9 @@ struct sv_setting {
   bool with_golden_sei;
   size_t max_sei_payload_size;
   const char *hash_algo_name;
+  unsigned max_signing_nalus;  // Not yet activated
+  unsigned signing_frequency;  // Not yet activated
+  bool increased_sei_size;
 };
 
 #define NUM_SETTINGS 7
@@ -120,6 +123,15 @@ modify_list_item(test_stream_t *list, int item_number, char type);
 /* Checks if a particular TLV tag is present in the NAL Unit |item|. */
 bool
 tag_is_present(const test_stream_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t tag);
+
+/* Checks the TLV data for optional tags. Returns true if any optional tag is present. */
+bool
+tlv_has_optional_tags(const uint8_t *tlv_data, size_t tlv_data_size);
+
+/* Checks the TLV data for mandatory tags. Returns true if any mandatory tag is
+ * present. */
+bool
+tlv_has_mandatory_tags(const uint8_t *tlv_data, size_t tlv_data_size);
 
 /* Generates and returns a test stream based on legacy data. Definition can be found in
  * legacy_test_data.c. */
