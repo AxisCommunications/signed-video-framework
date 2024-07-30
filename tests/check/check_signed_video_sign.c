@@ -594,17 +594,18 @@ START_TEST(sei_increase_with_gop_length)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  struct sv_setting setting = settings[_i];
   // Turn off emulation prevention
-  settings[_i].ep_before_signing = false;
+  setting.ep_before_signing = false;
   // Enable verifying increased size of SEIs
-  settings[_i].increased_sei_size = true;
+  setting.increased_sei_size = true;
 
-  signed_video_t *sv = get_initialized_signed_video(settings[_i], false);
+  signed_video_t *sv = get_initialized_signed_video(setting, false);
   ck_assert(sv);
 
   test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPI", false);
   test_stream_check_types(list, "SIPPSIPPPPPSI");
-  verify_seis(list, settings[_i]);
+  verify_seis(list, setting);
   test_stream_free(list);
   signed_video_free(sv);
 }
@@ -1057,13 +1058,14 @@ START_TEST(limited_sei_payload_size)
   if (settings[_i].auth_level != SV_AUTHENTICITY_LEVEL_FRAME) return;
 
   // Select an upper payload limit which is less then the size of the last SEI.
+  struct sv_setting setting = settings[_i];
   const size_t max_sei_payload_size = 1110;
-  settings[_i].max_sei_payload_size = max_sei_payload_size;
+  setting.max_sei_payload_size = max_sei_payload_size;
   // Write SEIs without emulation prevention to avoid inserting unpredictable bytes.
-  settings[_i].ep_before_signing = false;
-  test_stream_t *list = create_signed_nalus("IPPIPPPPPPI", settings[_i]);
+  setting.ep_before_signing = false;
+  test_stream_t *list = create_signed_nalus("IPPIPPPPPPI", setting);
   test_stream_check_types(list, "SIPPSIPPPPPPSI");
-  verify_seis(list, settings[_i]);
+  verify_seis(list, setting);
 
   // Extract the SEIs and check their sizes, which should be smaller than |max_sei_payload_size|.
   int sei_idx[3] = {13, 5, 1};
