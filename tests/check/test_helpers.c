@@ -73,16 +73,18 @@ const int64_t g_testTimestamp = 42;
 //   unsigned max_signing_nalus;
 //   unsigned signing_frequency;
 //   bool increased_sei_size;
+//   bool is_vendor_axis;
 // };
 struct sv_setting settings[NUM_SETTINGS] = {
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, EC_KEY, true, false, 0, NULL, 0, 1, false},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, EC_KEY, true, false, 0, NULL, 0, 1, false},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, EC_KEY, true, false, 0, NULL, 0, 1, false},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, EC_KEY, true, false, 0, NULL, 0, 1, false},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, EC_KEY, true, false, 0, NULL, 0, 1, false, false},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, EC_KEY, true, false, 0, NULL, 0, 1, false, false},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, EC_KEY, true, false, 0, NULL, 0, 1, false, false},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, EC_KEY, true, false, 0, NULL, 0, 1, false, false},
     // Special cases
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, RSA_KEY, true, false, 0, NULL, 0, 1, false},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, RSA_KEY, true, false, 0, NULL, 0, 1, false},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, EC_KEY, true, false, 0, "sha512", 0, 1, false},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, RSA_KEY, true, false, 0, NULL, 0, 1, false, false},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, RSA_KEY, true, false, 0, NULL, 0, 1, false, false},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, EC_KEY, true, false, 0, "sha512", 0, 1, false,
+        false},
 };
 
 static char private_key_rsa[RSA_PRIVATE_KEY_ALLOC_BYTES];

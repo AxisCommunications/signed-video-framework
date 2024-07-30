@@ -54,6 +54,7 @@ struct sv_setting {
   unsigned max_signing_nalus;  // Not yet activated
   unsigned signing_frequency;  // Not yet activated
   bool increased_sei_size;
+  bool is_vendor_axis;
 };
 
 #define NUM_SETTINGS 7
