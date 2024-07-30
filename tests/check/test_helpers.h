@@ -48,6 +48,7 @@ struct sv_setting {
   SignedVideoAuthenticityLevel auth_level;
   generate_key_fcn_t generate_key;
   bool ep_before_signing;
+  bool with_golden_sei;
   size_t max_sei_payload_size;
   const char *hash_algo_name;
 };
