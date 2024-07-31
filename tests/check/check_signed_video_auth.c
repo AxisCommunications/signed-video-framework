@@ -1244,9 +1244,8 @@ START_TEST(fast_forward_stream_with_reset)
   // |settings|; See signed_video_helpers.h.
 
   // Create a session.
-  signed_video_t *sv = signed_video_create(settings[_i].codec);
+  signed_video_t *sv = get_initialized_signed_video(settings[_i], false);
   ck_assert(sv);
-  ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
   test_stream_t *list = mimic_au_fast_forward_and_get_list(sv, settings[_i]);
   // Reset session before we start validating.
   ck_assert_int_eq(signed_video_reset(sv), SV_OK);
@@ -1279,9 +1278,8 @@ START_TEST(fast_forward_stream_without_reset)
   // |settings|; See signed_video_helpers.h.
 
   // Create a session.
-  signed_video_t *sv = signed_video_create(settings[_i].codec);
+  signed_video_t *sv = get_initialized_signed_video(settings[_i], false);
   ck_assert(sv);
-  ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
   test_stream_t *list = mimic_au_fast_forward_and_get_list(sv, settings[_i]);
 
   // Final validation is NOT OK and all received NAL Units, but the last one, are validated.
@@ -1355,9 +1353,8 @@ START_TEST(fast_forward_stream_with_delayed_seis)
   // |settings|; See signed_video_helpers.h.
 
   // Create a new session.
-  signed_video_t *sv = signed_video_create(settings[_i].codec);
+  signed_video_t *sv = get_initialized_signed_video(settings[_i], false);
   ck_assert(sv);
-  ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings[_i].auth_level), SV_OK);
   test_stream_t *list = mimic_au_fast_forward_on_late_seis_and_get_list(sv, settings[_i]);
   // Reset session before we start validating.
   ck_assert_int_eq(signed_video_reset(sv), SV_OK);
@@ -1452,9 +1449,6 @@ START_TEST(file_export_with_dangling_end)
 
   test_stream_t *list = mimic_file_export(settings[_i], false, false);
 
-  // Create a new session and validate the authenticity of the file.
-  signed_video_t *sv = signed_video_create(settings[_i].codec);
-  ck_assert(sv);
   // VSIPPSIPPSIPPSIPP (17 NAL Units)
   //
   // VSI             -> (signature) -> _UP
@@ -1471,10 +1465,8 @@ START_TEST(file_export_with_dangling_end)
       .has_signature = 1,
       .final_validation = &final_validation};
 
-  validate_nalu_list(sv, list, expected, true);
+  validate_nalu_list(NULL, list, expected, true);
 
-  // Free list and session.
-  signed_video_free(sv);
   test_stream_free(list);
 }
 END_TEST
@@ -1486,9 +1478,6 @@ START_TEST(file_export_without_dangling_end)
 
   test_stream_t *list = mimic_file_export(settings[_i], true, false);
 
-  // Create a new session and validate the authenticity of the file.
-  signed_video_t *sv = signed_video_create(settings[_i].codec);
-  ck_assert(sv);
   // VSIPPSIPPSIPPSIPPSI (19 NAL Units)
   //
   // VSI                 -> (signature) -> _UP
@@ -1505,9 +1494,8 @@ START_TEST(file_export_without_dangling_end)
       .pending_nalus = 5,
       .has_signature = 1,
       .final_validation = &final_validation};
-  validate_nalu_list(sv, list, expected, true);
-  // Free list and session.
-  signed_video_free(sv);
+  validate_nalu_list(NULL, list, expected, true);
+
   test_stream_free(list);
 }
 END_TEST
@@ -1663,22 +1651,15 @@ START_TEST(vendor_axis_communications_operation)
   // |settings|; See signed_video_helpers.h.
 
   SignedVideoReturnCode sv_rc;
+  struct sv_setting setting = settings[_i];
   SignedVideoCodec codec = settings[_i].codec;
-  SignedVideoAuthenticityLevel auth_level = settings[_i].auth_level;
   test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
   test_stream_item_t *sei_item = NULL;
-  char *private_key = NULL;
-  size_t private_key_size = 0;
   size_t sei_size = 0;
 
   // Check generate private key.
-  signed_video_t *sv = signed_video_create(codec);
+  signed_video_t *sv = get_initialized_signed_video(setting, false);
   ck_assert(sv);
-  // Read and set content of private_key.
-  sv_rc = settings[_i].generate_key(NULL, &private_key, &private_key_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
 
   // Check setting attestation report.
   const size_t attestation_size = 2;
@@ -1690,10 +1671,6 @@ START_TEST(vendor_axis_communications_operation)
   free(attestation);
 
   sv_rc = signed_video_set_product_info(sv, HW_ID, FW_VER, NULL, "Axis Communications AB", ADDR);
-  ck_assert_int_eq(sv_rc, SV_OK);
-
-  // Setting validation level.
-  sv_rc = signed_video_set_authenticity_level(sv, auth_level);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Add an 'I' to trigger a SEI.
@@ -1712,7 +1689,6 @@ START_TEST(vendor_axis_communications_operation)
   ck_assert(sei_size == 0);
 
   signed_video_free(sv);
-  free(private_key);
 
   // End of signing side. Start a new session on the validation side.
   sv = signed_video_create(codec);
@@ -2015,32 +1991,22 @@ START_TEST(no_emulation_prevention_bytes)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
+  struct sv_setting setting = settings[_i];
   SignedVideoCodec codec = settings[_i].codec;
   SignedVideoReturnCode sv_rc;
 
   // Create a video with a single I-frame, and a SEI (to be created later).
   test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
   test_stream_item_t *sei_item = NULL;
-
   size_t sei_size;
-  // Signing side
-  // Generate a Private key.
-  char *private_key = NULL;
-  size_t private_key_size = 0;
-  sv_rc = settings[_i].generate_key(NULL, &private_key, &private_key_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
 
+  // Signing side
+  // Disable emulation prevention
+  setting.ep_before_signing = false;
   // Create a session.
-  signed_video_t *sv = signed_video_create(codec);
+  signed_video_t *sv = get_initialized_signed_video(setting, false);
   ck_assert(sv);
 
-  // Apply settings to session.
-  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_sei_epb(sv, false);
-  ck_assert_int_eq(sv_rc, SV_OK);
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   const size_t attestation_size = 2;
   void *attestation = calloc(1, attestation_size);
@@ -2130,7 +2096,6 @@ START_TEST(no_emulation_prevention_bytes)
   test_stream_item_free(sei_item);
   test_stream_item_free(i_nalu);
   signed_video_free(sv);
-  free(private_key);
 }
 END_TEST
 
@@ -2194,68 +2159,23 @@ END_TEST
 /* Test description
  * Generates SEIs using golden SEI prinsiple and verifies them.
  * The operation is as follows:
- * 1. Generate and store golden SEI
- * 2. Enable golden SEI principle
+ * 1. Setup a signing session using a golden SEI
+ * 2. For simplicity generate the golden SEI at the same time as the stream starts
  * 3. Create a test stream.
- * 4. Insert golden SEI to test stream
- * 5. Validate the test stream
+ * 4. Validate the test stream
  */
 START_TEST(golden_sei_principle)
 {
 
-  SignedVideoCodec codec = settings[_i].codec;
-  SignedVideoReturnCode sv_rc;
-  char *private_key = NULL;
-  size_t private_key_size = 0;
-  // Setup the key
-  sv_rc = settings[_i].generate_key(NULL, &private_key, &private_key_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
+  struct sv_setting setting = settings[_i];
+  setting.with_golden_sei = true;
 
   // Generate golden SEI
-  signed_video_t *sv = signed_video_create(codec);
+  signed_video_t *sv = get_initialized_signed_video(setting, false);
   ck_assert(sv);
-
-  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_hash_algo(sv, settings[_i].hash_algo_name);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_product_info(sv, HW_ID, FW_VER, SER_NO, MANUFACT, ADDR);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_generate_golden_sei(sv);
-  ck_assert_int_eq(sv_rc, SV_OK);
-
-  size_t golden_sei_size = 0;
-  sv_rc = signed_video_get_sei(sv, NULL, &golden_sei_size);
-  ck_assert(golden_sei_size != 0);
-  uint8_t *golden_sei = malloc(golden_sei_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  // Store the |golden_sei|
-  sv_rc = signed_video_get_sei(sv, golden_sei, &golden_sei_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  test_stream_item_t *golden_sei_item = test_stream_item_create(golden_sei, golden_sei_size, codec);
-  // End the |sv| session
-  signed_video_free(sv);
-
-  // Start a new stream
-  sv = signed_video_create(codec);
-  ck_assert(sv);
-  sv_rc = signed_video_set_using_golden_sei(sv, true);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_hash_algo(sv, settings[_i].hash_algo_name);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_set_product_info(sv, HW_ID, FW_VER, SER_NO, MANUFACT, ADDR);
-  ck_assert_int_eq(sv_rc, SV_OK);
 
   test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIPPIPPI", false);
-  test_stream_prepend_first_item(list, golden_sei_item);
   test_stream_check_types(list, "SSIPPSIPPSIPPSI");
-  signed_video_free(sv);
   // Final validation is OK and all received NAL Units, but the last one, are validated.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
@@ -2267,7 +2187,7 @@ START_TEST(golden_sei_principle)
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
-  free(private_key);
+  signed_video_free(sv);
 }
 END_TEST
 
