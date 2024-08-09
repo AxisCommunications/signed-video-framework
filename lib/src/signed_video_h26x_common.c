@@ -864,8 +864,45 @@ compute_partial_gop_hash(signed_video_t *self)
     // The list index is zero, which is means list is empty and there is nothing to compute.
     return SV_OK;
   }
-
+#ifdef SIGNED_VIDEO_DEBUG
+  printf("size :%d \n compute_partial_gop_hash\n", gop_info->list_idx);
+  for (int i = 0; i < gop_info->list_idx; i++) {
+    printf("%02x", gop_info->hash_list[i]);
+  }
+  printf("\n");
+#endif
   return openssl_hash_data(self->crypto_handle, gop_info->hash_list, gop_info->list_idx, hash);
+}
+
+/* compute_partial_gop_hash()
+ * Takes all the NALU hashes from |nalu_hash_list| and hash it.
+ */
+svrc_t
+compute_partial_gop_hash_for_auth(signed_video_t *self)
+{
+  gop_info_t *gop_info = self->gop_info;
+  uint8_t *hash = gop_info->computed_gop_hash;
+  if (gop_info->nalu_list_idx < 0) {
+    // TODO: When list_idx < 0, it indicates that there was insufficient memory allocated for the
+    // hash_list to add another hash. As a result, Signed Video will operate with a GOP level
+    // authenticity. The current implementation of the new gop_hash cannot handle this fallback
+    // scenario because it is computed from the hash_list, which is currently in a compromised
+    // state. This implementation needs to be reworked to properly handle this condition.
+    return SV_OK;
+  }
+  if (gop_info->nalu_list_idx == 0) {
+    // The list index is zero, which is means list is empty and there is nothing to compute.
+    return SV_OK;
+  }
+#ifdef SIGNED_VIDEO_DEBUG
+  printf("size :%d \n compute_partial_gop_hash_for_auth:\n ", gop_info->nalu_list_idx);
+  for (int i = 0; i < gop_info->nalu_list_idx; i++) {
+    printf("%02x", gop_info->nalu_hash_list[i]);
+  }
+  printf("\n");
+#endif
+  return openssl_hash_data(
+      self->crypto_handle, gop_info->nalu_hash_list, gop_info->nalu_list_idx, hash);
 }
 
 /* Checks if there is enough room to copy the hash. If so, copies the |nalu_hash| and updates the
@@ -1006,8 +1043,7 @@ hash_and_copy_to_ref(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *has
     }
     // Copy the |nalu_hash| to |reference_hash| to be used in hash_with_reference().
     memcpy(reference_hash, hash, hash_size);
-    // Copy the |hash| to |linked_hash|.
-    SV_THROW(update_linked_hash(self, hash, hash_size));
+
     // Tell the user there is a new reference hash.
     gop_info->has_reference_hash = true;
   SV_CATCH()
@@ -1076,6 +1112,10 @@ hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
     // Select hash function, hash the NALU and store as 'latest hash'
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
     SV_THROW(hash_wrapper(self, nalu, nalu_hash, hash_size));
+    if (nalu->is_first_nalu_in_gop) {
+      // Copy the |hash| to |linked_hash|.
+      SV_THROW(update_linked_hash(self, nalu_hash, hash_size));
+    }
     if (nalu->is_last_nalu_part) {
       // The end of the NALU has been reached. Update hash list and GOP hash.
       check_and_copy_hash_to_hash_list(self, nalu_hash, hash_size);
