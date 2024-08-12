@@ -96,6 +96,7 @@ static size_t private_key_size_ecdsa;
 static void
 pull_seis(signed_video_t *sv, test_stream_item_t *item)
 {
+  bool is_first_sei = true;
   size_t sei_size = 0;
   SignedVideoReturnCode sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -104,7 +105,10 @@ pull_seis(signed_video_t *sv, test_stream_item_t *item)
     uint8_t *sei = malloc(sei_size);
     sv_rc = signed_video_get_sei(sv, sei, &sei_size);
     ck_assert_int_eq(sv_rc, SV_OK);
-    ck_assert(!signed_video_is_golden_sei(sv, sei, sei_size));
+    if (!is_first_sei) {
+      // The first SEI could be a golden SEI, hence do not check.
+      ck_assert(!signed_video_is_golden_sei(sv, sei, sei_size));
+    }
     // Generate a new test stream item with this SEI.
     test_stream_item_t *new_item = test_stream_item_create(sei, sei_size, sv->codec);
     // Prepend the |item| with this |new_item|.
@@ -112,6 +116,7 @@ pull_seis(signed_video_t *sv, test_stream_item_t *item)
     // Ask for next completed SEI.
     sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
     ck_assert_int_eq(sv_rc, SV_OK);
+    is_first_sei = false;
   }
 }
 
