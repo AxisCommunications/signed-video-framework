@@ -262,7 +262,6 @@ START_TEST(intact_stream)
   // |settings|; See signed_video_helpers.h.
 
   // Create a list of NAL Units given the input string.
-
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
   test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
 
@@ -1648,12 +1647,10 @@ START_TEST(fallback_to_gop_level)
 
   // Final validation is OK and all received NAL Units, but the last one, are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 36, 35, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 36, 35, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NAL Unit per GOP.
-  struct validation_stats expected = {.valid_gops = 2,
-      .invalid_gops = 2,
-      .pending_nalus = 4,
-      .final_validation = &final_validation};
+  struct validation_stats expected = {
+      .valid_gops = 4, .pending_nalus = 4, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -2355,7 +2352,6 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, no_public_key_in_sei_and_bad_public_key_on_validation_side, s, e);
   tcase_add_loop_test(tc, fallback_to_gop_level, s, e);
   tcase_add_loop_test(tc, golden_sei_principle, s, e);
-
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
 #endif
