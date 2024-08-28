@@ -103,6 +103,7 @@ struct _id_node {
 // Static members for a central thread
 threaded_data_t central = {0};
 // Session related variables
+static unsigned last_added_id = 0;
 static unsigned id_in_signing = 0;
 static id_node_t *id_list = NULL;
 
@@ -514,6 +515,12 @@ central_worker_thread(void *user_data)
       g_mutex_lock(&(central.mutex));
       central.is_in_signing = false;
 
+      if (!is_active(id_in_signing)) {
+        // If the current |id| is no longer active, discard the generated signature and
+        // move on.
+        continue;
+      }
+
       int idx = central.out_idx;
       if (idx >= MAX_BUFFER_LENGTH) {
         // |out| is full. Buffers this long are not supported.
@@ -577,10 +584,20 @@ central_setup()
   // Make sure that the thread is running.
   if (!central.is_running) goto catch_error;
 
-  // Find first available id and add to list of active sessions.
-  unsigned id = 1;
-  while (is_active(id) && id != 0) id++;
-  if (id == 0) goto catch_error;
+  // Find first available id after the last added one and add to list of active sessions.
+  unsigned id = ((last_added_id + 1) == 0) ? 1 : (last_added_id + 1);
+  // Pick the first inactive id.
+  while (is_active(id) && (id != last_added_id)) {
+    id++;
+    if (id == 0) {
+      // The |id| wrapped around and zero |id| is not allowed
+      id++;
+    }
+  }
+  if (id == last_added_id) {
+    goto catch_error;
+  }
+  last_added_id = id;
 
   id_node_t *item = (id_node_t *)calloc(1, sizeof(id_node_t));
   if (!item) goto catch_error;
