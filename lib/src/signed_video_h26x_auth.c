@@ -154,7 +154,7 @@ verify_gop_hash(signed_video_t *self)
  * appropriately handled.
  */
 void
-add_hashes_for_computing_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
+prepare_for_verify_link_and_gop_hashes(signed_video_t *self, h26x_nalu_list_item_t *sei)
 {
   // Ensure the `self` pointer is valid
   assert(self);
@@ -208,7 +208,7 @@ add_hashes_for_computing_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *s
 
     hash_to_add = item->need_second_verification ? item->second_hash : item->hash;
     // Copy the hash to the list if there is enough space
-    if (*list_idx >= 0 && (*list_idx + hash_size < self->gop_info->hash_list_size)) {
+    if (*list_idx >= 0 && (*list_idx + hash_size <= self->gop_info->hash_list_size)) {
       memcpy(&hash_list[*list_idx], hash_to_add, hash_size);
       *list_idx += hash_size;
       item->used_in_gop_hash = true;  // Mark the item as used in the GOP hash
@@ -472,37 +472,28 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
   int num_expected_hashes = -1;
   int num_received_hashes = -1;
   char validation_status = 'P';
-  h26x_nalu_list_t *nalu_list = self->nalu_list;
-  h26x_nalu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(nalu_list);
   svrc_t status = SV_UNKNOWN_FAILURE;
-
-  // Mark all the NALUs that belong to the GOP to verify.
-  add_hashes_for_computing_gop_hash(self, sei);
 
   // The verified_signature_hash indicates if the signature is verified.
   // If the signature hash is verified, the GOP hash can be verified as well.
   // If the signature hash is not verified, it means the SEI is corrupted, and the whole GOP status
   // is determined by the verified_signature_hash.
-  switch (self->gop_info->verified_signature_hash) {
-    case 1:
-      // The signature is verified, GOP hash can be verified.
-      if (!verify_gop_hash(self)) {
-        // If the signature is verified but GOP hash is not, continue validation with the
-        // hash list if it is accessible.
-        if (self->gop_info->list_idx > 0) {
-          return verify_hashes_with_hash_list(self, num_expected_nalus, num_received_nalus);
-        }
+  if (self->gop_info->verified_signature_hash == 1) {
+    // The signature is verified, GOP hash can be verified.
+    if (!verify_gop_hash(self)) {
+      // If the signature is verified but GOP hash is not, continue validation with the
+      // hash list if it is accessible.
+      if (self->gop_info->list_idx > 0) {
+        return verify_hashes_with_hash_list(self, num_expected_nalus, num_received_nalus);
       }
-      validation_status = self->gop_info->successfully_verified_gop_hash ? '.' : 'N';
-      break;
-    case 0:
-      validation_status = 'N';
-      break;
-    case -1:
-    default:
-      // An error occurred when verifying the GOP hash. Verify without a SEI.
-      validation_status = 'E';
-      return verify_hashes_without_sei(self);
+    }
+    validation_status = self->gop_info->successfully_verified_gop_hash ? '.' : 'N';
+  } else if (self->gop_info->verified_signature_hash == 0) {
+    validation_status = 'N';
+  } else {
+    // An error occurred when verifying the GOP hash. Verify without a SEI.
+    validation_status = 'E';
+    return verify_hashes_without_sei(self);
   }
 
   // The number of hashes part of the GOP hash was transmitted in the SEI.
@@ -703,6 +694,7 @@ validate_authenticity(signed_video_t *self)
     if (self->gop_info->signature_hash_type == DOCUMENT_HASH) {
       verify_success = verify_hashes_with_sei(self, &num_expected_nalus, &num_received_nalus);
     } else {
+      assert(false);
       verify_success = verify_hashes_with_gop_hash(self, &num_expected_nalus, &num_received_nalus);
     }
   }
@@ -933,6 +925,10 @@ prepare_for_validation(signed_video_t *self)
       if (self->gop_info->signature_hash_type == DOCUMENT_HASH) {
         memcpy(verify_data->hash, sei->hash, hash_size);
       }
+    }
+
+    if (sei) {
+      prepare_for_verify_link_and_gop_hashes(self, sei);
     }
     // Check if we should compute the gop_hash.
     if (sei && sei->has_been_decoded && !sei->used_in_gop_hash &&

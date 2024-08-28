@@ -211,9 +211,9 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     return SV_NOT_SUPPORTED;
   }
 
-  // Reset |signature_hash_type| to |GOP_HASH|. If the |hash_list| is successfully added,
-  // |signature_hash_type| is changed to |DOCUMENT_HASH|.
-  // If it is golden SEI hash type should be |DOCUMENT_HASH|.
+  // The |signature_hash_type| is now always set to |DOCUMENT_HASH|. The use of |GOP_HASH|
+  // has been removed. If the |hash_list| is successfully added, |signature_hash_type|
+  // remains |DOCUMENT_HASH|. This behavior applies consistently, including for golden SEI hashes.
   self->gop_info->signature_hash_type = DOCUMENT_HASH;
 
   svrc_t status = SV_UNKNOWN_FAILURE;

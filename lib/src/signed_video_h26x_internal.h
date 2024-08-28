@@ -189,7 +189,7 @@ hash_and_add_for_auth(signed_video_t *signed_video, h26x_nalu_list_item_t *item)
 
 svrc_t
 compute_partial_gop_hash(signed_video_t *self,
-    uint8_t *nalu_hash_list,
+    const uint8_t *nalu_hash_list,
     int nalu_list_idx,
     uint8_t *hash);
 
