@@ -542,7 +542,7 @@ central_setup()
   if (!central.is_running) goto catch_error;
 
   // Find first available id after the last added one and add to list of active sessions.
-  unsigned id = last_added_id + 1;
+  unsigned id = ((last_added_id + 1) == 0) ? 1 : (last_added_id + 1);
   // Pick the first inactive id.
   while (is_active(id) && (id != last_added_id)) {
     id++;
