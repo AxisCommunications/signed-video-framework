@@ -465,17 +465,19 @@ set_validation_status_of_pending_items_used_in_gop_hash(h26x_nalu_list_t *nalu_l
  * NALU counts, and returns true if the verification is successful.
  *
  * The function performs the following steps:
- * 1. Determines the validation status based on the verified signature hash.
- * 2. If the signature is verified, attempts to verify the GOP hash.
- * 3. If the GOP hash verification fails, and a hash list is available, it defers to
- * `verify_hashes_with_hash_list`.
- * 4. Identifies the number of expected hashes from the SEI if the signature hash was verified.
- * 5. Sets the validation status for all NALUs used in the GOP hash and adds any missing NALUs if
- * necessary.
- * 6. Updates the output parameters with the number of expected and received NALUs, and returns true
- * if the verification is successful.
+ * 1. Determines the validation status based on the verified signature hash.If this signature
+ *    is not successfully verified, the entire GOP isconsidered invalid and cannot be trusted.
+ * 2. If the SEI signature is valid, the next step is to verify the GOP
+ *    hash. This hash is computed during signing and included in the SEI. On the validation side,
+ * the received GOP hash is compared with the locally computed GOP hash. If they match, the entire
+ * GOP is confirmed as valid.
+ * 3. If the GOP hash verification fails, the function attempts to
+ *    validate the GOP using individual NAL Unit hashes, provided they are available in the SEI.
+ * This secondary validation can still result in a valid GOP, even if some NAL Units are missing.
+ * 4.  Each NAL Unit in the GOP is marked according to its validation
+ *    status (valid, invalid, or missing). If necessary, missing NAL Units are added, and validation
+ *    statistics are updated to reflect the total number of expected and received NAL Units.
  */
-
 static bool
 verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_received_nalus)
 {
@@ -502,11 +504,13 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
       validation_status = 'N';
     }
   } else if (self->gop_info->verified_signature_hash == 0) {
-    num_expected_hashes = (int)self->gop_info->num_sent_nalus;
     validation_status = 'N';
   } else {
     // An error occurred when verifying the GOP hash. Verify without a SEI.
     validation_status = 'E';
+    // Remove |used_in_gop_hash| from marked NALUs.
+    remove_used_in_gop_hash(self->nalu_list);
+    return verify_hashes_without_sei(self);
   }
 
   // Identify the first NALU used in the GOP hash. This will be used to add missing NALUs.

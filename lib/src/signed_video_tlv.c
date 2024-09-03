@@ -336,8 +336,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
     if (version >= 3) {
       size_t hash_size = (data_size - (data_ptr - data)) / 2;
       // Decode linked hash data.
-      uint8_t *stored_hash = self->received_linked_hash;
-      memcpy(stored_hash, data_ptr, hash_size);
+      memcpy(self->received_linked_hash, data_ptr, hash_size);
       data_ptr += hash_size;
       // Decode gop hash data.
       memcpy(self->received_gop_hash, data_ptr, hash_size);

@@ -844,58 +844,28 @@ update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
   return status;
 }
 svrc_t
-compute_partial_gop_hash(signed_video_t *self,
+compute_partial_gop_hash(const signed_video_t *self,
     const uint8_t *nalu_hash_list,
     int nalu_list_idx,
-    uint8_t *hash)
+    uint8_t *gop_hash)
 {
-  if (nalu_list_idx < 0) {
+  size_t hash_size =
+      self->authentication_started ? self->verify_data->hash_size : self->sign_data->hash_size;
+  if (nalu_list_idx <= 0) {
+    memset(gop_hash, 0, hash_size);
     return SV_OK;  // Handle insufficient memory scenario.
-  }
-  if (nalu_list_idx == 0) {
-    return SV_OK;  // Handle empty list scenario.
   }
 
 #ifdef SIGNED_VIDEO_DEBUG
-  printf("size :%d \n compute_partial_gop_hash:\n ", nalu_list_idx);
+  printf("The size of the NALU hash list:%d \n Hashes that are used to compute GOP hash:\n ",
+      nalu_list_idx);
   for (int i = 0; i < nalu_list_idx; i++) {
     printf("%02x", nalu_hash_list[i]);
   }
   printf("\n");
 #endif
 
-  return openssl_hash_data(self->crypto_handle, nalu_hash_list, nalu_list_idx, hash);
-}
-
-/* compute_partial_gop_hash()
- * Takes all the NALU hashes from |nalu_hash_list| and hash it.
- */
-svrc_t
-compute_partial_gop_hash_for_auth(signed_video_t *self)
-{
-  gop_info_t *gop_info = self->gop_info;
-  uint8_t *hash = gop_info->computed_gop_hash;
-  if (gop_info->nalu_list_idx < 0) {
-    // TODO: When list_idx < 0, it indicates that there was insufficient memory allocated for the
-    // hash_list to add another hash. As a result, Signed Video will operate with a GOP level
-    // authenticity. The current implementation of the new gop_hash cannot handle this fallback
-    // scenario because it is computed from the hash_list, which is currently in a compromised
-    // state. This implementation needs to be reworked to properly handle this condition.
-    return SV_OK;
-  }
-  if (gop_info->nalu_list_idx == 0) {
-    // The list index is zero, which is means list is empty and there is nothing to compute.
-    return SV_OK;
-  }
-#ifdef SIGNED_VIDEO_DEBUG
-  printf("size :%d \n compute_partial_gop_hash_for_auth:\n ", gop_info->nalu_list_idx);
-  for (int i = 0; i < gop_info->nalu_list_idx; i++) {
-    printf("%02x", gop_info->nalu_hash_list[i]);
-  }
-  printf("\n");
-#endif
-  return openssl_hash_data(
-      self->crypto_handle, gop_info->nalu_hash_list, gop_info->nalu_list_idx, hash);
+  return openssl_hash_data(self->crypto_handle, nalu_hash_list, nalu_list_idx, gop_hash);
 }
 
 /* Checks if there is enough room to copy the hash. If so, copies the |nalu_hash| and updates the
