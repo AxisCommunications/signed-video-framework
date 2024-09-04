@@ -843,29 +843,19 @@ update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
 
   return status;
 }
-
-/* compute_partial_gop_hash()
- * Takes all the NALU hashes from |hash_list| and hash it.
- */
 svrc_t
-compute_partial_gop_hash(signed_video_t *self)
+compute_partial_gop_hash(const signed_video_t *self,
+    const uint8_t *hash_list,
+    int hash_list_idx,
+    uint8_t *gop_hash)
 {
-  gop_info_t *gop_info = self->gop_info;
-  uint8_t *hash = gop_info->computed_gop_hash;
-  if (gop_info->list_idx < 0) {
-    // TODO: When list_idx < 0, it indicates that there was insufficient memory allocated for the
-    // hash_list to add another hash. As a result, Signed Video will operate with a GOP level
-    // authenticity. The current implementation of the new gop_hash cannot handle this fallback
-    // scenario because it is computed from the hash_list, which is currently in a compromised
-    // state. This implementation needs to be reworked to properly handle this condition.
-    return SV_OK;
-  }
-  if (gop_info->list_idx == 0) {
-    // The list index is zero, which is means list is empty and there is nothing to compute.
-    return SV_OK;
+  size_t hash_size = openssl_get_hash_size(self->crypto_handle);
+  if (hash_list_idx <= 0) {
+    memset(gop_hash, 0, hash_size);
+    return SV_OK;  // Handle insufficient memory scenario.
   }
 
-  return openssl_hash_data(self->crypto_handle, gop_info->hash_list, gop_info->list_idx, hash);
+  return openssl_hash_data(self->crypto_handle, hash_list, hash_list_idx, gop_hash);
 }
 
 /* Checks if there is enough room to copy the hash. If so, copies the |nalu_hash| and updates the
@@ -886,7 +876,7 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
   }
 }
 
-static svrc_t
+svrc_t
 update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
 {
   if (!self || !hash) return SV_INVALID_PARAMETER;
@@ -1006,8 +996,7 @@ hash_and_copy_to_ref(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *has
     }
     // Copy the |nalu_hash| to |reference_hash| to be used in hash_with_reference().
     memcpy(reference_hash, hash, hash_size);
-    // Copy the |hash| to |linked_hash|.
-    SV_THROW(update_linked_hash(self, hash, hash_size));
+
     // Tell the user there is a new reference hash.
     gop_info->has_reference_hash = true;
   SV_CATCH()

@@ -211,10 +211,10 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     return SV_NOT_SUPPORTED;
   }
 
-  // Reset |signature_hash_type| to |GOP_HASH|. If the |hash_list| is successfully added,
-  // |signature_hash_type| is changed to |DOCUMENT_HASH|.
-  // If it is golden SEI hash type should be |DOCUMENT_HASH|.
-  self->gop_info->signature_hash_type = !self->is_golden_sei ? GOP_HASH : DOCUMENT_HASH;
+  // The |signature_hash_type| is now always set to |DOCUMENT_HASH|. The use of |GOP_HASH|
+  // has been removed. If the |hash_list| is successfully added, |signature_hash_type|
+  // remains |DOCUMENT_HASH|. This behavior applies consistently, including for golden SEI hashes.
+  self->gop_info->signature_hash_type = DOCUMENT_HASH;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
@@ -489,6 +489,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
   }
 
   h26x_nalu_t nalu = {0};
+  gop_info_t *gop_info = self->gop_info;
   // TODO: Consider moving this into parse_nalu_info().
   if (self->last_nalu->is_last_nalu_part) {
     // Only check for trailing zeros if this is the last part.
@@ -536,7 +537,8 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
         uint8_t *payload_signature_ptr = NULL;
 
         // Hash the |hash_list| before write the computed GOP hash to TLV.
-        SV_THROW(compute_partial_gop_hash(self));
+        SV_THROW(compute_partial_gop_hash(
+            self, gop_info->hash_list, gop_info->list_idx, gop_info->computed_gop_hash));
 
         SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
         // Add |payload| to buffer. Will be picked up again when the signature has been generated.
@@ -564,7 +566,8 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
         uint8_t *payload_signature_ptr = NULL;
 
         // Hash the |hash_list| before write the computed GOP hash to TLV.
-        SV_THROW(compute_partial_gop_hash(self));
+        SV_THROW(compute_partial_gop_hash(
+            self, gop_info->hash_list, gop_info->list_idx, gop_info->computed_gop_hash));
 
         SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
         // Add |payload| to buffer. Will be picked up again when the signature has been generated.
