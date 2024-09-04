@@ -623,6 +623,46 @@ START_TEST(modify_one_i_nalu)
 }
 END_TEST
 
+START_TEST(modify_one_sei)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  test_stream_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPPPSIPPSI");
+
+  // Modify the second 'S': SIPP S IPPPSIPPSI
+  const int modify_nalu_number = 5;
+  test_stream_item_t *sei = test_stream_item_get(list, modify_nalu_number);
+  test_stream_item_check_type(sei, 'S');
+  // Bit flip one byte in the signature. EC signatures are the smallest ones and have are
+  // least 70 bytes large, hence flipping the 50th byte from the end is safe.
+  sei->data[sei->data_size - 50] = ~(sei->data[sei->data_size - 50]);
+  // modify_list_item(list, modify_nalu_number, 'S');
+
+  // All NAL Units but the last 'I' are validated and since one 'I' has been modified the
+  // authenticity is NOT OK.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+
+  // SIPPSIPPPSIPPSI
+  //
+  // SI                ->   (valid) -> .P
+  //  IPPSI            -> (invalid) -> NNNNP
+  //      IPPPSI       -> (invalid) -> N....P
+  //           IPPSI   ->   (valid) -> ....P
+  // One pending NAL Unit per GOP. Note that a modified 'I' affects two GOPs due to linked hashes,
+  // but it will also affect a third if we validate with a gop_hash.
+  struct validation_stats expected = {.valid_gops = 2,
+      .invalid_gops = 2,
+      .pending_nalus = 4,
+      .final_validation = &final_validation};
+  validate_nalu_list(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
 /* Test description
  * Verify that we get invalid authentication if we remove a SEI or an 'I'. The operation is
  * as follows:
@@ -2244,6 +2284,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, interchange_two_p_nalus, s, e);
   tcase_add_loop_test(tc, modify_one_p_nalu, s, e);
   tcase_add_loop_test(tc, modify_one_i_nalu, s, e);
+  tcase_add_loop_test(tc, modify_one_sei, s, e);
   tcase_add_loop_test(tc, remove_the_g_nalu, s, e);
   tcase_add_loop_test(tc, remove_the_i_nalu, s, e);
   tcase_add_loop_test(tc, remove_the_gi_nalus, s, e);
