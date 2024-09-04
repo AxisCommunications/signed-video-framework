@@ -195,17 +195,16 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
       memcpy(&hash_list[list_idx], hash_to_add, hash_size);
       list_idx += hash_size;
       item->used_in_gop_hash = true;  // Mark the item as used in the GOP hash
+    } else {
+      // TODO: When list_idx exceeds the size of the buffer, the GOP hash should be initialized,
+      // and all the NALUs in the hash_list should be hashed. |list_idx| should then be set to -1.
+      list_idx = -1;
     }
 
     // Move to the next item in the NALU list
     item = item->next;
   }
 
-  if (list_idx + hash_size > self->gop_info->hash_list_size + 1) {
-    // TODO: When list_idx exceeds the size of the buffer, the GOP hash should be initialized,
-    // and all the NALUs in the hash_list should be hashed. |list_idx| should then be set to -1.
-    list_idx = -1;
-  }
   if (list_idx < 0) {
     // TODO: When |list_idx| is -1, it indicates that the hash_list buffer has overflowed and the
     // GOP hash has been initialized. From this point onward, the GOP hash needs to be updated with
@@ -706,11 +705,11 @@ validate_authenticity(signed_video_t *self)
     if (self->gop_info->signature_hash_type == DOCUMENT_HASH) {
       verify_success = verify_hashes_with_sei(self, &num_expected_nalus, &num_received_nalus);
     } else {
-      assert(false);
       // The |signature_hash_type| is now consistently set to DOCUMENT_HASH with the latest gop hash
       // computation.
       // TODO: During refactoring, remove the |verify_hashes_with_gop_hash| function as it is no
       // longer needed.
+      assert(false);
       verify_success = verify_hashes_with_gop_hash(self, &num_expected_nalus, &num_received_nalus);
     }
   }
