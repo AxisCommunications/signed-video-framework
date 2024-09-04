@@ -845,27 +845,17 @@ update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
 }
 svrc_t
 compute_partial_gop_hash(const signed_video_t *self,
-    const uint8_t *nalu_hash_list,
-    int nalu_list_idx,
+    const uint8_t *hash_list,
+    int hash_list_idx,
     uint8_t *gop_hash)
 {
-  size_t hash_size =
-      self->authentication_started ? self->verify_data->hash_size : self->sign_data->hash_size;
-  if (nalu_list_idx <= 0) {
+  size_t hash_size = openssl_get_hash_size(self->crypto_handle);
+  if (hash_list_idx <= 0) {
     memset(gop_hash, 0, hash_size);
     return SV_OK;  // Handle insufficient memory scenario.
   }
 
-#ifdef SIGNED_VIDEO_DEBUG
-  printf("The size of the NALU hash list:%d \n Hashes that are used to compute GOP hash:\n ",
-      nalu_list_idx);
-  for (int i = 0; i < nalu_list_idx; i++) {
-    printf("%02x", nalu_hash_list[i]);
-  }
-  printf("\n");
-#endif
-
-  return openssl_hash_data(self->crypto_handle, nalu_hash_list, nalu_list_idx, gop_hash);
+  return openssl_hash_data(self->crypto_handle, hash_list, hash_list_idx, gop_hash);
 }
 
 /* Checks if there is enough room to copy the hash. If so, copies the |nalu_hash| and updates the
@@ -886,7 +876,7 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
   }
 }
 
-static svrc_t
+svrc_t
 update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
 {
   if (!self || !hash) return SV_INVALID_PARAMETER;
@@ -1075,10 +1065,6 @@ hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
     // Select hash function, hash the NALU and store as 'latest hash'
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
     SV_THROW(hash_wrapper(self, nalu, nalu_hash, hash_size));
-    if (nalu->is_first_nalu_in_gop) {
-      // Copy the |hash| to |linked_hash|.
-      SV_THROW(update_linked_hash(self, nalu_hash, hash_size));
-    }
     if (nalu->is_last_nalu_part) {
       // The end of the NALU has been reached. Update hash list and GOP hash.
       check_and_copy_hash_to_hash_list(self, nalu_hash, hash_size);

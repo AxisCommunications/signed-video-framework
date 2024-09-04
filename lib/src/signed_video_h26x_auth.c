@@ -146,7 +146,7 @@ verify_gop_hash(signed_video_t *self)
  * such as moving linked hash values for I-frames and ensures that SEI-related NALUs are
  * appropriately handled.
  */
-void
+static void
 prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_item_t *sei)
 {
   // Ensure the `self` pointer is valid
@@ -156,16 +156,16 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
   h26x_nalu_list_t *nalu_list = self->nalu_list;
   uint8_t *hash_list = self->gop_info->nalu_hash_list;
   int list_idx = 0;
-  assert(nalu_list);
   const size_t hash_size = self->verify_data->hash_size;
   h26x_nalu_list_item_t *item = NULL;
   const uint8_t *hash_to_add = NULL;
   bool found_next_gop = false;
   bool found_item_after_sei = false;
+  assert(nalu_list);
 
   h26x_nalu_list_print(nalu_list);
 
-  // Start with the first item in the NALU list and reset the list index.
+  // Start with the first item in the NALU list.
   item = nalu_list->first_item;
 
   // Iterate through the NALU list until the end of the current GOP or SEI item is found.
@@ -201,7 +201,7 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
     item = item->next;
   }
 
-  if (list_idx + hash_size > self->gop_info->hash_list_size) {
+  if (list_idx + hash_size > self->gop_info->hash_list_size + 1) {
     // TODO: When list_idx exceeds the size of the buffer, the GOP hash should be initialized,
     // and all the NALUs in the hash_list should be hashed. |list_idx| should then be set to -1.
     list_idx = -1;
@@ -465,8 +465,8 @@ set_validation_status_of_pending_items_used_in_gop_hash(h26x_nalu_list_t *nalu_l
  * NALU counts, and returns true if the verification is successful.
  *
  * The function performs the following steps:
- * 1. Determines the validation status based on the verified signature hash.If this signature
- *    is not successfully verified, the entire GOP isconsidered invalid and cannot be trusted.
+ * 1. Determines the validation status based on the verified signature hash. If this signature
+ *    is not successfully verified, the entire GOP is considered invalid and cannot be trusted.
  * 2. If the SEI signature is valid, the next step is to verify the GOP
  *    hash. This hash is computed during signing and included in the SEI. On the validation side,
  * the received GOP hash is compared with the locally computed GOP hash. If they match, the entire
@@ -497,7 +497,7 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
     num_expected_hashes = (int)self->gop_info->num_sent_nalus;
     if (!verify_gop_hash(self)) {
       // If the signature is verified but GOP hash is not, continue validation with the
-      // hash list if it is accessible.
+      // hash list if it is present.
       if (self->gop_info->list_idx > 0) {
         return verify_hashes_with_hash_list(self, num_expected_nalus, num_received_nalus);
       }
@@ -707,6 +707,10 @@ validate_authenticity(signed_video_t *self)
       verify_success = verify_hashes_with_sei(self, &num_expected_nalus, &num_received_nalus);
     } else {
       assert(false);
+      // The |signature_hash_type| is now consistently set to DOCUMENT_HASH with the latest gop hash
+      // computation.
+      // TODO: During refactoring, remove the |verify_hashes_with_gop_hash| function as it is no
+      // longer needed.
       verify_success = verify_hashes_with_gop_hash(self, &num_expected_nalus, &num_received_nalus);
     }
   }
