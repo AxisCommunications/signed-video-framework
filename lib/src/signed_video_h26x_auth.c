@@ -200,8 +200,6 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
       // and all the NALUs in the hash_list should be hashed. |list_idx| should then be set to -1.
       list_idx = -1;
     }
-
-    // Move to the next item in the NALU list
     item = item->next;
   }
 

@@ -1656,10 +1656,6 @@ END_TEST
  */
 START_TEST(fallback_to_gop_level)
 {
-  // TODO : With the new GOP hash computation gop hash can not be computed if the gop size exceeds
-  // the max limit. |fallback_to_gop_level| is deactivated untill it is solved.
-  //
-  return;
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 

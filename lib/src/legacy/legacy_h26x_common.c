@@ -679,7 +679,7 @@ legacy_update_hash(legacy_sv_t *self,
   const uint8_t *hashable_data = nalu->hashable_data;
   size_t hashable_data_size = nalu->hashable_data_size;
 
-  return openssl_update_hash(self->crypto_handle, hashable_data, hashable_data_size);
+  return openssl_update_hash(self->crypto_handle, hashable_data, hashable_data_size, false);
 }
 
 /* simply_hash()
@@ -703,7 +703,7 @@ legacy_simply_hash(legacy_sv_t *self,
     svrc_t status = legacy_update_hash(self, nalu, hash, hash_size);
     if (status == SV_OK) {
       // Finalize the ongoing hash of NALU parts.
-      status = openssl_finalize_hash(self->crypto_handle, hash);
+      status = openssl_finalize_hash(self->crypto_handle, hash, false);
       // For the first NALU in a GOP, the hash is used twice. Once for linking and once as reference
       // for the future. Store the |nalu_hash| in |tmp_hash| to be copied for its second use, since
       // it is not possible to recompute the hash from partial NALU data.
@@ -925,7 +925,7 @@ legacy_sv_reset(legacy_sv_t *self)
     // Empty the |nalu_list|.
     legacy_h26x_nalu_list_free_items(self->nalu_list);
 
-    SV_THROW(openssl_init_hash(self->crypto_handle));
+    SV_THROW(openssl_init_hash(self->crypto_handle, false));
 
     SV_THROW(legacy_reset_gop_hash(self));
   SV_CATCH()

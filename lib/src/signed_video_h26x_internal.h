@@ -200,6 +200,14 @@ parse_nalu_info(const uint8_t *nalu_data,
     bool check_trailing_bytes,
     bool is_auth_side);
 
+svrc_t
+init_fallback_gop_hash(signed_video_t *self, uint8_t *hash_list, int idx);
+
+svrc_t
+update_fallback_gop_hash(signed_video_t *self, const uint8_t *nalu_hash);
+
+svrc_t
+finalize_fallback_gop_hash(const signed_video_t *self);
 void
 copy_nalu_except_pointers(h26x_nalu_t *dst_nalu, const h26x_nalu_t *src_nalu);
 

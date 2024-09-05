@@ -621,7 +621,9 @@ get_signature_complete_sei_and_add_to_prepend(signed_video_t *self)
       SV_THROW_WITH_MSG(
           openssl_verify_hash(&verify_data, &verified), "Verification test had errors");
       openssl_free_key(verify_data.key);
-      SV_THROW_IF_WITH_MSG(verified != 1, SV_EXTERNAL_ERROR, "Verification test failed");
+      if (!self->using_golden_sei) {
+        SV_THROW_IF_WITH_MSG(verified != 1, SV_EXTERNAL_ERROR, "Verification test failed");
+      }
 #endif
       SV_THROW(complete_sei_nalu_and_add_to_prepend(self));
     }

@@ -62,6 +62,7 @@ typedef struct {
  */
 typedef struct {
   EVP_MD_CTX *ctx;  // Hashing context
+  EVP_MD_CTX *f_ctx;  // Hashing context for fallback to gop level hashing.
   message_digest_t hash_algo;
 } openssl_crypto_t;
 
@@ -319,22 +320,36 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
 
 /* Initializes EVP_MD_CTX in |handle| with |hash_algo.type|. */
 svrc_t
-openssl_init_hash(void *handle)
+openssl_init_hash(void *handle, bool fallback_to_gop_level)
 {
   if (!handle) return SV_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   int ret = 0;
 
-  if (self->ctx) {
-    // Message digest type already set in context. Initialize the hashing function.
-    ret = EVP_DigestInit_ex(self->ctx, NULL, NULL);
+  if (fallback_to_gop_level) {
+    if (self->f_ctx) {
+      // Message digest type already set in context. Initialize the hashing function.
+      ret = EVP_DigestInit_ex(self->f_ctx, NULL, NULL);
+    } else {
+      if (!self->hash_algo.type) return SV_INVALID_PARAMETER;
+      // Create a new context and set message digest type.
+      self->f_ctx = EVP_MD_CTX_new();
+      if (!self->f_ctx) return SV_EXTERNAL_ERROR;
+      // Set a message digest type and initialize the hashing function.
+      ret = EVP_DigestInit_ex(self->f_ctx, self->hash_algo.type, NULL);
+    }
   } else {
-    if (!self->hash_algo.type) return SV_INVALID_PARAMETER;
-    // Create a new context and set message digest type.
-    self->ctx = EVP_MD_CTX_new();
-    if (!self->ctx) return SV_EXTERNAL_ERROR;
-    // Set a message digest type and initialize the hashing function.
-    ret = EVP_DigestInit_ex(self->ctx, self->hash_algo.type, NULL);
+    if (self->ctx) {
+      // Message digest type already set in context. Initialize the hashing function.
+      ret = EVP_DigestInit_ex(self->ctx, NULL, NULL);
+    } else {
+      if (!self->hash_algo.type) return SV_INVALID_PARAMETER;
+      // Create a new context and set message digest type.
+      self->ctx = EVP_MD_CTX_new();
+      if (!self->ctx) return SV_EXTERNAL_ERROR;
+      // Set a message digest type and initialize the hashing function.
+      ret = EVP_DigestInit_ex(self->ctx, self->hash_algo.type, NULL);
+    }
   }
 
   return ret == 1 ? SV_OK : SV_EXTERNAL_ERROR;
@@ -342,28 +357,43 @@ openssl_init_hash(void *handle)
 
 /* Updates EVP_MD_CTX in |handle| with |data|. */
 svrc_t
-openssl_update_hash(void *handle, const uint8_t *data, size_t data_size)
+openssl_update_hash(void *handle, const uint8_t *data, size_t data_size, bool fallback_to_gop_level)
 {
   if (!data || data_size == 0 || !handle) return SV_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   // Update the "ongoing" hash with new data.
-  if (!self->ctx) return SV_EXTERNAL_ERROR;
-  return EVP_DigestUpdate(self->ctx, data, data_size) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
+  if (fallback_to_gop_level) {
+    if (!self->f_ctx) return SV_EXTERNAL_ERROR;
+    return EVP_DigestUpdate(self->f_ctx, data, data_size) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
+  } else {
+    if (!self->ctx) return SV_EXTERNAL_ERROR;
+    return EVP_DigestUpdate(self->ctx, data, data_size) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
+  }
 }
 
 /* Finalizes EVP_MD_CTX in |handle| and writes result to |hash|. */
 svrc_t
-openssl_finalize_hash(void *handle, uint8_t *hash)
+openssl_finalize_hash(void *handle, uint8_t *hash, bool fallback_to_gop_level)
 {
   if (!hash || !handle) return SV_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
-  // Finalize and write the |hash| to output.
-  if (!self->ctx) return SV_EXTERNAL_ERROR;
-  unsigned int hash_size = 0;
-  if (EVP_DigestFinal_ex(self->ctx, hash, &hash_size) == 1) {
-    return hash_size <= MAX_HASH_SIZE ? SV_OK : SV_EXTERNAL_ERROR;
+  if (fallback_to_gop_level) {
+    if (!self->f_ctx) return SV_EXTERNAL_ERROR;
+    unsigned int hash_size = 0;
+    if (EVP_DigestFinal_ex(self->f_ctx, hash, &hash_size) == 1) {
+      return hash_size <= MAX_HASH_SIZE ? SV_OK : SV_EXTERNAL_ERROR;
+    } else {
+      return SV_EXTERNAL_ERROR;
+    }
   } else {
-    return SV_EXTERNAL_ERROR;
+    // Finalize and write the |hash| to output.
+    if (!self->ctx) return SV_EXTERNAL_ERROR;
+    unsigned int hash_size = 0;
+    if (EVP_DigestFinal_ex(self->ctx, hash, &hash_size) == 1) {
+      return hash_size <= MAX_HASH_SIZE ? SV_OK : SV_EXTERNAL_ERROR;
+    } else {
+      return SV_EXTERNAL_ERROR;
+    }
   }
 }
 
@@ -440,7 +470,7 @@ openssl_set_hash_algo(void *handle, const char *name_or_oid)
     EVP_MD_CTX_free(self->ctx);
     self->ctx = NULL;
 
-    SV_THROW(openssl_init_hash(self));
+    SV_THROW(openssl_init_hash(self, false));
     DEBUG_LOG("Setting hash algo %s that has ASN.1/DER coded OID length %zu", name_or_oid,
         self->hash_algo.encoded_oid_size);
   SV_CATCH()

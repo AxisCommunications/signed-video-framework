@@ -843,16 +843,71 @@ update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
 
   return status;
 }
+
+svrc_t
+init_fallback_gop_hash(signed_video_t *self, uint8_t *hash_list, int idx)
+{
+
+  svrc_t status = SV_UNKNOWN_FAILURE;
+
+  SV_TRY()
+    // Initialize the hashing process for the fallback GOP-level hash
+    SV_THROW(openssl_init_hash(self->crypto_handle, true));
+    SV_THROW(openssl_update_hash(self->crypto_handle, hash_list, idx, true));
+
+  SV_CATCH()
+  SV_DONE(status)
+
+  return status;
+}
+
+svrc_t
+update_fallback_gop_hash(signed_video_t *self, const uint8_t *nalu_hash)
+{
+  svrc_t status = SV_UNKNOWN_FAILURE;
+  size_t hash_size =
+      self->authentication_started ? self->verify_data->hash_size : self->sign_data->hash_size;
+  SV_TRY()
+    // Update the GOP-level hash with the new NALU hash
+    SV_THROW(openssl_update_hash(self->crypto_handle, nalu_hash, hash_size, true));
+  SV_CATCH()
+  SV_DONE(status)
+
+  return status;
+}
+
+svrc_t
+finalize_fallback_gop_hash(const signed_video_t *self)
+{
+  gop_info_t *gop_info = self->gop_info;
+  uint8_t *hash = gop_info->computed_gop_hash;
+  svrc_t status = SV_UNKNOWN_FAILURE;
+
+  SV_TRY()
+    // Finalize the hashing process and write the result to the computed_gop_hash
+    SV_THROW(openssl_finalize_hash(self->crypto_handle, hash, true));
+  SV_CATCH()
+  SV_DONE(status)
+
+  return status;
+}
+/* compute_partial_gop_hash()
+ * Takes all the NALU hashes from |hash_list| and hash it.
+ */
 svrc_t
 compute_partial_gop_hash(const signed_video_t *self,
     const uint8_t *hash_list,
     int hash_list_idx,
     uint8_t *gop_hash)
 {
-  size_t hash_size = openssl_get_hash_size(self->crypto_handle);
-  if (hash_list_idx <= 0) {
-    memset(gop_hash, 0, hash_size);
-    return SV_OK;  // Handle insufficient memory scenario.
+  gop_info_t *gop_info = self->gop_info;
+  if (gop_info->list_idx < 0) {
+    // TODO: When list_idx < 0, it indicates that there was insufficient memory allocated for the
+    // hash_list to add another hash. As a result, Signed Video will operate with a GOP level
+    // authenticity. The current implementation of the new gop_hash cannot handle this fallback
+    // scenario because it is computed from the hash_list, which is currently in a compromised
+    // state. This implementation needs to be reworked to properly handle this condition.
+    return finalize_fallback_gop_hash(self);
   }
 
   return openssl_hash_data(self->crypto_handle, hash_list, hash_list_idx, gop_hash);
@@ -868,7 +923,13 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
   uint8_t *hash_list = &self->gop_info->hash_list[0];
   int *list_idx = &self->gop_info->list_idx;
   // Check if there is room for another hash in the |hash_list|.
-  if (*list_idx + hash_size > self->gop_info->hash_list_size) *list_idx = -1;
+  if (*list_idx + hash_size > self->gop_info->hash_list_size) {
+    init_fallback_gop_hash(self, hash_list, *list_idx);
+    *list_idx = -1;
+  }
+  if (*list_idx < 0) {
+    update_fallback_gop_hash(self, hash);
+  }
   if (*list_idx >= 0) {
     // We have a valid |hash_list| and can copy the |nalu_hash| to it.
     memcpy(&hash_list[*list_idx], hash, hash_size);
@@ -934,7 +995,7 @@ update_hash(signed_video_t *self,
   const uint8_t *hashable_data = nalu->hashable_data;
   size_t hashable_data_size = nalu->hashable_data_size;
 
-  return openssl_update_hash(self->crypto_handle, hashable_data, hashable_data_size);
+  return openssl_update_hash(self->crypto_handle, hashable_data, hashable_data_size, false);
 }
 
 /* simply_hash()
@@ -955,7 +1016,7 @@ simply_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *hash, size_t
     svrc_t status = update_hash(self, nalu, hash, hash_size);
     if (status == SV_OK) {
       // Finalize the ongoing hash of NALU parts.
-      status = openssl_finalize_hash(self->crypto_handle, hash);
+      status = openssl_finalize_hash(self->crypto_handle, hash, false);
       // For the first NALU in a GOP, the hash is used twice. Once for linking and once as reference
       // for the future. Store the |nalu_hash| in |tmp_hash| to be copied for its second use, since
       // it is not possible to recompute the hash from partial NALU data.
@@ -1060,7 +1121,7 @@ hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
     if (nalu->is_first_nalu_part && !nalu->is_last_nalu_part) {
       // If this is the first part of a non-complete NALU, initialize the |crypto_handle| to enable
       // sequentially updating the hash with more parts.
-      SV_THROW(openssl_init_hash(self->crypto_handle));
+      SV_THROW(openssl_init_hash(self->crypto_handle, false));
     }
     // Select hash function, hash the NALU and store as 'latest hash'
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
@@ -1237,7 +1298,7 @@ signed_video_reset(signed_video_t *self)
 
     memset(self->last_nalu, 0, sizeof(h26x_nalu_t));
     self->last_nalu->is_last_nalu_part = true;
-    SV_THROW(openssl_init_hash(self->crypto_handle));
+    SV_THROW(openssl_init_hash(self->crypto_handle, false));
 
     SV_THROW(reset_gop_hash(self));
   SV_CATCH()
