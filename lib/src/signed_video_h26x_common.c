@@ -922,19 +922,19 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
 
   uint8_t *hash_list = &self->gop_info->hash_list[0];
   int *list_idx = &self->gop_info->list_idx;
-  // Check if there is room for another hash in the |hash_list|.
-  if (*list_idx + hash_size > self->gop_info->hash_list_size) {
-    init_fallback_gop_hash(self, hash_list, *list_idx);
+
+  if (*list_idx + hash_size > self->gop_info->hash_list_size + 1) {
     *list_idx = -1;
   }
-  if (*list_idx < 0) {
-    update_fallback_gop_hash(self, hash);
+  if (*list_idx == 0) {
+    openssl_init_hash(self->crypto_handle, true);
   }
   if (*list_idx >= 0) {
     // We have a valid |hash_list| and can copy the |nalu_hash| to it.
     memcpy(&hash_list[*list_idx], hash, hash_size);
     *list_idx += hash_size;
   }
+  update_fallback_gop_hash(self, hash);
 }
 
 svrc_t

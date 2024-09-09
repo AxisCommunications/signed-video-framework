@@ -142,7 +142,7 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
  *          SV_EXTERNAL_ERROR Failed to initialize.
  */
 svrc_t
-openssl_init_hash(void *handle, bool fallback_to_gop_level);
+openssl_init_hash(void *handle, bool use_primary_ctx);
 
 /**
  * @brief Updates the cryptographic handle with |data| for hashing
@@ -160,10 +160,7 @@ openssl_init_hash(void *handle, bool fallback_to_gop_level);
  *          SV_EXTERNAL_ERROR Failed to update.
  */
 svrc_t
-openssl_update_hash(void *handle,
-    const uint8_t *data,
-    size_t data_size,
-    bool fallback_to_gop_level);
+openssl_update_hash(void *handle, const uint8_t *data, size_t data_size, bool use_primary_ctx);
 
 /**
  * @brief Finalizes the cryptographic handle and outputs the hash
@@ -180,7 +177,7 @@ openssl_update_hash(void *handle,
  *          SV_EXTERNAL_ERROR Failed to finalize.
  */
 svrc_t
-openssl_finalize_hash(void *handle, uint8_t *hash, bool fallback_to_gop_level);
+openssl_finalize_hash(void *handle, uint8_t *hash, bool use_primary_ctx);
 
 /**
  * @brief Verifies a signature against a hash

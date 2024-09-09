@@ -124,12 +124,8 @@ verify_gop_hash(signed_video_t *self)
 {
   gop_info_t *gop_info = self->gop_info;
   const size_t hash_size = self->verify_data->hash_size;
-  svrc_t status = SV_UNKNOWN_FAILURE;
 
-  // Compute the GOP hash from |nalu_hash_list|.
-  status = compute_partial_gop_hash(
-      self, gop_info->nalu_hash_list, gop_info->nalu_list_idx, gop_info->computed_gop_hash);
-  // Compare the computed GOP hash with the received GOP hash.
+  svrc_t status = finalize_fallback_gop_hash(self);
   bool hashes_match =
       (memcmp(gop_info->computed_gop_hash, self->received_gop_hash, hash_size) == 0);
 
@@ -154,7 +150,7 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
 
   // Initialize pointers and variables
   h26x_nalu_list_t *nalu_list = self->nalu_list;
-  uint8_t *hash_list = self->gop_info->nalu_hash_list;
+  // uint8_t *hash_list = self->gop_info->nalu_hash_list;
   int list_idx = 0;
   const size_t hash_size = self->verify_data->hash_size;
   h26x_nalu_list_item_t *item = NULL;
@@ -190,9 +186,15 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
     }
 
     hash_to_add = item->need_second_verification ? item->second_hash : item->hash;
+
+    if (list_idx == 0) {
+      openssl_init_hash(self->crypto_handle, true);
+    }
     // Copy the hash to the list if there is enough space
-    if (list_idx >= 0 && (list_idx + hash_size <= self->gop_info->hash_list_size)) {
-      memcpy(&hash_list[list_idx], hash_to_add, hash_size);
+    if (list_idx >= 0 && (list_idx + hash_size <= self->gop_info->hash_list_size) &&
+        item->nalu->is_last_nalu_part) {
+      update_fallback_gop_hash(self, hash_to_add);
+      // memcpy(&hash_list[list_idx], hash_to_add, hash_size);
       list_idx += hash_size;
       item->used_in_gop_hash = true;  // Mark the item as used in the GOP hash
     } else {
@@ -207,6 +209,7 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
     // TODO: When |list_idx| is -1, it indicates that the hash_list buffer has overflowed and the
     // GOP hash has been initialized. From this point onward, the GOP hash needs to be updated with
     // every new |hash_to_add|.
+    update_fallback_gop_hash(self, hash_to_add);
   }
 
   self->gop_info->nalu_list_idx = list_idx;

@@ -61,8 +61,8 @@ typedef struct {
  * OpenSSL cryptographic object.
  */
 typedef struct {
-  EVP_MD_CTX *ctx;  // Hashing context
-  EVP_MD_CTX *f_ctx;  // Hashing context for fallback to gop level hashing.
+  EVP_MD_CTX *primary_ctx;  // Hashing context
+  EVP_MD_CTX *secondary_ctx;  // Hashing context for fallback to gop level hashing.
   message_digest_t hash_algo;
 } openssl_crypto_t;
 
@@ -320,80 +320,61 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
 
 /* Initializes EVP_MD_CTX in |handle| with |hash_algo.type|. */
 svrc_t
-openssl_init_hash(void *handle, bool fallback_to_gop_level)
+openssl_init_hash(void *handle, bool use_primary_ctx)
 {
   if (!handle) return SV_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   int ret = 0;
-
-  if (fallback_to_gop_level) {
-    if (self->f_ctx) {
-      // Message digest type already set in context. Initialize the hashing function.
-      ret = EVP_DigestInit_ex(self->f_ctx, NULL, NULL);
-    } else {
-      if (!self->hash_algo.type) return SV_INVALID_PARAMETER;
-      // Create a new context and set message digest type.
-      self->f_ctx = EVP_MD_CTX_new();
-      if (!self->f_ctx) return SV_EXTERNAL_ERROR;
-      // Set a message digest type and initialize the hashing function.
-      ret = EVP_DigestInit_ex(self->f_ctx, self->hash_algo.type, NULL);
-    }
+  EVP_MD_CTX **ctx = use_primary_ctx ? &self->primary_ctx : &self->secondary_ctx;
+  if (*ctx) {
+    // Message digest type already set in context. Initialize the hashing function.
+    ret = EVP_DigestInit_ex(*ctx, NULL, NULL);
   } else {
-    if (self->ctx) {
-      // Message digest type already set in context. Initialize the hashing function.
-      ret = EVP_DigestInit_ex(self->ctx, NULL, NULL);
-    } else {
-      if (!self->hash_algo.type) return SV_INVALID_PARAMETER;
-      // Create a new context and set message digest type.
-      self->ctx = EVP_MD_CTX_new();
-      if (!self->ctx) return SV_EXTERNAL_ERROR;
-      // Set a message digest type and initialize the hashing function.
-      ret = EVP_DigestInit_ex(self->ctx, self->hash_algo.type, NULL);
-    }
+    if (!self->hash_algo.type) return SV_INVALID_PARAMETER;
+    // Create a new context and set message digest type.
+    *ctx = EVP_MD_CTX_new();
+    if (!(*ctx)) return SV_EXTERNAL_ERROR;
+    // Set a message digest type and initialize the hashing function.
+    ret = EVP_DigestInit_ex(*ctx, self->hash_algo.type, NULL);
   }
-
   return ret == 1 ? SV_OK : SV_EXTERNAL_ERROR;
 }
 
 /* Updates EVP_MD_CTX in |handle| with |data|. */
 svrc_t
-openssl_update_hash(void *handle, const uint8_t *data, size_t data_size, bool fallback_to_gop_level)
+openssl_update_hash(void *handle, const uint8_t *data, size_t data_size, bool use_primary_ctx)
 {
   if (!data || data_size == 0 || !handle) return SV_INVALID_PARAMETER;
+
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
+  EVP_MD_CTX **ctx = use_primary_ctx ? &self->primary_ctx : &self->secondary_ctx;
+
+  // Check if the context is valid.
+  if (!(*ctx)) return SV_EXTERNAL_ERROR;
+
   // Update the "ongoing" hash with new data.
-  if (fallback_to_gop_level) {
-    if (!self->f_ctx) return SV_EXTERNAL_ERROR;
-    return EVP_DigestUpdate(self->f_ctx, data, data_size) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
-  } else {
-    if (!self->ctx) return SV_EXTERNAL_ERROR;
-    return EVP_DigestUpdate(self->ctx, data, data_size) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
-  }
+  return EVP_DigestUpdate(*ctx, data, data_size) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
 }
 
 /* Finalizes EVP_MD_CTX in |handle| and writes result to |hash|. */
 svrc_t
-openssl_finalize_hash(void *handle, uint8_t *hash, bool fallback_to_gop_level)
+openssl_finalize_hash(void *handle, uint8_t *hash, bool use_primary_ctx)
 {
   if (!hash || !handle) return SV_INVALID_PARAMETER;
+
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
-  if (fallback_to_gop_level) {
-    if (!self->f_ctx) return SV_EXTERNAL_ERROR;
-    unsigned int hash_size = 0;
-    if (EVP_DigestFinal_ex(self->f_ctx, hash, &hash_size) == 1) {
-      return hash_size <= MAX_HASH_SIZE ? SV_OK : SV_EXTERNAL_ERROR;
-    } else {
-      return SV_EXTERNAL_ERROR;
-    }
+  EVP_MD_CTX **ctx = use_primary_ctx ? &self->primary_ctx : &self->secondary_ctx;
+
+  // Check if the context is valid.
+  if (!(*ctx)) return SV_EXTERNAL_ERROR;
+
+  unsigned int hash_size = 0;
+
+  // Finalize the digest and write the |hash| to output.
+  if (EVP_DigestFinal_ex(*ctx, hash, &hash_size) == 1) {
+    return hash_size <= MAX_HASH_SIZE ? SV_OK : SV_EXTERNAL_ERROR;
   } else {
-    // Finalize and write the |hash| to output.
-    if (!self->ctx) return SV_EXTERNAL_ERROR;
-    unsigned int hash_size = 0;
-    if (EVP_DigestFinal_ex(self->ctx, hash, &hash_size) == 1) {
-      return hash_size <= MAX_HASH_SIZE ? SV_OK : SV_EXTERNAL_ERROR;
-    } else {
-      return SV_EXTERNAL_ERROR;
-    }
+    return SV_EXTERNAL_ERROR;
   }
 }
 
@@ -467,8 +448,10 @@ openssl_set_hash_algo(void *handle, const char *name_or_oid)
         "Could not identify hashing algorithm: %s", name_or_oid);
     SV_THROW(obj_to_oid_and_type(&self->hash_algo, hash_algo_obj));
     // Free the context to be able to assign a new message digest type to it.
-    EVP_MD_CTX_free(self->ctx);
-    self->ctx = NULL;
+    EVP_MD_CTX_free(self->primary_ctx);
+    self->primary_ctx = NULL;
+    EVP_MD_CTX_free(self->secondary_ctx);
+    self->secondary_ctx = NULL;
 
     SV_THROW(openssl_init_hash(self, false));
     DEBUG_LOG("Setting hash algo %s that has ASN.1/DER coded OID length %zu", name_or_oid,
@@ -551,7 +534,7 @@ openssl_free_handle(void *handle)
 {
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   if (!self) return;
-  EVP_MD_CTX_free(self->ctx);
+  EVP_MD_CTX_free(self->primary_ctx);
   free(self->hash_algo.encoded_oid);
   free(self);
 }
