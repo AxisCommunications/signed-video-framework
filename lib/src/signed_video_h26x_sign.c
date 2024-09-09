@@ -566,7 +566,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
         uint8_t *payload_signature_ptr = NULL;
 
         // Finalize the GOP hash before write it the to TLV.
-        SV_THROW(finalize_fallback_gop_hash(self));
+        SV_THROW(finalize_gop_hash(self));
         SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
         // Add |payload| to buffer. Will be picked up again when the signature has been generated.
         add_payload_to_buffer(self, payload, payload_signature_ptr);
