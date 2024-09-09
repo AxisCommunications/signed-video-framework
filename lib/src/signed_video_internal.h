@@ -248,10 +248,6 @@ struct _gop_info_t {
   // success, 0 for fail, and -1 for error.
   bool has_timestamp;  // True if timestamp exists and has not yet been written to SEI.
   int64_t timestamp;  // Unix epoch UTC timestamp of the first nalu in GOP
-
-  uint8_t nalu_hash_list[HASH_LIST_SIZE];  // TODO: This member of the GOP info struct is temporary
-  // and will be deprecated. For linking GOP hash feature, only |hash_list| will be used.
-  int nalu_list_idx;  // Pointing to next available slot in the |nalu_hash_list|.
 };
 
 void

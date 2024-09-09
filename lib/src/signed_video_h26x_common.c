@@ -844,77 +844,9 @@ update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
   return status;
 }
 
-svrc_t
-init_fallback_gop_hash(signed_video_t *self, uint8_t *hash_list, int idx)
-{
-
-  svrc_t status = SV_UNKNOWN_FAILURE;
-
-  SV_TRY()
-    // Initialize the hashing process for the fallback GOP-level hash
-    SV_THROW(openssl_init_hash(self->crypto_handle, true));
-    SV_THROW(openssl_update_hash(self->crypto_handle, hash_list, idx, true));
-
-  SV_CATCH()
-  SV_DONE(status)
-
-  return status;
-}
-
-svrc_t
-update_fallback_gop_hash(signed_video_t *self, const uint8_t *nalu_hash)
-{
-  svrc_t status = SV_UNKNOWN_FAILURE;
-  size_t hash_size =
-      self->authentication_started ? self->verify_data->hash_size : self->sign_data->hash_size;
-  SV_TRY()
-    // Update the GOP-level hash with the new NALU hash
-    SV_THROW(openssl_update_hash(self->crypto_handle, nalu_hash, hash_size, true));
-  SV_CATCH()
-  SV_DONE(status)
-
-  return status;
-}
-
-svrc_t
-finalize_fallback_gop_hash(const signed_video_t *self)
-{
-  gop_info_t *gop_info = self->gop_info;
-  uint8_t *hash = gop_info->computed_gop_hash;
-  svrc_t status = SV_UNKNOWN_FAILURE;
-
-  SV_TRY()
-    // Finalize the hashing process and write the result to the computed_gop_hash
-    SV_THROW(openssl_finalize_hash(self->crypto_handle, hash, true));
-  SV_CATCH()
-  SV_DONE(status)
-
-  return status;
-}
-/* compute_partial_gop_hash()
- * Takes all the NALU hashes from |hash_list| and hash it.
+/* Initializes and updates the GOP hash regardless of available space. If there is enough
+ * room, copies the |hash| and updates |list_idx|. Otherwise, sets |list_idx| to -1.
  */
-svrc_t
-compute_partial_gop_hash(const signed_video_t *self,
-    const uint8_t *hash_list,
-    int hash_list_idx,
-    uint8_t *gop_hash)
-{
-  gop_info_t *gop_info = self->gop_info;
-  if (gop_info->list_idx < 0) {
-    // TODO: When list_idx < 0, it indicates that there was insufficient memory allocated for the
-    // hash_list to add another hash. As a result, Signed Video will operate with a GOP level
-    // authenticity. The current implementation of the new gop_hash cannot handle this fallback
-    // scenario because it is computed from the hash_list, which is currently in a compromised
-    // state. This implementation needs to be reworked to properly handle this condition.
-    return finalize_fallback_gop_hash(self);
-  }
-
-  return openssl_hash_data(self->crypto_handle, hash_list, hash_list_idx, gop_hash);
-}
-
-/* Checks if there is enough room to copy the hash. If so, copies the |nalu_hash| and updates the
- * |list_idx|. Otherwise, sets the |list_idx| to -1 and proceeds. */
 void
 check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size_t hash_size)
 {
@@ -923,18 +855,23 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
   uint8_t *hash_list = &self->gop_info->hash_list[0];
   int *list_idx = &self->gop_info->list_idx;
 
-  if (*list_idx + hash_size > self->gop_info->hash_list_size + 1) {
+  // If the upcoming hash doesn't fit in the hash list buffer, set *list_idx to -1
+  // to indicate that the hash list is full, and the hash list is no longer accessible.
+  if (*list_idx + hash_size > self->gop_info->hash_list_size) {
     *list_idx = -1;
   }
+  // If this is the start of the GOP, initialize |crypto_handle| to enable
+  // updating the hash with each received NALU.
   if (*list_idx == 0) {
     openssl_init_hash(self->crypto_handle, true);
   }
+  // Since the upcoming NALU fits in the buffer (as determined by prior checks),
+  // a valid |hash_list| exists, and the |hash| can be copied to it.
   if (*list_idx >= 0) {
-    // We have a valid |hash_list| and can copy the |nalu_hash| to it.
     memcpy(&hash_list[*list_idx], hash, hash_size);
     *list_idx += hash_size;
   }
-  update_fallback_gop_hash(self, hash);
+  openssl_update_hash(self->crypto_handle, hash, hash_size, true);
 }
 
 svrc_t

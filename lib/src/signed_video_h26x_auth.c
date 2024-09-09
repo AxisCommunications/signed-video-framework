@@ -124,8 +124,7 @@ verify_gop_hash(signed_video_t *self)
 {
   gop_info_t *gop_info = self->gop_info;
   const size_t hash_size = self->verify_data->hash_size;
-
-  svrc_t status = finalize_fallback_gop_hash(self);
+  svrc_t status = openssl_finalize_hash(self->crypto_handle, gop_info->computed_gop_hash, true);
   bool hashes_match =
       (memcmp(gop_info->computed_gop_hash, self->received_gop_hash, hash_size) == 0);
 
@@ -137,12 +136,10 @@ verify_gop_hash(signed_video_t *self)
  * hash.
  *
  * This function iterates through the NALU list, identifies the NALUs that belong to the current
- * GOP, and marks them as used in the GOP hash. It then copies the hashes of these NALUs to the
- * |nalu_hash_list| for later verification of the GOP hash. Additionally, it handles specific cases
- * such as moving linked hash values for I-frames and ensures that SEI-related NALUs are
- * appropriately handled.
+ * GOP, and marks them as used in the GOP hash. It initializes the GOP hash and updates it with
+ * each incoming NALU that belongs to the GOP.
  */
-static void
+static svrc_t
 prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_item_t *sei)
 {
   // Ensure the `self` pointer is valid
@@ -150,8 +147,6 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
 
   // Initialize pointers and variables
   h26x_nalu_list_t *nalu_list = self->nalu_list;
-  // uint8_t *hash_list = self->gop_info->nalu_hash_list;
-  int list_idx = 0;
   const size_t hash_size = self->verify_data->hash_size;
   h26x_nalu_list_item_t *item = NULL;
   const uint8_t *hash_to_add = NULL;
@@ -163,61 +158,47 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
 
   // Start with the first item in the NALU list.
   item = nalu_list->first_item;
+  svrc_t status = SV_UNKNOWN_FAILURE;
+  SV_TRY()
+    // At the start of the GOP, initialize the |crypto_handle| to enable
+    // sequentially updating the hash with more NALUs.
+    SV_THROW(openssl_init_hash(self->crypto_handle, true));
+    // Iterate through the NALU list until the end of the current GOP or SEI item is found.
+    while (item && !(found_next_gop || found_item_after_sei)) {
+      // Skip non-pending items
+      if (item->validation_status != 'P') {
+        item = item->next;
+        continue;
+      }
 
-  // Iterate through the NALU list until the end of the current GOP or SEI item is found.
-  while (item && !(found_next_gop || found_item_after_sei)) {
-    // Skip non-pending items
-    if (item->validation_status != 'P') {
-      item = item->next;
-      continue;
-    }
+      // Ensure that only non-missing NALUs (which have non-null pointers) are processed.
+      assert(item->nalu);
 
-    // Ensure that only non-missing NALUs (which have non-null pointers) are processed.
-    assert(item->nalu);
+      // Track when the current item follows the SEI or marks the beginning of the next GOP.
+      found_item_after_sei = (item->prev == sei);
+      found_next_gop = (item->nalu->is_first_nalu_in_gop && !item->need_second_verification);
 
-    // Track when the current item follows the SEI or marks the beginning of the next GOP.
-    found_item_after_sei = (item->prev == sei);
-    found_next_gop = (item->nalu->is_first_nalu_in_gop && !item->need_second_verification);
-
-    // Skip GOP SEI items as they do not contribute to the GOP hash.
-    if (item->nalu->is_gop_sei) {
-      item = item->next;
-      continue;
-    }
-
-    hash_to_add = item->need_second_verification ? item->second_hash : item->hash;
-
-    if (list_idx == 0) {
-      openssl_init_hash(self->crypto_handle, true);
-    }
-    // Copy the hash to the list if there is enough space
-    if (list_idx >= 0 && (list_idx + hash_size <= self->gop_info->hash_list_size) &&
-        item->nalu->is_last_nalu_part) {
-      update_fallback_gop_hash(self, hash_to_add);
-      // memcpy(&hash_list[list_idx], hash_to_add, hash_size);
-      list_idx += hash_size;
+      // Skip GOP SEI items as they do not contribute to the GOP hash.
+      if (item->nalu->is_gop_sei) {
+        item = item->next;
+        continue;
+      }
+      hash_to_add = item->need_second_verification ? item->second_hash : item->hash;
+      // Since the GOP hash is initialized, it can be updated with each incoming NALU hash.
+      SV_THROW(openssl_update_hash(self->crypto_handle, hash_to_add, hash_size, true));
       item->used_in_gop_hash = true;  // Mark the item as used in the GOP hash
-    } else {
-      // TODO: When list_idx exceeds the size of the buffer, the GOP hash should be initialized,
-      // and all the NALUs in the hash_list should be hashed. |list_idx| should then be set to -1.
-      list_idx = -1;
+
+      item = item->next;
     }
-    item = item->next;
-  }
+    // Finally, mark the SEI item as used in the GOP hash
+    // TODO: Currently, the validation status of the SEI is set when the validation status of all
+    // NALUs used in the GOP hash is set. This process will be modified after implementing the
+    // verification of the previous GOP. For now, sei->used_in_gop_hash is set to true.
+    sei->used_in_gop_hash = true;
+  SV_CATCH()
+  SV_DONE(status)
 
-  if (list_idx < 0) {
-    // TODO: When |list_idx| is -1, it indicates that the hash_list buffer has overflowed and the
-    // GOP hash has been initialized. From this point onward, the GOP hash needs to be updated with
-    // every new |hash_to_add|.
-    update_fallback_gop_hash(self, hash_to_add);
-  }
-
-  self->gop_info->nalu_list_idx = list_idx;
-  // Finally, mark the SEI item as used in the GOP hash
-  // TODO: Currently, the validation status of the SEI is set when the validation status of all
-  // NALUs used in the GOP hash is set. This process will be modified after implementing the
-  // verification of the previous GOP. For now, sei->used_in_gop_hash is set to true.
-  sei->used_in_gop_hash = true;
+  return status;
 }
 
 /* Verifies the hashes of the oldest pending GOP from a hash list.
@@ -944,7 +925,7 @@ prepare_for_validation(signed_video_t *self)
     }
 
     if (sei) {
-      prepare_for_link_and_gop_hash_verification(self, sei);
+      SV_THROW(prepare_for_link_and_gop_hash_verification(self, sei));
     }
     // Check if we should compute the gop_hash.
     if (sei && sei->has_been_decoded && !sei->used_in_gop_hash &&

@@ -187,12 +187,6 @@ hash_and_add(signed_video_t *signed_video, const h26x_nalu_t *nalu);
 svrc_t
 hash_and_add_for_auth(signed_video_t *signed_video, h26x_nalu_list_item_t *item);
 
-svrc_t
-compute_partial_gop_hash(const signed_video_t *self,
-    const uint8_t *hash_list,
-    int hash_list_idx,
-    uint8_t *gop_hash);
-
 h26x_nalu_t
 parse_nalu_info(const uint8_t *nalu_data,
     size_t nalu_data_size,
@@ -201,13 +195,14 @@ parse_nalu_info(const uint8_t *nalu_data,
     bool is_auth_side);
 
 svrc_t
-init_fallback_gop_hash(signed_video_t *self, uint8_t *hash_list, int idx);
+initialize_and_update_gop_level_hash(signed_video_t *self, uint8_t *hash_list, int idx);
 
 svrc_t
 update_fallback_gop_hash(signed_video_t *self, const uint8_t *nalu_hash);
 
 svrc_t
-finalize_fallback_gop_hash(const signed_video_t *self);
+finalize_gop_hash(const signed_video_t *self);
+
 void
 copy_nalu_except_pointers(h26x_nalu_t *dst_nalu, const h26x_nalu_t *src_nalu);
 
