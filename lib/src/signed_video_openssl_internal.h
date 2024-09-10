@@ -135,7 +135,7 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
  * Uses the OpenSSL API EVP_DigestInit_ex() to initiate an EVP_MD_CTX object in |handle|.
  *
  * @param handle Pointer to the OpenSSL cryptographic handle.
- * @param fallback_to_gop_level Flag that indicates which hash context to use.
+ * @param use_primary_ctx Flag that indicates which hash context to use.
  *
  * @returns SV_OK Successfully initialized EVP_MD_CTX object in |handle|,
  *          SV_INVALID_PARAMETER Null pointer input,
@@ -153,7 +153,7 @@ openssl_init_hash(void *handle, bool use_primary_ctx);
  * @param handle Pointer to the OpenSSL cryptographic handle.
  * @param data Pointer to the data to update an ongoing hash.
  * @param data_size Size of the |data|.
- * @param fallback_to_gop_level Flag that indicates which hash context to use.
+ * @param use_primary_ctx Flag that indicates which hash context to use.
  *
  * @returns SV_OK Successfully updated EVP_MD_CTX object in |handle|,
  *          SV_INVALID_PARAMETER Null pointer inputs, or invalid |data_size|,
@@ -170,7 +170,7 @@ openssl_update_hash(void *handle, const uint8_t *data, size_t data_size, bool us
  *
  * @param handle Pointer to the OpenSSL cryptographic handle.
  * @param hash A pointer to the hashed output. This memory has to be pre-allocated.
- * @param fallback_to_gop_level Flag that indicates which hash context to use.
+ * @param use_primary_ctx Flag that indicates which hash context to use.
  *
  * @returns SV_OK Successfully wrote the final result of EVP_MD_CTX object in |handle| to |hash|,
  *          SV_INVALID_PARAMETER Null pointer inputs,

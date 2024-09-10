@@ -124,11 +124,10 @@ verify_gop_hash(signed_video_t *self)
 {
   gop_info_t *gop_info = self->gop_info;
   const size_t hash_size = self->verify_data->hash_size;
-  svrc_t status = openssl_finalize_hash(self->crypto_handle, gop_info->computed_gop_hash, true);
   bool hashes_match =
       (memcmp(gop_info->computed_gop_hash, self->received_gop_hash, hash_size) == 0);
 
-  return (hashes_match && (status == SV_OK));
+  return hashes_match;
 }
 
 /**
@@ -195,6 +194,7 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
     // NALUs used in the GOP hash is set. This process will be modified after implementing the
     // verification of the previous GOP. For now, sei->used_in_gop_hash is set to true.
     sei->used_in_gop_hash = true;
+    SV_THROW(openssl_finalize_hash(self->crypto_handle, self->gop_info->computed_gop_hash, true));
   SV_CATCH()
   SV_DONE(status)
 

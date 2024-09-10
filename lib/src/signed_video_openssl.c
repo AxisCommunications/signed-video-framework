@@ -61,7 +61,7 @@ typedef struct {
  * OpenSSL cryptographic object.
  */
 typedef struct {
-  EVP_MD_CTX *primary_ctx;  // Hashing context for the GOP level and frame level hashing.
+  EVP_MD_CTX *primary_ctx;  // Hashing context for computing the GOP hash.
   EVP_MD_CTX *secondary_ctx;  // Hashing context for NALUs split in parts.
   message_digest_t hash_algo;
 } openssl_crypto_t;
@@ -318,7 +318,7 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
   return ret == 1 ? status : SV_EXTERNAL_ERROR;
 }
 
-/* Initializes EVP_MD_CTX in |handle| with |hash_algo.type|. */
+/* Initializes a EVP_MD_CTX in |handle| with |hash_algo.type|. */
 svrc_t
 openssl_init_hash(void *handle, bool use_primary_ctx)
 {
@@ -340,7 +340,7 @@ openssl_init_hash(void *handle, bool use_primary_ctx)
   return ret == 1 ? SV_OK : SV_EXTERNAL_ERROR;
 }
 
-/* Updates EVP_MD_CTX in |handle| with |data|. */
+/* Updates a EVP_MD_CTX in |handle| with |data|. */
 svrc_t
 openssl_update_hash(void *handle, const uint8_t *data, size_t data_size, bool use_primary_ctx)
 {
@@ -356,7 +356,7 @@ openssl_update_hash(void *handle, const uint8_t *data, size_t data_size, bool us
   return EVP_DigestUpdate(*ctx, data, data_size) == 1 ? SV_OK : SV_EXTERNAL_ERROR;
 }
 
-/* Finalizes EVP_MD_CTX in |handle| and writes result to |hash|. */
+/* Finalizes a EVP_MD_CTX in |handle| and writes result to |hash|. */
 svrc_t
 openssl_finalize_hash(void *handle, uint8_t *hash, bool use_primary_ctx)
 {

@@ -855,15 +855,15 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
   uint8_t *hash_list = &self->gop_info->hash_list[0];
   int *list_idx = &self->gop_info->list_idx;
 
-  // If the upcoming hash doesn't fit in the hash list buffer, set *list_idx to -1
-  // to indicate that the hash list is full, and the hash list is no longer accessible.
-  if (*list_idx + hash_size > self->gop_info->hash_list_size) {
-    *list_idx = -1;
-  }
   // If this is the start of the GOP, initialize |crypto_handle| to enable
   // updating the hash with each received NALU.
   if (*list_idx == 0) {
     openssl_init_hash(self->crypto_handle, true);
+  }
+  // If the upcoming hash doesn't fit in the hash list buffer, set *list_idx to -1
+  // to indicate that the hash list is full, and the hash list is no longer accessible.
+  if (*list_idx + hash_size > self->gop_info->hash_list_size) {
+    *list_idx = -1;
   }
   // Since the upcoming NALU fits in the buffer (as determined by prior checks),
   // a valid |hash_list| exists, and the |hash| can be copied to it.
