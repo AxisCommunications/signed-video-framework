@@ -61,8 +61,8 @@ typedef struct {
  * OpenSSL cryptographic object.
  */
 typedef struct {
-  EVP_MD_CTX *primary_ctx;  // Hashing context for the gop level hashing.
-  EVP_MD_CTX *secondary_ctx;  // Hashing context for NALUs.
+  EVP_MD_CTX *primary_ctx;  // Hashing context for the GOP level and frame level hashing.
+  EVP_MD_CTX *secondary_ctx;  // Hashing context for NALUs split in parts.
   message_digest_t hash_algo;
 } openssl_crypto_t;
 
