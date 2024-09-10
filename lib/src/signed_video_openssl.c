@@ -61,8 +61,8 @@ typedef struct {
  * OpenSSL cryptographic object.
  */
 typedef struct {
-  EVP_MD_CTX *primary_ctx;  // Hashing context for the gop level hashing.
-  EVP_MD_CTX *secondary_ctx;  // Hashing context for NALUs.
+  EVP_MD_CTX *primary_ctx;  // Hashing context
+  EVP_MD_CTX *secondary_ctx;  // Hashing context for fallback to gop level hashing.
   message_digest_t hash_algo;
 } openssl_crypto_t;
 
@@ -535,7 +535,6 @@ openssl_free_handle(void *handle)
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   if (!self) return;
   EVP_MD_CTX_free(self->primary_ctx);
-  EVP_MD_CTX_free(self->secondary_ctx);
   free(self->hash_algo.encoded_oid);
   free(self);
 }

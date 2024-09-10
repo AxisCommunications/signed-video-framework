@@ -845,7 +845,7 @@ update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
 }
 
 svrc_t
-initialize_and_update_gop_level_hash(signed_video_t *self, uint8_t *hash_list, int idx)
+init_fallback_gop_hash(signed_video_t *self, uint8_t *hash_list, int idx)
 {
 
   svrc_t status = SV_UNKNOWN_FAILURE;
@@ -877,7 +877,7 @@ update_fallback_gop_hash(signed_video_t *self, const uint8_t *nalu_hash)
 }
 
 svrc_t
-finalize_gop_hash(const signed_video_t *self)
+finalize_fallback_gop_hash(const signed_video_t *self)
 {
   gop_info_t *gop_info = self->gop_info;
   uint8_t *hash = gop_info->computed_gop_hash;
@@ -902,10 +902,12 @@ compute_partial_gop_hash(const signed_video_t *self,
 {
   gop_info_t *gop_info = self->gop_info;
   if (gop_info->list_idx < 0) {
-    // When list_idx < 0, it indicates that there was insufficient memory allocated for the
+    // TODO: When list_idx < 0, it indicates that there was insufficient memory allocated for the
     // hash_list to add another hash. As a result, Signed Video will operate with a GOP level
-    // authenticity.
-    return finalize_gop_hash(self);
+    // authenticity. The current implementation of the new gop_hash cannot handle this fallback
+    // scenario because it is computed from the hash_list, which is currently in a compromised
+    // state. This implementation needs to be reworked to properly handle this condition.
+    return finalize_fallback_gop_hash(self);
   }
 
   return openssl_hash_data(self->crypto_handle, hash_list, hash_list_idx, gop_hash);
@@ -921,7 +923,7 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
   uint8_t *hash_list = &self->gop_info->hash_list[0];
   int *list_idx = &self->gop_info->list_idx;
 
-  if (*list_idx + hash_size > self->gop_info->hash_list_size) {
+  if (*list_idx + hash_size > self->gop_info->hash_list_size + 1) {
     *list_idx = -1;
   }
   if (*list_idx == 0) {
