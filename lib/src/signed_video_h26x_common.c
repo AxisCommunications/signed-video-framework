@@ -843,23 +843,10 @@ update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
 
   return status;
 }
-svrc_t
-compute_partial_gop_hash(const signed_video_t *self,
-    const uint8_t *hash_list,
-    int hash_list_idx,
-    uint8_t *gop_hash)
-{
-  size_t hash_size = openssl_get_hash_size(self->crypto_handle);
-  if (hash_list_idx <= 0) {
-    memset(gop_hash, 0, hash_size);
-    return SV_OK;  // Handle insufficient memory scenario.
-  }
 
-  return openssl_hash_data(self->crypto_handle, hash_list, hash_list_idx, gop_hash);
-}
-
-/* Checks if there is enough room to copy the hash. If so, copies the |nalu_hash| and updates the
- * |list_idx|. Otherwise, sets the |list_idx| to -1 and proceeds. */
+/* Initializes and updates the GOP hash regardless of available space. If there is enough
+ * room, copies the |hash| and updates |list_idx|. Otherwise, sets |list_idx| to -1.
+ */
 void
 check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size_t hash_size)
 {
@@ -867,13 +854,24 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
 
   uint8_t *hash_list = &self->gop_info->hash_list[0];
   int *list_idx = &self->gop_info->list_idx;
-  // Check if there is room for another hash in the |hash_list|.
-  if (*list_idx + hash_size > self->gop_info->hash_list_size) *list_idx = -1;
+
+  // If this is the start of the GOP, initialize |crypto_handle| to enable
+  // updating the hash with each received NALU.
+  if (*list_idx == 0) {
+    openssl_init_hash(self->crypto_handle, true);
+  }
+  // If the upcoming hash doesn't fit in the hash list buffer, set *list_idx to -1
+  // to indicate that the hash list is full, and the hash list is no longer accessible.
+  if (*list_idx + hash_size > self->gop_info->hash_list_size) {
+    *list_idx = -1;
+  }
+  // Since the upcoming NALU fits in the buffer (as determined by prior checks),
+  // a valid |hash_list| exists, and the |hash| can be copied to it.
   if (*list_idx >= 0) {
-    // We have a valid |hash_list| and can copy the |nalu_hash| to it.
     memcpy(&hash_list[*list_idx], hash, hash_size);
     *list_idx += hash_size;
   }
+  openssl_update_hash(self->crypto_handle, hash, hash_size, true);
 }
 
 svrc_t
@@ -934,7 +932,7 @@ update_hash(signed_video_t *self,
   const uint8_t *hashable_data = nalu->hashable_data;
   size_t hashable_data_size = nalu->hashable_data_size;
 
-  return openssl_update_hash(self->crypto_handle, hashable_data, hashable_data_size);
+  return openssl_update_hash(self->crypto_handle, hashable_data, hashable_data_size, false);
 }
 
 /* simply_hash()
@@ -955,7 +953,7 @@ simply_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *hash, size_t
     svrc_t status = update_hash(self, nalu, hash, hash_size);
     if (status == SV_OK) {
       // Finalize the ongoing hash of NALU parts.
-      status = openssl_finalize_hash(self->crypto_handle, hash);
+      status = openssl_finalize_hash(self->crypto_handle, hash, false);
       // For the first NALU in a GOP, the hash is used twice. Once for linking and once as reference
       // for the future. Store the |nalu_hash| in |tmp_hash| to be copied for its second use, since
       // it is not possible to recompute the hash from partial NALU data.
@@ -1060,7 +1058,7 @@ hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
     if (nalu->is_first_nalu_part && !nalu->is_last_nalu_part) {
       // If this is the first part of a non-complete NALU, initialize the |crypto_handle| to enable
       // sequentially updating the hash with more parts.
-      SV_THROW(openssl_init_hash(self->crypto_handle));
+      SV_THROW(openssl_init_hash(self->crypto_handle, false));
     }
     // Select hash function, hash the NALU and store as 'latest hash'
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
@@ -1237,7 +1235,7 @@ signed_video_reset(signed_video_t *self)
 
     memset(self->last_nalu, 0, sizeof(h26x_nalu_t));
     self->last_nalu->is_last_nalu_part = true;
-    SV_THROW(openssl_init_hash(self->crypto_handle));
+    SV_THROW(openssl_init_hash(self->crypto_handle, false));
 
     SV_THROW(reset_gop_hash(self));
   SV_CATCH()

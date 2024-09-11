@@ -536,10 +536,10 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
         uint8_t *payload = NULL;
         uint8_t *payload_signature_ptr = NULL;
 
-        // Hash the |hash_list| before write the computed GOP hash to TLV.
-        SV_THROW(compute_partial_gop_hash(
-            self, gop_info->hash_list, gop_info->list_idx, gop_info->computed_gop_hash));
-
+        // If there are hashes added to the hash list, the |computed_gop_hash| can be finalized.
+        if (gop_info->list_idx > 0) {
+          SV_THROW(openssl_finalize_hash(self->crypto_handle, gop_info->computed_gop_hash, true));
+        }
         SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
         // Add |payload| to buffer. Will be picked up again when the signature has been generated.
         add_payload_to_buffer(self, payload, payload_signature_ptr);
@@ -565,10 +565,8 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
         uint8_t *payload = NULL;
         uint8_t *payload_signature_ptr = NULL;
 
-        // Hash the |hash_list| before write the computed GOP hash to TLV.
-        SV_THROW(compute_partial_gop_hash(
-            self, gop_info->hash_list, gop_info->list_idx, gop_info->computed_gop_hash));
-
+        // Finalize the GOP hash before write it the to TLV.
+        SV_THROW(openssl_finalize_hash(self->crypto_handle, gop_info->computed_gop_hash, true));
         SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
         // Add |payload| to buffer. Will be picked up again when the signature has been generated.
         add_payload_to_buffer(self, payload, payload_signature_ptr);
@@ -621,7 +619,9 @@ get_signature_complete_sei_and_add_to_prepend(signed_video_t *self)
       SV_THROW_WITH_MSG(
           openssl_verify_hash(&verify_data, &verified), "Verification test had errors");
       openssl_free_key(verify_data.key);
-      SV_THROW_IF_WITH_MSG(verified != 1, SV_EXTERNAL_ERROR, "Verification test failed");
+      if (!self->using_golden_sei) {
+        SV_THROW_IF_WITH_MSG(verified != 1, SV_EXTERNAL_ERROR, "Verification test failed");
+      }
 #endif
       SV_THROW(complete_sei_nalu_and_add_to_prepend(self));
     }

@@ -135,13 +135,14 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
  * Uses the OpenSSL API EVP_DigestInit_ex() to initiate an EVP_MD_CTX object in |handle|.
  *
  * @param handle Pointer to the OpenSSL cryptographic handle.
+ * @param use_primary_ctx Flag that indicates which hash context to use.
  *
  * @returns SV_OK Successfully initialized EVP_MD_CTX object in |handle|,
  *          SV_INVALID_PARAMETER Null pointer input,
  *          SV_EXTERNAL_ERROR Failed to initialize.
  */
 svrc_t
-openssl_init_hash(void *handle);
+openssl_init_hash(void *handle, bool use_primary_ctx);
 
 /**
  * @brief Updates the cryptographic handle with |data| for hashing
@@ -152,13 +153,14 @@ openssl_init_hash(void *handle);
  * @param handle Pointer to the OpenSSL cryptographic handle.
  * @param data Pointer to the data to update an ongoing hash.
  * @param data_size Size of the |data|.
+ * @param use_primary_ctx Flag that indicates which hash context to use.
  *
  * @returns SV_OK Successfully updated EVP_MD_CTX object in |handle|,
  *          SV_INVALID_PARAMETER Null pointer inputs, or invalid |data_size|,
  *          SV_EXTERNAL_ERROR Failed to update.
  */
 svrc_t
-openssl_update_hash(void *handle, const uint8_t *data, size_t data_size);
+openssl_update_hash(void *handle, const uint8_t *data, size_t data_size, bool use_primary_ctx);
 
 /**
  * @brief Finalizes the cryptographic handle and outputs the hash
@@ -168,13 +170,14 @@ openssl_update_hash(void *handle, const uint8_t *data, size_t data_size);
  *
  * @param handle Pointer to the OpenSSL cryptographic handle.
  * @param hash A pointer to the hashed output. This memory has to be pre-allocated.
+ * @param use_primary_ctx Flag that indicates which hash context to use.
  *
  * @returns SV_OK Successfully wrote the final result of EVP_MD_CTX object in |handle| to |hash|,
  *          SV_INVALID_PARAMETER Null pointer inputs,
  *          SV_EXTERNAL_ERROR Failed to finalize.
  */
 svrc_t
-openssl_finalize_hash(void *handle, uint8_t *hash);
+openssl_finalize_hash(void *handle, uint8_t *hash, bool use_primary_ctx);
 
 /**
  * @brief Verifies a signature against a hash
