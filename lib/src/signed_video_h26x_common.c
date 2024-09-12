@@ -874,6 +874,12 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
   openssl_update_hash(self->crypto_handle, hash, hash_size, true);
 }
 
+/*
+ * Updates the |linked_hash| buffer with the upcoming hash. The buffer contains 3 slots for hashes.
+ * When a new I NALU is encountered in the stream, the hash of the |linked_hash| buffer is updated
+ * with the hash of the I NALU. While updating, all the values in the buffer are shifted to the
+ * start of the buffer, and the new hash is copied to the last slot of the buffer.
+ */
 svrc_t
 update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
 {
@@ -884,12 +890,17 @@ update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
     if (hash_size != self->sign_data->hash_size) return SV_INVALID_PARAMETER;
   }
   gop_info_t *gop_info = self->gop_info;
-  uint8_t *stored_hash = &gop_info->linked_hashes[hash_size];
-  uint8_t *linked_hash = &gop_info->linked_hashes[0];
-  // Move the content of stored_hash to linked_hash
-  memmove(linked_hash, stored_hash, hash_size);
-  // Copy the new hash to stored_hash
-  memcpy(stored_hash, hash, hash_size);
+  uint8_t *new_hash = &gop_info->linked_hashes[hash_size * 2];  // Newest linked hash
+  uint8_t *middle_hash = &gop_info->linked_hashes[hash_size];  // Middle hash in the chain
+  uint8_t *oldest_hash = &gop_info->linked_hashes[0];  // Oldest hash in the chain
+
+  // Move middle_hash to oldest_hash
+  memmove(oldest_hash, middle_hash, hash_size);
+  // Move new_hash to middle_hash
+  memmove(middle_hash, new_hash, hash_size);
+
+  // Copy the hash into the new_hash slot
+  memcpy(new_hash, hash, hash_size);
 
   return SV_OK;
 }

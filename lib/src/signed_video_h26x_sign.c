@@ -574,6 +574,12 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
         // adding it to the SEI NALU. Now it is time to start a new GOP, that is, hash and add this
         // first NALU of the GOP.
         SV_THROW(hash_and_add(self, &nalu));
+        // Chek if Nalu has been used for linking before.
+        if (!nalu.used_for_linked_hash) {
+          nalu.used_for_linked_hash = true;
+          // Copy the |hash| to |linked_hash|.
+          SV_THROW(update_linked_hash(self, self->gop_info->nalu_hash, self->sign_data->hash_size));
+        }
       }
     }
   SV_CATCH()

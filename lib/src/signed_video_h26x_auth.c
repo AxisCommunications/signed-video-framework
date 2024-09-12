@@ -44,7 +44,8 @@ verify_hashes_with_hash_list(signed_video_t *self,
     int *num_received_nalus);
 static int
 set_validation_status_of_pending_items_used_in_gop_hash(h26x_nalu_list_t *nalu_list,
-    char validation_status);
+    char validation_status,
+    int verified_signature_hash);
 static bool
 verify_hashes_with_gop_hash(signed_video_t *self, int *num_expected_nalus, int *num_received_nalus);
 static bool
@@ -69,6 +70,22 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei);
 static const char *kAuthResultValidStr[SV_AUTH_NUM_SIGNED_GOP_VALID_STATES] = {"SIGNATURE MISSING",
     "SIGNATURE PRESENT", "NOT OK", "OK WITH MISSING INFO", "OK", "VERSION MISMATCH"};
 #endif
+
+/*
+ * Checks if linked hash validation is feasible at the start of validation.
+ * During the first validation slots, the hashes in |gop_info->linked_hashes| are all zeros,
+ * indicating that validation is not possible.
+ */
+static bool
+linked_hash_validation_is_not_feasible(signed_video_t *self)
+{
+  gop_info_t *gop_info = self->gop_info;
+  const size_t hash_size = self->verify_data->hash_size;
+  uint8_t linked_hashes[hash_size];
+  memset(linked_hashes, 0x00, sizeof(linked_hashes));
+  bool is_first_link = (memcmp(gop_info->linked_hashes, linked_hashes, hash_size) == 0);
+  return is_first_link;
+}
 
 /**
  * The function is called when we receive a SEI NALU holding all the GOP information such as a
@@ -116,7 +133,20 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
 }
 
 /**
- * Computes the GOP hash from |nalu_hash_list| and compares it with the GOP hash received from the
+ * Compares the computed link hash with the linked hash received from the
+ * signature.
+ */
+bool
+verify_linked_hash(signed_video_t *self)
+{
+  gop_info_t *gop_info = self->gop_info;
+  const size_t hash_size = self->verify_data->hash_size;
+
+  return (memcmp(gop_info->linked_hashes, self->received_linked_hash, hash_size) == 0);
+}
+
+/**
+ * Compares the computed GOP hash with the GOP hash received from the
  * signature.
  */
 static bool
@@ -128,9 +158,32 @@ verify_gop_hash(signed_video_t *self)
   return (memcmp(gop_info->computed_gop_hash, self->received_gop_hash, hash_size) == 0);
 }
 
-/**
- * Adds the hashes of NALUs used in computing the GOP hash and marks these NALUs as part of the GOP
- * hash.
+/*
+ * Iterates through the NALU list to find the first I-frame NALU used in the GOP hash.
+ * If the linked hash has not yet been updated with this NALU's hash, it updates the
+ * linked hash with the current I-frame hash and marks it as used.
+ */
+void
+update_link_hash_for_auth(signed_video_t *self, h26x_nalu_list_t *nalu_list)
+{
+  const size_t hash_size = self->verify_data->hash_size;
+  h26x_nalu_list_item_t *item = nalu_list->first_item;
+  bool found_linked_hash;
+  while (item && !found_linked_hash) {
+    if (item->used_in_gop_hash && item->nalu->is_first_nalu_in_gop &&
+        item->nalu->is_last_nalu_part) {
+
+      if (!item->used_for_linked_hash) {
+        update_linked_hash(self, item->second_hash, hash_size);
+        item->used_for_linked_hash = true;
+      }
+      found_linked_hash = true;
+    }
+    item = item->next;
+  }
+}
+
+/* Marks the NALUs that are used in GOP hash and copy the hashes of the NALUs to |nalu_hash_list|.
  *
  * This function iterates through the NALU list, identifies the NALUs that belong to the current
  * GOP, and marks them as used in the GOP hash. It initializes the GOP hash and updates it with
@@ -188,6 +241,8 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
       item = item->next;
     }
     SV_THROW(openssl_finalize_hash(self->crypto_handle, self->gop_info->computed_gop_hash, true));
+    update_link_hash_for_auth(self, nalu_list);
+
     // Finally, mark the SEI item as used in the GOP hash
     // TODO: Currently, the validation status of the SEI is set when the validation status of all
     // NALUs used in the GOP hash is set. This process will be modified after implementing the
@@ -412,7 +467,8 @@ verify_hashes_with_hash_list(signed_video_t *self, int *num_expected_nalus, int 
  * Returns the number of items marked and -1 upon failure. */
 static int
 set_validation_status_of_pending_items_used_in_gop_hash(h26x_nalu_list_t *nalu_list,
-    char validation_status)
+    char validation_status,
+    int verified_signature_hash)
 {
   if (!nalu_list) return -1;
 
@@ -429,7 +485,8 @@ set_validation_status_of_pending_items_used_in_gop_hash(h26x_nalu_list_t *nalu_l
         item->need_second_verification = true;
         item->first_verification_not_authentic = (validation_status != '.') ? true : false;
       } else {
-        item->validation_status = item->first_verification_not_authentic ? 'N' : validation_status;
+        item->validation_status =
+            set_validation_status_of_item(item, validation_status, verified_signature_hash);
         item->need_second_verification = false;
         num_marked_items++;
       }
@@ -470,6 +527,17 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
   int num_received_hashes = -1;
   char validation_status = 'P';
   svrc_t status = SV_UNKNOWN_FAILURE;
+  // Verify the GOP hash.
+  bool gop_is_ok = verify_gop_hash(self);
+  bool order_ok;
+  // Check if verifying the link hash is feasible.
+  if (linked_hash_validation_is_not_feasible(self)) {
+    // If the its not feasible link hash verification is not effecting the final validation
+    // So it is set to true.
+    order_ok = true;
+  } else {
+    order_ok = verify_linked_hash(self);
+  }
 
   // The verified_signature_hash indicates if the signature is verified.
   // If the signature hash is verified, the GOP hash can be verified as well.
@@ -478,7 +546,7 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
   if (self->gop_info->verified_signature_hash == 1) {
     validation_status = '.';
     num_expected_hashes = (int)self->gop_info->num_sent_nalus;
-    if (!verify_gop_hash(self)) {
+    if (!gop_is_ok || !order_ok) {
       // If the signature is verified but GOP hash is not, continue validation with the
       // hash list if it is present.
       if (self->gop_info->list_idx > 0) {
@@ -501,8 +569,8 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
   while (first_gop_hash_item && !first_gop_hash_item->used_in_gop_hash) {
     first_gop_hash_item = first_gop_hash_item->next;
   }
-  num_received_hashes =
-      set_validation_status_of_pending_items_used_in_gop_hash(self->nalu_list, validation_status);
+  num_received_hashes = set_validation_status_of_pending_items_used_in_gop_hash(
+      self->nalu_list, validation_status, self->gop_info->verified_signature_hash);
 
   if (!self->validation_flags.is_first_validation && first_gop_hash_item) {
     int num_missing_nalus = num_expected_hashes - num_received_hashes;
@@ -569,8 +637,8 @@ verify_hashes_with_gop_hash(signed_video_t *self, int *num_expected_nalus, int *
   while (first_gop_hash_item && !first_gop_hash_item->used_in_gop_hash) {
     first_gop_hash_item = first_gop_hash_item->next;
   }
-  num_received_hashes =
-      set_validation_status_of_pending_items_used_in_gop_hash(self->nalu_list, validation_status);
+  num_received_hashes = set_validation_status_of_pending_items_used_in_gop_hash(
+      self->nalu_list, validation_status, self->gop_info->verified_signature_hash);
 
   if (!self->validation_flags.is_first_validation && first_gop_hash_item) {
     int num_missing_nalus = num_expected_hashes - num_received_hashes;
@@ -613,7 +681,7 @@ verify_hashes_without_sei(signed_video_t *self)
       item = item->next;
       continue;
     }
-
+    item->used_in_gop_hash = true;
     // A new GOP starts if the NALU |is_first_nalu_in_gop|. Such a NALU is hashed twice; as an
     // initial hash AND as a linking hash between GOPs. If this is the first time is is used in
     // verification it also marks the start of a new GOP.
@@ -631,7 +699,8 @@ verify_hashes_without_sei(signed_video_t *self)
     }
     item = item->next;
   }
-
+  update_link_hash_for_auth(self, nalu_list);
+  remove_used_in_gop_hash(self->nalu_list);
   // If we have verified a GOP without a SEI, we should increment the |global_gop_counter|.
   if (self->validation_flags.signing_present && (num_marked_items > 0)) {
     self->gop_info->global_gop_counter++;
