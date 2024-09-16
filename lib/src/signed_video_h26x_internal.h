@@ -146,7 +146,6 @@ struct _h26x_nalu_t {
   bool is_last_nalu_part;  // True if the |nalu_data| includes the last part
   bool with_epb;  // Hashable data may include emulation prevention bytes
   bool is_golden_sei;
-  bool used_for_linked_hash;
 };
 
 /* Internal APIs for gop_state_t functions */

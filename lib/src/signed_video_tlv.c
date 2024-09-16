@@ -341,15 +341,6 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
       // Decode gop hash data.
       memcpy(self->received_gop_hash, data_ptr, hash_size);
       data_ptr += hash_size;
-#ifdef SIGNED_VIDEO_DEBUG
-      printf("*******************************************************************************:\n");
-      printf("Recived link hash:\n");
-      for (size_t i = 0; i < hash_size; i++) {
-        printf("%02x", self->received_linked_hash[i]);
-      }
-      printf("\n");
-      printf("*******************************************************************************:\n");
-#endif
     }
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
   SV_CATCH()

@@ -44,8 +44,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
     int *num_received_nalus);
 static int
 set_validation_status_of_pending_items_used_in_gop_hash(h26x_nalu_list_t *nalu_list,
-    char validation_status,
-    int verified_signature_hash);
+    char validation_status);
 static bool
 verify_hashes_with_gop_hash(signed_video_t *self, int *num_expected_nalus, int *num_received_nalus);
 static bool
@@ -141,6 +140,11 @@ verify_linked_hash(signed_video_t *self)
 {
   gop_info_t *gop_info = self->gop_info;
   const size_t hash_size = self->verify_data->hash_size;
+  // If linked hash validation is not feasible, the linked hash verification
+  // does not affect the final outcome of the validation. Therefore, return true.
+  if (linked_hash_validation_is_not_feasible(self)) {
+    return true;
+  }
 
   return (memcmp(gop_info->linked_hashes, self->received_linked_hash, hash_size) == 0);
 }
@@ -467,8 +471,7 @@ verify_hashes_with_hash_list(signed_video_t *self, int *num_expected_nalus, int 
  * Returns the number of items marked and -1 upon failure. */
 static int
 set_validation_status_of_pending_items_used_in_gop_hash(h26x_nalu_list_t *nalu_list,
-    char validation_status,
-    int verified_signature_hash)
+    char validation_status)
 {
   if (!nalu_list) return -1;
 
@@ -485,8 +488,7 @@ set_validation_status_of_pending_items_used_in_gop_hash(h26x_nalu_list_t *nalu_l
         item->need_second_verification = true;
         item->first_verification_not_authentic = (validation_status != '.') ? true : false;
       } else {
-        item->validation_status =
-            set_validation_status_of_item(item, validation_status, verified_signature_hash);
+        item->validation_status = item->first_verification_not_authentic ? 'N' : validation_status;
         item->need_second_verification = false;
         num_marked_items++;
       }
@@ -529,30 +531,19 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
   svrc_t status = SV_UNKNOWN_FAILURE;
   // Verify the GOP hash.
   bool gop_is_ok = verify_gop_hash(self);
-  bool order_ok;
-  // Check if verifying the link hash is feasible.
-  if (linked_hash_validation_is_not_feasible(self)) {
-    // If the its not feasible link hash verification is not effecting the final validation
-    // So it is set to true.
-    order_ok = true;
-  } else {
-    order_ok = verify_linked_hash(self);
-  }
+  bool order_ok = verify_linked_hash(self);
 
   // The verified_signature_hash indicates if the signature is verified.
   // If the signature hash is verified, the GOP hash can be verified as well.
   // If the signature hash is not verified, it means the SEI is corrupted, and the whole GOP status
   // is determined by the verified_signature_hash.
   if (self->gop_info->verified_signature_hash == 1) {
-    validation_status = '.';
+    validation_status = (gop_is_ok && order_ok) ? '.' : 'N';
     num_expected_hashes = (int)self->gop_info->num_sent_nalus;
-    if (!gop_is_ok || !order_ok) {
-      // If the signature is verified but GOP hash is not, continue validation with the
-      // hash list if it is present.
-      if (self->gop_info->list_idx > 0) {
-        return verify_hashes_with_hash_list(self, num_expected_nalus, num_received_nalus);
-      }
-      validation_status = 'N';
+    // If the signature is verified but GOP hash or the linked hash is not, continue validation with
+    // the hash list if it is present.
+    if ((!gop_is_ok || !order_ok) && self->gop_info->list_idx > 0) {
+      return verify_hashes_with_hash_list(self, num_expected_nalus, num_received_nalus);
     }
   } else if (self->gop_info->verified_signature_hash == 0) {
     validation_status = 'N';
@@ -569,8 +560,8 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
   while (first_gop_hash_item && !first_gop_hash_item->used_in_gop_hash) {
     first_gop_hash_item = first_gop_hash_item->next;
   }
-  num_received_hashes = set_validation_status_of_pending_items_used_in_gop_hash(
-      self->nalu_list, validation_status, self->gop_info->verified_signature_hash);
+  num_received_hashes =
+      set_validation_status_of_pending_items_used_in_gop_hash(self->nalu_list, validation_status);
 
   if (!self->validation_flags.is_first_validation && first_gop_hash_item) {
     int num_missing_nalus = num_expected_hashes - num_received_hashes;
@@ -637,8 +628,8 @@ verify_hashes_with_gop_hash(signed_video_t *self, int *num_expected_nalus, int *
   while (first_gop_hash_item && !first_gop_hash_item->used_in_gop_hash) {
     first_gop_hash_item = first_gop_hash_item->next;
   }
-  num_received_hashes = set_validation_status_of_pending_items_used_in_gop_hash(
-      self->nalu_list, validation_status, self->gop_info->verified_signature_hash);
+  num_received_hashes =
+      set_validation_status_of_pending_items_used_in_gop_hash(self->nalu_list, validation_status);
 
   if (!self->validation_flags.is_first_validation && first_gop_hash_item) {
     int num_missing_nalus = num_expected_hashes - num_received_hashes;

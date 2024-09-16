@@ -49,25 +49,6 @@ void
 h26x_nalu_list_free(h26x_nalu_list_t* list);
 
 /**
- * @brief Sets the validation status for a specific NALU list item based on the GOP verification.
- *
- * If the item is a GOP SEI NALU and the gop_hash was successfully verified,
- * the validation status remains OK '.' unless it has already been marked as uncertain 'U'.
- * If the item's first verification was not authentic and it is the first NALU in the GOP,
- * the status is set to 'U' if it was used for linked hash, otherwise 'N'.
- *
- * @param item Pointer to the NALU list item
- * @param validation_status The current validation status of the item
- * @param verified_signature_hash The result of the gop_hash verification
- *
- * @return The final validation status for the item.
- */
-char
-set_validation_status_of_item(h26x_nalu_list_item_t* item,
-    char validation_status,
-    int verified_signature_hash);
-
-/**
  * @brief Removes and frees all the items in a h26x_nalu_list_t
  *
  * @param list The list to empty. All items in the list are freed.

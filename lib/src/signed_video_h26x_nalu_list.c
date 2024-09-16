@@ -76,36 +76,6 @@ get_validation_status_from_nalu(const h26x_nalu_t *nalu)
   }
 }
 
-/* Sets the validation status for a specific NALU list item based on the gop_hash verification.
- *
- * If the item is a GOP SEI NALU and the gop_hash was successfully verified,
- * the validation status remains OK '.' unless it has already been marked as uncertain 'U'.
- * If the item's first verification was not authentic and it is the first NALU in the GOP,
- * the status is set to 'U' if it was used for linked hash, otherwise 'N'.
- *
- * Returns the final validation status for the item.
- */
-char
-set_validation_status_of_item(h26x_nalu_list_item_t *item,
-    char validation_status,
-    int verified_signature_hash)
-{
-  // If the item is a GOP SEI and the signature was successfully verified.
-  if (item->nalu->is_gop_sei && verified_signature_hash == 1) {
-    // If the current status is not '.', mark it as uncertain 'U'.
-    validation_status = (validation_status == '.') ? validation_status : 'U';
-    return validation_status;
-  }
-
-  // If the first verification of this item was not authentic and it is the first NALU in the GOP.
-  if (item->first_verification_not_authentic && item->nalu->is_first_nalu_in_gop) {
-    // Set the status to 'U' if it was used for linked hash; otherwise, set it to 'N'.
-    validation_status = item->used_for_linked_hash ? 'U' : 'N';
-  }
-
-  return validation_status;
-}
-
 /**
  * Static h26x_nalu_list_item_t functions.
  */
