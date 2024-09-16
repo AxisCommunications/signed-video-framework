@@ -77,14 +77,10 @@ static const char *kAuthResultValidStr[SV_AUTH_NUM_SIGNED_GOP_VALID_STATES] = {"
  * indicating that validation is not possible.
  */
 static bool
-linked_hash_validation_is_not_feasible(signed_video_t *self)
+linked_hash_validation_is_not_feasible(const size_t hash_size, const uint8_t *linked_hashes)
 {
-  gop_info_t *gop_info = self->gop_info;
-  const size_t hash_size = self->verify_data->hash_size;
-  uint8_t linked_hashes[hash_size];
-  memset(linked_hashes, 0x00, sizeof(linked_hashes));
-  bool is_first_link = (memcmp(gop_info->linked_hashes, linked_hashes, hash_size) == 0);
-  return is_first_link;
+  const uint8_t linked_hash[MAX_HASH_SIZE] = {0};
+  return (memcmp(linked_hashes, linked_hash, hash_size) == 0);
 }
 
 /**
@@ -141,9 +137,10 @@ verify_linked_hash(signed_video_t *self)
 {
   gop_info_t *gop_info = self->gop_info;
   const size_t hash_size = self->verify_data->hash_size;
-  // If linked hash validation is not feasible, the linked hash verification
-  // does not affect the final outcome of the validation. Therefore, return true.
-  if (linked_hash_validation_is_not_feasible(self)) {
+  // The linked hash is used to validate the sequence of GOPs. Verification is only possible
+  // after receiving two complete GOPs, which is indicated by the presence of all-zero
+  // hashes in |linked_hashes|.
+  if (linked_hash_validation_is_not_feasible(hash_size, gop_info->linked_hashes)) {
     return true;
   }
 

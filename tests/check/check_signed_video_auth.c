@@ -495,7 +495,7 @@ START_TEST(remove_one_p_nalu)
   //
   // SI                ->   (valid) -> .P
   //  IPPSI            ->   (valid) -> .....P
-  //      IPPSI        -> (invalid) -> NNNNP
+  //      IPPSI        -> (invalid) -> NNMNNP
   //          IPPSI    -> (invalid) -> N...P
   // One pending NAL Unit per GOP.
   struct validation_stats expected = {.valid_gops = 2,
@@ -1347,7 +1347,7 @@ START_TEST(fast_forward_stream_without_reset)
       SV_AUTH_RESULT_NOT_OK, false, 21, 20, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // Validate IP SIPPPSIPPPSI (without reset, i.e., started with IP before fast forward):
 
-  // SI             -> NMMNNP        ->   (SV_AUTH_RESULT_SIGNATURE_PRESENT)
+  // SI             -> NMMNNP        ->   (invalid)
   //  IPPPSI        -> NNNNNP        ->   (invalid)
   //       IPPPSI   -> NNNNNP        ->   (invalid)
   // Total number of pending NAL Units = 1 + 1 + 1 = 3
