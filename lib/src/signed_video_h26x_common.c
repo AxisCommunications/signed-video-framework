@@ -1244,6 +1244,7 @@ signed_video_reset(signed_video_t *self)
     // Empty the |nalu_list|.
     h26x_nalu_list_free_items(self->nalu_list);
 
+    memset(self->gop_info->linked_hashes, 0, sizeof(self->gop_info->linked_hashes));
     memset(self->last_nalu, 0, sizeof(h26x_nalu_t));
     self->last_nalu->is_last_nalu_part = true;
     SV_THROW(openssl_init_hash(self->crypto_handle, false));

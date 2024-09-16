@@ -41,7 +41,8 @@ decode_sei_data(signed_video_t *signed_video, const uint8_t *payload, size_t pay
 static bool
 verify_hashes_with_hash_list(signed_video_t *self,
     int *num_expected_nalus,
-    int *num_received_nalus);
+    int *num_received_nalus,
+    bool order_ok);
 static int
 set_validation_status_of_pending_items_used_in_gop_hash(h26x_nalu_list_t *nalu_list,
     char validation_status);
@@ -163,9 +164,9 @@ verify_gop_hash(signed_video_t *self)
 }
 
 /*
- * Iterates through the NALU list to find the first I-frame NALU used in the GOP hash.
+ * Iterates through the NALU list to find the first NALU used in the GOP hash.
  * If the linked hash has not yet been updated with this NALU's hash, it updates the
- * linked hash with the current I-frame hash and marks it as used.
+ * linked hash with the first NALU hash and marks it as used.
  */
 void
 update_link_hash_for_auth(signed_video_t *self, h26x_nalu_list_t *nalu_list)
@@ -173,10 +174,8 @@ update_link_hash_for_auth(signed_video_t *self, h26x_nalu_list_t *nalu_list)
   const size_t hash_size = self->verify_data->hash_size;
   h26x_nalu_list_item_t *item = nalu_list->first_item;
   bool found_linked_hash;
-  while (item && !found_linked_hash) {
-    if (item->used_in_gop_hash && item->nalu->is_first_nalu_in_gop &&
-        item->nalu->is_last_nalu_part) {
-
+  while (item && !found_linked_hash && !item->nalu->is_gop_sei) {
+    if (item->used_in_gop_hash && item->nalu->is_last_nalu_part) {
       if (!item->used_for_linked_hash) {
         update_linked_hash(self, item->second_hash, hash_size);
         item->used_for_linked_hash = true;
@@ -276,7 +275,10 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
  *
  * Returns false if we failed verifying hashes. Otherwise, returns true. */
 static bool
-verify_hashes_with_hash_list(signed_video_t *self, int *num_expected_nalus, int *num_received_nalus)
+verify_hashes_with_hash_list(signed_video_t *self,
+    int *num_expected_nalus,
+    int *num_received_nalus,
+    bool order_ok)
 {
   assert(self);
 
@@ -368,16 +370,22 @@ verify_hashes_with_hash_list(signed_video_t *self, int *num_expected_nalus, int 
       uint8_t *expected_hash = &expected_hashes[compare_idx * hash_size];
 
       if (memcmp(hash_to_verify, expected_hash, hash_size) == 0) {
-        // We have a match. Set validation_status and add missing nalus if we have detected any.
-        if (item->second_hash && !item->need_second_verification &&
-            item->nalu->is_first_nalu_in_gop) {
-          // If this |is_first_nalu_in_gop| it should be verified twice. If this the first time we
-          // signal that we |need_second_verification|.
-          DEBUG_LOG("This NALU needs a second verification");
-          item->need_second_verification = true;
+        if (!order_ok) {
+          item->validation_status = 'N';
+          update_link_hash_for_auth(self, nalu_list);
+          order_ok = true;
         } else {
-          item->validation_status = item->first_verification_not_authentic ? 'N' : '.';
-          item->need_second_verification = false;
+          // We have a match. Set validation_status and add missing nalus if we have detected any.
+          if (item->second_hash && !item->need_second_verification &&
+              item->nalu->is_first_nalu_in_gop) {
+            // If this |is_first_nalu_in_gop| it should be verified twice. If this the first time we
+            // signal that we |need_second_verification|.
+            DEBUG_LOG("This NALU needs a second verification");
+            item->need_second_verification = true;
+          } else {
+            item->validation_status = item->first_verification_not_authentic ? 'N' : '.';
+            item->need_second_verification = false;
+          }
         }
         // Add missing items to |nalu_list|.
         int num_detected_missing_nalus =
@@ -542,8 +550,8 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
     num_expected_hashes = (int)self->gop_info->num_sent_nalus;
     // If the signature is verified but GOP hash or the linked hash is not, continue validation with
     // the hash list if it is present.
-    if ((!gop_is_ok || !order_ok) && self->gop_info->list_idx > 0) {
-      return verify_hashes_with_hash_list(self, num_expected_nalus, num_received_nalus);
+    if (!gop_is_ok && self->gop_info->list_idx > 0) {
+      return verify_hashes_with_hash_list(self, num_expected_nalus, num_received_nalus, order_ok);
     }
   } else if (self->gop_info->verified_signature_hash == 0) {
     validation_status = 'N';

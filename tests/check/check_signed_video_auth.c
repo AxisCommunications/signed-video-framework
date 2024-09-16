@@ -1098,8 +1098,8 @@ START_TEST(lost_all_nalus_between_two_seis)
   // SI                ->   (valid) -> .P
   //  IPPPSS           -> (invalid) -> NNNNNP
   //       SI          -> (invalid) -> MMMMNP (4 missed)
-  //        IPPPSI     -> (invalid) -> N....P
-  //             IPPSI -> (invalid) -> NNNNP (Previous link hash is missing)
+  //        IPPPSI     -> (invalid) -> N....P (Previous link hash is missing)
+  //             IPPSI ->   (valid) -> ....P
   struct validation_stats expected = {.valid_gops = 1,
       .invalid_gops = 4,
       .missed_nalus = 4,
@@ -1113,8 +1113,8 @@ START_TEST(lost_all_nalus_between_two_seis)
     //       SI          -> (invalid) -> MMMM.P (4 missed)
     //        IPPPSI     -> (invalid) -> N....P
     //             IPPSI ->   (valid) -> ....P
-    expected.valid_gops = 3;
-    expected.invalid_gops = 2;
+    expected.valid_gops = 2;
+    expected.invalid_gops = 3;
   }
   validate_nalu_list(NULL, list, expected, true);
 
@@ -1312,24 +1312,18 @@ START_TEST(fast_forward_stream_with_reset)
 
   // Final validation is OK and all received NAL Units, but the last one, are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 12, 11, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 12, 11, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // Validate SIPPPSIPPPSI:
   //
-  // SI             -> .P        ->   (SV_AUTH_RESULT_SIGNATURE_PRESENT)
+  // SI             -> UP        ->   (SV_AUTH_RESULT_SIGNATURE_PRESENT)
   //  IPPPSI        -> .....P    ->   (valid)
-  //       IPPPSI   -> NNNNNP    ->   (valid)
+  //       IPPPSI   -> .....P    ->   (valid)
   //
   // Total number of pending NAL Units = 1 + 1 + 1 = 3
-  struct validation_stats expected = {.valid_gops = 1,
+  struct validation_stats expected = {.valid_gops = 2,
       .pending_nalus = 3,
       .has_signature = 1,
-      .invalid_gops = 1,
       .final_validation = &final_validation};
-  if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    expected.valid_gops = 2;
-    expected.invalid_gops = 0;
-    expected.final_validation->authenticity = SV_AUTH_RESULT_OK;
-  };
 
   validate_nalu_list(sv, list, expected, true);
   // Free list and session.
@@ -1362,11 +1356,6 @@ START_TEST(fast_forward_stream_without_reset)
       .missed_nalus = 2,
       .pending_nalus = 3,
       .final_validation = &final_validation};
-  if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    expected.valid_gops = 1;
-    expected.invalid_gops = 2;
-  };
-
   validate_nalu_list(sv, list, expected, true);
 
   // Free list and session.
