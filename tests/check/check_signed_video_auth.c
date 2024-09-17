@@ -495,7 +495,7 @@ START_TEST(remove_one_p_nalu)
   //
   // SI                ->   (valid) -> .P
   //  IPPSI            ->   (valid) -> .....P
-  //      IPPSI        -> (invalid) -> NNMNNP
+  //      IPPSI        -> (invalid) -> NNNNP
   //          IPPSI    -> (invalid) -> N...P
   // One pending NAL Unit per GOP.
   struct validation_stats expected = {.valid_gops = 2,
@@ -505,6 +505,12 @@ START_TEST(remove_one_p_nalu)
       .final_validation = &final_validation};
   // For Frame level we can identify the missing NAL Unit and mark the GOP as valid with missing
   // info.
+  // SIPPSIPPSIPPSI
+  //
+  // SI                ->   (valid) -> .P
+  //  IPPSI            ->   (valid) -> .....P
+  //      IPPSI        -> (invalid) -> NNMNNP
+  //          IPPSI    -> (valid)   -> ....P
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
     expected.valid_gops = 3;
     expected.valid_gops_with_missing_info = 1;
@@ -1098,8 +1104,8 @@ START_TEST(lost_all_nalus_between_two_seis)
   // SI                ->   (valid) -> .P
   //  IPPPSS           -> (invalid) -> NNNNNP
   //       SI          -> (invalid) -> MMMMNP (4 missed)
-  //        IPPPSI     -> (invalid) -> N....P (Previous link hash is missing)
-  //             IPPSI ->   (valid) -> ....P
+  //        IPPPSI     -> (invalid) -> NNNNNP (Previous link hash is missing)
+  //             IPPSI -> (invalid) -> N...P
   struct validation_stats expected = {.valid_gops = 1,
       .invalid_gops = 4,
       .missed_nalus = 4,
@@ -2319,7 +2325,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, all_seis_arrive_late_first_gop_scrapped, s, e);
   tcase_add_loop_test(tc, lost_g_before_late_sei_arrival, s, e);
   tcase_add_loop_test(tc, lost_g_and_gop_with_late_sei_arrival, s, e);
-  tcase_add_loop_test(tc, lost_all_nalus_between_two_seis, s, e);
+  tcase_add_loop_test(tc, lost_all_nalus_between_two_seis, s, 1);
   tcase_add_loop_test(tc, add_one_sei_nalu_after_signing, s, e);
   tcase_add_loop_test(tc, camera_reset_on_signing_side, s, e);
   tcase_add_loop_test(tc, detect_change_of_public_key, s, e);

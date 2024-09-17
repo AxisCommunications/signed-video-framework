@@ -875,7 +875,7 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
 }
 
 /*
- * Updates the |linked_hash| buffer with the upcoming hash. The buffer contains 3 slots for hashes.
+ * Updates the |linked_hash| buffer with the upcoming hash. The buffer contains 2 slots for hashes.
  * When a new I NALU is encountered in the stream, the hash of the |linked_hash| buffer is updated
  * with the hash of the I NALU. While updating, all the values in the buffer are shifted to the
  * start of the buffer, and the new hash is copied to the last slot of the buffer.
@@ -891,14 +891,10 @@ update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
   }
   gop_info_t *gop_info = self->gop_info;
   uint8_t *new_hash = &gop_info->linked_hashes[hash_size * 2];  // Newest linked hash
-  uint8_t *middle_hash = &gop_info->linked_hashes[hash_size];  // Middle hash in the chain
-  uint8_t *oldest_hash = &gop_info->linked_hashes[0];  // Oldest hash in the chain
+  uint8_t *old_hash = &gop_info->linked_hashes[0];  // Old hash in the chain
 
-  // Move middle_hash to oldest_hash
-  memmove(oldest_hash, middle_hash, hash_size);
-  // Move new_hash to middle_hash
-  memmove(middle_hash, new_hash, hash_size);
-
+  // Move new_hash to old_hash
+  memmove(old_hash, new_hash, hash_size);
   // Copy the hash into the new_hash slot
   memcpy(new_hash, hash, hash_size);
 
