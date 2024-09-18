@@ -70,6 +70,7 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei);
 static const char *kAuthResultValidStr[SV_AUTH_NUM_SIGNED_GOP_VALID_STATES] = {"SIGNATURE MISSING",
     "SIGNATURE PRESENT", "NOT OK", "OK WITH MISSING INFO", "OK", "VERSION MISMATCH"};
 #endif
+
 /**
  * The function is called when we receive a SEI NALU holding all the GOP information such as a
  * signed hash. The payload is decoded and the signature hash is verified against the gop_hash in
@@ -128,10 +129,8 @@ verify_linked_hash(signed_video_t *self)
   // The linked hash is used to validate the sequence of GOPs. Verification is only possible
   // after receiving two complete GOPs, which is indicated by the presence of all-zero
   // hashes in |linked_hashes|.
-  if ((memcmp(gop_info->linked_hashes, linked_hash, hash_size) == 0)) {
-    return true;
-  }
-  return (memcmp(gop_info->linked_hashes, self->received_linked_hash, hash_size) == 0);
+  return ((memcmp(gop_info->linked_hashes, linked_hash, hash_size) == 0) ||
+      (memcmp(gop_info->linked_hashes, self->received_linked_hash, hash_size) == 0));
 }
 
 /**
