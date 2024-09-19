@@ -535,7 +535,9 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
     num_expected_hashes = (int)self->gop_info->num_sent_nalus;
     // If the signature is verified but GOP hash or the linked hash is not, continue validation with
     // the hash list if it is present.
-    if (!gop_is_ok && self->gop_info->list_idx > 0) {
+    // TODO: Once forward linking is removed, validation will depend on both |!gop_is_ok| and the presence
+    // of the hash list 
+    if (validation_status != '.' && self->gop_info->list_idx > 0) {
       return verify_hashes_with_hash_list(self, num_expected_nalus, num_received_nalus, order_ok);
     }
   } else if (self->gop_info->verified_signature_hash == 0) {

@@ -890,7 +890,7 @@ update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
     if (hash_size != self->sign_data->hash_size) return SV_INVALID_PARAMETER;
   }
   gop_info_t *gop_info = self->gop_info;
-  uint8_t *new_hash = &gop_info->linked_hashes[hash_size * 2];  // Newest linked hash
+  uint8_t *new_hash = &gop_info->linked_hashes[hash_size];  // Newest linked hash
   uint8_t *old_hash = &gop_info->linked_hashes[0];  // Old hash in the chain
 
   // Move new_hash to old_hash

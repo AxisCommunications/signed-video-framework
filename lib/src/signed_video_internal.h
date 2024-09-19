@@ -230,7 +230,7 @@ struct _gop_info_t {
   uint8_t computed_gop_hash[MAX_HASH_SIZE];  // Hash of NALU hashes in GOP.
   uint8_t tmp_hash[MAX_HASH_SIZE];  // Memory for storing a temporary hash needed when a NALU is
   // split in parts.
-  uint8_t linked_hashes[3 * MAX_HASH_SIZE];  // Stores linked hash data for liked hash method.
+  uint8_t linked_hashes[2 * MAX_HASH_SIZE];  // Stores linked hash data for liked hash method.
 
   uint8_t *tmp_hash_ptr;
   uint8_t encoding_status;  // Stores potential errors when encoding, to transmit to the client

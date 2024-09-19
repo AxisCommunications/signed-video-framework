@@ -495,7 +495,7 @@ START_TEST(remove_one_p_nalu)
   //
   // SI                ->   (valid) -> .P
   //  IPPSI            ->   (valid) -> .....P
-  //      IPPSI        -> (invalid) -> NNNNP (1 missed)
+  //      IPPSI        -> (invalid) -> MNNNNP (1 missed)
   //          IPPSI    -> (invalid) -> N...P
   // One pending NAL Unit per GOP.
   struct validation_stats expected = {.valid_gops = 2,
@@ -735,40 +735,44 @@ START_TEST(remove_the_i_nalu)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSI");
+  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
 
   // 'I' of third non-empty GOP: SIPPSIPPS I PPSIPPSI.
   const int remove_nalu_number = 10;
   remove_item_then_check_and_free(list, remove_nalu_number, 'I');
-  test_stream_check_types(list, "SIPPSIPPSPPSIPPSI");
+  test_stream_check_types(list, "SIPPSIPPSPPSIPPSIPPSIPPSI");
 
   // All NAL Units but the last 'I' are validated and since one 'I' has been removed the
   // authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 17, 16, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_NOT_OK, false, 25, 24, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NAL Unit per GOP. A missing I NAL Unit will affect two GOPs, since it is part of
   // two gop_hashes. At GOP level the missing NAL Unit will make the GOP invalid, but for Frame
   // level we can identify the missed NAL Unit when the I NAL Unit is not the reference, that is,
   // the first GOP is valid with missing info, whereas the second becomes invalid. SIPPSIPPSPPSIPPSI
   //
-  // SI                ->   (valid) -> .P
-  //  IPPSI            ->   (valid) -> ....P
-  //      IPPSP        -> (invalid) -> NNNNP
-  //          PPSI     -> (invalid) -> MNNNP (1 missing)
-  //             IPPSI -> (invalid) -> N...P
-  struct validation_stats expected = {.valid_gops = 2,
-      .invalid_gops = 3,
+  // SI                         ->   (valid) -> .P
+  //  IPPSI                     ->   (valid) -> ....P
+  //      IPPSP                 -> (invalid) -> NNNNP
+  //          PPSI              -> (invalid) -> MNNNP (1 missing)
+  //             IPPSI          -> (invalid) -> NNNNP (Order is not OK)
+  //                 IPPSI      -> (invalid) -> N...P
+  //                     IPPSI  ->   (valid) -> ....P
+  struct validation_stats expected = {.valid_gops = 3,
+      .invalid_gops = 4,
       .missed_nalus = 1,
-      .pending_nalus = 5,
+      .pending_nalus = 7,
       .final_validation = &final_validation};
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    // SI                ->   (valid) -> .P
-    //  IPPSI            ->   (valid) -> ....P
-    //      IPPSP        ->   (valid) -> ....P
-    //          PPSI     -> (invalid) -> MNNNP (1 missing)
-    //             IPPSI -> (invalid) -> N...P
-    expected.valid_gops = 3;
+    // SI                         ->   (valid) -> .P
+    //  IPPSI                     ->   (valid) -> ....P
+    //      IPPSP                 ->   (valid) -> ....P
+    //          PPSI              -> (invalid) -> MNNNP (1 missing)
+    //             IPPSI          -> (invalid) -> N...P
+    //                 IPPSI      ->   (valid) -> ....P
+    //                     IPPSI  ->   (valid) -> ....P
+    expected.valid_gops = 5;
     expected.invalid_gops = 2;
   }
   validate_nalu_list(NULL, list, expected, true);
@@ -1117,10 +1121,10 @@ START_TEST(lost_all_nalus_between_two_seis)
     // SI                ->   (valid) -> .P
     //  IPPPSS           ->   (valid) -> .....P
     //       SI          -> (invalid) -> MMMM.P (4 missed)
-    //        IPPPSI     -> (invalid) -> N....P
+    //        IPPPSI     ->   (valid) -> .....P
     //             IPPSI ->   (valid) -> ....P
-    expected.valid_gops = 2;
-    expected.invalid_gops = 3;
+    expected.valid_gops = 3;
+    expected.invalid_gops = 2;
   }
   validate_nalu_list(NULL, list, expected, true);
 
@@ -1362,6 +1366,13 @@ START_TEST(fast_forward_stream_without_reset)
       .missed_nalus = 2,
       .pending_nalus = 3,
       .final_validation = &final_validation};
+  if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
+    // SI             -> NP            ->   (invalid)
+    //  IPPPSI        -> N....P        ->   (invalid)
+    //       IPPPSI   -> .....P        ->   (valid)
+    expected.valid_gops = 1;
+    expected.invalid_gops = 2;
+  }
   validate_nalu_list(sv, list, expected, true);
 
   // Free list and session.
