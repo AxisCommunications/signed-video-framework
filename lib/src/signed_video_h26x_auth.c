@@ -156,7 +156,7 @@ update_link_hash_for_auth(signed_video_t *self, h26x_nalu_list_t *nalu_list)
 {
   const size_t hash_size = self->verify_data->hash_size;
   h26x_nalu_list_item_t *item = nalu_list->first_item;
-  bool found_linked_hash;
+  bool found_linked_hash = false;
   while (item && !found_linked_hash) {
     if (item->nalu->is_last_nalu_part && item->used_in_gop_hash &&
         item->nalu->is_first_nalu_in_gop) {
