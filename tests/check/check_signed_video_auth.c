@@ -495,7 +495,7 @@ START_TEST(remove_one_p_nalu)
   //
   // SI                ->   (valid) -> .P
   //  IPPSI            ->   (valid) -> .....P
-  //      IPPSI        -> (invalid) -> NNNNP
+  //      IPPSI        -> (invalid) -> NNNNP (1 missed)
   //          IPPSI    -> (invalid) -> N...P
   // One pending NAL Unit per GOP.
   struct validation_stats expected = {.valid_gops = 2,
@@ -1103,7 +1103,7 @@ START_TEST(lost_all_nalus_between_two_seis)
   //
   // SI                ->   (valid) -> .P
   //  IPPPSS           -> (invalid) -> NNNNNP
-  //       SI          -> (invalid) -> MMMMNP (4 missed)
+  //       SI          -> (invalid) -> NP (4 missed)
   //        IPPPSI     -> (invalid) -> NNNNNP (Previous link hash is missing)
   //             IPPSI -> (invalid) -> N...P
   struct validation_stats expected = {.valid_gops = 1,
@@ -1353,7 +1353,7 @@ START_TEST(fast_forward_stream_without_reset)
       SV_AUTH_RESULT_NOT_OK, false, 21, 20, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // Validate IP SIPPPSIPPPSI (without reset, i.e., started with IP before fast forward):
 
-  // SI             -> NMMNNP        ->   (invalid)
+  // SI             -> NP            ->   (invalid)
   //  IPPPSI        -> NNNNNP        ->   (invalid)
   //       IPPPSI   -> NNNNNP        ->   (invalid)
   // Total number of pending NAL Units = 1 + 1 + 1 = 3

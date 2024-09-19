@@ -337,6 +337,13 @@ verify_hashes_with_hash_list(signed_video_t *self,
       item = item->next;
       continue;
     }
+    // If the order is not correct, the validation status of the first NALU in the GOP should be
+    // 'N'. If that is the case, set |first_verification_not_authentic| to true and set |order_ok|
+    // to true for the next NALUs, so they are not affected by this issue.
+    if (!order_ok) {
+      item->first_verification_not_authentic = true;
+      order_ok = true;
+    }
 
     last_used_item = item;
     num_verified_hashes++;
@@ -353,21 +360,17 @@ verify_hashes_with_hash_list(signed_video_t *self,
       uint8_t *expected_hash = &expected_hashes[compare_idx * hash_size];
 
       if (memcmp(hash_to_verify, expected_hash, hash_size) == 0) {
-        if (!order_ok) {
-          item->validation_status = 'N';
-          order_ok = true;
+        // We have a match. Set validation_status and add missing nalus if we have detected any.
+        if (item->second_hash && !item->need_second_verification &&
+            item->nalu->is_first_nalu_in_gop) {
+          // If this |is_first_nalu_in_gop| it should be verified twice. If this the first time we
+          // signal that we |need_second_verification|.
+          DEBUG_LOG("This NALU needs a second verification");
+          item->need_second_verification = true;
         } else {
-          // We have a match. Set validation_status and add missing nalus if we have detected any.
-          if (item->second_hash && !item->need_second_verification &&
-              item->nalu->is_first_nalu_in_gop) {
-            // If this |is_first_nalu_in_gop| it should be verified twice. If this the first time we
-            // signal that we |need_second_verification|.
-            DEBUG_LOG("This NALU needs a second verification");
-            item->need_second_verification = true;
-          } else {
-            item->validation_status = item->first_verification_not_authentic ? 'N' : '.';
-            item->need_second_verification = false;
-          }
+          item->validation_status = item->first_verification_not_authentic ? 'N' : '.';
+          item->need_second_verification = false;
+          order_ok = true;
         }
         // Add missing items to |nalu_list|.
         int num_detected_missing_nalus =
