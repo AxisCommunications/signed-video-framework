@@ -875,10 +875,9 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
 }
 
 /*
- * Updates the |linked_hash| buffer with the upcoming hash. The buffer contains 2 slots for hashes.
- * When a new I NALU is encountered in the stream, the hash of the |linked_hash| buffer is updated
- * with the hash of the I NALU. While updating, all the values in the buffer are shifted to the
- * start of the buffer, and the new hash is copied to the last slot of the buffer.
+ * Updates the |linked_hash| buffer with the |hash|. The buffer contains 2 slots for hashes.
+ * When a new NALU is encountered in the stream, the values in the buffer are shifted, and the
+ * new hash is stored in the second slot, with the previous hash moved to the first slot.
  */
 svrc_t
 update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
@@ -890,8 +889,8 @@ update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
     if (hash_size != self->sign_data->hash_size) return SV_INVALID_PARAMETER;
   }
   gop_info_t *gop_info = self->gop_info;
-  uint8_t *new_hash = &gop_info->linked_hashes[hash_size];  // Newest linked hash
-  uint8_t *old_hash = &gop_info->linked_hashes[0];  // Old hash in the chain
+  uint8_t *new_hash = &gop_info->linked_hashes[hash_size];
+  uint8_t *old_hash = &gop_info->linked_hashes[0];
 
   // Move new_hash to old_hash
   memmove(old_hash, new_hash, hash_size);

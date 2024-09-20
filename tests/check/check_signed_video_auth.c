@@ -495,7 +495,7 @@ START_TEST(remove_one_p_nalu)
   //
   // SI                ->   (valid) -> .P
   //  IPPSI            ->   (valid) -> .....P
-  //      IPPSI        -> (invalid) -> MNNNNP (1 missed)
+  //      IPPSI        -> (invalid) -> NMNNNP (1 missed)
   //          IPPSI    -> (invalid) -> N...P
   // One pending NAL Unit per GOP.
   struct validation_stats expected = {.valid_gops = 2,
