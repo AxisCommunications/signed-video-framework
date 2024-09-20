@@ -151,12 +151,11 @@ verify_gop_hash(signed_video_t *self)
  * If the linked hash has not yet been updated with this NALU's hash, it updates the
  * linked hash with the first NALU hash and marks it as used.
  */
-void
+static void
 update_link_hash_for_auth(signed_video_t *self)
 {
   const size_t hash_size = self->verify_data->hash_size;
-  h26x_nalu_list_t *nalu_list = self->nalu_list;
-  h26x_nalu_list_item_t *item = nalu_list->first_item;
+  h26x_nalu_list_item_t *item = self->nalu_list->first_item;
   while (item) {
     if (item->used_in_gop_hash && item->nalu->is_first_nalu_in_gop) {
       if (!item->used_for_linked_hash) {

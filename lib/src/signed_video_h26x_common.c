@@ -876,8 +876,8 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
 
 /*
  * Updates the |linked_hash| buffer with the |hash|. The buffer contains 2 slots for hashes.
- * When a new NALU is encountered in the stream, the values in the buffer are shifted, and the
- * new hash is stored in the second slot, with the previous hash moved to the first slot.
+ * The values in the buffer are shifted, with the new hash stored in the second slot and the
+ * previous hash moved to the first slot.
  */
 svrc_t
 update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
