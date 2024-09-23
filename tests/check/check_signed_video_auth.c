@@ -491,6 +491,12 @@ START_TEST(remove_one_p_nalu)
   // authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, false, 14, 13, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // SIPPSIPPSIPPSI
+  //
+  // SI                ->   (valid) -> .P
+  //  IPPSI            ->   (valid) -> .....P
+  //      IPPSI        -> (invalid) -> NMNNNP (1 missed)
+  //          IPPSI    -> (invalid) -> N...P
   // One pending NAL Unit per GOP.
   struct validation_stats expected = {.valid_gops = 2,
       .invalid_gops = 2,
@@ -499,6 +505,12 @@ START_TEST(remove_one_p_nalu)
       .final_validation = &final_validation};
   // For Frame level we can identify the missing NAL Unit and mark the GOP as valid with missing
   // info.
+  // SIPPSIPPSIPPSI
+  //
+  // SI                ->   (valid) -> .P
+  //  IPPSI            ->   (valid) -> .....P
+  //      IPPSI        -> (invalid) -> NNMNNP
+  //          IPPSI    -> (valid)   -> ....P
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
     expected.valid_gops = 3;
     expected.valid_gops_with_missing_info = 1;
@@ -531,7 +543,11 @@ START_TEST(interchange_two_p_nalus)
   // position nalu_number.
   test_stream_append_item(list, item, nalu_number);
   test_stream_check_types(list, "SIPPSIPPPSIPPSI");
-
+  // SIPPSIPPPSIPPSI
+  // SI                ->   (valid)  -> .P
+  //  IPPSI            ->   (valid)  -> ....P
+  //      IPPSI        ->   (invalid)-> NNNUP
+  //          IPPSI    ->   (invalid)-> N...P
   // All NAL Units but the last 'I' are validated and since two NAL Units have been moved the
   // authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
@@ -573,6 +589,11 @@ START_TEST(modify_one_p_nalu)
   // authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // SIPPSIPPPSIPPSI
+  // SI                ->   (valid)  -> .P
+  //  IPPSI            ->   (invalid)-> NNNNP
+  //      IPPSI        ->   (invalid)-> N...P
+  //          IPPSI    ->   (valid)  -> ....P
   // One pending NAL Unit per GOP.
   struct validation_stats expected = {.valid_gops = 2,
       .invalid_gops = 2,
@@ -605,6 +626,11 @@ START_TEST(modify_one_i_nalu)
   // authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // SIPPSIPPPSIPPSI
+  // SI                ->   (valid)  -> .P
+  //  IPPSI            ->   (invalid)-> NNNNP
+  //      IPPSI        ->   (invalid)-> NNNNP
+  //          IPPSI    ->   (invalid)-> N...P
   // One pending NAL Unit per GOP. Note that a modified 'I' affects two GOPs due to linked hashes,
   // but it will also affect a third if we validate with a gop_hash.
   struct validation_stats expected = {.valid_gops = 1,
@@ -709,40 +735,44 @@ START_TEST(remove_the_i_nalu)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSI");
+  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
+  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
 
   // 'I' of third non-empty GOP: SIPPSIPPS I PPSIPPSI.
   const int remove_nalu_number = 10;
   remove_item_then_check_and_free(list, remove_nalu_number, 'I');
-  test_stream_check_types(list, "SIPPSIPPSPPSIPPSI");
+  test_stream_check_types(list, "SIPPSIPPSPPSIPPSIPPSIPPSI");
 
   // All NAL Units but the last 'I' are validated and since one 'I' has been removed the
   // authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 17, 16, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_NOT_OK, false, 25, 24, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NAL Unit per GOP. A missing I NAL Unit will affect two GOPs, since it is part of
   // two gop_hashes. At GOP level the missing NAL Unit will make the GOP invalid, but for Frame
   // level we can identify the missed NAL Unit when the I NAL Unit is not the reference, that is,
   // the first GOP is valid with missing info, whereas the second becomes invalid. SIPPSIPPSPPSIPPSI
   //
-  // SI                ->   (valid) -> .P
-  //  IPPSI            ->   (valid) -> ....P
-  //      IPPSP        -> (invalid) -> NNNNP
-  //          PPSI     -> (invalid) -> MNNNP (1 missing)
-  //             IPPSI -> (invalid) -> N...P
-  struct validation_stats expected = {.valid_gops = 2,
-      .invalid_gops = 3,
+  // SI                         ->   (valid) -> .P
+  //  IPPSI                     ->   (valid) -> ....P
+  //      IPPSP                 -> (invalid) -> NNNNP
+  //          PPSI              -> (invalid) -> MNNNP (1 missing)
+  //             IPPSI          -> (invalid) -> NNNNP (Order is not OK)
+  //                 IPPSI      -> (invalid) -> N...P
+  //                     IPPSI  ->   (valid) -> ....P
+  struct validation_stats expected = {.valid_gops = 3,
+      .invalid_gops = 4,
       .missed_nalus = 1,
-      .pending_nalus = 5,
+      .pending_nalus = 7,
       .final_validation = &final_validation};
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    // SI                ->   (valid) -> .P
-    //  IPPSI            ->   (valid) -> ....P
-    //      IPPSP        ->   (valid) -> ....P
-    //          PPSI     -> (invalid) -> MNNNP (1 missing)
-    //             IPPSI -> (invalid) -> N...P
-    expected.valid_gops = 3;
+    // SI                         ->   (valid) -> .P
+    //  IPPSI                     ->   (valid) -> ....P
+    //      IPPSP                 ->   (valid) -> ....P
+    //          PPSI              -> (invalid) -> MNNNP (1 missing)
+    //             IPPSI          -> (invalid) -> N...P
+    //                 IPPSI      ->   (valid) -> ....P
+    //                     IPPSI  ->   (valid) -> ....P
+    expected.valid_gops = 5;
     expected.invalid_gops = 2;
   }
   validate_nalu_list(NULL, list, expected, true);
@@ -1077,11 +1107,11 @@ START_TEST(lost_all_nalus_between_two_seis)
   //
   // SI                ->   (valid) -> .P
   //  IPPPSS           -> (invalid) -> NNNNNP
-  //       SI          -> (invalid) -> MMMMNP (4 missed)
-  //        IPPPSI     -> (invalid) -> N....P
-  //             IPPSI ->   (valid) -> ....P
-  struct validation_stats expected = {.valid_gops = 2,
-      .invalid_gops = 3,
+  //       SI          -> (invalid) -> NP (4 missed)
+  //        IPPPSI     -> (invalid) -> NNNNNP (Previous link hash is missing)
+  //             IPPSI -> (invalid) -> N...P
+  struct validation_stats expected = {.valid_gops = 1,
+      .invalid_gops = 4,
       .missed_nalus = 4,
       .pending_nalus = 5,
       .final_validation = &final_validation};
@@ -1091,7 +1121,7 @@ START_TEST(lost_all_nalus_between_two_seis)
     // SI                ->   (valid) -> .P
     //  IPPPSS           ->   (valid) -> .....P
     //       SI          -> (invalid) -> MMMM.P (4 missed)
-    //        IPPPSI     -> (invalid) -> N....P
+    //        IPPPSI     ->   (valid) -> .....P
     //             IPPSI ->   (valid) -> ....P
     expected.valid_gops = 3;
     expected.invalid_gops = 2;
@@ -1295,12 +1325,12 @@ START_TEST(fast_forward_stream_with_reset)
       SV_AUTH_RESULT_OK, false, 12, 11, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // Validate SIPPPSIPPPSI:
   //
-  // SI      -> UP           (SV_AUTH_RESULT_SIGNATURE_PRESENT)
-  // SIPPPSI -> U.....P      (valid)
-  // IPPPSI  ->       .....P (valid)
+  // SI             -> UP        ->   (SV_AUTH_RESULT_SIGNATURE_PRESENT)
+  //  IPPPSI        -> .....P    ->   (valid)
+  //       IPPPSI   -> .....P    ->   (valid)
   //
   // Total number of pending NAL Units = 1 + 1 + 1 = 3
-  const struct validation_stats expected = {.valid_gops = 2,
+  struct validation_stats expected = {.valid_gops = 2,
       .pending_nalus = 3,
       .has_signature = 1,
       .final_validation = &final_validation};
@@ -1326,18 +1356,23 @@ START_TEST(fast_forward_stream_without_reset)
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, false, 21, 20, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // Validate IP SIPPPSIPPPSI (without reset, i.e., started with IP before fast forward):
-  //
-  // SI      -> NMMUP           (invalid, 2 missing)
-  // SIPPPSI ->    UN....P      (invalid)
-  // IPPPSI  ->          .....P (valid)
-  //
+
+  // SI             -> NP            ->   (invalid)
+  //  IPPPSI        -> NNNNNP        ->   (invalid)
+  //       IPPPSI   -> NNNNNP        ->   (invalid)
   // Total number of pending NAL Units = 1 + 1 + 1 = 3
-  const struct validation_stats expected = {.valid_gops = 1,
-      .invalid_gops = 2,
+  struct validation_stats expected = {.valid_gops = 0,
+      .invalid_gops = 3,
       .missed_nalus = 2,
       .pending_nalus = 3,
       .final_validation = &final_validation};
-
+  if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
+    // SI             -> NP            ->   (invalid)
+    //  IPPPSI        -> N....P        ->   (invalid)
+    //       IPPPSI   -> .....P        ->   (valid)
+    expected.valid_gops = 1;
+    expected.invalid_gops = 2;
+  }
   validate_nalu_list(sv, list, expected, true);
 
   // Free list and session.
@@ -1632,6 +1667,14 @@ START_TEST(late_public_key_and_no_sei_before_key_arrives)
   // Final validation is NOT OK and all received NAL Units, but the last one, are validated.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, false, 25, 24, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // SIPPIPPSIPPSIPPSIPPSIPPSI
+  // SI                             ->     (valid) ->    .P
+  //  IPPIPPS                       ->   (invalid) ->    NNNPPPP
+  //         IPPSI                  ->   (invalid) ->    N...P
+  //              IPPSI             ->     (valid) ->    ....P
+  //                  IPPSI         ->     (valid) ->    ....P
+  //                      IPPSI     ->     (valid) ->    ....P
+  //                          IPPSI ->     (valid) ->    ....P
   // One pending NAL Unit per GOP.
   struct validation_stats expected = {.valid_gops = 5,
       .invalid_gops = 2,

@@ -106,6 +106,8 @@ struct _h26x_nalu_list_item_t {
   // information.
   bool used_in_gop_hash;  // Marks the NALU as being part of a computed |gop_hash|.
 
+  bool used_for_linked_hash;
+
   // Linked list
   h26x_nalu_list_item_t *prev;  // Points to the previously added NALU. Is NULL if this is the first
   // item.
@@ -182,7 +184,10 @@ check_and_copy_hash_to_hash_list(signed_video_t *signed_video,
     size_t hash_size);
 
 svrc_t
-hash_and_add(signed_video_t *signed_video, const h26x_nalu_t *nalu);
+hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu);
+
+svrc_t
+update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size);
 
 svrc_t
 hash_and_add_for_auth(signed_video_t *signed_video, h26x_nalu_list_item_t *item);

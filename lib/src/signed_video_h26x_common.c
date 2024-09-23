@@ -874,6 +874,11 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
   openssl_update_hash(self->crypto_handle, hash, hash_size, true);
 }
 
+/*
+ * Updates the |linked_hash| buffer with the |hash|. The buffer contains 2 slots for hashes.
+ * The values in the buffer are shifted, with the new hash stored in the second slot and the
+ * previous hash moved to the first slot.
+ */
 svrc_t
 update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
 {
@@ -884,12 +889,13 @@ update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
     if (hash_size != self->sign_data->hash_size) return SV_INVALID_PARAMETER;
   }
   gop_info_t *gop_info = self->gop_info;
-  uint8_t *stored_hash = &gop_info->linked_hashes[hash_size];
-  uint8_t *linked_hash = &gop_info->linked_hashes[0];
-  // Move the content of stored_hash to linked_hash
-  memmove(linked_hash, stored_hash, hash_size);
-  // Copy the new hash to stored_hash
-  memcpy(stored_hash, hash, hash_size);
+  uint8_t *new_hash = &gop_info->linked_hashes[hash_size];
+  uint8_t *old_hash = &gop_info->linked_hashes[0];
+
+  // Move new_hash to old_hash
+  memmove(old_hash, new_hash, hash_size);
+  // Copy the hash into the new_hash slot
+  memcpy(new_hash, hash, hash_size);
 
   return SV_OK;
 }
@@ -1233,6 +1239,7 @@ signed_video_reset(signed_video_t *self)
     // Empty the |nalu_list|.
     h26x_nalu_list_free_items(self->nalu_list);
 
+    memset(self->gop_info->linked_hashes, 0, sizeof(self->gop_info->linked_hashes));
     memset(self->last_nalu, 0, sizeof(h26x_nalu_t));
     self->last_nalu->is_last_nalu_part = true;
     SV_THROW(openssl_init_hash(self->crypto_handle, false));
