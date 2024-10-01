@@ -11,3 +11,7 @@ option('vendors',
   choices : [ 'all', 'axis-communications' ],
   value : [ 'all' ],
   description : 'Select vendor(s) to support. By default all vendors are added. Set an empty list \'-Dvendors=\' if the library should be built without vendors.')
+option('parsesei',
+  type : 'boolean',
+  value : false,
+  description : 'Parse SEI frames')
