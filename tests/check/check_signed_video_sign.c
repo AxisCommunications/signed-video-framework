@@ -26,6 +26,7 @@
 #include <stdlib.h>  // EXIT_SUCCESS, EXIT_FAILURE, size_t, abs()
 
 #include "lib/src/includes/signed_video_common.h"
+#include "lib/src/includes/signed_video_helpers.h"
 #include "lib/src/includes/signed_video_openssl.h"  // sign_algo_t
 #include "lib/src/includes/signed_video_sign.h"
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
@@ -120,8 +121,7 @@ verify_seis(test_stream_t *list, struct sv_setting setting)
       ck_assert(!(setting.is_vendor_axis ^ has_axis_tag));
 #ifdef PRINT_DECODED_SEI
       printf("\n--- SEI # %d ---\n", num_seis);
-      // TODO: To be implemented
-      // signed_video_parse_sei(item->data, item->data_size, list->codec);
+      signed_video_parse_sei(item->data, item->data_size, list->codec);
 #endif
     }
     free(nalu_info.nalu_data_wo_epb);
