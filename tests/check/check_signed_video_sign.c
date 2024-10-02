@@ -20,6 +20,9 @@
  */
 #include <check.h>
 #include <stdint.h>  // uint8_t
+#ifdef PRINT_DECODED_SEI
+#include <stdio.h>
+#endif
 #include <stdlib.h>  // EXIT_SUCCESS, EXIT_FAILURE, size_t, abs()
 
 #include "lib/src/includes/signed_video_common.h"
@@ -116,9 +119,9 @@ verify_seis(test_stream_t *list, struct sv_setting setting)
       // Verify that Axis vendor tag is present.
       ck_assert(!(setting.is_vendor_axis ^ has_axis_tag));
 #ifdef PRINT_DECODED_SEI
-      // TODO: To be implemented
       printf("\n--- SEI # %d ---\n", num_seis);
-      signed_video_parse_sei(item->data, item->data_size, list->codec);
+      // TODO: To be implemented
+      // signed_video_parse_sei(item->data, item->data_size, list->codec);
 #endif
     }
     free(nalu_info.nalu_data_wo_epb);
