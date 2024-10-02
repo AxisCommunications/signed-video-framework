@@ -505,6 +505,28 @@ openssl_get_hash_algo_encoded_oid(void *handle, size_t *encoded_oid_size)
   return (const unsigned char *)self->hash_algo.encoded_oid;
 }
 
+char *
+openssl_encoded_oid_to_str(const unsigned char *encoded_oid, size_t encoded_oid_size)
+{
+  ASN1_OBJECT *obj = NULL;
+  char *algo_name = calloc(1, 50);
+
+  if (!encoded_oid || encoded_oid_size == 0) {
+    goto done;
+  }
+
+  // Point to the first byte of the OID. The |oid_ptr| will increment while decoding.
+  if (!d2i_ASN1_OBJECT(&obj, &encoded_oid, encoded_oid_size)) {
+    goto done;
+  }
+  OBJ_obj2txt(algo_name, 50, obj, 1);
+
+done:
+  ASN1_OBJECT_free(obj);
+
+  return algo_name;
+}
+
 size_t
 openssl_get_hash_size(void *handle)
 {
