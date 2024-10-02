@@ -1348,7 +1348,7 @@ signed_video_is_golden_sei(signed_video_t *self, const uint8_t *nalu, size_t nal
 void
 signed_video_parse_sei(uint8_t *nalu, size_t nalu_size, SignedVideoCodec codec)
 {
-  if (!nalu || nalu_size == 0) {
+  if (!nalu || nalu_size == 0 || codec < SV_CODEC_H264 || codec >= SV_CODEC_NUM) {
     return;
   }
 
