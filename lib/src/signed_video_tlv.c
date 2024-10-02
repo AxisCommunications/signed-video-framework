@@ -935,6 +935,12 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
     gop_info->encoding_status = encoding_status;
     gop_info->signature_hash_type = hash_type;
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
+#ifdef PRINT_DECODED_SEI
+    printf("\nSignature Tag\n");
+    printf("             tag version: %u\n", version);
+    printf("          signature size: %u\n", signature_size);
+    sv_print_hex_data(verify_data->signature, signature_size, "               signature: ");
+#endif
   SV_CATCH()
   SV_DONE(status)
 
