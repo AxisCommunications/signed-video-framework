@@ -20,6 +20,10 @@
  */
 #include "signed_video_tlv.h"
 
+#ifdef PRINT_DECODED_SEI
+#include <stdio.h>
+#endif
+
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "axis-communications/sv_vendor_axis_communications_internal.h"
 #endif
@@ -307,8 +311,11 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
   const uint8_t *data_ptr = data;
   gop_info_t *gop_info = self->gop_info;
   uint8_t version = *data_ptr++;
-  svrc_t status = SV_UNKNOWN_FAILURE;
+  char sw_version_str[SV_VERSION_MAX_STRLEN] = {0};
+  char *code_version_str = sw_version_str;
+  size_t hash_size = 0;
 
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_IF(version < 1 || version > 3, SV_INCOMPATIBLE_VERSION);
 
@@ -321,8 +328,9 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
       self->code_version[i] = *data_ptr++;
     }
     if (self->authenticity) {
-      bytes_to_version_str(self->code_version, self->authenticity->version_on_signing_side);
+      code_version_str = self->authenticity->version_on_signing_side;
     }
+    bytes_to_version_str(self->code_version, code_version_str);
 
     if (version >= 2) {
       // Read bool flags
@@ -340,7 +348,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
       }
     }
     if (version >= 3) {
-      size_t hash_size = (data_size - (data_ptr - data)) / 2;
+      hash_size = (data_size - (data_ptr - data)) / 2;
       // Decode linked hash data.
       memcpy(self->received_linked_hash, data_ptr, hash_size);
       data_ptr += hash_size;
@@ -349,6 +357,24 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
       data_ptr += hash_size;
     }
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
+#ifdef PRINT_DECODED_SEI
+    printf("\nGeneral Information Tag\n");
+    printf("             tag version: %u\n", version);
+    printf("                   GOP #: %u\n", gop_info->global_gop_counter);
+    printf("      # hashed NAL Units: %u\n", gop_info->num_sent_nalus);
+    printf("              SW version: %s\n", code_version_str);
+    if (version >= 2) {
+      if (gop_info->has_timestamp) {
+        printf("               timestamp: %ld\n", gop_info->timestamp);
+      } else {
+        printf("               timestamp: not present\n");
+      }
+    }
+    if (version >= 3) {
+      sv_print_hex_data(self->received_linked_hash, hash_size, "             linked hash: ");
+      sv_print_hex_data(self->received_gop_hash, hash_size, "                GOP hash: ");
+    }
+#endif
   SV_CATCH()
   SV_DONE(status)
 
