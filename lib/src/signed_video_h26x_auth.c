@@ -1021,13 +1021,6 @@ prepare_for_validation(signed_video_t *self)
 
     // If we have received a SEI there is a signature to use for verification.
     if (self->gop_state.has_sei) {
-#ifdef SIGNED_VIDEO_DEBUG
-      printf("Hash to verify against signature:\n");
-      for (size_t i = 0; i < verify_data->hash_size; i++) {
-        printf("%02x", verify_data->hash[i]);
-      }
-      printf("\n");
-#endif
       SV_THROW(openssl_verify_hash(verify_data, &self->gop_info->verified_signature_hash));
     }
 

@@ -279,7 +279,7 @@ free_and_reset_nalu_to_prepend_list(signed_video_t *signed_video);
 void
 free_sei_data_buffer(sei_data_t sei_data_buffer[]);
 
-#if defined(PRINT_DECODED_SEI)
+#if defined(SIGNED_VIDEO_DEBUG) || defined(PRINT_DECODED_SEI)
 /* Prints data in hex form, typically used for hashes and signatures. */
 void
 sv_print_hex_data(const uint8_t *data, size_t data_size, const char *fmt, ...);

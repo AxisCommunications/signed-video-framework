@@ -364,15 +364,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     // Reset the timestamp to avoid including a duplicate in the next SEI.
     gop_info->has_timestamp = false;
 
-#ifdef SIGNED_VIDEO_DEBUG
-    printf("Hash to sign:\n");
-    for (size_t i = 0; i < sign_data->hash_size; i++) {
-      printf("%02x", sign_data->hash[i]);
-    }
-    printf("\n");
-#endif
     SV_THROW(sv_signing_plugin_sign(self->plugin_handle, sign_data->hash, sign_data->hash_size));
-
   SV_CATCH()
   {
     DEBUG_LOG("Failed generating the SEI");
