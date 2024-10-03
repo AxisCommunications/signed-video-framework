@@ -32,6 +32,7 @@
 #include "axis-communications/sv_vendor_axis_communications_internal.h"
 #endif
 #include "includes/signed_video_common.h"
+#include "includes/signed_video_helpers.h"  // onvif_media_signing_parse_sei()
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "includes/signed_video_signing_plugin.h"
 #include "signed_video_authenticity.h"  // latest_validation_init()
@@ -1343,3 +1344,32 @@ signed_video_is_golden_sei(signed_video_t *self, const uint8_t *nalu, size_t nal
   free(parsed_nalu.nalu_data_wo_epb);
   return parsed_nalu.is_golden_sei;
 };
+
+void
+signed_video_parse_sei(uint8_t *nalu, size_t nalu_size, SignedVideoCodec codec)
+{
+  if (!nalu || nalu_size == 0 || codec < SV_CODEC_H264 || codec >= SV_CODEC_NUM) {
+    return;
+  }
+
+#ifdef PRINT_DECODED_SEI
+  h26x_nalu_t nalu_info = parse_nalu_info(nalu, nalu_size, codec, true, true);
+  if (nalu_info.is_gop_sei) {
+    printf("\nSEI (%zu bytes):\n", nalu_size);
+    for (size_t i = 0; i < nalu_size; ++i) {
+      printf(" %02x", nalu[i]);
+    }
+    printf("\n");
+    printf("Reserved byte: ");
+    for (int i = 7; i >= 0; i--) {
+      printf("%u", (nalu_info.reserved_byte & (1 << i)) ? 1 : 0);
+    }
+    printf("\n");
+    signed_video_t *self = signed_video_create(codec);
+    tlv_decode(self, nalu_info.tlv_data, nalu_info.tlv_size);
+    signed_video_free(self);
+  }
+
+  free(nalu_info.nalu_data_wo_epb);
+#endif
+}

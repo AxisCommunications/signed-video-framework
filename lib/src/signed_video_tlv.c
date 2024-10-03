@@ -320,17 +320,23 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
     for (int i = 0; i < SV_VERSION_BYTES; i++) {
       self->code_version[i] = *data_ptr++;
     }
-    bytes_to_version_str(self->code_version, self->authenticity->version_on_signing_side);
+    if (self->authenticity) {
+      bytes_to_version_str(self->code_version, self->authenticity->version_on_signing_side);
+    }
 
     if (version >= 2) {
       // Read bool flags
       uint8_t flags = 0;
       data_ptr += read_8bits(data_ptr, &flags);
       gop_info->has_timestamp = flags & 0x01;
-      self->latest_validation->has_timestamp = gop_info->has_timestamp;
       if (gop_info->has_timestamp) {
         data_ptr += read_64bits_signed(data_ptr, &gop_info->timestamp);
-        self->latest_validation->timestamp = gop_info->timestamp;
+      }
+      if (self->latest_validation) {
+        self->latest_validation->has_timestamp = gop_info->has_timestamp;
+        if (gop_info->has_timestamp) {
+          self->latest_validation->timestamp = gop_info->timestamp;
+        }
       }
     }
     if (version >= 3) {
@@ -518,7 +524,9 @@ decode_product_info(signed_video_t *self, const uint8_t *data, size_t data_size)
     data_ptr += address_size;
 
     // Transfer the decoded |product_info| to the authenticity report.
-    SV_THROW(transfer_product_info(&self->authenticity->product_info, product_info));
+    if (self->authenticity) {
+      SV_THROW(transfer_product_info(&self->authenticity->product_info, product_info));
+    }
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
 
@@ -671,7 +679,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     }
 
     int key_diff = memcmp(data_ptr, pem_public_key->key, pubkey_size);
-    if (self->has_public_key && key_diff) {
+    if (self->has_public_key && key_diff && self->latest_validation) {
       self->latest_validation->public_key_has_changed = true;
     }
     memcpy(pem_public_key->key, data_ptr, pubkey_size);
