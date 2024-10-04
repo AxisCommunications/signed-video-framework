@@ -728,6 +728,9 @@ copy_nalu_except_pointers(h26x_nalu_t *dst_nalu, const h26x_nalu_t *src_nalu)
 void
 sv_print_hex_data(const uint8_t *data, size_t data_size, const char *fmt, ...)
 {
+  if (!data || data_size == 0) {
+    return;
+  }
   va_list argptr;
   va_start(argptr, fmt);
   vprintf(fmt, argptr);
