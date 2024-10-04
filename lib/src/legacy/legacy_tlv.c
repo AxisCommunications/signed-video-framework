@@ -20,6 +20,9 @@
  */
 #include "legacy/legacy_tlv.h"
 
+#ifdef PRINT_DECODED_SEI
+#include <stdio.h>
+#endif
 #include <string.h>
 
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
@@ -175,8 +178,10 @@ legacy_decode_general(legacy_sv_t *self, const uint8_t *data, size_t data_size)
   const uint8_t *data_ptr = data;
   legacy_gop_info_t *gop_info = self->gop_info;
   uint8_t version = *data_ptr++;
-  svrc_t status = SV_UNKNOWN_FAILURE;
+  char sw_version_str[SV_VERSION_MAX_STRLEN] = {0};
+  char *code_version_str = sw_version_str;
 
+  svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_IF(version < 1 || version > 2, SV_INCOMPATIBLE_VERSION);
 
@@ -188,21 +193,42 @@ legacy_decode_general(legacy_sv_t *self, const uint8_t *data, size_t data_size)
     for (int i = 0; i < SV_VERSION_BYTES; i++) {
       self->code_version[i] = *data_ptr++;
     }
-    bytes_to_version_str(self->code_version, self->authenticity->version_on_signing_side);
+    if (self->authenticity) {
+      code_version_str = self->authenticity->version_on_signing_side;
+    }
+    bytes_to_version_str(self->code_version, code_version_str);
 
     if (version >= 2) {
       // Read bool flags
       uint8_t flags = 0;
       data_ptr += read_8bits(data_ptr, &flags);
       gop_info->has_timestamp = flags & 0x01;
-      self->latest_validation->has_timestamp = gop_info->has_timestamp;
       if (gop_info->has_timestamp) {
         data_ptr += read_64bits_signed(data_ptr, &gop_info->timestamp);
-        self->latest_validation->timestamp = gop_info->timestamp;
+      }
+      if (self->latest_validation) {
+        self->latest_validation->has_timestamp = gop_info->has_timestamp;
+        if (gop_info->has_timestamp) {
+          self->latest_validation->timestamp = gop_info->timestamp;
+        }
       }
     }
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
+#ifdef PRINT_DECODED_SEI
+    printf("\nGeneral Information Tag\n");
+    printf("             tag version: %u\n", version);
+    printf("                   GOP #: %u\n", gop_info->global_gop_counter);
+    printf("      # hashed NAL Units: %u\n", gop_info->num_sent_nalus);
+    printf("              SW version: %s\n", code_version_str);
+    if (version >= 2) {
+      if (gop_info->has_timestamp) {
+        printf("               timestamp: %ld\n", gop_info->timestamp);
+      } else {
+        printf("               timestamp: not present\n");
+      }
+    }
+#endif
   SV_CATCH()
   SV_DONE(status)
 
