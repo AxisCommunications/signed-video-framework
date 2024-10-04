@@ -1131,6 +1131,7 @@ hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
   nalu_hash = item->hash;
   assert(nalu_hash);
   size_t hash_size = self->verify_data->hash_size;
+  item->hash_size = hash_size;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
