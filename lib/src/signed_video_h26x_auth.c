@@ -226,6 +226,10 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
       item = item->next;
     }
     SV_THROW(openssl_finalize_hash(self->crypto_handle, self->gop_info->computed_gop_hash, true));
+#ifdef SIGNED_VIDEO_DEBUG
+    sv_print_hex_data(self->gop_info->computed_gop_hash, hash_size, "Computed gop_hash ");
+    sv_print_hex_data(self->received_gop_hash, hash_size, "Received gop_hash ");
+#endif
 
     // Finally, mark the SEI item as used in the GOP hash
     // TODO: Currently, the validation status of the SEI is set when the validation status of all
@@ -900,6 +904,10 @@ compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
     // Complete the gop_hash with the hash of the SEI.
     memcpy(nalu_hash, sei->hash, hash_size);
     SV_THROW(update_gop_hash(self->crypto_handle, gop_info));
+#ifdef SIGNED_VIDEO_DEBUG
+    sv_print_hex_data(gop_info->gop_hash, hash_size, "Computed gop_hash ");
+    sv_print_hex_data(self->received_gop_hash, hash_size, "Received gop_hash ");
+#endif
     sei->used_in_gop_hash = true;
 
   SV_CATCH()
