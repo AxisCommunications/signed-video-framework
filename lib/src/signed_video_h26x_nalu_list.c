@@ -176,17 +176,8 @@ h26x_nalu_list_item_print(const h26x_nalu_list_item_t *item)
       (item->first_verification_not_authentic ? ", first_verification_not_authentic" : ""),
       (item->has_been_decoded ? ", has_been_decoded" : ""),
       (item->used_in_gop_hash ? ", used_in_gop_hash" : ""));
-  printf("item->hash     ");
-  for (size_t i = 0; i < item->hash_size; i++) {
-    printf("%02x", item->hash[i]);
-  }
-  if (item->second_hash) {
-    printf("\nitem->second_hash ");
-    for (size_t i = 0; i < item->hash_size; i++) {
-      printf("%02x", item->second_hash[i]);
-    }
-  }
-  printf("\n");
+  sv_print_hex_data(item->hash, item->hash_size, "item->hash     ");
+  sv_print_hex_data(item->second_hash, item->hash_size, "item->second_hash ");
 }
 #endif
 
