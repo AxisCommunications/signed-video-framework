@@ -555,7 +555,15 @@ decode_product_info(signed_video_t *self, const uint8_t *data, size_t data_size)
     }
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
-
+#ifdef PRINT_DECODED_SEI
+    printf("\nProduct Information Tag\n");
+    printf("             tag version: %u\n", version);
+    printf("             hardware id: %s\n", product_info->hardware_id);
+    printf("        firmware version: %s\n", product_info->firmware_version);
+    printf("           serial number: %s\n", product_info->serial_number);
+    printf("            manufacturer: %s\n", product_info->manufacturer);
+    printf("                 address: %s\n", product_info->address);
+#endif
   SV_CATCH()
   SV_DONE(status)
 
