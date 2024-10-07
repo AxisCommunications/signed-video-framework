@@ -819,7 +819,15 @@ decode_hash_list(signed_video_t *self, const uint8_t *data, size_t data_size)
     data_ptr += hash_list_size;
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
-
+#ifdef PRINT_DECODED_SEI
+    size_t hash_size = openssl_get_hash_size(self->crypto_handle);
+    printf("\nHash list Tag\n");
+    printf("             tag version: %u\n", version);
+    printf("  hash list (%3zu hashes): \n", hash_list_size / hash_size);
+    for (size_t i = 0; i < hash_list_size; i += hash_size) {
+      sv_print_hex_data(&self->gop_info->hash_list[i], hash_size, "");
+    }
+#endif
   SV_CATCH()
   SV_DONE(status)
 
