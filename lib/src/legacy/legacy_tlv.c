@@ -313,6 +313,12 @@ legacy_decode_arbitrary_data(legacy_sv_t *self, const uint8_t *data, size_t data
     self->arbitrary_data_size = arbdata_size;
     data_ptr += arbdata_size;
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
+#ifdef PRINT_DECODED_SEI
+    printf("\nArbitrary Data Tag\n");
+    printf("             tag version: %u\n", version);
+    printf("     arbitrary data size: %u\n", arbdata_size);
+    sv_print_hex_data(arbdata, arbdata_size, "          arbitrary data: ");
+#endif
   SV_CATCH()
   {
     free(self->arbitrary_data);
