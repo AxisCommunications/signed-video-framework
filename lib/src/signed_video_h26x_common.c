@@ -970,13 +970,6 @@ simply_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *hash, size_t
     if (status == SV_OK) {
       // Finalize the ongoing hash of NALU parts.
       status = openssl_finalize_hash(self->crypto_handle, hash, false);
-      // For the first NALU in a GOP, the hash is used twice. Once for linking and once as reference
-      // for the future. Store the |nalu_hash| in |tmp_hash| to be copied for its second use, since
-      // it is not possible to recompute the hash from partial NALU data.
-      if (status == SV_OK && nalu->is_first_nalu_in_gop && !nalu->is_first_nalu_part) {
-        memcpy(self->gop_info->tmp_hash, hash, hash_size);
-        self->gop_info->tmp_hash_ptr = self->gop_info->tmp_hash;
-      }
     }
     return status;
   }
@@ -1000,17 +993,9 @@ hash_and_copy_to_ref(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *has
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    if (nalu->is_first_nalu_in_gop && !nalu->is_first_nalu_part && gop_info->tmp_hash_ptr) {
-      // If the NALU is split in parts and a hash has already been computed and stored in
-      // |tmp_hash|, copy from |tmp_hash| since it is not possible to recompute the hash.
-      memcpy(hash, gop_info->tmp_hash_ptr, hash_size);
-    } else {
-      // Hash NALU data and store as |nalu_hash|.
-      SV_THROW(simply_hash(self, nalu, hash, hash_size));
-    }
+    SV_THROW(simply_hash(self, nalu, hash, hash_size));
     // Copy the |nalu_hash| to |reference_hash| to be used in hash_with_reference().
     memcpy(reference_hash, hash, hash_size);
-
     // Tell the user there is a new reference hash.
     gop_info->has_reference_hash = true;
   SV_CATCH()

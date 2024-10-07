@@ -146,7 +146,7 @@ struct _signed_video_t {
   bool signing_started;
   // TODO: Once the transition to linking to previous GOP is complete, the following flag will be
   // unnecessary.
-  bool linked_hash_on;  // Flag that tells if signed video uses linked hash.
+  bool linked_hash_off;  // Flag that tells if signed video uses linked hash.
   bool gop_hash_off;  // Flag indicating if the GENERAL TAG doesn't include GOP hash.
   // TODO: |gop_hash_off| will be deprecated when the feature is fully integrated.
 
@@ -242,6 +242,7 @@ struct _gop_info_t {
   hash_type_t signature_hash_type;  // The type of hash signed, either gop_hash or document hash.
   uint32_t global_gop_counter;  // The index of the current GOP, incremented when encoded in the
   // TLV.
+  uint32_t global_gop_counter_auth;  // The index of latest validated GOP.
   bool global_gop_counter_is_synced;  // Turns true when a SEI corresponding to the segment is
   // detected.
   int verified_signature_hash;  // Status of last hash-signature-pair verification. Has 1 for

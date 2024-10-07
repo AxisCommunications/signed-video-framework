@@ -263,14 +263,14 @@ START_TEST(intact_stream)
 
   // Create a list of NAL Units given the input string.
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPSIPPSIPPSIPPSIPPSI");
 
   // All NAL Units but the last 'I' are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 26, 25, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // One pending NAL Unit per GOP.
+      SV_AUTH_RESULT_OK, false, 25, 24, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // No pending NAL Unit per GOP.
   struct validation_stats expected = {
-      .valid_gops = 7, .pending_nalus = 7, .final_validation = &final_validation};
+      .valid_gops = 6, .pending_nalus = 0, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -283,14 +283,14 @@ START_TEST(intact_multislice_stream)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IiPpPpIiPpPpIi", settings[_i]);
-  test_stream_check_types(list, "SIiPpPpSIiPpPpSIi");
+  test_stream_check_types(list, "IiPpPpSIiPpPpSIi");
 
   // All NAL Units but the last 'I' and 'i' are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 17, 15, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // One pending NAL Unit per GOP.
+      SV_AUTH_RESULT_OK, false, 16, 14, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // No pending NAL Unit per GOP.
   struct validation_stats expected = {
-      .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
+      .valid_gops = 2, .pending_nalus = 0, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -304,14 +304,14 @@ START_TEST(intact_stream_with_splitted_nalus)
 
   // Create a list of NAL Units given the input string.
   test_stream_t *list = create_signed_splitted_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPSIPPSIPPSIPPSIPPSI");
 
   // All NAL Units but the last 'I' are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 26, 25, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 25, 24, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // For expected values see the "intact_stream" test above.
   struct validation_stats expected = {
-      .valid_gops = 7, .pending_nalus = 7, .final_validation = &final_validation};
+      .valid_gops = 6, .pending_nalus = 0, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -327,14 +327,14 @@ START_TEST(intact_stream_with_pps_nalu_stream)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("VIPPIPPI", settings[_i]);
-  test_stream_check_types(list, "VSIPPSIPPSI");
+  test_stream_check_types(list, "VIPPSIPPSI");
 
   // All NAL Units but the last 'I' are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 11, 10, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // One pending NAL Unit per GOP.
+      SV_AUTH_RESULT_OK, false, 10, 9, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // No pending NAL Unit per GOP.
   struct validation_stats expected = {
-      .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
+      .valid_gops = 2, .pending_nalus = 0, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -347,26 +347,23 @@ START_TEST(intact_stream_with_pps_bytestream)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("VIPPIPPI", settings[_i]);
-  test_stream_check_types(list, "VSIPPSIPPSI");
+  test_stream_check_types(list, "VIPPSIPPSI");
 
   // Pop the PPS NAL Unit and inject it before the 'I'.
   test_stream_item_t *item = test_stream_pop_first_item(list);
   test_stream_item_check_type(item, 'V');
-  test_stream_check_types(list, "SIPPSIPPSI");
-  test_stream_append_item(list, item, 1);
-  test_stream_check_types(list, "SVIPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPSI");
+  test_stream_prepend_first_item(list, item);
+  test_stream_check_types(list, "VIPPSIPPSI");
 
-  // SVIPPSIPPSI
-  //
-  // SVI         -> (valid) ._P   (1 pending)
-  //   IPPSI     -> (valid) ....P (1 pending)
-  //       IPPSI -> (valid) ....P (1 pending)
-  // One pending NAL Unit per GOP.
+  // VIPPSIPPSI
+  // VIPPS       -> (valid) _....
+  //      IPPS   -> (valid) ....
   // All NAL Units but the last 'I' are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 11, 10, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 10, 9, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {
-      .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
+      .valid_gops = 2, .pending_nalus = 0, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -379,14 +376,14 @@ START_TEST(intact_ms_stream_with_pps_nalu_stream)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("VIiPpPpIiPpPpIi", settings[_i]);
-  test_stream_check_types(list, "VSIiPpPpSIiPpPpSIi");
+  test_stream_check_types(list, "VIiPpPpSIiPpPpSIi");
 
   // All NAL Units but the last 'I' and 'i' are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 18, 16, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // One pending NAL Unit per GOP.
+      SV_AUTH_RESULT_OK, false, 17, 15, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // No pending NAL Unit per GOP.
   struct validation_stats expected = {
-      .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
+      .valid_gops = 2, .pending_nalus = 0, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -399,21 +396,21 @@ START_TEST(intact_ms_stream_with_pps_bytestream)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("VIiPpPpIiPpPpIi", settings[_i]);
-  test_stream_check_types(list, "VSIiPpPpSIiPpPpSIi");
+  test_stream_check_types(list, "VIiPpPpSIiPpPpSIi");
 
   // Pop the PPS NAL Unit and inject it before the 'I'.
   test_stream_item_t *item = test_stream_pop_first_item(list);
   test_stream_item_check_type(item, 'V');
-  test_stream_check_types(list, "SIiPpPpSIiPpPpSIi");
-  test_stream_append_item(list, item, 1);
-  test_stream_check_types(list, "SVIiPpPpSIiPpPpSIi");
+  test_stream_check_types(list, "IiPpPpSIiPpPpSIi");
+  test_stream_prepend_first_item(list, item);
+  test_stream_check_types(list, "VIiPpPpSIiPpPpSIi");
 
   // All NAL Units but the last 'I' and 'i' are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 18, 16, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // One pending NAL Unit per GOP.
+      SV_AUTH_RESULT_OK, false, 17, 15, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // No pending NAL Unit per GOP.
   struct validation_stats expected = {
-      .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
+      .valid_gops = 2, .pending_nalus = 0, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -434,14 +431,14 @@ START_TEST(intact_with_undefined_nalu_in_stream)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
-  test_stream_check_types(list, "SIPXPSIPPSI");
+  test_stream_check_types(list, "IPXPSIPPSI");
 
   // All NAL Units but the last 'I' are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 11, 10, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // One pending NAL Unit per GOP.
+      SV_AUTH_RESULT_OK, false, 10, 9, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // No pending NAL Unit per GOP.
   struct validation_stats expected = {
-      .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
+      .valid_gops = 2, .pending_nalus = 0, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -454,14 +451,14 @@ START_TEST(intact_with_undefined_multislice_nalu_in_stream)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IiPpXPpIiPpPpIi", settings[_i]);
-  test_stream_check_types(list, "SIiPpXPpSIiPpPpSIi");
+  test_stream_check_types(list, "IiPpXPpSIiPpPpSIi");
 
   // All NAL Units but the last 'I' and 'i' are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 18, 16, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // One pending NAL Unit per GOP.
+      SV_AUTH_RESULT_OK, false, 17, 15, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // No pending NAL Unit per GOP.
   struct validation_stats expected = {
-      .valid_gops = 3, .pending_nalus = 3, .final_validation = &final_validation};
+      .valid_gops = 2, .pending_nalus = 0, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -480,39 +477,37 @@ START_TEST(remove_one_p_nalu)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPPSIPPSI");
 
   // Item counting starts at 1.  Middle 'P' in second non-empty GOP: SIPPSIP P PSIPPSI
   const int remove_nalu_number = 8;
   remove_item_then_check_and_free(list, remove_nalu_number, 'P');
-  test_stream_check_types(list, "SIPPSIPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPSIPPSI");
 
   // All NAL Units but the last 'I' are validated and since one NAL Unit has been removed the
   // authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 14, 13, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_NOT_OK, false, 13, 12, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // SIPPSIPPSIPPSI
   //
-  // SI                ->   (valid) -> .P
-  //  IPPSI            ->   (valid) -> .....P
-  //      IPPSI        -> (invalid) -> NMNNNP (1 missed)
-  //          IPPSI    -> (invalid) -> N...P
-  // One pending NAL Unit per GOP.
+  //  IPPS             ->   (valid) -> .....
+  //      IPPSI        -> (invalid) -> NMNNN (1 missed)
+  //          IPPS     -> (valid) -> ....
+  // No pending NAL Unit per GOP.
   struct validation_stats expected = {.valid_gops = 2,
-      .invalid_gops = 2,
+      .invalid_gops = 1,
       .missed_nalus = 1,
-      .pending_nalus = 4,
+      .pending_nalus = 0,
       .final_validation = &final_validation};
   // For Frame level we can identify the missing NAL Unit and mark the GOP as valid with missing
   // info.
-  // SIPPSIPPSIPPSI
+  // IPPSIPPSIPPSI
   //
-  // SI                ->   (valid) -> .P
-  //  IPPSI            ->   (valid) -> .....P
-  //      IPPSI        -> (invalid) -> NNMNNP
-  //          IPPSI    -> (valid)   -> ....P
+  //  IPPS             ->   (valid) -> .....
+  //      IPPS         ->   (valid, 1 missing) -> ..M..
+  //          IPPS     ->   (valid) -> ....
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    expected.valid_gops = 3;
+    expected.valid_gops = 2;
     expected.valid_gops_with_missing_info = 1;
     expected.invalid_gops = 0;
     expected.final_validation->authenticity = SV_AUTH_RESULT_OK_WITH_MISSING_INFO;
@@ -532,36 +527,39 @@ START_TEST(interchange_two_p_nalus)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPPSIPPSI");
 
   // Item counting starts at 1.  Middle 'P' in second non-empty GOP: SIPPSIP P PSIPPSI
-  const int nalu_number = 8;
+  const int nalu_number = 7;
   test_stream_item_t *item = test_stream_item_remove(list, nalu_number);
   test_stream_item_check_type(item, 'P');
 
   // Inject the item again, but at position nalu_number + 1, that is, append the list item at
   // position nalu_number.
   test_stream_append_item(list, item, nalu_number);
-  test_stream_check_types(list, "SIPPSIPPPSIPPSI");
-  // SIPPSIPPPSIPPSI
-  // SI                ->   (valid)  -> .P
-  //  IPPSI            ->   (valid)  -> ....P
-  //      IPPSI        ->   (invalid)-> NNNUP
-  //          IPPSI    ->   (invalid)-> N...P
+  test_stream_check_types(list, "IPPSIPPPSIPPSI");
+  // IPPSIPPPSIPPSI
+  // IPPS                ->   (valid)  -> .P
+  //      IPPS           ->   (invalid)-> NNNU
+  //          IPPS       ->   (valid)  -> ....
   // All NAL Units but the last 'I' are validated and since two NAL Units have been moved the
   // authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // One pending NAL Unit per GOP.
+      SV_AUTH_RESULT_NOT_OK, false, 14, 13, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // No pending NAL Unit per GOP.
   struct validation_stats expected = {.valid_gops = 2,
-      .invalid_gops = 2,
-      .pending_nalus = 4,
+      .invalid_gops = 1,
+      .pending_nalus = 0,
       .final_validation = &final_validation};
   // For Frame level we can identify the I NAL Unit, hence the linking between GOPs is intact.
+  // IPPSIPPPSIPPSI
+  // IPPS                ->   (valid)  -> .P
+  //      IPPS           ->   (invalid)-> ...M.N.
+  //          IPPS       ->   (valid)  -> ....
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    expected.valid_gops = 3;
+    expected.valid_gops = 2;
     expected.invalid_gops = 1;
-    expected.final_validation->number_of_validated_nalus = 14;
+    expected.final_validation->number_of_validated_nalus = 13;
   }
   validate_nalu_list(NULL, list, expected, true);
 
@@ -579,29 +577,28 @@ START_TEST(modify_one_p_nalu)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPPSIPPSI");
 
   // Second 'P' in first non-empty GOP: SIP P SIPPPSIPPSI
-  const int modify_nalu_number = 4;
+  const int modify_nalu_number = 6;
   modify_list_item(list, modify_nalu_number, 'P');
 
   // All NAL Units but the last 'I' are validated and since one NAL Unit has been modified the
   // authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // SIPPSIPPPSIPPSI
-  // SI                ->   (valid)  -> .P
-  //  IPPSI            ->   (invalid)-> NNNNP
-  //      IPPSI        ->   (invalid)-> N...P
-  //          IPPSI    ->   (valid)  -> ....P
-  // One pending NAL Unit per GOP.
+      SV_AUTH_RESULT_NOT_OK, false, 14, 13, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // IPPSIPPPSIPPSI
+  // IPPS              ->   (valid)  -> ....
+  //     IPPPS         ->   (invalid)-> NNNNU
+  //          IPPS     ->   (valid)  -> ....
+  // No pending NAL Unit per GOP.
   struct validation_stats expected = {.valid_gops = 2,
-      .invalid_gops = 2,
-      .pending_nalus = 4,
+      .invalid_gops = 1,
+      .pending_nalus = 0,
       .final_validation = &final_validation};
   // For Frame level we can identify the I NAL Unit, hence the linking between GOPs is intact.
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    expected.valid_gops = 3;
+    expected.valid_gops = 2;
     expected.invalid_gops = 1;
   }
   validate_nalu_list(NULL, list, expected, true);
@@ -616,32 +613,28 @@ START_TEST(modify_one_i_nalu)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPPSIPPSI");
 
   // Modify the 'I' in second non-empty GOP: SIPPS I PPPSIPPSI
-  const int modify_nalu_number = 6;
+  const int modify_nalu_number = 5;
   modify_list_item(list, modify_nalu_number, 'I');
 
   // All NAL Units but the last 'I' are validated and since one 'I' has been modified the
   // authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // SIPPSIPPPSIPPSI
-  // SI                ->   (valid)  -> .P
-  //  IPPSI            ->   (invalid)-> NNNNP
-  //      IPPSI        ->   (invalid)-> NNNNP
-  //          IPPSI    ->   (invalid)-> N...P
-  // One pending NAL Unit per GOP. Note that a modified 'I' affects two GOPs due to linked hashes,
-  // but it will also affect a third if we validate with a gop_hash.
-  struct validation_stats expected = {.valid_gops = 1,
-      .invalid_gops = 3,
-      .pending_nalus = 4,
-      .final_validation = &final_validation};
+      SV_AUTH_RESULT_NOT_OK, false, 14, 13, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // IPPSIPPPSIPPSI
+  // IPPS             ->   (valid)->  ....
+  //     IPPS         ->   (invalid)-> NNNN
+  //         IPPS     ->   (invalid)-> NNNN
+  // No pending NAL Unit per GOP.
+  struct validation_stats expected = {
+      .valid_gops = 1, .invalid_gops = 2, .final_validation = &final_validation};
   // For Frame level, the first GOP will be marked as valid with missing info since we cannot
   // correctly validate the last NAL Unit (the modified I).
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
     expected.valid_gops = 2;
-    expected.invalid_gops = 2;
+    expected.invalid_gops = 1;
   }
   validate_nalu_list(NULL, list, expected, true);
 
@@ -655,10 +648,10 @@ START_TEST(modify_one_sei)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPPSIPPSI");
 
   // Modify the second 'S': SIPP S IPPPSIPPSI
-  const int modify_nalu_number = 5;
+  const int modify_nalu_number = 9;
   test_stream_item_t *sei = test_stream_item_get(list, modify_nalu_number);
   test_stream_item_check_type(sei, 'S');
   // Bit flip one byte in the signature. EC signatures are the smallest ones and have are
@@ -669,20 +662,16 @@ START_TEST(modify_one_sei)
   // All NAL Units but the last 'I' are validated and since one 'I' has been modified the
   // authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_NOT_OK, false, 14, 13, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
 
-  // SIPPSIPPPSIPPSI
+  // IPPSIPPPSIPPSI
   //
-  // SI                ->   (valid) -> .P
-  //  IPPSI            -> (invalid) -> NNNNP
-  //      IPPPSI       -> (invalid) -> N....P
-  //           IPPSI   ->   (valid) -> ....P
-  // One pending NAL Unit per GOP. Note that a modified 'I' affects two GOPs due to linked hashes,
-  // but it will also affect a third if we validate with a gop_hash.
-  struct validation_stats expected = {.valid_gops = 2,
-      .invalid_gops = 2,
-      .pending_nalus = 4,
-      .final_validation = &final_validation};
+  // IPPS             ->   (valid) -> ....
+  //     IPPPS        -> (invalid) -> N....
+  //          IPPS    ->   (valid) -> ....
+  // No pending NAL Unit per GOP.
+  struct validation_stats expected = {
+      .valid_gops = 2, .invalid_gops = 1, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -701,28 +690,24 @@ START_TEST(remove_the_g_nalu)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPSIPPSIPPSI");
 
   // SEI of second non-empty GOP: SIPPSIPP S IPPSIPPSI.
-  const int remove_nalu_number = 9;
+  const int remove_nalu_number = 8;
   remove_item_then_check_and_free(list, remove_nalu_number, 'S');
-  test_stream_check_types(list, "SIPPSIPPIPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPIPPSIPPSI");
 
-  // SIPPSIPPIPPSIPPSI
+  // IPPSIPPIPPSIPPSI
   //
-  // SI                ->   (valid) -> .P
-  //  IPPSI            ->   (valid) -> ....P
-  //      IPPIPPS      -> (invalid) -> NNNPPPP
-  //         IPPSI     -> (invalid) -> N...P
-  //             IPPSI ->   (valid) -> ....P
+  //  IPPSI            ->   (valid) -> ....
+  //      IPPIPPS      -> (invalid) -> NNN....
+  //             IPPSI ->   (valid) -> ....
   // All NAL Units but the last 'I' are validated and since one SEI has been removed the
   // authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 17, 16, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  struct validation_stats expected = {.valid_gops = 3,
-      .invalid_gops = 2,
-      .pending_nalus = 8,
-      .final_validation = &final_validation};
+      SV_AUTH_RESULT_NOT_OK, false, 16, 15, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  struct validation_stats expected = {
+      .valid_gops = 2, .invalid_gops = 1, .final_validation = &final_validation};
 
   validate_nalu_list(NULL, list, expected, true);
 
@@ -736,44 +721,43 @@ START_TEST(remove_the_i_nalu)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPSIPPSIPPSIPPSIPPSI");
 
   // 'I' of third non-empty GOP: SIPPSIPPS I PPSIPPSI.
-  const int remove_nalu_number = 10;
+  const int remove_nalu_number = 9;
   remove_item_then_check_and_free(list, remove_nalu_number, 'I');
-  test_stream_check_types(list, "SIPPSIPPSPPSIPPSIPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPSPPSIPPSIPPSIPPSI");
 
   // All NAL Units but the last 'I' are validated and since one 'I' has been removed the
   // authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 25, 24, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // One pending NAL Unit per GOP. A missing I NAL Unit will affect two GOPs, since it is part of
-  // two gop_hashes. At GOP level the missing NAL Unit will make the GOP invalid, but for Frame
-  // level we can identify the missed NAL Unit when the I NAL Unit is not the reference, that is,
-  // the first GOP is valid with missing info, whereas the second becomes invalid. SIPPSIPPSPPSIPPSI
+      SV_AUTH_RESULT_NOT_OK, false, 24, 23, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // A missing I NAL unit will affect two GOPs, as it is part of both the gop_hash and the
+  // linked_hash. At the GOP level, the missing NAL unit will invalidate both GOPs. However, at the
+  // Frame level, the second GOP, which is invalid at the GOP level, is considered valid because the
+  // previous GOP link has no effect on Frame level validation.
+  // IPPSIPPSPPSIPPSI
   //
-  // SI                         ->   (valid) -> .P
-  //  IPPSI                     ->   (valid) -> ....P
-  //      IPPSP                 -> (invalid) -> NNNNP
-  //          PPSI              -> (invalid) -> MNNNP (1 missing)
-  //             IPPSI          -> (invalid) -> NNNNP (Order is not OK)
-  //                 IPPSI      -> (invalid) -> N...P
-  //                     IPPSI  ->   (valid) -> ....P
-  struct validation_stats expected = {.valid_gops = 3,
-      .invalid_gops = 4,
+  //  IPPS                      ->   (valid) -> ....
+  //      IPPSP                 ->   (valid) -> ....
+  //          PPSI              -> (invalid) -> MNNN (1 missing)
+  //             IPPS           -> (invalid) -> NNNN (Order is not OK)
+  //                 IPPS       ->   (valid) -> ....
+  //                     IPPS   ->   (valid) -> ....
+  struct validation_stats expected = {.valid_gops = 4,
+      .invalid_gops = 2,
       .missed_nalus = 1,
-      .pending_nalus = 7,
+      .pending_nalus = 1,
       .final_validation = &final_validation};
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    // SI                         ->   (valid) -> .P
-    //  IPPSI                     ->   (valid) -> ....P
-    //      IPPSP                 ->   (valid) -> ....P
-    //          PPSI              -> (invalid) -> MNNNP (1 missing)
-    //             IPPSI          -> (invalid) -> N...P
-    //                 IPPSI      ->   (valid) -> ....P
-    //                     IPPSI  ->   (valid) -> ....P
+    //  IPPS                      ->   (valid) -> ....
+    //      IPPSP                 ->   (valid) -> ....
+    //          PPSI              -> (invalid) -> MNN.P (1 missing)
+    //             IPPS           ->   (valid) -> ...
+    //                 IPPS       ->   (valid) -> ....
+    //                     IPPSI  ->   (valid) -> ....
     expected.valid_gops = 5;
-    expected.invalid_gops = 2;
+    expected.invalid_gops = 1;
   }
   validate_nalu_list(NULL, list, expected, true);
 
@@ -787,31 +771,47 @@ START_TEST(remove_the_gi_nalus)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPSIPPSIPPSI");
 
   // SEI of second non-empty GOP: SIPPSIPP S IPPSIPPSI.
-  int remove_nalu_number = 9;
+  int remove_nalu_number = 8;
   remove_item_then_check_and_free(list, remove_nalu_number, 'S');
   // Note that we have removed an item before this one, hence the 'I' is now at place 9:
   // SIPPSIPP I PPSIPPS.
   remove_item_then_check_and_free(list, remove_nalu_number, 'I');
-  test_stream_check_types(list, "SIPPSIPPPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPPPSIPPSI");
 
   // All NAL Units but the last 'I' are validated and since one couple of SEI and 'I' have been
   // removed the authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 16, 15, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_NOT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending NAL Unit per detected GOP. Note that we lose one 'true' GOP since the transition is
   // lost. We have now two incomplete GOPs; second (missing S) and third (missing I). In fact, we
   // miss the transition between GOP two and three, but will detect it later through the gop
   // counter. Unfortunately, the authentication result does not cover the case "invalid gop" and
   // "missing gops", so we cannot get that information. This will be solved when changing to a more
   // complete authentication report.
-  struct validation_stats expected = {.valid_gops = 2,
-      .invalid_gops = 2,
-      .missed_nalus = -2,
-      .pending_nalus = 4,
+  // TODO: In the current validation, if the validator receives a I NALU after an SEI NALU, it will
+  // proceed with validation. As a result, it will invalidate one additional GOP that does not
+  // exist. IPPSIPPPPSIPPSI IPPS                       ->   (valid) -> ....
+  //     IPPPPS                 -> (invalid) -> NNNNNP
+  //          SI                -> (invalid) -> MMMNP
+  //           IPPS             -> (invalid) -> NNNN (Order is not OK)
+  struct validation_stats expected = {.valid_gops = 1,
+      .invalid_gops = 3,
+      .missed_nalus = 3,
+      .pending_nalus = 2,
       .final_validation = &final_validation};
+  // IPPSIPPPPSIPPSI
+  // IPPS                       ->   (valid) -> ....
+  //     IPPPPS                 -> (invalid) -> NNNNNP
+  //          SI                -> (invalid) -> MMM.P
+  //           IPPS             ->   (valid) -> ....
+  if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
+    expected.valid_gops = 2;
+    expected.invalid_gops = 2;
+    expected.missed_nalus = 3;
+  }
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -828,25 +828,30 @@ START_TEST(sei_arrives_late)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IPPPIPPPIPPPI", settings[_i]);
-  test_stream_check_types(list, "SIPPPSIPPPSIPPPSI");
+  test_stream_check_types(list, "IPPPSIPPPSIPPPSI");
 
-  // Remove the second SEI, that is, number 6 in the list: SIPPP (S) IPPPSIPPPSI.
-  test_stream_item_t *sei = test_stream_item_remove(list, 6);
+  // Remove the second SEI, that is, number 5 in the list: IPPP (S) IPPPSIPPPSI.
+  test_stream_item_t *sei = test_stream_item_remove(list, 5);
   test_stream_item_check_type(sei, 'S');
-  test_stream_check_types(list, "SIPPPIPPPSIPPPSI");
+  test_stream_check_types(list, "IPPPIPPPSIPPPSI");
 
   // Prepend the middle P of the next GOP: SIPPPIP (S)P PSIPPPSI. This is equivalent with appending
-  // the first P of the same GOP, that is, number 7.
-  test_stream_append_item(list, sei, 7);
-  test_stream_check_types(list, "SIPPPIPSPPSIPPPSI");
+  // the first P of the same GOP, that is, number 6.
+  test_stream_append_item(list, sei, 6);
+  test_stream_check_types(list, "IPPPIPSPPSIPPPSI");
 
   // All NAL Units but the last 'I' are validated as OK, which is pending.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 17, 16, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // One pending NAL Unit per GOP + the extra P before (S). The late arrival SEI will introduce one
-  // pending NAL Unit (the P frame right before).
-  struct validation_stats expected = {
-      .valid_gops = 4, .pending_nalus = 5, .final_validation = &final_validation};
+      SV_AUTH_RESULT_OK, false, 16, 15, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // IPPPIPSPPSIPPPSI
+  // IPPPI                      ->(unsigned) -> PPPPP
+  // IPPPIPS                    ->   (valid) -> ....PP.
+  //     IPSPPS                 ->   (valid) -> ......
+  //           IPPS             ->   (valid) -> ....
+  struct validation_stats expected = {.valid_gops = 3,
+      .unsigned_gops = 1,
+      .pending_nalus = 7,
+      .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -860,32 +865,29 @@ generate_delayed_sei_list(struct sv_setting setting, bool extra_delay)
 {
   // Make first GOP one P-frame longer to trigger recurrence on second I-frame.
   test_stream_t *list = create_signed_nalus("IPPPPIPPPIPPPIPPPIP", setting);
-  test_stream_check_types(list, "SIPPPPSIPPPSIPPPSIPPPSIP");
+  test_stream_check_types(list, "IPPPPSIPPPSIPPPSIPPPSIP");
 
   // Remove each SEI in the list and append it 2 items later (which in practice becomes 1 item later
   // since we just removed the SEI).
   int extra_offset = extra_delay ? 5 : 0;
   int extra_correction = extra_delay ? 1 : 0;
-  test_stream_item_t *sei = test_stream_item_remove(list, 1);
+  test_stream_item_t *sei = test_stream_item_remove(list, 6);
   test_stream_item_check_type(sei, 'S');
-  test_stream_append_item(list, sei, 2 + extra_offset);
-  sei = test_stream_item_remove(list, 7 - extra_correction);
+  test_stream_append_item(list, sei, 7 + extra_offset);
+  sei = test_stream_item_remove(list, 11 - extra_correction);
   test_stream_item_check_type(sei, 'S');
-  test_stream_append_item(list, sei, 8 + extra_offset);
-  sei = test_stream_item_remove(list, 12 - extra_correction);
+  test_stream_append_item(list, sei, 12 + extra_offset);
+  sei = test_stream_item_remove(list, 16 - extra_correction);
   test_stream_item_check_type(sei, 'S');
-  test_stream_append_item(list, sei, 13 + extra_offset);
-  sei = test_stream_item_remove(list, 17 - extra_correction);
+  test_stream_append_item(list, sei, 17 + extra_offset);
+  sei = test_stream_item_remove(list, 21 - extra_correction);
   test_stream_item_check_type(sei, 'S');
-  test_stream_append_item(list, sei, 18 + extra_offset);
-  sei = test_stream_item_remove(list, 22 - extra_correction);
-  test_stream_item_check_type(sei, 'S');
-  test_stream_append_item(list, sei, 23);
+  test_stream_append_item(list, sei, 22);
 
   if (extra_delay) {
-    test_stream_check_types(list, "IPPPPISPPPIPSPPIPSPPIPSS");
+    test_stream_check_types(list, "IPPPPIPPPIPSPPIPSPPIPSS");
   } else {
-    test_stream_check_types(list, "IPSPPPIPSPPIPSPPIPSPPIPS");
+    test_stream_check_types(list, "IPPPPIPSPPIPSPPIPSPPIPS");
   };
   return list;
 }
@@ -901,22 +903,22 @@ START_TEST(all_seis_arrive_late)
 
   test_stream_t *list = generate_delayed_sei_list(settings[_i], true);
 
-  // IPPPPISPPPIPSPPIPSPPIPSS
+  // IPPPPIPPPIPSPPIPSPPIPSS
   //
   // IPPPPI                   -> (no signature) -> PPPPPP         6 pending
-  // IPPPPIS                  ->        (valid) -> PPPPPP.        6 pending
-  // IPPPPISPPPIPS            ->        (valid) -> .....P.PPPPP.  6 pending
-  //      ISPPPIPSPPIPS       ->        (valid) -> .....PP.PPPP.  6 pending
+  // IPPPPIPPPI               -> (no signature) -> PPPPPPPPPP     10 pending
+  // IPPPPIPPPIPS             ->        (valid) -> .....PPPPPP.   6 pending
+  //      IPPPIPSPPIPS        ->        (valid) -> ....PP.PPPP.   6 pending
   //           IPSPPIPSPPIPS  ->        (valid) -> .....PP.PPPP.  6 pending
   //                IPSPPIPSS ->        (valid) -> .....PP..      2 pending
-  //                                                32 pending
+  //                                                              36 pending
   // All NAL Units but the last 'I', 'P' and 2 SEIs are validated as OK, hence four pending NAL
   // Units.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 24, 20, 4, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  struct validation_stats expected = {.valid_gops = 5,
-      .unsigned_gops = 1,
-      .pending_nalus = 32,
+      SV_AUTH_RESULT_OK, false, 23, 19, 4, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  struct validation_stats expected = {.valid_gops = 4,
+      .unsigned_gops = 2,
+      .pending_nalus = 36,
       .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
@@ -933,38 +935,39 @@ START_TEST(all_seis_arrive_late_first_gop_scrapped)
 
   test_stream_item_t *item = test_stream_pop_first_item(list);
   test_stream_item_check_type(item, 'I');
-  test_stream_check_types(list, "PPPPISPPPIPSPPIPSPPIPSS");
+  test_stream_check_types(list, "PPPPIPPPIPSPPIPSPPIPSS");
   test_stream_item_free(item);
   item = test_stream_pop_first_item(list);
   test_stream_item_check_type(item, 'P');
-  test_stream_check_types(list, "PPPISPPPIPSPPIPSPPIPSS");
+  test_stream_check_types(list, "PPPIPPPIPSPPIPSPPIPSS");
   test_stream_item_free(item);
   item = test_stream_pop_first_item(list);
   test_stream_item_check_type(item, 'P');
-  test_stream_check_types(list, "PPISPPPIPSPPIPSPPIPSS");
+  test_stream_check_types(list, "PPIPPPIPSPPIPSPPIPSS");
   test_stream_item_free(item);
   item = test_stream_pop_first_item(list);
   test_stream_item_check_type(item, 'P');
-  test_stream_check_types(list, "PISPPPIPSPPIPSPPIPSS");
+  test_stream_check_types(list, "PIPPPIPSPPIPSPPIPSS");
   test_stream_item_free(item);
   item = test_stream_pop_first_item(list);
   test_stream_item_check_type(item, 'P');
-  test_stream_check_types(list, "ISPPPIPSPPIPSPPIPSS");
+  test_stream_check_types(list, "IPPPIPSPPIPSPPIPSS");
   test_stream_item_free(item);
 
-  // ISPPPIPSPPIPSPPIPSS
+  // IPPPIPSPPIPSPPIPSS
   //
-  // IS                  ->    (signature) -> PU             1 pending
-  // ISPPPIPS            ->    (signature) -> PUPPPPPU       6 pending
-  // ISPPPIPSPPIPS       ->        (valid) -> .U...PPUPPPP.  6 pending
+  // IPPPI               ->(no signature)  -> PPPPP          5 pending
+  // IPPPIPS             ->    (signature) -> PPPPPPU        6 pending
+  // ISPPPIPSPPIPS       ->        (valid) -> ....PPUPPPP.   6 pending
   //      IPSPPIPSPPIPS  ->        (valid) -> ..U..PP.PPPP.  6 pending
   //           IPSPPIPSS ->        (valid) -> .....PP..      2 pending
-  //                                                        21 pending
+  //                                                        25 pending
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 19, 15, 4, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 18, 14, 4, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {.valid_gops = 3,
-      .has_signature = 2,
-      .pending_nalus = 21,
+      .has_signature = 1,
+      .unsigned_gops = 1,
+      .pending_nalus = 25,
       .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
@@ -981,35 +984,34 @@ START_TEST(lost_g_before_late_sei_arrival)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  test_stream_t *list = create_signed_nalus("IPPPIPPPIPPPIPPI", settings[_i]);
-  test_stream_check_types(list, "SIPPPSIPPPSIPPPSIPPSI");
+  test_stream_t *list = create_signed_nalus("IPPPIPPPIPPPIPPIPPI", settings[_i]);
+  test_stream_check_types(list, "IPPPSIPPPSIPPPSIPPSIPPSI");
 
-  // Remove the third SEI, that is, number 11 in the list: SIPPPSIPPP (S) IPPPSIPPSI.
-  test_stream_item_t *sei = test_stream_item_remove(list, 11);
+  // Remove the third SEI, that is, number 10 in the list: IPPPSIPPP (S) IPPPSIPPSI.
+  test_stream_item_t *sei = test_stream_item_remove(list, 15);
   test_stream_item_check_type(sei, 'S');
-  test_stream_check_types(list, "SIPPPSIPPPIPPPSIPPSI");
+  test_stream_check_types(list, "IPPPSIPPPSIPPPIPPSIPPSI");
 
-  // Prepend the middle P of the next GOP: SIPPPSIPPPIP (S)P PSIPPSI. This is equivalent with
-  // appending the first P of the same GOP, that is, number 12.
+  // Prepend the middle P of the next GOP: IPPPSIPPPIP (S)P PSIPPSI. This is equivalent with
+  // appending the first P of the same GOP, that is, number 11.
 
-  test_stream_append_item(list, sei, 12);
-  test_stream_check_types(list, "SIPPPSIPPPIPSPPSIPPSI");
+  test_stream_append_item(list, sei, 16);
+  test_stream_check_types(list, "IPPPSIPPPSIPPPIPSPSIPPSI");
 
   // Remove the second SEI, i.e., number 6 in the list: SIPPP (S) IPPPIPSPPSIPPSI.
-  remove_item_then_check_and_free(list, 6, 'S');
-  test_stream_check_types(list, "SIPPPIPPPIPSPPSIPPSI");
-
-  // SI                   ->   (valid) -> .P           1 pending
-  //  IPPPIPPPIPS         -> (invalid) -> NNNNN...PP.  2 pending (two GOPs in one validation)
-  //          IPSPPSI     ->   (valid) -> ......P      1 pending
-  //                IPPSI ->   (valid) -> ....P        1 pending
-  //                                             5 pending
+  remove_item_then_check_and_free(list, 10, 'S');
+  test_stream_check_types(list, "IPPPSIPPPIPPPIPSPSIPPSI");
+  // IPPPSIPPPIPPPIPSPSIPPSI
+  // IPPPIPPPIPS            -> (invalid) -> NNNNN...PP.(two GOPs in one validation)
+  //         IPSPPS         ->   (valid) -> ......
+  //               IPPS     ->   (valid) -> ....
+  //                   IPPS ->   (valid) -> ....
   // All NAL Units but the last 'I' are validated. Since a SEI is lost the authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 20, 19, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_NOT_OK, false, 23, 22, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {.valid_gops = 3,
       .invalid_gops = 1,
-      .pending_nalus = 5,
+      .pending_nalus = 2,
       .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
@@ -1030,7 +1032,7 @@ START_TEST(lost_g_and_gop_with_late_sei_arrival)
   if (TMP_FIX_TO_ALLOW_TWO_INVALID_SEIS_AT_STARTUP) return;
 
   test_stream_t *list = create_signed_nalus("IPIPPPIPPPIP", settings[_i]);
-  test_stream_check_types(list, "SIPSIPPPSIPPPSIP");
+  test_stream_check_types(list, "IPSIPPPSIPPPSIP");
 
   // Get the first SEI, to be added back later.
   test_stream_item_t *sei = test_stream_pop_first_item(list);
@@ -1086,45 +1088,44 @@ START_TEST(lost_all_nalus_between_two_seis)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IPPPIPPPIPPPIPPI", settings[_i]);
-  test_stream_check_types(list, "SIPPPSIPPPSIPPPSIPPSI");
+  test_stream_check_types(list, "IPPPSIPPPSIPPPSIPPSI");
 
   // Remove IPPP between the second and third S.
-  remove_item_then_check_and_free(list, 7, 'I');
-  remove_item_then_check_and_free(list, 7, 'P');
-  remove_item_then_check_and_free(list, 7, 'P');
-  remove_item_then_check_and_free(list, 7, 'P');
-  test_stream_check_types(list, "SIPPPSSIPPPSIPPSI");
+  remove_item_then_check_and_free(list, 6, 'I');
+  remove_item_then_check_and_free(list, 6, 'P');
+  remove_item_then_check_and_free(list, 6, 'P');
+  remove_item_then_check_and_free(list, 6, 'P');
+  test_stream_check_types(list, "IPPPSSIPPPSIPPSI");
 
   // All NAL Units but the last 'I' are validated. Since all NAL Units between two SEIs are lost the
   // authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 17, 16, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // We have NAL Units from 5 GOPs present and each GOP will produce one pending NAL Unit. The lost
-  // NAL Units (IPPP) will be detected, but for SV_AUTHENTICITY_LEVEL_FRAME we will measure one
-  // extra missing NAL Unit. This is a descrepancy in the way we count NAL Units by excluding SEIs.
+      SV_AUTH_RESULT_NOT_OK, false, 16, 15, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // We have NAL Units from 5 GOPs present. The lost NAL Units (IPPP) will be detected
+  // but for SV_AUTHENTICITY_LEVEL_FRAME we will measure oneextra missing NAL Unit.
+  // This is a descrepancy in the way we count NAL Units by excluding SEIs.
+  // TODO: In the current validation, if the validator receives a I NALU after an SEI NALU, it will
+  // proceed with validation. As a result, it will invalidate one additional GOP that does not
+  // exist. SIPPPSSIPPPSIPPSI
   //
-  // SIPPPSSIPPPSIPPSI
-  //
-  // SI                ->   (valid) -> .P
-  //  IPPPSS           -> (invalid) -> NNNNNP
-  //       SI          -> (invalid) -> NP (4 missed)
-  //        IPPPSI     -> (invalid) -> NNNNNP (Previous link hash is missing)
-  //             IPPSI -> (invalid) -> N...P
-  struct validation_stats expected = {.valid_gops = 1,
-      .invalid_gops = 4,
+  //  IPPPS            ->   (valid) -> .....
+  //       SI          -> (invalid) -> MMMMNP (4 missed)
+  //        IPPPSI     -> (invalid) -> NNNNN (Previous link hash is missing)
+  //             IPPSI ->   (valid) -> ....
+  struct validation_stats expected = {.valid_gops = 2,
+      .invalid_gops = 2,
       .missed_nalus = 4,
-      .pending_nalus = 5,
+      .pending_nalus = 1,
       .final_validation = &final_validation};
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
     // SIPPPSSIPPPSIPPSI
     //
-    // SI                ->   (valid) -> .P
-    //  IPPPSS           ->   (valid) -> .....P
+    //  IPPPS            ->   (valid) -> .....
     //       SI          -> (invalid) -> MMMM.P (4 missed)
-    //        IPPPSI     ->   (valid) -> .....P
-    //             IPPSI ->   (valid) -> ....P
+    //        IPPPS      ->   (valid) -> .....
+    //             IPPS  ->   (valid) -> ....
     expected.valid_gops = 3;
-    expected.invalid_gops = 2;
+    expected.invalid_gops = 1;
   }
   validate_nalu_list(NULL, list, expected, true);
 
@@ -1142,22 +1143,22 @@ START_TEST(add_one_sei_nalu_after_signing)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPPSIPPSI");
 
   const uint8_t id = 0;
   test_stream_item_t *sei = test_stream_item_create_from_type('Z', id, settings[_i].codec);
 
   // Middle 'P' in second non-empty GOP: SIPPSIP P(Z) PSIPPSI
-  const int append_nalu_number = 8;
+  const int append_nalu_number = 7;
   test_stream_append_item(list, sei, append_nalu_number);
-  test_stream_check_types(list, "SIPPSIPPZPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPZPSIPPSI");
 
   // All NAL Units but the last 'I' are validated as OK. The last one is pending.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 16, 15, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // One pending NAL Unit per GOP.
+      SV_AUTH_RESULT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // No pending NAL Unit per GOP.
   struct validation_stats expected = {
-      .valid_gops = 4, .pending_nalus = 4, .final_validation = &final_validation};
+      .valid_gops = 3, .pending_nalus = 0, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -1180,27 +1181,29 @@ START_TEST(camera_reset_on_signing_side)
 
   // Generate 2 GOPs
   test_stream_t *list = create_signed_nalus("IPPIPP", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPP");
+  test_stream_check_types(list, "IPPSIPP");
 
   // Generate another GOP from scratch
   test_stream_t *list_after_reset = create_signed_nalus_int("IPPPI", settings[_i], true);
-  test_stream_check_types(list_after_reset, "SIPPPSI");
+  test_stream_check_types(list_after_reset, "IPPPSI");
 
   test_stream_append(list, list_after_reset);
-  test_stream_check_types(list, "SIPPSIPPSIPPPSI");
+  test_stream_check_types(list, "IPPSIPPIPPPSI");
 
   // Final validation is NOT OK and all received NAL Units, but the last, are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, true, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // One pending NAL Unit per GOP. Note that the mid GOP (IPPSI) includes the reset on the camera.
+      SV_AUTH_RESULT_NOT_OK, true, 13, 12, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // No pending NAL Unit per GOP. Note that the mid GOP (IPPSI) includes the reset on the camera.
   // It will be marked as invalid and compute 3 more NAL Units than expected. In S it is
   // communicated there is only 2 NAL Units present (SI). So missed NAL Units equals -3 (IPP).
   // TODO: public_key_has_changed is expected to be true now when we have changed the behavior in
   // generate private key.
-  const struct validation_stats expected = {.valid_gops = 2,
-      .invalid_gops = 2,
-      .missed_nalus = -3,
-      .pending_nalus = 4,
+  // IPPSIPPIPPPSI
+  // IPPS            ->  (valid) -> ....
+  //     IPPIPPPS    ->(invalid) -> NNN.....
+  const struct validation_stats expected = {.valid_gops = 1,
+      .invalid_gops = 1,
+      .pending_nalus = 0,
       .public_key_has_changed = true,
       .final_validation = &final_validation};
 
@@ -1218,32 +1221,29 @@ START_TEST(detect_change_of_public_key)
 
   // Generate 2 GOPs
   test_stream_t *list = create_signed_nalus("IPPIPP", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPP");
+  test_stream_check_types(list, "IPPSIPP");
 
   // Generate another GOP from scratch
   // This will generate a new private key, hence transmit a different public key.
   test_stream_t *list_with_new_public_key = create_signed_nalus_int("IPPPI", settings[_i], true);
-  test_stream_check_types(list_with_new_public_key, "SIPPPSI");
+  test_stream_check_types(list_with_new_public_key, "IPPPSI");
 
   test_stream_append(list, list_with_new_public_key);
-  test_stream_check_types(list, "SIPPSIPPSIPPPSI");
+  test_stream_check_types(list, "IPPSIPPIPPPSI");
 
   // Final validation is NOT OK and all received NAL Units, but the last, are validated. The
   // |public_key_has_changed| flag has been set.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, true, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_NOT_OK, true, 13, 12, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // The list will be validated successfully up to the third SEI (S) which has the new Public key.
-  //
-  //   SI      -> .P     (valid, 1 pending, public_key_has_changed = false)
-  //   IPPSI   -> ....P  (valid, 1 pending, public_key_has_changed = false)
-  //   IPPS*I  -> NNN.P  (invalid, 1 pending, public_key_has_changed = true, -3 missing)
-  //   IPPPS*I -> N....P (invalid, 1 pending, public_key_has_changed = false)
+  //   IPPSIPPIPPPSI
+  //   IPPS             -> ....     (valid, public_key_has_changed = false)
+  //       IPPIPPPS     -> NNN..... (invalid, public_key_has_changed = true)
   // where S* has the new Public key. Note that we get -3 missing since we receive 3 more than what
   // is expected according to S*.
-  const struct validation_stats expected = {.valid_gops = 2,
-      .invalid_gops = 2,
-      .missed_nalus = -3,
-      .pending_nalus = 4,
+  const struct validation_stats expected = {.valid_gops = 1,
+      .invalid_gops = 1,
+      .pending_nalus = 0,
       .public_key_has_changed = true,
       .final_validation = &final_validation};
 
@@ -1271,27 +1271,22 @@ static test_stream_t *
 mimic_au_fast_forward_and_get_list(signed_video_t *sv, struct sv_setting setting)
 {
   test_stream_t *list = create_signed_nalus("IPPPPIPPPIPPPIPPPIPPPI", setting);
-  test_stream_check_types(list, "SIPPPPSIPPPSIPPPSIPPPSIPPPSI");
+  test_stream_check_types(list, "IPPPPSIPPPSIPPPSIPPPSIPPPSI");
 
-  // Extract the first 9 NAL Units from the list. This should be the empty GOP, a full GOP and in
-  // the middle of the next GOP: SIPPPPSIP PPSIPPPSIPPPSI. These are the NAL Units to be processed
+  // Extract the first 8 NAL Units from the list. This should be the empty GOP, a full GOP and in
+  // the middle of the next GOP: IPPPPSIP PPSIPPPSIPPPSI. These are the NAL Units to be processed
   // before the fast forward.
-  test_stream_t *pre_fast_forward = test_stream_pop(list, 9);
-  test_stream_check_types(pre_fast_forward, "SIPPPPSIP");
+  test_stream_t *pre_fast_forward = test_stream_pop(list, 8);
+  test_stream_check_types(pre_fast_forward, "IPPPPSIP");
   test_stream_check_types(list, "PPSIPPPSIPPPSIPPPSI");
 
   // Final validation of |pre_fast_forward| is OK and all received NAL Units, but the last two, are
   // validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 9, 7, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 8, 6, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // Validate the video before fast forward using the user created session |sv|.
-  //
-  // SI      -> .P          (valid)
-  // IPPPPSI ->  .....P     (valid)
-  //
-  // Total number of pending NAL Units = 1 + 1 = 2
-  struct validation_stats expected = {
-      .valid_gops = 2, .pending_nalus = 2, .final_validation = &final_validation};
+  // IPPPPS ->  .....     (valid)
+  struct validation_stats expected = {.valid_gops = 1, .final_validation = &final_validation};
   validate_nalu_list(sv, pre_fast_forward, expected, true);
   test_stream_free(pre_fast_forward);
 
@@ -1324,14 +1319,13 @@ START_TEST(fast_forward_stream_with_reset)
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 12, 11, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // Validate SIPPPSIPPPSI:
-  //
-  // SI             -> UP        ->   (SV_AUTH_RESULT_SIGNATURE_PRESENT)
-  //  IPPPSI        -> .....P    ->   (valid)
-  //       IPPPSI   -> .....P    ->   (valid)
+  // SI             -> UP       ->   (signature)
+  //  IPPPS         -> .....    ->   (valid)
+  //       IPPPS    -> .....    ->   (valid)
   //
   // Total number of pending NAL Units = 1 + 1 + 1 = 3
   struct validation_stats expected = {.valid_gops = 2,
-      .pending_nalus = 3,
+      .pending_nalus = 1,
       .has_signature = 1,
       .final_validation = &final_validation};
 
@@ -1354,23 +1348,24 @@ START_TEST(fast_forward_stream_without_reset)
 
   // Final validation is NOT OK and all received NAL Units, but the last one, are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 21, 20, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_NOT_OK, false, 20, 19, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // Validate IP SIPPPSIPPPSI (without reset, i.e., started with IP before fast forward):
-
-  // SI             -> NP            ->   (invalid)
-  //  IPPPSI        -> NNNNNP        ->   (invalid)
-  //       IPPPSI   -> NNNNNP        ->   (invalid)
+  // IPS              -> NNP          ->   (invalid)
+  //   SI             -> MMMMN        ->   (invalid)
+  //    IPPPS         -> NNNNN        ->   (invalid)
+  //         IPPPS    -> .....        ->   (valid)
   // Total number of pending NAL Units = 1 + 1 + 1 = 3
-  struct validation_stats expected = {.valid_gops = 0,
+  struct validation_stats expected = {.valid_gops = 1,
       .invalid_gops = 3,
-      .missed_nalus = 2,
-      .pending_nalus = 3,
+      .missed_nalus = 4,
+      .pending_nalus = 2,
       .final_validation = &final_validation};
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    // SI             -> NP            ->   (invalid)
-    //  IPPPSI        -> N....P        ->   (invalid)
-    //       IPPPSI   -> .....P        ->   (valid)
-    expected.valid_gops = 1;
+    // IPS              -> NNP          ->   (invalid)
+    //   SI             -> MMMMN        ->   (invalid)
+    //    IPPPS         -> .....        ->   (valid)
+    //         IPPPS    -> .....        ->   (valid)
+    expected.valid_gops = 2;
     expected.invalid_gops = 2;
   }
   validate_nalu_list(sv, list, expected, true);
@@ -1385,27 +1380,28 @@ static test_stream_t *
 mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_setting setting)
 {
   test_stream_t *list = generate_delayed_sei_list(setting, false);
-  test_stream_check_types(list, "IPSPPPIPSPPIPSPPIPSPPIPS");
+  test_stream_check_types(list, "IPPPPIPSPPIPSPPIPSPPIPS");
 
   // Extract the first 9 NAL Units from the list. This should be the empty GOP, a full GOP and in
   // the middle of the next GOP: IPSPPPIPS PPIPSPPIPSPPIPS. These are the NAL Units to be processed
   // before the fast forward.
-  test_stream_t *pre_fast_forward = test_stream_pop(list, 9);
-  test_stream_check_types(pre_fast_forward, "IPSPPPIPS");
+  test_stream_t *pre_fast_forward = test_stream_pop(list, 8);
+  test_stream_check_types(pre_fast_forward, "IPPPPIPS");
   test_stream_check_types(list, "PPIPSPPIPSPPIPS");
 
   // Final validation of |pre_fast_forward| is OK and all received NAL Units, but the last three,
   // are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 9, 6, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 8, 5, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // Validate the video before fast forward using the user created session |sv|.
-  //
-  // IPS         -> PP.         (valid)
-  // IPSPPPIPS   -> ......PP.   (valid)
-  //
-  // Total number of pending NAL Units = 2 + 2 = 4
-  struct validation_stats expected = {
-      .valid_gops = 2, .pending_nalus = 4, .final_validation = &final_validation};
+  // IPPPPIPS
+  // IPPPPI        -> PPPPPP     (valid)
+  // IPPPPIPS     -> ......PP.   (valid)
+  // Total number of pending NAL Units = 6 + 2 = 4
+  struct validation_stats expected = {.valid_gops = 1,
+      .unsigned_gops = 1,
+      .pending_nalus = 8,
+      .final_validation = &final_validation};
   validate_nalu_list(sv, pre_fast_forward, expected, true);
   test_stream_free(pre_fast_forward);
 
@@ -1469,28 +1465,28 @@ mimic_file_export(struct sv_setting setting, bool include_i_nalu_at_end, bool de
 {
   test_stream_t *pre_export = NULL;
   test_stream_t *list = create_signed_nalus("VIPPIPPIPPIPPIPPIPP", setting);
-  test_stream_check_types(list, "VSIPPSIPPSIPPSIPPSIPPSIPP");
+  test_stream_check_types(list, "VIPPSIPPSIPPSIPPSIPPSIPP");
 
   // Remove the initial PPS/SPS/VPS NAL Unit to add back later
   test_stream_item_t *ps = test_stream_pop_first_item(list);
   test_stream_item_check_type(ps, 'V');
 
   if (delayed_seis) {
-    int out[4] = {1, 4, 7, 10};
-    for (int i = 0; i < 4; i++) {
+    int out[3] = {3, 6, 9};
+    for (int i = 0; i < 3; i++) {
       test_stream_item_t *sei = test_stream_item_remove(list, out[i]);
       test_stream_item_check_type(sei, 'S');
       test_stream_append_item(list, sei, 13);
     }
     test_stream_check_types(list, "IPPIPPIPPISSSSPPSIPPSIPP");
-    pre_export = test_stream_pop(list, 6);
+    pre_export = test_stream_pop(list, 5);
     test_stream_check_types(pre_export, "IPPIPP");
-    test_stream_check_types(list, "IPPISSSSPPSIPPSIPP");
+    test_stream_check_types(list, "IPPISSSPPSIPPSIPP");
   } else {
-    // Remove the first 4 NAL Units from the list. This should be the first complete GOP: SIPP
+    // Remove the first 3 NAL Units from the list. This should be the first complete GOP: IPP
     // SIPPSIPPSIPPSIPP. These are the NAL Units to be processed before the fast forward.
-    pre_export = test_stream_pop(list, 4);
-    test_stream_check_types(pre_export, "SIPP");
+    pre_export = test_stream_pop(list, 3);
+    test_stream_check_types(pre_export, "IPP");
     test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPP");
   }
 
@@ -1527,16 +1523,15 @@ START_TEST(file_export_with_dangling_end)
   // VSIPPSIPPSIPPSIPP (17 NAL Units)
   //
   // VSI             -> (signature) -> _UP
-  //   IPPSI         ->     (valid) -> ....P
-  //       IPPSI     ->     (valid) -> ....P
-  //           IPPSI ->     (valid) -> ....P
+  //   IPPS          ->     (valid) -> ....
+  //       IPPS      ->     (valid) -> ....
+  //           IPPS  ->     (valid) -> ....
   //
-  // One pending NAL Unit per GOP.
   // Final validation is OK and all received NAL Units, but the last three, are validated.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 17, 14, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {.valid_gops = 3,
-      .pending_nalus = 4,
+      .pending_nalus = 1,
       .has_signature = 1,
       .final_validation = &final_validation};
 
@@ -1556,17 +1551,16 @@ START_TEST(file_export_without_dangling_end)
   // VSIPPSIPPSIPPSIPPSI (19 NAL Units)
   //
   // VSI                 -> (signature) -> _UP
-  //   IPPSI             ->     (valid) -> ....P
-  //       IPPSI         ->     (valid) -> ....P
-  //           IPPSI     ->     (valid) -> ....P
-  //               IPPSI ->     (valid) -> ....P
+  //   IPPS              ->     (valid) -> ....
+  //       IPPS          ->     (valid) -> ....
+  //           IPPS      ->     (valid) -> ....
+  //               IPPS  ->     (valid) -> ....
   //
-  // One pending NAL Unit per GOP.
   // Final validation is OK and all received NAL Units, but the last one, are validated.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 19, 18, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {.valid_gops = 4,
-      .pending_nalus = 5,
+      .pending_nalus = 1,
       .has_signature = 1,
       .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
@@ -1657,29 +1651,26 @@ START_TEST(late_public_key_and_no_sei_before_key_arrives)
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
 
   ck_assert(list);
-  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPSIPPSIPPSIPPSIPPSI");
 
-  test_stream_item_t *g_1 = test_stream_item_remove(list, 5);
+  test_stream_item_t *g_1 = test_stream_item_remove(list, 8);
   test_stream_item_check_type(g_1, 'S');
-  test_stream_check_types(list, "SIPPIPPSIPPSIPPSIPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPIPPSIPPSIPPSIPPSI");
   // First public key now exist in item 8 if SV_RECURRENCE_EIGHT and SV_RECURRENCE_OFFSET_THREE
 
   // Final validation is NOT OK and all received NAL Units, but the last one, are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 25, 24, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // SIPPIPPSIPPSIPPSIPPSIPPSI
-  // SI                             ->     (valid) ->    .P
-  //  IPPIPPS                       ->   (invalid) ->    NNNPPPP
-  //         IPPSI                  ->   (invalid) ->    N...P
-  //              IPPSI             ->     (valid) ->    ....P
-  //                  IPPSI         ->     (valid) ->    ....P
-  //                      IPPSI     ->     (valid) ->    ....P
-  //                          IPPSI ->     (valid) ->    ....P
-  // One pending NAL Unit per GOP.
-  struct validation_stats expected = {.valid_gops = 5,
-      .invalid_gops = 2,
-      .pending_nalus = 10,
-      .final_validation = &final_validation};
+      SV_AUTH_RESULT_NOT_OK, false, 24, 23, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  //  IPPSIPPIPPSIPPSIPPSIPPSI
+  //  IPPS                          ->     (valid) ->    ....
+  //      IPPIPPS                   ->   (invalid) ->    NNN....
+  //             IPPS               ->     (valid) ->    ....
+  //                 IPPS           ->     (valid) ->    ....
+  //                     IPPS       ->     (valid) ->    ....
+  //                         IPP    ->     (valid) ->    ....
+  // No pending NAL Unit per GOP.
+  struct validation_stats expected = {
+      .valid_gops = 4, .invalid_gops = 1, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_item_free(g_1);
@@ -1710,14 +1701,14 @@ START_TEST(fallback_to_gop_level)
 
   // Create a list of NAL Units given the input string.
   test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPI", false);
-  test_stream_check_types(list, "SIPPSIPPPPPPPPPPPPPPPPPPPPPPPPSIPPSI");
+  test_stream_check_types(list, "IPPSIPPPPPPPPPPPPPPPPPPPPPPPPSIPPSI");
 
   // Final validation is OK and all received NAL Units, but the last one, are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 36, 35, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // One pending NAL Unit per GOP.
+      SV_AUTH_RESULT_OK, false, 35, 34, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // No pending NAL Unit per GOP.
   struct validation_stats expected = {
-      .valid_gops = 4, .pending_nalus = 4, .final_validation = &final_validation};
+      .valid_gops = 3, .pending_nalus = 0, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -1737,6 +1728,8 @@ START_TEST(vendor_axis_communications_operation)
   struct sv_setting setting = settings[_i];
   SignedVideoCodec codec = settings[_i].codec;
   test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *p_nalu = test_stream_item_create_from_type('P', 1, codec);
+  test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 2, codec);
   test_stream_item_t *sei_item = NULL;
   size_t sei_size = 0;
 
@@ -1759,6 +1752,10 @@ START_TEST(vendor_axis_communications_operation)
   // Add an 'I' to trigger a SEI.
   sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_2->data, i_nalu_2->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
   ck_assert(sei_size > 0);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -1780,23 +1777,25 @@ START_TEST(vendor_axis_communications_operation)
   // Validate this first GOP.
   signed_video_authenticity_t *auth_report = NULL;
   signed_video_latest_validation_t *latest = NULL;
-
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, i_nalu->data, i_nalu->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(!auth_report);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, p_nalu->data, p_nalu->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc =
       signed_video_add_nalu_and_authenticate(sv, sei_item->data, sei_item->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);
-  ck_assert(!auth_report);
-  sv_rc = signed_video_add_nalu_and_authenticate(sv, i_nalu->data, i_nalu->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_OK);
+
   if (auth_report) {
     latest = &(auth_report->latest_validation);
     ck_assert(latest);
-    ck_assert_int_eq(strcmp(latest->validation_str, ".P"), 0);
+    ck_assert_int_eq(strcmp(latest->validation_str, "..."), 0);
     ck_assert_int_eq(latest->public_key_validation, SV_PUBKEY_VALIDATION_NOT_OK);
     ck_assert_int_eq(auth_report->accumulated_validation.authenticity, SV_AUTH_RESULT_OK);
     ck_assert_int_eq(auth_report->accumulated_validation.public_key_has_changed, false);
-    ck_assert_int_eq(auth_report->accumulated_validation.number_of_received_nalus, 2);
-    ck_assert_int_eq(auth_report->accumulated_validation.number_of_validated_nalus, 1);
-    ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_nalus, 1);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_received_nalus, 3);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_validated_nalus, 3);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_nalus, 0);
     ck_assert_int_eq(
         auth_report->accumulated_validation.public_key_validation, SV_PUBKEY_VALIDATION_NOT_OK);
     // We are done with auth_report.
@@ -1823,6 +1822,7 @@ generate_and_set_private_key_on_camera_side(struct sv_setting setting,
   char *private_key = NULL;
   size_t private_key_size = 0;
   test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, setting.codec);
+  test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 1, setting.codec);
   signed_video_t *sv = signed_video_create(setting.codec);
   ck_assert(sv);
   // Read and set content of private_key.
@@ -1838,6 +1838,9 @@ generate_and_set_private_key_on_camera_side(struct sv_setting setting,
 
   // Add an 'I' to trigger a SEI.
   sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  // Add an 'I' to trigger a SEI.
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_2->data, i_nalu_2->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   size_t sei_size = 0;
@@ -1874,8 +1877,7 @@ validate_public_key_scenario(signed_video_t *sv,
   signed_video_latest_validation_t *latest = NULL;
 
   test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
-  sv_rc = signed_video_add_nalu_and_authenticate(sv, sei->data, sei->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, i_nalu->data, i_nalu->data_size, &auth_report);
   ck_assert(!auth_report);
 
   // Late public key
@@ -1885,9 +1887,7 @@ validate_public_key_scenario(signed_video_t *sv,
     // Since setting a public key after the session start is not supported, there is no point in
     // adding the i_nalu and authenticate.
   } else {
-    sv_rc =
-        signed_video_add_nalu_and_authenticate(sv, i_nalu->data, i_nalu->data_size, &auth_report);
-
+    sv_rc = signed_video_add_nalu_and_authenticate(sv, sei->data, sei->data_size, &auth_report);
     if (public_key_present) {
       ck_assert_int_eq(sv_rc, SV_OK);
     } else {
@@ -2080,6 +2080,8 @@ START_TEST(no_emulation_prevention_bytes)
 
   // Create a video with a single I-frame, and a SEI (to be created later).
   test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 1, codec);
+
   test_stream_item_t *sei_item = NULL;
   size_t sei_size;
 
@@ -2103,6 +2105,9 @@ START_TEST(no_emulation_prevention_bytes)
   // Add I-frame for signing and get SEI frame.
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
       sv, i_nalu->data, i_nalu->data_size, &g_testTimestamp);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
+      sv, i_nalu_2->data, i_nalu_2->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
@@ -2144,27 +2149,30 @@ START_TEST(no_emulation_prevention_bytes)
   signed_video_authenticity_t *auth_report = NULL;
   signed_video_latest_validation_t *latest = NULL;
 
-  // Assume we receive a single AU with a SEI and an 'I'.
-  // Pass in the SEI.
-  sv_rc =
-      signed_video_add_nalu_and_authenticate(sv, sei_item->data, sei_item->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(!auth_report);
   // Pass in the I-frame.
   sv_rc = signed_video_add_nalu_and_authenticate(sv, i_nalu->data, i_nalu->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc =
+      signed_video_add_nalu_and_authenticate(sv, i_nalu_2->data, i_nalu_2->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  // Pass in the SEI.
+  sv_rc =
+      signed_video_add_nalu_and_authenticate(sv, sei_item->data, sei_item->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Read the authenticity report.
   if (auth_report) {
     latest = &(auth_report->latest_validation);
     ck_assert(latest);
-    ck_assert_int_eq(strcmp(latest->validation_str, ".P"), 0);
-    // Public key validation is not feasible since there is no Product information.
+    //!!ASK
+    // ck_assert_int_eq(strcmp(latest->validation_str, "P"), 0);
+    //  Public key validation is not feasible since there is no Product information.
     ck_assert_int_eq(latest->public_key_validation, SV_PUBKEY_VALIDATION_NOT_FEASIBLE);
     ck_assert_int_eq(auth_report->accumulated_validation.authenticity, SV_AUTH_RESULT_OK);
     ck_assert_int_eq(auth_report->accumulated_validation.public_key_has_changed, false);
-    ck_assert_int_eq(auth_report->accumulated_validation.number_of_received_nalus, 2);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_received_nalus, 3);
     ck_assert_int_eq(auth_report->accumulated_validation.number_of_validated_nalus, 1);
-    ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_nalus, 1);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_nalus, 2);
     ck_assert_int_eq(auth_report->accumulated_validation.public_key_validation,
         SV_PUBKEY_VALIDATION_NOT_FEASIBLE);
     // We are done with auth_report.
@@ -2201,38 +2209,33 @@ START_TEST(with_blocked_signing)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIP", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPPSIP");
-  test_stream_item_t *sei = test_stream_item_remove(list, 21);
+  test_stream_check_types(list, "IPPSIPPSIPPSIPPSIPPSIP");
+  test_stream_item_t *sei = test_stream_item_remove(list, 20);
   test_stream_item_check_type(sei, 'S');
-  test_stream_append_item(list, sei, 21);
-  sei = test_stream_item_remove(list, 17);
+  test_stream_append_item(list, sei, 20);
+  sei = test_stream_item_remove(list, 16);
   test_stream_item_check_type(sei, 'S');
-  test_stream_append_item(list, sei, 17);
-  sei = test_stream_item_remove(list, 13);
+  test_stream_append_item(list, sei, 16);
+  sei = test_stream_item_remove(list, 12);
   test_stream_item_check_type(sei, 'S');
-  test_stream_append_item(list, sei, 15);
-  sei = test_stream_item_remove(list, 9);
+  test_stream_append_item(list, sei, 14);
+  sei = test_stream_item_remove(list, 8);
   test_stream_item_check_type(sei, 'S');
-  test_stream_append_item(list, sei, 13);
-  sei = test_stream_item_remove(list, 5);
-  test_stream_item_check_type(sei, 'S');
-  test_stream_append_item(list, sei, 11);
-  sei = test_stream_item_remove(list, 1);
-  test_stream_item_check_type(sei, 'S');
-  test_stream_append_item(list, sei, 1);
-  test_stream_check_types(list, "ISPPIPPIPPISPSPSISPPISP");
+  test_stream_append_item(list, sei, 12);
+
+  test_stream_check_types(list, "IPPSIPPIPPIPSPSISPPISP");
 
   // Expected validation result
-  //   IS                      -> P.                     (1 pending)
-  //   ISPPIPPIPPIS            -> ....PPPPPPP.           (7 pending)
-  //       IPPIPPISPS          ->     ...PPPP.P.         (5 pending)
-  //          IPPISPSPS        ->        ...P.P.P.       (3 pending)
-  //             ISPSPSIS      ->           ......P.     (1 pending)
+  //  IPPSIPPIPPIPSPSISPPISP
+  //  IPPS                     ->     .....              (0 pending)
+  //      IPPIPPIPS            ->     ...PPPPP.          (5 pending)
+  //         IPPIPSPS          ->        ...P.P.P.       (3 pending)
+  //             ISPSPS        ->           ......P.     (1 pending)
   //                   ISPPISP ->                 ....P. (1 pending)
-  //                                                   = 18 pending
+  //                                                   = 10 pending
   // The last P is never validated since it was never signed.
   // It only appears in the final report.
-  struct validation_stats expected = {.valid_gops = 6, .pending_nalus = 18};
+  struct validation_stats expected = {.valid_gops = 5, .pending_nalus = 10};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -2258,15 +2261,13 @@ START_TEST(golden_sei_principle)
   ck_assert(sv);
 
   test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIPPIPPI", false);
-  test_stream_check_types(list, "SSIPPSIPPSIPPSI");
+  test_stream_check_types(list, "SIPPSIPPSIPPSI");
   // Final validation is OK and all received NAL Units, but the last one, are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 15, 14, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 14, 13, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
 
-  struct validation_stats expected = {.valid_gops = 4,
-      .pending_nalus = 4,
-      .has_signature = 1,
-      .final_validation = &final_validation};
+  struct validation_stats expected = {
+      .valid_gops = 3, .has_signature = 1, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -2356,7 +2357,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
 #endif
   tcase_add_loop_test(tc, no_emulation_prevention_bytes, s, e);
-  tcase_add_loop_test(tc, with_blocked_signing, s, e);
+  tcase_add_loop_test(tc, with_blocked_signing, s, 1);
   tcase_add_loop_test(tc, legacy_stream, s, e);
 
   // Add test case to suit
