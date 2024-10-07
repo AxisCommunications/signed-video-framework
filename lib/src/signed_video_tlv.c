@@ -741,6 +741,16 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
 #endif
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
+#ifdef PRINT_DECODED_SEI
+    char *public_key_str = calloc(1, pubkey_size + 1);
+    SV_THROW_IF(!public_key_str, SV_MEMORY);
+    memcpy(public_key_str, pem_public_key->key, pubkey_size);
+    printf("\nPublic Key Tag\n");
+    printf("             tag version: %u\n", version);
+    printf("         public key size: %u\n", pubkey_size);
+    printf("              public key:\n%s\n", public_key_str);
+    free(public_key_str);
+#endif
   SV_CATCH()
   SV_DONE(status)
 
