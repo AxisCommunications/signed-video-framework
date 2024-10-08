@@ -97,6 +97,19 @@ const unsigned char *
 openssl_get_hash_algo_encoded_oid(void *handle, size_t *encoded_oid_size);
 
 /**
+ * @brief Converts hashing algorithm from OID form to readable string
+ *
+ * The ownership of the allocated string is transferred.
+ *
+ * @param encoded_oid Pointer to the OID on serialized form.
+ * @param encoded_oid_size The size of the encoded OID.
+ *
+ * @return A string.
+ */
+char *
+openssl_encoded_oid_to_str(const unsigned char *encoded_oid, size_t encoded_oid_size);
+
+/**
  * @brief Gets the hash size of the hashing algorithm
  *
  * Returns the hash size of the hashing algorithm and 0 upon failure.

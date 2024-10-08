@@ -1001,6 +1001,8 @@ decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
   uint8_t version = *data_ptr++;
   size_t hash_algo_encoded_oid_size = *data_ptr++;
   const unsigned char *hash_algo_encoded_oid = (const unsigned char *)data_ptr;
+  char *hash_algo_name =
+      openssl_encoded_oid_to_str(hash_algo_encoded_oid, hash_algo_encoded_oid_size);
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
@@ -1014,8 +1016,19 @@ decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
     data_ptr += hash_algo_encoded_oid_size;
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
+#ifdef PRINT_DECODED_SEI
+    printf("\nCrypto Information Tag\n");
+    printf("             tag version: %u\n", version);
+    printf("hashing algo (ASN.1/DER): ");
+    for (size_t i = 0; i < hash_algo_encoded_oid_size; i++) {
+      printf("%02x", hash_algo_encoded_oid[i]);
+    }
+    printf(" -> %s\n", hash_algo_name);
+#endif
   SV_CATCH()
   SV_DONE(status)
+
+  free(hash_algo_name);
 
   return status;
 }
