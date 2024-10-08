@@ -651,6 +651,17 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
     data_ptr += cert_size;
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
+#ifdef PRINT_DECODED_SEI
+    char *cert_chain_str = calloc(1, cert_size + 1);
+    SV_THROW_IF(!cert_chain_str, SV_MEMORY);
+    memcpy(cert_chain_str, self->certificate_chain, cert_size);
+    printf("\nAxis Communications Tag\n");
+    printf("             tag version: %u\n", version);
+    sv_print_hex_data(
+        self->attestation, attestation_size, "     attestation (%3u B): ", attestation_size);
+    printf("       certificate chain:\n%s\n", cert_chain_str);
+    free(cert_chain_str);
+#endif
   SV_CATCH()
   SV_DONE(status)
 
