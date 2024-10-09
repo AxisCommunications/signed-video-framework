@@ -81,8 +81,7 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
 {
   assert(self && payload && (payload_size > 0));
   // Get the last GOP counter before updating.
-  uint32_t last_gop_number =
-      self->gop_info->latest_validated_gop == 0 ? 1 : self->gop_info->latest_validated_gop;
+  uint32_t last_gop_number = self->gop_info->latest_validated_gop;
   uint32_t exp_gop_number = last_gop_number + 1;
   DEBUG_LOG("SEI payload size = %zu, exp gop number = %u", payload_size, exp_gop_number);
 
@@ -110,7 +109,6 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
     if (self->gop_state.no_gop_end_before_sei && self->gop_state.has_lost_sei) {
       self->gop_state.gop_transition_is_lost = true;
     }
-    self->gop_info->latest_validated_gop = self->gop_info->global_gop_counter;
   SV_CATCH()
   SV_DONE(status)
 
@@ -339,13 +337,12 @@ verify_hashes_with_hash_list(signed_video_t *self,
     found_item_after_sei = (item->prev == sei);
     // Check if this |is_first_nalu_in_gop|, but not used before.
     found_next_gop = (item->nalu->is_first_nalu_in_gop && !item->used_for_linked_hash);
+    last_used_item = item;
     // If this is a SEI, it is not part of the hash list and should not be verified.
     if (item->nalu->is_gop_sei) {
       last_used_item = item;
       break;
     }
-
-    last_used_item = item;
     num_verified_hashes++;
 
     // Fetch the |hash_to_verify|, which normally is the item->hash, but if this is NALU is an
@@ -413,7 +410,6 @@ verify_hashes_with_hash_list(signed_video_t *self,
   // If the last invalid NALU is the first NALU in a GOP or the NALU after the SEI, keep it
   // pending. If the last NALU is valid and there are more expected hashes we either never
   // verified any hashes or we have missing NALUs.
-  // if (last_used_item) {
   if (item == sei) {
     if (latest_match_idx != compare_idx) {
       // Last verified hash is invalid.
@@ -422,8 +418,6 @@ verify_hashes_with_hash_list(signed_video_t *self,
       // index of the hashes span from 0 to |num_expected_hashes| - 1, so if |latest_match_idx| =
       // |num_expected_hashes| - 1, we have no pending nalus.
       int num_unused_expected_hashes = num_expected_hashes - 1 - latest_match_idx;
-      // We cannot mark the last item as Missing since it will be handled a second time in the next
-      // GOP.
       // No need to check the return value. A failure only affects the statistics. In the worst case
       // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
       h26x_nalu_list_add_missing(nalu_list, num_unused_expected_hashes, true, last_used_item);
@@ -643,10 +637,12 @@ verify_hashes_without_sei(signed_video_t *self)
     // A new GOP starts if the NALU |is_first_nalu_in_gop|. Such a NALU is hashed twice; as an
     // initial hash AND as a linking hash between GOPs. If this is the first time is is used in
     // verification it also marks the start of a new GOP.
-    if (item->validation_status == 'P' && !item->nalu->is_gop_sei) {
+    if (!item->nalu->is_gop_sei) {
       item->need_second_verification = false;
       item->validation_status = 'N';
       num_marked_items++;
+    } else {
+      break;
     }
     item = item->next;
     if (item) {
@@ -710,6 +706,8 @@ validate_authenticity(signed_video_t *self)
   } else {
     if (self->gop_info->signature_hash_type == DOCUMENT_HASH) {
       verify_success = verify_hashes_with_sei(self, &num_expected_nalus, &num_received_nalus);
+      // Set |latest_validated_gop| to recived gop counter for the next validation.
+      self->gop_info->latest_validated_gop = self->gop_info->global_gop_counter;
     } else {
       // The |signature_hash_type| is now consistently set to DOCUMENT_HASH with the latest gop hash
       // computation.
@@ -719,8 +717,6 @@ validate_authenticity(signed_video_t *self)
       verify_success = verify_hashes_with_gop_hash(self, &num_expected_nalus, &num_received_nalus);
     }
   }
-  // Set |latest_validated_gop| to recived gop counter for the next validation.
-  self->gop_info->latest_validated_gop = self->gop_info->global_gop_counter;
   // Collect statistics from the nalu_list. This is used to validate the GOP and provide additional
   // information to the user.
   bool has_valid_nalus =
@@ -1044,10 +1040,8 @@ has_pending_gop(signed_video_t *self)
   bool found_pending_gop_sei = false;
   bool found_pending_nalu_after_gop_sei = false;
   bool found_pending_gop = false;
-
   // Reset the |gop_state| members before running through the NALUs in |nalu_list|.
   gop_state_reset(gop_state);
-
   while (item && !found_pending_gop) {
     gop_state_update(gop_state, item->nalu);
     // Collect statistics from pending and hashable NALUs only. The others are either out of date or
@@ -1098,15 +1092,7 @@ validation_is_feasible(const h26x_nalu_list_item_t *item)
   if (item->nalu->is_gop_sei) return true;
   // Validation may be done upon the end of a GOP.
   if (item->nalu->is_first_nalu_in_gop) return true;
-  // Validation may be done upon a hashable NALU right after a SEI. This happens when the SEI was
-  // generated and attached to the same NALU that triggered the action.
-  item = item->prev;
-  while (item) {
-    if (item->nalu && item->nalu->is_hashable) {
-      break;
-    }
-    item = item->prev;
-  }
+
   return false;
 }
 
