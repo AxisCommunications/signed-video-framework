@@ -269,6 +269,10 @@ openssl_sign_hash(sign_or_verify_data_t *sign_data)
     // Set the actually written size of the signature. Depending on signing algorithm a shorter
     // signature may have been written.
     sign_data->signature_size = siglen;
+#ifdef SIGNED_VIDEO_DEBUG
+    sv_print_hex_data(hash_to_sign, hash_size, "SIGNING HASH\nhash: ");
+    sv_print_hex_data(signature, siglen, "signature (%zu B): ", siglen);
+#endif
   SV_CATCH()
   SV_DONE(status)
 
@@ -295,6 +299,11 @@ openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_resu
     SV_THROW_IF(!ctx, SV_INVALID_PARAMETER);
     // EVP_PKEY_verify returns 1 upon success, 0 upon failure and < 0 upon error.
     verified_hash = EVP_PKEY_verify(ctx, signature, signature_size, hash_to_verify, hash_size);
+#ifdef SIGNED_VIDEO_DEBUG
+    sv_print_hex_data(
+        hash_to_verify, hash_size, "VERIFYING HASH\nhash (verified as %d): ", verified_hash);
+    sv_print_hex_data(signature, signature_size, "signature (%zu B): ", signature_size);
+#endif
   SV_CATCH()
   SV_DONE(status)
 

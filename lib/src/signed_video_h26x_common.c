@@ -19,7 +19,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 #include <assert.h>  // assert
-#if defined(PRINT_DECODED_SEI)
+#if defined(SIGNED_VIDEO_DEBUG) || defined(PRINT_DECODED_SEI)
 #include <stdarg.h>  // va_list, va_start, va_arg, va_end
 #endif
 #include <stdbool.h>  // bool
@@ -724,7 +724,7 @@ copy_nalu_except_pointers(h26x_nalu_t *dst_nalu, const h26x_nalu_t *src_nalu)
 
 /* Helper function to public APIs */
 
-#if defined(PRINT_DECODED_SEI)
+#if defined(SIGNED_VIDEO_DEBUG) || defined(PRINT_DECODED_SEI)
 void
 sv_print_hex_data(const uint8_t *data, size_t data_size, const char *fmt, ...)
 {
