@@ -296,7 +296,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     // reserved_byte = |epb|golden sei|linked hash|gop hash|0|0|0|0|
     uint8_t reserved_byte = self->sei_epb << 7;
     reserved_byte |= self->is_golden_sei << 6;
-    reserved_byte |= !self->linked_hash_off << 5;
+    reserved_byte |= 1 << 5;
     reserved_byte |= !self->gop_hash_off << 4;
     *payload_ptr++ = reserved_byte;
 
@@ -516,7 +516,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       self->frame_count++;  // It is ok for this variable to wrap around
     }
 
-    // Process the NALU if it is the first NALU in the GOP.
+    // Finalize GOP hash and generate SEI if the NALU is I frame of a non-empty GOP.
     if (nalu.is_first_nalu_in_gop && nalu.is_last_nalu_part && gop_info->global_gop_counter > 0) {
       // Store the timestamp for the first nalu in gop.
       if (timestamp) {
@@ -540,6 +540,13 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       // As a result, the GOP counter decoded in the SEI starts from 2 instead of 1.
       // This needs to be corrected so that the GOP counter starts from 1.
       gop_info->global_gop_counter++;
+
+      // Handle the case where the counter wraps around to 0, which could happen
+      // after some large number of GOPs (depending on the counter size).
+      // Prevent this GOP from being skipped due to the counter being 0.
+      if (gop_info->global_gop_counter == 0) {
+        gop_info->global_gop_counter = 1;
+      }
     }
     SV_THROW(hash_and_add(self, &nalu));
     if (nalu.is_first_nalu_in_gop && nalu.is_last_nalu_part) {

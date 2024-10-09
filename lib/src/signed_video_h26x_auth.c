@@ -82,7 +82,7 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
   assert(self && payload && (payload_size > 0));
   // Get the last GOP counter before updating.
   uint32_t last_gop_number =
-      self->gop_info->global_gop_counter_auth == 0 ? 1 : self->gop_info->global_gop_counter_auth;
+      self->gop_info->latest_validated_gop == 0 ? 1 : self->gop_info->latest_validated_gop;
   uint32_t exp_gop_number = last_gop_number + 1;
   DEBUG_LOG("SEI payload size = %zu, exp gop number = %u", payload_size, exp_gop_number);
 
@@ -110,7 +110,7 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
     if (self->gop_state.no_gop_end_before_sei && self->gop_state.has_lost_sei) {
       self->gop_state.gop_transition_is_lost = true;
     }
-    self->gop_info->global_gop_counter_auth = self->gop_info->global_gop_counter;
+    self->gop_info->latest_validated_gop = self->gop_info->global_gop_counter;
   SV_CATCH()
   SV_DONE(status)
 
@@ -344,13 +344,6 @@ verify_hashes_with_hash_list(signed_video_t *self,
       last_used_item = item;
       break;
     }
-    // If the order is not correct, the validation status of the first NALU in the GOP should be
-    // 'N'. If that is the case, set |first_verification_not_authentic| to true and set |order_ok|
-    // to true for the next NALUs, so they are not affected by this issue.
-    if (!order_ok) {
-      item->first_verification_not_authentic = true;
-      order_ok = true;
-    }
 
     last_used_item = item;
     num_verified_hashes++;
@@ -358,7 +351,6 @@ verify_hashes_with_hash_list(signed_video_t *self,
     // Fetch the |hash_to_verify|, which normally is the item->hash, but if this is NALU is an
     // I frame we use item->second_hash.
     uint8_t *hash_to_verify = item->nalu->is_first_nalu_in_gop ? item->second_hash : item->hash;
-
     // Compare |hash_to_verify| against all the |expected_hashes| since the |latest_match_idx|. Stop
     // when we get a match or reach the end.
     compare_idx = latest_match_idx + 1;
@@ -368,7 +360,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
 
       if (memcmp(hash_to_verify, expected_hash, hash_size) == 0) {
         // We have a match. Set validation_status and add missing nalus if we have detected any.
-        item->validation_status = '.';
+        item->validation_status = order_ok ? '.' : 'N';
         // Add missing items to |nalu_list|.
         int num_detected_missing_nalus =
             (compare_idx - latest_match_idx) - 1 - num_invalid_nalus_since_latest_match;
@@ -378,6 +370,12 @@ verify_hashes_with_hash_list(signed_video_t *self,
         // Reset counters and latest_match_idx.
         latest_match_idx = compare_idx;
         num_invalid_nalus_since_latest_match = 0;
+        // If the order is not correct, the validation status of the first NALU in the GOP should be
+        // 'N'. If that is the case, set |first_verification_not_authentic| to true and set
+        // |order_ok| to true for the next NALUs, so they are not affected by this issue.
+        if (!order_ok) {
+          order_ok = true;
+        }
         break;
       }
       compare_idx++;
@@ -658,7 +656,7 @@ verify_hashes_without_sei(signed_video_t *self)
   remove_used_in_gop_hash(self->nalu_list);
   // If we have verified a GOP without a SEI, we should increment the |global_gop_counter|.
   if (self->validation_flags.signing_present && (num_marked_items > 0)) {
-    self->gop_info->global_gop_counter_auth++;
+    self->gop_info->latest_validated_gop++;
   }
 
   return found_next_gop;
@@ -721,8 +719,8 @@ validate_authenticity(signed_video_t *self)
       verify_success = verify_hashes_with_gop_hash(self, &num_expected_nalus, &num_received_nalus);
     }
   }
-  // Set |global_gop_counter_auth| to recived gop counter for the next validation.
-  self->gop_info->global_gop_counter_auth = self->gop_info->global_gop_counter;
+  // Set |latest_validated_gop| to recived gop counter for the next validation.
+  self->gop_info->latest_validated_gop = self->gop_info->global_gop_counter;
   // Collect statistics from the nalu_list. This is used to validate the GOP and provide additional
   // information to the user.
   bool has_valid_nalus =
