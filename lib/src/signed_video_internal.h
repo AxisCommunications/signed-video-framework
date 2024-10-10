@@ -144,7 +144,7 @@ struct _signed_video_t {
   bool is_golden_sei;  // Flag that tells if a SEI is a golden SEI
   bool using_golden_sei;  // Flag that tells if golden SEI prinsiple is used
   bool signing_started;
-  bool is_first_triggered_signing;
+  bool generate_sei;
   // TODO: Once the transition to linking to previous GOP is complete, the following flag will be
   // unnecessary.
   bool gop_hash_off;  // Flag indicating if the GENERAL TAG doesn't include GOP hash.
