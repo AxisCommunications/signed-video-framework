@@ -340,7 +340,6 @@ verify_hashes_with_hash_list(signed_video_t *self,
     last_used_item = item;
     // If this is a SEI, it is not part of the hash list and should not be verified.
     if (item->nalu->is_gop_sei) {
-      last_used_item = item;
       break;
     }
     num_verified_hashes++;
@@ -624,7 +623,8 @@ verify_hashes_without_sei(signed_video_t *self)
 
   h26x_nalu_list_print(nalu_list);
 
-  // Start from the oldest item and mark all pending items as NOT OK ('N') until we detect a new GOP
+  // Start from the oldest item and mark all pending items as NOT OK ('N') until we detect a new
+  // GOP.
   int num_marked_items = 0;
   h26x_nalu_list_item_t *item = nalu_list->first_item;
   bool found_next_gop = false;
@@ -634,16 +634,14 @@ verify_hashes_without_sei(signed_video_t *self)
       item = item->next;
       continue;
     }
-    // A new GOP starts if the NALU |is_first_nalu_in_gop|. Such a NALU is hashed twice; as an
-    // initial hash AND as a linking hash between GOPs. If this is the first time is is used in
-    // verification it also marks the start of a new GOP.
-    if (!item->nalu->is_gop_sei) {
-      item->need_second_verification = false;
-      item->validation_status = 'N';
-      num_marked_items++;
-    } else {
+    // Stop verifying when SEI NALU is encountered. There can't be another NALU after SEI in the
+    // GOP.
+    if (item->nalu->is_gop_sei) {
       break;
     }
+    item->validation_status = 'N';
+    num_marked_items++;
+
     item = item->next;
     if (item) {
       found_next_gop = item->nalu->is_first_nalu_in_gop && !item->used_for_linked_hash;
@@ -1040,14 +1038,16 @@ has_pending_gop(signed_video_t *self)
   bool found_pending_gop_sei = false;
   bool found_pending_nalu_after_gop_sei = false;
   bool found_pending_gop = false;
+
   // Reset the |gop_state| members before running through the NALUs in |nalu_list|.
   gop_state_reset(gop_state);
+
   while (item && !found_pending_gop) {
     gop_state_update(gop_state, item->nalu);
     // Collect statistics from pending and hashable NALUs only. The others are either out of date or
     // not part of the validation.
     if (item->validation_status == 'P' && item->nalu && item->nalu->is_hashable) {
-      num_pending_gop_ends += (item->nalu->is_first_nalu_in_gop && !item->used_for_linked_hash);
+      num_pending_gop_ends += item->nalu->is_first_nalu_in_gop;
       found_pending_gop_sei |= item->nalu->is_gop_sei;
       found_pending_nalu_after_gop_sei |=
           last_hashable_item && last_hashable_item->nalu->is_gop_sei;

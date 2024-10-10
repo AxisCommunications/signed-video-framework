@@ -517,24 +517,25 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     }
 
     // Finalize GOP hash and generate SEI if the NALU is I frame of a non-empty GOP.
-    if (nalu.is_first_nalu_in_gop && nalu.is_last_nalu_part && self->generate_first_sei) {
-      if (timestamp) {
-        self->gop_info->timestamp = *timestamp;
-        self->gop_info->has_timestamp = true;
+    if (nalu.is_first_nalu_in_gop && nalu.is_last_nalu_part) {
+      if (self->is_first_triggered_signing) {
+        if (timestamp) {
+          self->gop_info->timestamp = *timestamp;
+          self->gop_info->has_timestamp = true;
+        }
+
+        uint8_t *payload = NULL;
+        uint8_t *payload_signature_ptr = NULL;
+
+        // If there are hashes added to the hash list, the |computed_gop_hash| can be finalized.
+        SV_THROW(openssl_finalize_hash(self->crypto_handle, gop_info->computed_gop_hash, true));
+        SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
+        // Add |payload| to buffer. Will be picked up again when the signature has been generated.
+        add_payload_to_buffer(self, payload, payload_signature_ptr);
+        // The previous GOP is now completed. The gop_hash was reset right after signing and
+        // adding it to the SEI.
       }
-
-      uint8_t *payload = NULL;
-      uint8_t *payload_signature_ptr = NULL;
-
-      // If there are hashes added to the hash list, the |computed_gop_hash| can be finalized.
-      SV_THROW(openssl_finalize_hash(self->crypto_handle, gop_info->computed_gop_hash, true));
-      SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
-      // Add |payload| to buffer. Will be picked up again when the signature has been generated.
-      add_payload_to_buffer(self, payload, payload_signature_ptr);
-      // The previous GOP is now completed. The gop_hash was reset right after signing and
-      // adding it to the SEI.
-    } else if (nalu.is_first_nalu_in_gop && nalu.is_last_nalu_part && !self->generate_first_sei) {
-      self->generate_first_sei = true;
+      self->is_first_triggered_signing = true;
     }
     SV_THROW(hash_and_add(self, &nalu));
     if (nalu.is_first_nalu_in_gop && nalu.is_last_nalu_part) {

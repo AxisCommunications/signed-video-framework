@@ -1122,18 +1122,18 @@ START_TEST(detect_change_of_public_key)
   // Generate 2 GOPs
   test_stream_t *list = create_signed_nalus("IPPIPPI", settings[_i]);
   test_stream_check_types(list, "IPPSIPPSI");
-  test_stream_item_t *i_item = test_stream_item_remove(list, 9);
+  test_stream_item_t *i_item = test_stream_pop_last_item(list);
   test_stream_item_check_type(i_item, 'I');
   // Generate another GOP from scratch
   // This will generate a new private key, hence transmit a different public key.
   test_stream_t *list_with_new_public_key =
       create_signed_nalus_int("IPIPIPPPIPPI", settings[_i], true);
   test_stream_check_types(list_with_new_public_key, "IPSIPSIPPPSIPPSI");
-  int remove_items = 6;
-  while (remove_items--) {
-    test_stream_item_t *item = test_stream_pop_first_item(list_with_new_public_key);
-    test_stream_item_free(item);
-  }
+  // To maintain a coherent stream after concatenating with the old public key stream,
+  // a new stream is created with a new public key. To avoid a mismatch with the GOP counter,
+  // the first two GOPs are removed.
+  test_stream_t *removed_list = test_stream_pop(list_with_new_public_key, 6);
+  test_stream_check_types(removed_list, "IPSIPS");
   test_stream_append(list, list_with_new_public_key);
   test_stream_check_types(list, "IPPSIPPSIPPPSIPPSI");
 
@@ -1142,11 +1142,11 @@ START_TEST(detect_change_of_public_key)
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, true, 18, 17, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // The list will be validated successfully up to the third SEI (S) which has the new Public key.
-  //   IPPSIPPSIPPPSIPPSI
+  //   IPPSIPPSIPPPS*IPPS*I
   //   IPPS                   -> ....       (valid, public_key_has_changed = false)
   //       IPPS               -> ....       (valid, public_key_has_changed = false)
   //           IPPPS*         -> NNNNN      (invalid, public_key_has_changed = true)
-  //               IPPS*      -> ....       (valid, public_key_has_changed = false)
+  //                 IPPS*    -> ....       (valid, public_key_has_changed = false)
   //  where S* has the new Public key. Note that we get -3 missing since we receive 3 more than what
   // is expected according to S*.
   const struct validation_stats expected = {.valid_gops = 3,
