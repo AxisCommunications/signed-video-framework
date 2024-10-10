@@ -848,18 +848,6 @@ update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
     // Update the gop_hash, that is, hash the memory (both hashes) in hashes = [gop_hash, latest
     // nalu_hash] and replace the gop_hash part with the new hash.
     SV_THROW(openssl_hash_data(crypto_handle, gop_info->hashes, 2 * hash_size, gop_info->gop_hash));
-
-#ifdef SIGNED_VIDEO_DEBUG
-    printf("Latest NALU hash ");
-    for (size_t i = 0; i < hash_size; i++) {
-      printf("%02x", gop_info->nalu_hash[i]);
-    }
-    printf("\nCurrent gop_hash ");
-    for (size_t i = 0; i < hash_size; i++) {
-      printf("%02x", gop_info->gop_hash[i]);
-    }
-    printf("\n");
-#endif
   SV_CATCH()
   SV_DONE(status)
 
@@ -1091,6 +1079,9 @@ hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
     // Select hash function, hash the NALU and store as 'latest hash'
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
     SV_THROW(hash_wrapper(self, nalu, nalu_hash, hash_size));
+#ifdef SIGNED_VIDEO_DEBUG
+    sv_print_hex_data(nalu_hash, hash_size, "Hash of %s: ", nalu_type_to_str(nalu));
+#endif
     if (nalu->is_last_nalu_part) {
       // The end of the NALU has been reached. Update hash list and GOP hash.
       check_and_copy_hash_to_hash_list(self, nalu_hash, hash_size);
@@ -1138,6 +1129,9 @@ hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
     // Select hash wrapper, hash the NALU and store as |nalu_hash|.
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
     SV_THROW(hash_wrapper(self, nalu, nalu_hash, hash_size));
+#ifdef SIGNED_VIDEO_DEBUG
+    sv_print_hex_data(nalu_hash, hash_size, "Hash of %s: ", nalu_type_to_str(nalu));
+#endif
     // Check if we have a potential transition to a new GOP. This happens if the current NALU
     // |is_first_nalu_in_gop|. If we have lost the first NALU of a GOP we can still make a guess by
     // checking if |has_sei| flag is set. It is set if the previous hashable NALU was SEI.
@@ -1153,6 +1147,9 @@ hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
       item->second_hash = malloc(MAX_HASH_SIZE);
       SV_THROW_IF(!item->second_hash, SV_MEMORY);
       SV_THROW(hash_wrapper(self, nalu, item->second_hash, hash_size));
+#ifdef SIGNED_VIDEO_DEBUG
+      sv_print_hex_data(nalu_hash, hash_size, "Second hash of %s: ", nalu_type_to_str(nalu));
+#endif
     }
 
   SV_CATCH()
