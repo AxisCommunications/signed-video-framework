@@ -731,28 +731,25 @@ START_TEST(sei_arrives_late)
   test_stream_t *list = create_signed_nalus("IPPPIPPPIPPPI", settings[_i]);
   test_stream_check_types(list, "IPPPSIPPPSIPPPSI");
 
-  // Remove the first SEI, that is, number 5 in the list: IPPP (S) IPPPSIPPPSI.
-  test_stream_item_t *sei = test_stream_item_remove(list, 5);
+  // Remove the second SEI, that is, number 10 in the list: IPPP (S) IPPPSIPPPSI.
+  test_stream_item_t *sei = test_stream_item_remove(list, 10);
   test_stream_item_check_type(sei, 'S');
-  test_stream_check_types(list, "IPPPIPPPSIPPPSI");
+  test_stream_check_types(list, "IPPPSIPPPIPPPSI");
 
-  // Prepend the middle P of the next GOP: SIPPPIP (S)P PSIPPPSI. This is equivalent with appending
-  // the first P of the same GOP, that is, number 6.
-  test_stream_append_item(list, sei, 6);
-  test_stream_check_types(list, "IPPPIPSPPSIPPPSI");
+  // Prepend the middle P of the next GOP: IPPPSIPPPIP S PPSI. This is equivalent with appending
+  // the first P of the same GOP, that is, number 11.
+  test_stream_append_item(list, sei, 11);
+  test_stream_check_types(list, "IPPPSIPPPIPSPPSI");
 
   // All NAL Units but the last 'I' are validated as OK, which is pending.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 16, 15, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // IPPPIPSPPSIPPPSI
-  // IPPPI                      ->(unsigned) -> PPPPP
-  // IPPPIPS                    ->   (valid) -> ....PP.
-  //     IPSPPS                 ->   (valid) -> ......
-  //           IPPS             ->   (valid) -> ....
-  struct validation_stats expected = {.valid_gops = 3,
-      .unsigned_gops = 1,
-      .pending_nalus = 7,
-      .final_validation = &final_validation};
+  // IPPPSIPPPIPSPPSI
+  // IPPPS                      ->   (valid) -> .....
+  //      IPPPIPS               ->   (valid) -> ....PP.
+  //          IPSPPS            ->   (valid) -> .......
+  struct validation_stats expected = {
+      .valid_gops = 3, .pending_nalus = 2, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -1109,6 +1106,7 @@ START_TEST(camera_reset_on_signing_side)
 
   validate_nalu_list(NULL, list, expected, true);
   test_stream_free(list);
+  test_stream_item_free(i_item);
 }
 END_TEST
 
@@ -1158,6 +1156,8 @@ START_TEST(detect_change_of_public_key)
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
+  test_stream_free(removed_list);
+  test_stream_item_free(i_item);
 }
 END_TEST
 
@@ -1708,6 +1708,8 @@ START_TEST(vendor_axis_communications_operation)
   // Free nalu_list_item and session.
   test_stream_item_free(sei_item);
   test_stream_item_free(i_nalu);
+  test_stream_item_free(i_nalu_2);
+  test_stream_item_free(p_nalu);
   signed_video_free(sv);
 }
 END_TEST
@@ -1757,6 +1759,7 @@ generate_and_set_private_key_on_camera_side(struct sv_setting setting,
   ck_assert(tag_is_present(*sei_item, setting.codec, PUBLIC_KEY_TAG) == add_public_key_to_sei);
 
   test_stream_item_free(i_nalu);
+  test_stream_item_free(i_nalu_2);
   free(private_key);
   return sv;
 }
@@ -2052,9 +2055,6 @@ START_TEST(no_emulation_prevention_bytes)
   // Pass in the I-frame.
   sv_rc = signed_video_add_nalu_and_authenticate(sv, i_nalu->data, i_nalu->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc =
-      signed_video_add_nalu_and_authenticate(sv, i_nalu_2->data, i_nalu_2->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_OK);
   // Pass in the SEI.
   sv_rc =
       signed_video_add_nalu_and_authenticate(sv, sei_item->data, sei_item->data_size, &auth_report);
@@ -2063,14 +2063,14 @@ START_TEST(no_emulation_prevention_bytes)
   if (auth_report) {
     latest = &(auth_report->latest_validation);
     ck_assert(latest);
-    ck_assert_int_eq(strcmp(latest->validation_str, ".P."), 0);
+    ck_assert_int_eq(strcmp(latest->validation_str, ".."), 0);
     //  Public key validation is not feasible since there is no Product information.
     ck_assert_int_eq(latest->public_key_validation, SV_PUBKEY_VALIDATION_NOT_FEASIBLE);
     ck_assert_int_eq(auth_report->accumulated_validation.authenticity, SV_AUTH_RESULT_OK);
     ck_assert_int_eq(auth_report->accumulated_validation.public_key_has_changed, false);
-    ck_assert_int_eq(auth_report->accumulated_validation.number_of_received_nalus, 3);
-    ck_assert_int_eq(auth_report->accumulated_validation.number_of_validated_nalus, 1);
-    ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_nalus, 2);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_received_nalus, 2);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_validated_nalus, 2);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_nalus, 0);
     ck_assert_int_eq(auth_report->accumulated_validation.public_key_validation,
         SV_PUBKEY_VALIDATION_NOT_FEASIBLE);
     // We are done with auth_report.
@@ -2084,6 +2084,7 @@ START_TEST(no_emulation_prevention_bytes)
   // End of validation, free memory.
   test_stream_item_free(sei_item);
   test_stream_item_free(i_nalu);
+  test_stream_item_free(i_nalu_2);
   signed_video_free(sv);
 }
 END_TEST

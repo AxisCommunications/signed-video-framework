@@ -711,6 +711,8 @@ START_TEST(two_completed_seis_pending)
 
   test_stream_item_free(i_nalu_1);
   test_stream_item_free(i_nalu_2);
+  test_stream_item_free(p_nalu);
+  test_stream_item_free(i_nalu_3);
   signed_video_free(sv);
   free(sei_1);
   free(sei_2);
@@ -891,6 +893,7 @@ START_TEST(correct_timestamp)
   free(nalu.nalu_data_wo_epb);
   free(nalu_ts.nalu_data_wo_epb);
   test_stream_item_free(i_nalu);
+  test_stream_item_free(i_nalu_2);
   signed_video_free(sv);
   signed_video_free(sv_ts);
   free(sei);
@@ -982,6 +985,7 @@ START_TEST(w_wo_emulation_prevention_bytes)
     free(seis[ii]);
   }
   test_stream_item_free(i_nalu);
+  test_stream_item_free(i_nalu_2);
 }
 END_TEST
 
