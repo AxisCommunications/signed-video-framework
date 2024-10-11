@@ -485,7 +485,8 @@ START_TEST(interchange_two_p_nalus)
   //      IPPS           ->   (invalid)-> NNNU
   //          IPPS       ->   (valid)  -> ....
   // All NAL Units but the last 'I' are validated and since two NAL Units have been moved the
-  // authenticity is NOT OK.
+  // authenticity is NOT OK. For Frame level we can identify the I NAL Unit, hence the linking
+  // between GOPs is intact.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, false, 14, 13, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // No pending NAL Unit per GOP.
