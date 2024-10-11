@@ -144,7 +144,12 @@ struct _signed_video_t {
   bool is_golden_sei;  // Flag that tells if a SEI is a golden SEI
   bool using_golden_sei;  // Flag that tells if golden SEI prinsiple is used
   bool signing_started;
-  bool generate_sei;
+  bool generate_sei;  // A flag that tells whether to generate SEI
+  // SEI is not generated at the start of the stream, but after the first GOP ends, this flag is set
+  // to true From that point, SEI is generated at the end of each GOP and includes the GOP hash The
+  // flag remains true until the stream ends, allowing SEI to be generated as long as the GOP hash
+  // is available.
+
   // TODO: Once the transition to linking to previous GOP is complete, the following flag will be
   // unnecessary.
   bool gop_hash_off;  // Flag indicating if the GENERAL TAG doesn't include GOP hash.
