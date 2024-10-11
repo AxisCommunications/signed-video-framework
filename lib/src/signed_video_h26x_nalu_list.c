@@ -316,6 +316,7 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list, bool hash_algo_known)
   uint8_t *hashable_data = NULL;
   uint8_t *nalu_data_wo_epb = NULL;
   h26x_nalu_list_item_t *item = list->last_item;
+  item = (item->validation_status != 'M') ? item : item->prev;
   int hashable_data_offset = item->nalu->hashable_data - item->nalu->nalu_data;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
@@ -428,8 +429,12 @@ h26x_nalu_list_remove_missing_items(h26x_nalu_list_t *list)
       item->validation_status = 'U';
       found_decoded_sei = true;
     }
-    if (item->validation_status == 'P') found_first_pending_nalu = true;
+    if (item->validation_status == 'N') {
+      // Reset validation status to 'P' for the next validation.
+      item->validation_status = 'P';
+    }
     item = item->next;
+    if (item && item->validation_status == 'P') found_first_pending_nalu = true;
   }
 }
 
@@ -545,7 +550,7 @@ h26x_nalu_list_clean_up(h26x_nalu_list_t *list)
   // Remove validated items.
   unsigned int removed_items = 0;
   h26x_nalu_list_item_t *item = list->first_item;
-  while (item && item->validation_status != 'P' && !item->need_second_verification) {
+  while (item && item->validation_status != 'P') {
     if (item->validation_status != 'M') {
       removed_items++;
     }
