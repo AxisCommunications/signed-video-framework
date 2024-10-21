@@ -540,24 +540,25 @@ START_TEST(modify_one_i_nalu)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  test_stream_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
-  test_stream_check_types(list, "IPPSIPPPSIPPSI");
+  test_stream_t *list = create_signed_nalus("IPPIPPPIPPIPPI", settings[_i]);
+  test_stream_check_types(list, "IPPSIPPPSIPPSIPPSI");
 
-  // Modify the 'I' in second non-empty GOP: SIPPS I PPPSIPPSI
+  // Modify the 'I' in second non-empty GOP: IPPS I PPPSIPPSIPPSI
   const int modify_nalu_number = 5;
   modify_list_item(list, modify_nalu_number, 'I');
 
   // All NAL Units but the last 'I' are validated and since one 'I' has been modified the
   // authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 14, 13, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // IPPSIPPPSIPPSI
-  // IPPS              ->   (valid)   ->  ....
-  //     IPPPS         ->   (invalid) -> NNNN
-  //          IPPS     ->   (invalid) -> NNNN
+      SV_AUTH_RESULT_NOT_OK, false, 18, 17, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // IPPSIPPPSIPPSIPPSI
+  // IPPS                   ->   (valid)   -> ....
+  //     IPPPS              ->   (invalid) -> NNNN
+  //          IPPS          ->   (invalid) -> NNNN (Link is not OK)
+  //              IPPS      ->   (valid)   -> ....
   // No pending NAL Unit per GOP.
   struct validation_stats expected = {
-      .valid_gops = 1, .invalid_gops = 2, .final_validation = &final_validation};
+      .valid_gops = 2, .invalid_gops = 2, .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -1001,7 +1002,7 @@ START_TEST(lost_all_nalus_between_two_seis)
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, false, 16, 15, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // We have NAL Units from 5 GOPs present. The lost NAL Units (IPPP) will be detected
-  // but for SV_AUTHENTICITY_LEVEL_FRAME we will measure oneextra missing NAL Unit.
+  // but for SV_AUTHENTICITY_LEVEL_FRAME we will measure one extra missing NAL Unit.
   // This is a descrepancy in the way we count NAL Units by excluding SEIs.
   // TODO: In the current validation, if the validator receives a I NALU after an SEI NALU, it will
   // proceed with validation. As a result, it will invalidate one additional GOP that does not
@@ -1650,7 +1651,7 @@ START_TEST(vendor_axis_communications_operation)
   sv_rc = signed_video_set_product_info(sv, HW_ID, FW_VER, NULL, "Axis Communications AB", ADDR);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  // Add an 'I' to trigger a SEI.
+  // Mimic a GOP with 1 P-NAL Unit between 2 I-NAL Units to trigger an SEI message.
   sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
@@ -2251,6 +2252,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, no_public_key_in_sei_and_bad_public_key_on_validation_side, s, e);
   tcase_add_loop_test(tc, fallback_to_gop_level, s, e);
   tcase_add_loop_test(tc, golden_sei_principle, s, e);
+
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
 #endif

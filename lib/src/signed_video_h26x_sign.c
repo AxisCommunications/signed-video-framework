@@ -539,7 +539,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     }
     SV_THROW(hash_and_add(self, &nalu));
     if (nalu.is_first_nalu_in_gop && nalu.is_last_nalu_part) {
-      SV_THROW(update_linked_hash(self, self->gop_info->nalu_hash, self->sign_data->hash_size));
+      SV_THROW(update_linked_hash(self, gop_info->nalu_hash, self->sign_data->hash_size));
     }
 
   SV_CATCH()

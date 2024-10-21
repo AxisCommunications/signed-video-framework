@@ -464,7 +464,8 @@ START_TEST(vendor_axis_communications_operation)
   // Signal that Axis vendor specifics has been added.
   setting.is_vendor_axis = true;
 
-  // Add an I-NAL Unit to trigger a SEI.
+  // Add 2 P-NAL Units between 2 I-NAL Units to mimic a GOP structure in the stream to trigger a
+  // SEI.
   test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPI", false);
   test_stream_check_types(list, "IPPSI");
   verify_seis(list, setting);
