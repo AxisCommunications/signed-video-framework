@@ -209,14 +209,14 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
       assert(item->nalu);
 
       // Skip GOP SEI items as they do not contribute to the GOP hash.
-      if (item->nalu->is_gop_sei) {
+      if (item == sei) {
         break;  // Break if encountered SEI frame.
       }
       hash_to_add = item->nalu->is_first_nalu_in_gop ? item->second_hash : item->hash;
       // Since the GOP hash is initialized, it can be updated with each incoming NALU hash.
       SV_THROW(openssl_update_hash(self->crypto_handle, hash_to_add, hash_size, true));
-
       item->used_in_gop_hash = true;  // Mark the item as used in the GOP hash
+
       item = item->next;
     }
     SV_THROW(openssl_finalize_hash(self->crypto_handle, self->gop_info->computed_gop_hash, true));

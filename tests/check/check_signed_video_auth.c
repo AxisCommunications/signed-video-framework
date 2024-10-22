@@ -480,13 +480,17 @@ START_TEST(interchange_two_p_nalus)
   // position nalu_number.
   test_stream_append_item(list, item, nalu_number);
   test_stream_check_types(list, "IPPSIPPPSIPPSI");
+  // All NAL Units but the last 'I' are validated and since two NAL Units have been moved the
+  // authenticity is NOT OK.
   // IPPSIPPPSIPPSI
-  // IPPS                ->   (valid)  -> .P
+  // IPPS                ->   (valid)  -> ....
   //      IPPS           ->   (invalid)-> NNNU
   //          IPPS       ->   (valid)  -> ....
-  // All NAL Units but the last 'I' are validated and since two NAL Units have been moved the
-  // authenticity is NOT OK. For Frame level we can identify the I NAL Unit, hence the linking
-  // between GOPs is intact.
+  // For Frame level we can identify the I NAL Unit, hence the linking  between GOPs is intact.
+  // IPPSIPPPSIPPSI
+  // IPPS                ->   (valid)  -> ....
+  //      IPPS           ->   (invalid)-> ..M.N.
+  //          IPPS       ->   (valid)  -> ....
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, false, 14, 13, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // No pending NAL Unit per GOP.
@@ -2252,7 +2256,6 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, no_public_key_in_sei_and_bad_public_key_on_validation_side, s, e);
   tcase_add_loop_test(tc, fallback_to_gop_level, s, e);
   tcase_add_loop_test(tc, golden_sei_principle, s, e);
-
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
 #endif
