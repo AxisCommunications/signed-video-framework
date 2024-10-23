@@ -1235,7 +1235,7 @@ signed_video_reset(signed_video_t *self)
     // Reset session states
     SV_THROW(legacy_sv_reset(self->legacy_sv));
     self->signing_started = false;
-    self->first_signing_attempt = false;
+    self->sei_generation_enabled = false;
     gop_info_reset(self->gop_info);
 
     gop_state_reset(&(self->gop_state));

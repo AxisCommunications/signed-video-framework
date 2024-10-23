@@ -144,9 +144,9 @@ struct _signed_video_t {
   bool is_golden_sei;  // Flag that tells if a SEI is a golden SEI
   bool using_golden_sei;  // Flag that tells if golden SEI prinsiple is used
   bool signing_started;
-  bool first_signing_attempt;  // Flag indicating whether to generate the first SEI. Flips to true
-                               // after the first signing attempt, triggering SEI generation at the
-                               // end of the first GOP.
+  bool sei_generation_enabled;  // Flag indicating whether to generate the SEI. Flips to true after
+                                // the first signing attempt, triggering SEI generation at the end
+                                // of GOP.
 
   // TODO: Once the transition to linking to previous GOP is complete, the following flag will be
   // unnecessary.
