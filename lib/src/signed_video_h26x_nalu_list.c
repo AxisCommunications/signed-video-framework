@@ -316,6 +316,13 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list, bool hash_algo_known)
   uint8_t *hashable_data = NULL;
   uint8_t *nalu_data_wo_epb = NULL;
   h26x_nalu_list_item_t *item = list->last_item;
+  /* Iteration is performed backwards through the list to find the previous item that contains
+   * a valid NALU. If a NALU is missing, it cannot be copied, as there is nothing to copy.
+   * The previous NALUs are checked until a valid one is found. This ensures that a NALU
+   * that actually exists is used before attempting to make a copy. */
+  while (!(item->nalu)) {
+    item = item->prev;
+  }
   int hashable_data_offset = item->nalu->hashable_data - item->nalu->nalu_data;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
@@ -428,8 +435,14 @@ h26x_nalu_list_remove_missing_items(h26x_nalu_list_t *list)
       item->validation_status = 'U';
       found_decoded_sei = true;
     }
-    if (item->validation_status == 'P') found_first_pending_nalu = true;
+    // TODO: Resetting the item validation in the current GOP may affect the validation of the next
+    // GOP. This needs to be fixed.
+    if (item->validation_status == 'N') {
+      // Reset validation status to 'P' for the next validation.
+      item->validation_status = 'P';
+    }
     item = item->next;
+    if (item && item->validation_status == 'P') found_first_pending_nalu = true;
   }
 }
 
@@ -545,7 +558,7 @@ h26x_nalu_list_clean_up(h26x_nalu_list_t *list)
   // Remove validated items.
   unsigned int removed_items = 0;
   h26x_nalu_list_item_t *item = list->first_item;
-  while (item && item->validation_status != 'P' && !item->need_second_verification) {
+  while (item && item->validation_status != 'P') {
     if (item->validation_status != 'M') {
       removed_items++;
     }
