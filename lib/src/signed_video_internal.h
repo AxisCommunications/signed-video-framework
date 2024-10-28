@@ -144,9 +144,12 @@ struct _signed_video_t {
   bool is_golden_sei;  // Flag that tells if a SEI is a golden SEI
   bool using_golden_sei;  // Flag that tells if golden SEI prinsiple is used
   bool signing_started;
+  bool sei_generation_enabled;  // Flag indicating whether to generate the SEI. Flips to true after
+                                // the first signing attempt, triggering SEI generation at the end
+                                // of GOP.
+
   // TODO: Once the transition to linking to previous GOP is complete, the following flag will be
   // unnecessary.
-  bool linked_hash_on;  // Flag that tells if signed video uses linked hash.
   bool gop_hash_off;  // Flag indicating if the GENERAL TAG doesn't include GOP hash.
   // TODO: |gop_hash_off| will be deprecated when the feature is fully integrated.
 
@@ -228,11 +231,8 @@ struct _gop_info_t {
   uint8_t document_hash[MAX_HASH_SIZE];  // Memory for storing the document hash to be signed
   // when SV_AUTHENTICITY_LEVEL_FRAME.
   uint8_t computed_gop_hash[MAX_HASH_SIZE];  // Hash of NALU hashes in GOP.
-  uint8_t tmp_hash[MAX_HASH_SIZE];  // Memory for storing a temporary hash needed when a NALU is
-  // split in parts.
   uint8_t linked_hashes[2 * MAX_HASH_SIZE];  // Stores linked hash data for liked hash method.
 
-  uint8_t *tmp_hash_ptr;
   uint8_t encoding_status;  // Stores potential errors when encoding, to transmit to the client
   // (authentication part).
   uint16_t num_sent_nalus;  // The number of NALUs used to generate the gop_hash on the signing
@@ -242,6 +242,7 @@ struct _gop_info_t {
   hash_type_t signature_hash_type;  // The type of hash signed, either gop_hash or document hash.
   uint32_t global_gop_counter;  // The index of the current GOP, incremented when encoded in the
   // TLV.
+  uint32_t latest_validated_gop;  // The index of latest validated GOP.
   bool global_gop_counter_is_synced;  // Turns true when a SEI corresponding to the segment is
   // detected.
   int verified_signature_hash;  // Status of last hash-signature-pair verification. Has 1 for

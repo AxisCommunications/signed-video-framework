@@ -464,9 +464,10 @@ START_TEST(vendor_axis_communications_operation)
   // Signal that Axis vendor specifics has been added.
   setting.is_vendor_axis = true;
 
-  // Add an I-NAL Unit to trigger a SEI.
-  test_stream_t *list = create_signed_nalus_with_sv(sv, "I", false);
-  test_stream_check_types(list, "SI");
+  // Add 2 P-NAL Units between 2 I-NAL Units to mimic a GOP structure in the stream to trigger a
+  // SEI.
+  test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPI", false);
+  test_stream_check_types(list, "IPPSI");
   verify_seis(list, setting);
   test_stream_free(list);
   signed_video_free(sv);
@@ -503,7 +504,7 @@ START_TEST(correct_nalu_sequence_without_eos)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPP", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPPSIPPSIPPSIPPSIPP");
+  test_stream_check_types(list, "IPPSIPPSIPPSIPPSIPPSIPP");
   verify_seis(list, settings[_i]);
   test_stream_free(list);
 }
@@ -544,7 +545,7 @@ START_TEST(correct_multislice_nalu_sequence_without_eos)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i]);
-  test_stream_check_types(list, "SIiPpPpSIiPpPp");
+  test_stream_check_types(list, "IiPpPpSIiPpPp");
   verify_seis(list, settings[_i]);
   test_stream_free(list);
 }
@@ -574,7 +575,7 @@ START_TEST(sei_increase_with_gop_length)
   setting.increased_sei_size = true;
 
   test_stream_t *list = create_signed_nalus("IPPIPPPPPI", setting);
-  test_stream_check_types(list, "SIPPSIPPPPPSI");
+  test_stream_check_types(list, "IPPSIPPPPPSI");
   verify_seis(list, setting);
   test_stream_free(list);
 }
@@ -608,22 +609,18 @@ START_TEST(fallback_to_gop_level)
 
   // Create a test stream given the input string.
   test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPI", false);
-  test_stream_check_types(list, "SIPPSIPPPPPPPPPPPPPPPPPPPPPPPPSI");
-  test_stream_item_t *sei_3 = test_stream_item_remove(list, 31);
-  test_stream_item_check_type(sei_3, 'S');
-  test_stream_item_t *sei_2 = test_stream_item_remove(list, 5);
+  test_stream_check_types(list, "IPPSIPPPPPPPPPPPPPPPPPPPPPPPPSI");
+  test_stream_item_t *sei_2 = test_stream_item_remove(list, 30);
   test_stream_item_check_type(sei_2, 'S');
-  test_stream_item_t *sei_1 = test_stream_item_remove(list, 1);
+  test_stream_item_t *sei_1 = test_stream_item_remove(list, 4);
   test_stream_item_check_type(sei_1, 'S');
 
   // Verify that the HASH_LIST_TAG is present in the SEI when it should.
   ck_assert(tag_is_present(sei_1, settings[_i].codec, HASH_LIST_TAG));
-  ck_assert(tag_is_present(sei_2, settings[_i].codec, HASH_LIST_TAG));
-  ck_assert(!tag_is_present(sei_3, settings[_i].codec, HASH_LIST_TAG));
+  ck_assert(!tag_is_present(sei_2, settings[_i].codec, HASH_LIST_TAG));
 
   test_stream_item_free(sei_1);
   test_stream_item_free(sei_2);
-  test_stream_item_free(sei_3);
   test_stream_free(list);
   signed_video_free(sv);
 }
@@ -642,7 +639,7 @@ START_TEST(undefined_nalu_in_sequence)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
-  test_stream_check_types(list, "SIPXPSIPPSI");
+  test_stream_check_types(list, "IPXPSIPPSI");
   verify_seis(list, settings[_i]);
   test_stream_free(list);
 }
@@ -675,10 +672,16 @@ START_TEST(two_completed_seis_pending)
 
   test_stream_item_t *i_nalu_1 = test_stream_item_create_from_type('I', 0, codec);
   test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 1, codec);
+  test_stream_item_t *p_nalu = test_stream_item_create_from_type('P', 2, codec);
+  test_stream_item_t *i_nalu_3 = test_stream_item_create_from_type('I', 3, codec);
 
   sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_1->data, i_nalu_1->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_2->data, i_nalu_2->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_3->data, i_nalu_3->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Now 2 SEIs should be available. Get the first one.
@@ -709,6 +712,8 @@ START_TEST(two_completed_seis_pending)
 
   test_stream_item_free(i_nalu_1);
   test_stream_item_free(i_nalu_2);
+  test_stream_item_free(p_nalu);
+  test_stream_item_free(i_nalu_3);
   signed_video_free(sv);
   free(sei_1);
   free(sei_2);
@@ -837,11 +842,14 @@ START_TEST(correct_timestamp)
   ck_assert(sv);
   ck_assert(sv_ts);
   test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 1, codec);
   size_t sei_size = 0;
   size_t sei_size_ts = 0;
 
   // Test old API without timestamp
   sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_2->data, i_nalu_2->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -853,6 +861,8 @@ START_TEST(correct_timestamp)
   // Test new API with timestamp as NULL. It should give the same result as the old API
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
       sv_ts, i_nalu->data, i_nalu->data_size, NULL);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_add_nalu_for_signing(sv_ts, i_nalu_2->data, i_nalu_2->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_get_sei(sv_ts, NULL, &sei_size_ts);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -884,6 +894,7 @@ START_TEST(correct_timestamp)
   free(nalu.nalu_data_wo_epb);
   free(nalu_ts.nalu_data_wo_epb);
   test_stream_item_free(i_nalu);
+  test_stream_item_free(i_nalu_2);
   signed_video_free(sv);
   signed_video_free(sv_ts);
   free(sei);
@@ -900,7 +911,7 @@ START_TEST(correct_signing_nalus_in_parts)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_splitted_nalus("IPPIPP", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPP");
+  test_stream_check_types(list, "IPPSIPP");
   verify_seis(list, settings[_i]);
   test_stream_free(list);
 }
@@ -924,6 +935,8 @@ START_TEST(w_wo_emulation_prevention_bytes)
   size_t sei_sizes[NUM_EPB_CASES] = {0, 0};
   bool with_emulation_prevention[NUM_EPB_CASES] = {true, false};
   test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 1, codec);
+
   size_t sei_size = 0;
 
   for (size_t ii = 0; ii < NUM_EPB_CASES; ii++) {
@@ -946,6 +959,8 @@ START_TEST(w_wo_emulation_prevention_bytes)
     // Add I-frame for signing and get SEI frame
     sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
         sv, i_nalu->data, i_nalu->data_size, &g_testTimestamp);
+    sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
+        sv, i_nalu_2->data, i_nalu_2->data_size, &g_testTimestamp);
     ck_assert_int_eq(sv_rc, SV_OK);
     sv_rc = signed_video_get_sei(sv, NULL, &sei_size);
     ck_assert_int_eq(sv_rc, SV_OK);
@@ -971,6 +986,7 @@ START_TEST(w_wo_emulation_prevention_bytes)
     free(seis[ii]);
   }
   test_stream_item_free(i_nalu);
+  test_stream_item_free(i_nalu_2);
 }
 END_TEST
 
@@ -992,12 +1008,12 @@ START_TEST(limited_sei_payload_size)
   // Write SEIs without emulation prevention to avoid inserting unpredictable bytes.
   setting.ep_before_signing = false;
   test_stream_t *list = create_signed_nalus("IPPIPPPPPPI", setting);
-  test_stream_check_types(list, "SIPPSIPPPPPPSI");
+  test_stream_check_types(list, "IPPSIPPPPPPSI");
   verify_seis(list, setting);
 
   // Extract the SEIs and check their sizes, which should be smaller than |max_sei_payload_size|.
-  int sei_idx[3] = {13, 5, 1};
-  for (int ii = 0; ii < 3; ii++) {
+  int sei_idx[2] = {12, 4};
+  for (int ii = 0; ii < 2; ii++) {
     test_stream_item_t *sei = test_stream_item_remove(list, sei_idx[ii]);
     ck_assert_int_eq(sei->type, 'S');
     ck_assert_uint_le(sei->data_size, max_sei_payload_size);

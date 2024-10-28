@@ -296,7 +296,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     // reserved_byte = |epb|golden sei|linked hash|gop hash|0|0|0|0|
     uint8_t reserved_byte = self->sei_epb << 7;
     reserved_byte |= self->is_golden_sei << 6;
-    reserved_byte |= self->linked_hash_on << 5;
+    reserved_byte |= 1 << 5;
     reserved_byte |= !self->gop_hash_off << 4;
     *payload_ptr++ = reserved_byte;
 
@@ -515,11 +515,10 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       }
       self->frame_count++;  // It is ok for this variable to wrap around
     }
-    if (self->linked_hash_on) {
-      // Process the NALU based on the presence of linked hash and whether it is the first NALU in
-      // the GOP.
-      if (nalu.is_first_nalu_in_gop && nalu.is_last_nalu_part) {
-        // Store the timestamp for the first nalu in gop.
+
+    // Finalize GOP hash and generate SEI if the NALU is I frame of a non-empty GOP.
+    if (nalu.is_first_nalu_in_gop && nalu.is_last_nalu_part) {
+      if (self->sei_generation_enabled) {
         if (timestamp) {
           self->gop_info->timestamp = *timestamp;
           self->gop_info->has_timestamp = true;
@@ -529,46 +528,20 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
         uint8_t *payload_signature_ptr = NULL;
 
         // If there are hashes added to the hash list, the |computed_gop_hash| can be finalized.
-        if (gop_info->list_idx > 0) {
-          SV_THROW(openssl_finalize_hash(self->crypto_handle, gop_info->computed_gop_hash, true));
-        }
+        SV_THROW(openssl_finalize_hash(self->crypto_handle, gop_info->computed_gop_hash, true));
         SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
         // Add |payload| to buffer. Will be picked up again when the signature has been generated.
         add_payload_to_buffer(self, payload, payload_signature_ptr);
         // The previous GOP is now completed. The gop_hash was reset right after signing and
         // adding it to the SEI.
       }
-      SV_THROW(hash_and_add(self, &nalu));
-    } else {
-      SV_THROW(hash_and_add(self, &nalu));
-      // Depending on the input NALU, we need to take different actions. If the input is an I-NALU
-      // we have a transition to a new GOP. Then we need to generate the necessary SEI-NALU(s) and
-      // put in prepend_list. For all other valid NALUs, simply hash and proceed.
-      if (nalu.is_first_nalu_in_gop && nalu.is_last_nalu_part) {
-        // An I-NALU indicates the start of a new GOP, hence prepend with SEI-NALUs. This also means
-        // that the signing feature is present.
-
-        // Store the timestamp for the first nalu in gop.
-        if (timestamp) {
-          self->gop_info->timestamp = *timestamp;
-          self->gop_info->has_timestamp = true;
-        }
-
-        uint8_t *payload = NULL;
-        uint8_t *payload_signature_ptr = NULL;
-
-        // Finalize the GOP hash before write it the to TLV.
-        SV_THROW(openssl_finalize_hash(self->crypto_handle, gop_info->computed_gop_hash, true));
-        SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
-        // Add |payload| to buffer. Will be picked up again when the signature has been generated.
-        add_payload_to_buffer(self, payload, payload_signature_ptr);
-        // Now we are done with the previous GOP. The gop_hash was reset right after signing and
-        // adding it to the SEI NALU. Now it is time to start a new GOP, that is, hash and add this
-        // first NALU of the GOP.
-        SV_THROW(hash_and_add(self, &nalu));
-        SV_THROW(update_linked_hash(self, self->gop_info->nalu_hash, self->sign_data->hash_size));
-      }
+      self->sei_generation_enabled = true;
     }
+    SV_THROW(hash_and_add(self, &nalu));
+    if (nalu.is_first_nalu_in_gop && nalu.is_last_nalu_part) {
+      SV_THROW(update_linked_hash(self, gop_info->nalu_hash, self->sign_data->hash_size));
+    }
+
   SV_CATCH()
   SV_DONE(status)
 
