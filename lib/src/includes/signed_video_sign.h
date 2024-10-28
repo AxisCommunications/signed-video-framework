@@ -259,17 +259,17 @@ signed_video_get_nalu_to_prepend(signed_video_t *self,
  *     // Handle error
  *   } else {
  *     size_t sei_size = 0;
- *     status = signed_video_get_sei(sv, NULL, &sei_size);
+ *     status = signed_video_get_sei(sv, NULL, &sei_size, NULL, 0);
  *     // The first call of the function is for getting the |sei_size|.
  *     // The second call is to get the sei.
  *     while (status == SV_OK && sei_size > 0) {
  *         uint8_t *sei = malloc(sei_size);
- *         status = signed_video_get_sei(sv, sei, &sei_size);
+ *         status = signed_video_get_sei(sv, sei, &sei_size, NULL, 0);
  *         if (status != SV_OK) {
  *          // True error. Handle it properly.
  *         }
  *         // The user is responsible for freeing |sei|.
- *         status = signed_video_get_sei(sv, NULL, &sei_size);
+ *         status = signed_video_get_sei(sv, NULL, &sei_size, NULL, 0);
  *     }
  *     // Handle return code
  *     if (status != SV_OK) {
@@ -281,13 +281,22 @@ signed_video_get_nalu_to_prepend(signed_video_t *self,
  * @param sei Pointer to the memory to which a complete SEI will be copied.
  *   If a NULL pointer is used, only the |sei_size| is updated.
  * @param sei_size Pointer to where the size of the SEI is written.
+ * @param peek_nalu Pointer to the NAL Unit of which the SEI will be prepended as a
+ *   header. When peeking at the next NAL Unit, SEIs can only be fetched if the NAL is a
+ *   primary slice. A NULL pointer means that the user is responsible to add the SEI
+ *   according to standard.
+ * @param peek_nalu_size The size of the peek NAL Unit.
  *
  * @returns SV_OK            - NALU was copied successfully,
  *          SV_NOT_SUPPORTED - no available data, the action is not supported,
  *          otherwise        - an error code.
  */
 SignedVideoReturnCode
-signed_video_get_sei(signed_video_t *self, uint8_t *sei, size_t *sei_size);
+signed_video_get_sei(signed_video_t *self,
+    uint8_t *sei,
+    size_t *sei_size,
+    const uint8_t *peek_nalu,
+    size_t peek_nalu_size);
 
 /**
  * @brief Frees the |nalu_data| of signed_video_nalu_to_prepend_t
