@@ -675,6 +675,7 @@ START_TEST(two_completed_seis_pending)
   test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 1, codec);
   test_stream_item_t *p_nalu = test_stream_item_create_from_type('P', 2, codec);
   test_stream_item_t *i_nalu_3 = test_stream_item_create_from_type('I', 3, codec);
+  test_stream_item_t *i_nalu_4 = test_stream_item_create_from_type('i', 4, codec);
 
   sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_1->data, i_nalu_1->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -686,11 +687,17 @@ START_TEST(two_completed_seis_pending)
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Now 2 SEIs should be available. Get the first one.
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size_1, NULL, 0);
+  // First, peek with a secondary slice NAL Unit which should not provide a SEI.
+  sv_rc = signed_video_get_sei(sv, NULL, &sei_size_1, i_nalu_4->data, i_nalu_4->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(sei_size_1 == 0);
+  // Secondly, peek with a primary slice NAL Unit should reveil the SEI.
+  sv_rc = signed_video_get_sei(sv, NULL, &sei_size_1, p_nalu->data, p_nalu->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(sei_size_1 != 0);
   uint8_t *sei_1 = malloc(sei_size_1);
   ck_assert_int_eq(sv_rc, SV_OK);
+  // From now on skipping peeks.
   sv_rc = signed_video_get_sei(sv, sei_1, &sei_size_1, NULL, 0);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Now get the second one.
@@ -715,6 +722,7 @@ START_TEST(two_completed_seis_pending)
   test_stream_item_free(i_nalu_2);
   test_stream_item_free(p_nalu);
   test_stream_item_free(i_nalu_3);
+  test_stream_item_free(i_nalu_4);
   signed_video_free(sv);
   free(sei_1);
   free(sei_2);
