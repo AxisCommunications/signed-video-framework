@@ -93,19 +93,22 @@ static char private_key_ecdsa[ECDSA_PRIVATE_KEY_ALLOC_BYTES];
 static size_t private_key_size_ecdsa;
 
 /* Pull SEIs from the signed_video_t session |sv| and prepend them to the test stream |item|. */
-static void
-pull_seis(signed_video_t *sv, test_stream_item_t *item)
+static int
+pull_seis(signed_video_t *sv, test_stream_item_t **item)
 {
   bool is_first_sei = true;
+  int num_seis = 0;
   size_t sei_size = 0;
+  uint8_t *peek_nalu = (*item)->data;
+  size_t peek_nalu_size = (*item)->data_size;
   // Only prepend the SEI if it follows the standard, by peeking the current NAL Unit.
   SignedVideoReturnCode sv_rc =
-      signed_video_get_sei(sv, NULL, &sei_size, item->data, item->data_size, NULL);
+      signed_video_get_sei(sv, NULL, &sei_size, peek_nalu, peek_nalu_size, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   while (sv_rc == SV_OK && (sei_size != 0)) {
     uint8_t *sei = malloc(sei_size);
-    sv_rc = signed_video_get_sei(sv, sei, &sei_size, item->data, item->data_size, NULL);
+    sv_rc = signed_video_get_sei(sv, sei, &sei_size, peek_nalu, peek_nalu_size, NULL);
     ck_assert_int_eq(sv_rc, SV_OK);
     if (!is_first_sei) {
       // The first SEI could be a golden SEI, hence do not check.
@@ -114,12 +117,21 @@ pull_seis(signed_video_t *sv, test_stream_item_t *item)
     // Generate a new test stream item with this SEI.
     test_stream_item_t *new_item = test_stream_item_create(sei, sei_size, sv->codec);
     // Prepend the |item| with this |new_item|.
-    test_stream_item_prepend(item, new_item);
+    test_stream_item_prepend(*item, new_item);
+    num_seis++;
     // Ask for next completed SEI.
-    sv_rc = signed_video_get_sei(sv, NULL, &sei_size, item->data, item->data_size, NULL);
+    sv_rc = signed_video_get_sei(sv, NULL, &sei_size, peek_nalu, peek_nalu_size, NULL);
     ck_assert_int_eq(sv_rc, SV_OK);
     is_first_sei = false;
   }
+  int pulled_seis = num_seis;
+  // Rewind to the first SEI, which should be added for signing.
+  while (num_seis > 0) {
+    *item = (*item)->prev;
+    num_seis--;
+  }
+
+  return pulled_seis;
 }
 
 /* Generates a signed video test stream for a user-owned signed_video_t session.
@@ -136,11 +148,18 @@ create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalu
   // Create a test stream given the input string.
   test_stream_t *list = test_stream_create(str, sv->codec);
   test_stream_item_t *item = list->first_item;
+  int pulled_seis = 0;
 
   // Loop through the NAL Units and add for signing.
   while (item) {
-    ck_assert(!signed_video_is_golden_sei(sv, item->data, item->data_size));
-    if (split_nalus) {
+    // Pull all SEIs and add them into the test stream.
+    pulled_seis += pull_seis(sv, &item);
+    // If the test uses Golden SEIs, they are currently present as the first item in the stream.
+    if (!(!item->prev && sv->using_golden_sei)) {
+      ck_assert(!signed_video_is_golden_sei(sv, item->data, item->data_size));
+    }
+    // Only split NAL Units that are not generated SEIs.
+    if (split_nalus && pulled_seis == 0) {
       // Split the NAL Unit into 2 parts, where the last part inlcudes the ID and the stop bit.
       rc = signed_video_add_nalu_part_for_signing_with_timestamp(
           sv, item->data, item->data_size - 2, &g_testTimestamp, false);
@@ -152,10 +171,10 @@ create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalu
           sv, item->data, item->data_size, &g_testTimestamp, true);
     }
     ck_assert_int_eq(rc, SV_OK);
-    // Pull all SEIs and add them into the test stream.
-    pull_seis(sv, item);
+    pulled_seis -= pulled_seis ? 1 : 0;
 
     if (item->next == NULL) break;
+
     item = item->next;
   }
 
