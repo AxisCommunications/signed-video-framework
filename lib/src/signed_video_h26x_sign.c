@@ -623,7 +623,11 @@ get_latest_sei(signed_video_t *self, uint8_t *sei, size_t *sei_size)
 }
 
 SignedVideoReturnCode
-signed_video_get_sei(signed_video_t *self, uint8_t *sei, size_t *sei_size)
+signed_video_get_sei(signed_video_t *self,
+    uint8_t *sei,
+    size_t *sei_size,
+    const uint8_t *peek_nalu,
+    size_t peek_nalu_size)
 {
 
   if (!self || !sei_size) return SV_INVALID_PARAMETER;
@@ -635,6 +639,19 @@ signed_video_get_sei(signed_video_t *self, uint8_t *sei, size_t *sei_size)
     DEBUG_LOG("There are no completed seis.");
     return SV_OK;
   }
+
+  // If the user peek this NAL Unit, a SEI can only be fetched if it can prepend the
+  // peeked NAL Unit and at the same time follows the standard.
+  if (peek_nalu && peek_nalu_size > 0) {
+    h26x_nalu_t nalu_info = parse_nalu_info(peek_nalu, peek_nalu_size, self->codec, false, false);
+    free(nalu_info.nalu_data_wo_epb);
+    // Only display a SEI if the |peek_nalu| is a primary picture NAL Unit.
+    if (!((nalu_info.nalu_type == NALU_TYPE_I || nalu_info.nalu_type == NALU_TYPE_P) &&
+            nalu_info.is_primary_slice)) {
+      return SV_OK;
+    }
+  }
+
   *sei_size = self->sei_data_buffer[0].completed_sei_size;
   if (!sei) return SV_OK;
   // Copy the SEI data to the provided pointer.
