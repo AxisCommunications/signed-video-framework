@@ -100,12 +100,12 @@ pull_seis(signed_video_t *sv, test_stream_item_t *item)
   size_t sei_size = 0;
   // Only prepend the SEI if it follows the standard, by peeking the current NAL Unit.
   SignedVideoReturnCode sv_rc =
-      signed_video_get_sei(sv, NULL, &sei_size, item->data, item->data_size);
+      signed_video_get_sei(sv, NULL, &sei_size, item->data, item->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   while (sv_rc == SV_OK && (sei_size != 0)) {
     uint8_t *sei = malloc(sei_size);
-    sv_rc = signed_video_get_sei(sv, sei, &sei_size, item->data, item->data_size);
+    sv_rc = signed_video_get_sei(sv, sei, &sei_size, item->data, item->data_size, NULL);
     ck_assert_int_eq(sv_rc, SV_OK);
     if (!is_first_sei) {
       // The first SEI could be a golden SEI, hence do not check.
@@ -116,7 +116,7 @@ pull_seis(signed_video_t *sv, test_stream_item_t *item)
     // Prepend the |item| with this |new_item|.
     test_stream_item_prepend(item, new_item);
     // Ask for next completed SEI.
-    sv_rc = signed_video_get_sei(sv, NULL, &sei_size, item->data, item->data_size);
+    sv_rc = signed_video_get_sei(sv, NULL, &sei_size, item->data, item->data_size, NULL);
     ck_assert_int_eq(sv_rc, SV_OK);
     is_first_sei = false;
   }
