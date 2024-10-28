@@ -627,11 +627,15 @@ signed_video_get_sei(signed_video_t *self,
     uint8_t *sei,
     size_t *sei_size,
     const uint8_t *peek_nalu,
-    size_t peek_nalu_size)
+    size_t peek_nalu_size,
+    unsigned *num_pending_seis)
 {
 
   if (!self || !sei_size) return SV_INVALID_PARAMETER;
   *sei_size = 0;
+  if (num_pending_seis) {
+    *num_pending_seis = self->sei_data_buffer_idx;
+  }
 
   svrc_t status = get_signature_complete_sei_and_add_to_prepend(self);
   if (status != SV_OK) return status;
@@ -661,6 +665,12 @@ signed_video_get_sei(signed_video_t *self,
   free(self->sei_data_buffer[0].sei);
   --(self->num_of_completed_seis);
   shift_sei_buffer_at_index(self, 0);
+
+  // Update |num_pending_seis| in case SEIs were fetched.
+  if (num_pending_seis) {
+    *num_pending_seis = self->sei_data_buffer_idx;
+  }
+
   return SV_OK;
 }
 
