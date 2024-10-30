@@ -2166,7 +2166,7 @@ START_TEST(golden_sei_principle)
   ck_assert(sv);
 
   test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIPPIPPI", false);
-  test_stream_check_types(list, "SIPPSIPPSIPPSI");
+  test_stream_check_types(list, "GIPPSIPPSIPPSI");
   // Final validation is OK and all received NAL Units, but the last one, are validated.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 14, 13, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};

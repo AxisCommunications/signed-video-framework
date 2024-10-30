@@ -115,7 +115,7 @@ nalu_type_to_char(const h26x_nalu_t *nalu)
 
   switch (nalu->nalu_type) {
     case NALU_TYPE_SEI:
-      return nalu->is_gop_sei ? 'S' : 'z';
+      return nalu->is_gop_sei ? (nalu->is_golden_sei ? 'G' : 'S') : 'z';
     case NALU_TYPE_I:
       return nalu->is_primary_slice == true ? 'I' : 'i';
     case NALU_TYPE_P:
