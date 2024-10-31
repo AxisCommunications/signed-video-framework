@@ -62,6 +62,11 @@ struct validation_stats {
   signed_video_accumulated_validation_t *final_validation;
 };
 
+/* General comments to the validation tests.
+ * All tests loop through the settings in settings[NUM_SETTINGS]; See signed_video_helpers.h. The
+ * index in the loop is _i and something the check test framework provides.
+ */
+
 /* validate_nalu_list(...)
  *
  * Helper function to validate the authentication result.
@@ -217,9 +222,6 @@ validate_nalu_list(signed_video_t *sv,
  */
 START_TEST(invalid_api_inputs)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   // For this test, the authenticity level has no meaning, since it is a setting for the signing
   // side, and we do not use a signed stream here.
   SignedVideoCodec codec = settings[_i].codec;
@@ -258,9 +260,6 @@ END_TEST
  */
 START_TEST(intact_stream)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   // Create a list of NAL Units given the input string.
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
   test_stream_check_types(list, "IPPSIPPSIPPSIPPSIPPSIPPSI");
@@ -279,9 +278,6 @@ END_TEST
 
 START_TEST(intact_multislice_stream)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = create_signed_nalus("IiPpPpIiPpPpIi", settings[_i]);
   test_stream_check_types(list, "IiPpPpSIiPpPpSIi");
 
@@ -299,9 +295,6 @@ END_TEST
 
 START_TEST(intact_stream_with_splitted_nalus)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   // Create a list of NAL Units given the input string.
   test_stream_t *list = create_signed_splitted_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
   test_stream_check_types(list, "IPPSIPPSIPPSIPPSIPPSIPPSI");
@@ -323,9 +316,6 @@ END_TEST
  * SEI(s) before the PPS. */
 START_TEST(intact_stream_with_pps_nalu_stream)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = create_signed_nalus("VIPPIPPI", settings[_i]);
   test_stream_check_types(list, "VIPPSIPPSI");
 
@@ -343,9 +333,6 @@ END_TEST
 
 START_TEST(intact_ms_stream_with_pps_nalu_stream)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = create_signed_nalus("VIiPpPpIiPpPpIi", settings[_i]);
   test_stream_check_types(list, "VIiPpPpSIiPpPpSIi");
 
@@ -371,9 +358,6 @@ END_TEST
  */
 START_TEST(intact_with_undefined_nalu_in_stream)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
   test_stream_check_types(list, "IPXPSIPPSI");
 
@@ -391,9 +375,6 @@ END_TEST
 
 START_TEST(intact_with_undefined_multislice_nalu_in_stream)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = create_signed_nalus("IiPpXPpIiPpPpIi", settings[_i]);
   test_stream_check_types(list, "IiPpXPpSIiPpPpSIi");
 
@@ -417,9 +398,6 @@ END_TEST
  */
 START_TEST(remove_one_p_nalu)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
   test_stream_check_types(list, "IPPSIPPPSIPPSI");
 
@@ -465,9 +443,6 @@ END_TEST
  */
 START_TEST(interchange_two_p_nalus)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
   test_stream_check_types(list, "IPPSIPPPSIPPSI");
 
@@ -510,9 +485,6 @@ END_TEST
  */
 START_TEST(modify_one_p_nalu)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
   test_stream_check_types(list, "IPPSIPPPSIPPSI");
 
@@ -541,9 +513,6 @@ END_TEST
 
 START_TEST(modify_one_i_nalu)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = create_signed_nalus("IPPIPPPIPPIPPI", settings[_i]);
   test_stream_check_types(list, "IPPSIPPPSIPPSIPPSI");
 
@@ -571,9 +540,6 @@ END_TEST
 
 START_TEST(modify_one_sei)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
   test_stream_check_types(list, "IPPSIPPPSIPPSI");
 
@@ -613,9 +579,6 @@ END_TEST
  * 3. Check the authentication result */
 START_TEST(remove_the_g_nalu)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
   test_stream_check_types(list, "IPPSIPPSIPPSIPPSI");
 
@@ -644,9 +607,6 @@ END_TEST
 
 START_TEST(remove_the_i_nalu)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
   test_stream_check_types(list, "IPPSIPPSIPPSIPPSIPPSIPPSI");
 
@@ -682,9 +642,6 @@ END_TEST
 
 START_TEST(remove_the_gi_nalus)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPI", settings[_i]);
   test_stream_check_types(list, "IPPSIPPSIPPSIPPSI");
 
@@ -731,9 +688,6 @@ END_TEST
  */
 START_TEST(sei_arrives_late)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = create_signed_nalus("IPPPIPPPIPPPI", settings[_i]);
   test_stream_check_types(list, "IPPPSIPPPSIPPPSI");
 
@@ -802,9 +756,6 @@ generate_delayed_sei_list(struct sv_setting setting, bool extra_delay)
  */
 START_TEST(all_seis_arrive_late)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = generate_delayed_sei_list(settings[_i], true);
 
   // IPPPPIPPPIPSPPIPSPPIPSS
@@ -832,9 +783,6 @@ END_TEST
 
 START_TEST(all_seis_arrive_late_first_gop_scrapped)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = generate_delayed_sei_list(settings[_i], true);
 
   test_stream_item_t *item = test_stream_pop_first_item(list);
@@ -885,9 +833,6 @@ END_TEST
  */
 START_TEST(lost_g_before_late_sei_arrival)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = create_signed_nalus("IPPPIPPPIPPPIPPIPPI", settings[_i]);
   test_stream_check_types(list, "IPPPSIPPPSIPPPSIPPSIPPSI");
 
@@ -930,9 +875,6 @@ END_TEST
  */
 START_TEST(lost_g_and_gop_with_late_sei_arrival)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   if (TMP_FIX_TO_ALLOW_TWO_INVALID_SEIS_AT_STARTUP) return;
 
   test_stream_t *list = create_signed_nalus("IPIPPPIPPPIP", settings[_i]);
@@ -988,9 +930,6 @@ END_TEST
  * Verify that we can validate authenticity correctly if we lose all NAL Units between two SEIs. */
 START_TEST(lost_all_nalus_between_two_seis)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = create_signed_nalus("IPPPIPPPIPPPIPPI", settings[_i]);
   test_stream_check_types(list, "IPPPSIPPPSIPPPSIPPSI");
 
@@ -1033,9 +972,6 @@ END_TEST
  */
 START_TEST(add_one_sei_nalu_after_signing)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = create_signed_nalus("IPPIPPPIPPI", settings[_i]);
   test_stream_check_types(list, "IPPSIPPPSIPPSI");
 
@@ -1070,9 +1006,6 @@ END_TEST
  */
 START_TEST(camera_reset_on_signing_side)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   // Generate 2 GOPs
   test_stream_t *list = create_signed_nalus("IPPIPPI", settings[_i]);
   test_stream_check_types(list, "IPPSIPPSI");
@@ -1120,9 +1053,6 @@ END_TEST
  */
 START_TEST(detect_change_of_public_key)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   // Generate 2 GOPs
   test_stream_t *list = create_signed_nalus("IPPIPPI", settings[_i]);
   test_stream_check_types(list, "IPPSIPPSI");
@@ -1219,9 +1149,6 @@ mimic_au_fast_forward_and_get_list(signed_video_t *sv, struct sv_setting setting
 
 START_TEST(fast_forward_stream_with_reset)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   // Create a session.
   signed_video_t *sv = get_initialized_signed_video(settings[_i], false);
   ck_assert(sv);
@@ -1252,9 +1179,6 @@ END_TEST
 
 START_TEST(fast_forward_stream_without_reset)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   // Create a session.
   signed_video_t *sv = get_initialized_signed_video(settings[_i], false);
   ck_assert(sv);
@@ -1326,9 +1250,6 @@ mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_se
 
 START_TEST(fast_forward_stream_with_delayed_seis)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   // Create a new session.
   signed_video_t *sv = get_initialized_signed_video(settings[_i], false);
   ck_assert(sv);
@@ -1421,9 +1342,6 @@ mimic_file_export(struct sv_setting setting, bool include_i_nalu_at_end, bool de
 
 START_TEST(file_export_with_dangling_end)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = mimic_file_export(settings[_i], false, false);
 
   // VSIPPSIPPSIPPSIPP (17 NAL Units)
@@ -1452,9 +1370,6 @@ END_TEST
  */
 START_TEST(no_signature)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = test_stream_create("IPPIPPIPPIPPI", settings[_i].codec);
   test_stream_check_types(list, "IPPIPPIPPIPPI");
 
@@ -1485,9 +1400,6 @@ END_TEST
 
 START_TEST(multislice_no_signature)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = test_stream_create("IiPpPpIiPpPpIiPpPpIiPpPpIi", settings[_i].codec);
   test_stream_check_types(list, "IiPpPpIiPpPpIiPpPpIiPpPpIi");
 
@@ -1526,9 +1438,6 @@ END_TEST
  */
 START_TEST(fallback_to_gop_level)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   const size_t kFallbackSize = 10;
   signed_video_t *sv = get_initialized_signed_video(settings[_i], false);
   ck_assert(sv);
@@ -1557,9 +1466,6 @@ END_TEST
  * APIs in vendors/axis-communications are used and tests both signing and validation parts. */
 START_TEST(vendor_axis_communications_operation)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   SignedVideoReturnCode sv_rc;
   struct sv_setting setting = settings[_i];
   SignedVideoCodec codec = settings[_i].codec;
@@ -1765,9 +1671,6 @@ validate_public_key_scenario(signed_video_t *sv,
  */
 START_TEST(test_public_key_scenarios)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   struct pk_setting {
     bool pk_in_sei;
     bool use_wrong_pk;
@@ -1847,9 +1750,6 @@ END_TEST
 /* Test description */
 START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
   test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
@@ -1909,9 +1809,6 @@ END_TEST
  * the other case is the default and executed for all other tests. */
 START_TEST(no_emulation_prevention_bytes)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   struct sv_setting setting = settings[_i];
   SignedVideoCodec codec = settings[_i].codec;
   SignedVideoReturnCode sv_rc;
@@ -2040,9 +1937,6 @@ END_TEST
  */
 START_TEST(with_blocked_signing)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPSIPPSIPPSIPPSIPPSIP");
   test_stream_item_t *sei = test_stream_item_remove(list, 20);
@@ -2087,7 +1981,6 @@ END_TEST
  */
 START_TEST(golden_sei_principle)
 {
-
   struct sv_setting setting = settings[_i];
   setting.with_golden_sei = true;
 
@@ -2116,9 +2009,6 @@ END_TEST
  */
 START_TEST(legacy_stream)
 {
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
   test_stream_t *list = get_legacy_stream(_i, settings[_i].codec);
   if (!list) return;
 
