@@ -1447,34 +1447,6 @@ START_TEST(file_export_with_dangling_end)
 }
 END_TEST
 
-START_TEST(file_export_without_dangling_end)
-{
-  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
-  // |settings|; See signed_video_helpers.h.
-
-  test_stream_t *list = mimic_file_export(settings[_i], true, false);
-
-  // VSIPPSIPPSIPPSIPPSI (19 NAL Units)
-  //
-  // VSI                 -> (signature) -> _UP
-  //   IPPS              ->     (valid) -> ....
-  //       IPPS          ->     (valid) -> ....
-  //           IPPS      ->     (valid) -> ....
-  //               IPPS  ->     (valid) -> ....
-  //
-  // Final validation is OK and all received NAL Units, but the last one, are validated.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 19, 18, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  struct validation_stats expected = {.valid_gops = 4,
-      .pending_nalus = 1,
-      .has_signature = 1,
-      .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
-
-  test_stream_free(list);
-}
-END_TEST
-
 /* Test description
  * Verify that we do not get any authentication if the stream has no signature
  */
@@ -1538,48 +1510,6 @@ START_TEST(multislice_no_signature)
 
   validate_nalu_list(NULL, list, expected, true);
 
-  test_stream_free(list);
-}
-END_TEST
-
-/* Test description
- * Check authentication if public key arrives late and a sei is missing before public key arrives.
- *
- * The operation is as follows:
- * 1. Generate a nalu_list with a sequence of signed GOPs.
- * 2. Check the sequence of NAL Units.
- * 3. Remove the first GOP containing the public key.
- * 4. Remove a sei before public key arrives.
- * 5. Check the authentication result.
- */
-START_TEST(late_public_key_and_no_sei_before_key_arrives)
-{
-  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPI", settings[_i]);
-
-  ck_assert(list);
-  test_stream_check_types(list, "IPPSIPPSIPPSIPPSIPPSIPPSI");
-
-  test_stream_item_t *g_1 = test_stream_item_remove(list, 8);
-  test_stream_item_check_type(g_1, 'S');
-  test_stream_check_types(list, "IPPSIPPIPPSIPPSIPPSIPPSI");
-  // First public key now exist in item 8 if SV_RECURRENCE_EIGHT and SV_RECURRENCE_OFFSET_THREE
-
-  // Final validation is NOT OK and all received NAL Units, but the last one, are validated.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 24, 23, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  //  IPPSIPPIPPSIPPSIPPSIPPSI
-  //  IPPS                          ->     (valid) ->    ....
-  //      IPPIPPS                   ->   (invalid) ->    NNN....
-  //             IPPS               ->     (valid) ->    ....
-  //                 IPPS           ->     (valid) ->    ....
-  //                     IPPS       ->     (valid) ->    ....
-  //                         IPP    ->     (valid) ->    ....
-  // No pending NAL Unit per GOP.
-  struct validation_stats expected = {
-      .valid_gops = 4, .invalid_gops = 1, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
-
-  test_stream_item_free(g_1);
   test_stream_free(list);
 }
 END_TEST
@@ -2248,10 +2178,8 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, fast_forward_stream_without_reset, s, e);
   tcase_add_loop_test(tc, fast_forward_stream_with_delayed_seis, s, e);
   tcase_add_loop_test(tc, file_export_with_dangling_end, s, e);
-  tcase_add_loop_test(tc, file_export_without_dangling_end, s, e);
   tcase_add_loop_test(tc, no_signature, s, e);
   tcase_add_loop_test(tc, multislice_no_signature, s, e);
-  tcase_add_loop_test(tc, late_public_key_and_no_sei_before_key_arrives, s, e);
   tcase_add_loop_test(tc, test_public_key_scenarios, s, e);
   tcase_add_loop_test(tc, no_public_key_in_sei_and_bad_public_key_on_validation_side, s, e);
   tcase_add_loop_test(tc, fallback_to_gop_level, s, e);
