@@ -322,8 +322,8 @@ verify_hashes_with_hash_list(signed_video_t *self,
   // This while-loop selects items from the oldest pending GOP. Each item hash is then verified
   // against the feasible hashes in the received |hash_list|.
   while (item && !(found_next_gop || found_item_after_sei)) {
-    // If this item is not Pending, move to the next one.
-    if (item->validation_status != 'P') {
+    // If this item is not Pending or not part of the GOP hash, move to the next one.
+    if (item->validation_status != 'P' || !item->used_in_gop_hash) {
       DEBUG_LOG("Skipping non-pending NALU");
       item = item->next;
       continue;
@@ -403,18 +403,16 @@ verify_hashes_with_hash_list(signed_video_t *self,
   // If the last invalid NALU is the first NALU in a GOP or the NALU after the SEI, keep it
   // pending. If the last NALU is valid and there are more expected hashes we either never
   // verified any hashes or we have missing NALUs.
-  if (item == sei) {
-    if (latest_match_idx != compare_idx) {
-      // Last verified hash is invalid.
-    } else {
-      // Last received hash is valid. Check if there are unused hashes in |hash_list|. Note that the
-      // index of the hashes span from 0 to |num_expected_hashes| - 1, so if |latest_match_idx| =
-      // |num_expected_hashes| - 1, we have no pending nalus.
-      int num_unused_expected_hashes = num_expected_hashes - 1 - latest_match_idx;
-      // No need to check the return value. A failure only affects the statistics. In the worst case
-      // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
-      h26x_nalu_list_add_missing(nalu_list, num_unused_expected_hashes, true, last_used_item);
-    }
+  if (latest_match_idx != compare_idx) {
+    // Last verified hash is invalid.
+  } else {
+    // Last received hash is valid. Check if there are unused hashes in |hash_list|. Note that the
+    // index of the hashes span from 0 to |num_expected_hashes| - 1, so if |latest_match_idx| =
+    // |num_expected_hashes| - 1, there are no pending nalus.
+    int num_unused_expected_hashes = num_expected_hashes - 1 - latest_match_idx;
+    // No need to check the return value. A failure only affects the statistics. In the worst case
+    // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
+    h26x_nalu_list_add_missing(nalu_list, num_unused_expected_hashes, true, last_used_item);
   }
 
   // Done with the SEI. Mark as valid, because if we failed verifying the |document_hash| we would
@@ -447,7 +445,6 @@ set_validation_status_of_pending_items_used_in_gop_hash(h26x_nalu_list_t *nalu_l
       }
       item->validation_status = validation_status;
     }
-    item->used_in_gop_hash = false;
     item = item->next;
   }
 
@@ -641,7 +638,6 @@ verify_hashes_without_sei(signed_video_t *self)
       found_next_gop = item->nalu->is_first_nalu_in_gop && !item->used_for_linked_hash;
     }
   }
-  remove_used_in_gop_hash(self->nalu_list);
   // If we have verified a GOP without a SEI, we should increment the |global_gop_counter|.
   if (self->validation_flags.signing_present && (num_marked_items > 0)) {
     self->gop_info->latest_validated_gop++;
@@ -693,7 +689,6 @@ validate_authenticity(signed_video_t *self)
     DEBUG_LOG("We never received the SEI associated with this GOP");
     // We never received the SEI nalu, but we know we have passed a GOP transition. Hence, we cannot
     // verify this GOP. Marking this GOP as not OK by verify_hashes_without_sei().
-    remove_used_in_gop_hash(self->nalu_list);
     verify_success = verify_hashes_without_sei(self);
   } else {
     if (self->gop_info->signature_hash_type == DOCUMENT_HASH) {
@@ -719,6 +714,7 @@ validate_authenticity(signed_video_t *self)
       h26x_nalu_list_get_stats(self->nalu_list, &num_invalid_nalus, &num_missed_nalus);
   DEBUG_LOG("Number of invalid NALUs = %d.", num_invalid_nalus);
   DEBUG_LOG("Number of missed NALUs = %d.", num_missed_nalus);
+  remove_used_in_gop_hash(self->nalu_list);
 
   valid = (num_invalid_nalus > 0) ? SV_AUTH_RESULT_NOT_OK : SV_AUTH_RESULT_OK;
 
