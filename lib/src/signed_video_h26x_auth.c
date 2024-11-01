@@ -723,7 +723,7 @@ validate_authenticity(signed_video_t *self)
   // actions on the output.
   if (!validation_flags->is_first_validation) {
     if ((valid == SV_AUTH_RESULT_OK) && (num_expected_nalus > 1) &&
-        (num_missed_nalus >= num_expected_nalus - 1)) {
+        (num_missed_nalus >= num_expected_nalus)) {
       valid = SV_AUTH_RESULT_NOT_OK;
     }
     self->gop_info->global_gop_counter_is_synced = true;
