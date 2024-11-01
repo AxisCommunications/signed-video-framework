@@ -771,9 +771,22 @@ validate_authenticity(signed_video_t *self)
   if (latest->public_key_has_changed) valid = SV_AUTH_RESULT_NOT_OK;
 
   // Update |latest_validation| with the validation result.
-  latest->authenticity = valid;
-  latest->number_of_expected_picture_nalus = num_expected_nalus;
-  latest->number_of_received_picture_nalus = num_received_nalus;
+  if (latest->authenticity <= SV_AUTH_RESULT_SIGNATURE_PRESENT) {
+    // Still either pending validation or video has no signature. Update with the current
+    // result.
+    latest->authenticity = valid;
+  } else if (valid < latest->authenticity) {
+    // Current GOP validated a worse authenticity compared to what has been validated so
+    // far. Update with this worse result, since that is what should rule the total
+    // validation.
+    latest->authenticity = valid;
+  }
+  latest->number_of_received_picture_nalus += num_received_nalus;
+  if (self->gop_state.has_lost_sei) {
+    latest->number_of_expected_picture_nalus = -1;
+  } else if (latest->number_of_expected_picture_nalus != -1) {
+    latest->number_of_expected_picture_nalus += num_expected_nalus;
+  }
 }
 
 /* Removes the |used_in_gop_hash| flag from all items. */
@@ -1151,10 +1164,12 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
     bool stop_validating = false;
     while (has_pending_gop(self) && !stop_validating) {
       // Initialize latest validation.
-      latest->authenticity = SV_AUTH_RESULT_NOT_OK;
-      latest->number_of_expected_picture_nalus = -1;
-      latest->number_of_received_picture_nalus = -1;
-      latest->number_of_pending_picture_nalus = -1;
+      if (!self->validation_flags.has_auth_result) {
+        latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+        latest->number_of_expected_picture_nalus = 0;
+        latest->number_of_received_picture_nalus = 0;
+        latest->number_of_pending_picture_nalus = -1;
+      }
       SV_THROW(prepare_for_validation(self));
       update_link_hash_for_auth(self);
 
