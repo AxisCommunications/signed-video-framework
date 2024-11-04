@@ -134,7 +134,7 @@ h26x_nalu_list_get_next_sei_item(const h26x_nalu_list_t* list);
 /**
  * @brief Collects statistics from a list
  *
- * Loops through the |list| and collects statistics.
+ * Loops through the |list| and collects statistics from items used in GOP hash.
  * The stats collected are
  *   - number of invalid NALUs
  *   - number of missing NALUs
@@ -145,8 +145,7 @@ h26x_nalu_list_get_next_sei_item(const h26x_nalu_list_t* list);
  * @param num_missing_nalus A pointer to which the number of missing NALUs, detected by the
  *   validation, is written.
  *
- * @returns True if at least one item is validated as authentic including those that are pending a
- *   second verification.
+ * @return True if at least one item is validated as authentic.
  */
 bool
 h26x_nalu_list_get_stats(const h26x_nalu_list_t* list,

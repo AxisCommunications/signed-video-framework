@@ -461,12 +461,11 @@ h26x_nalu_list_get_next_sei_item(const h26x_nalu_list_t *list)
   return item;
 }
 
-/* Loops through the |list| and collects statistics.
+/* Loops through the |list| and collects statistics from items used in GOP hash.
  * The stats collected are
  *   - number of invalid NALUs
  *   - number of missing NALUs
- * and return true if any valid NALUs, including those pending a second verification, are present.
- */
+ * and return true if any valid NALUs are present. */
 bool
 h26x_nalu_list_get_stats(const h26x_nalu_list_t *list,
     int *num_invalid_nalus,
@@ -481,6 +480,11 @@ h26x_nalu_list_get_stats(const h26x_nalu_list_t *list,
   // From the list, get number of invalid NALUs and number of missing NALUs.
   h26x_nalu_list_item_t *item = list->first_item;
   while (item) {
+    // Only collect statistics from the NAL Units |used_in_gop_hash|.
+    if (!item->used_in_gop_hash) {
+      item = item->next;
+      continue;
+    }
     if (item->validation_status == 'M') local_num_missing_nalus++;
     if (item->validation_status == 'N' || item->validation_status == 'E') local_num_invalid_nalus++;
     if (item->validation_status == '.') {
