@@ -152,6 +152,10 @@ struct _signed_video_t {
   // unnecessary.
   bool gop_hash_off;  // Flag indicating if the GENERAL TAG doesn't include GOP hash.
   // TODO: |gop_hash_off| will be deprecated when the feature is fully integrated.
+  // TODO: Remove this flag when the deprecated API get_nalus_to_prepend have been removed.
+  bool avoid_checking_available_seis;  // Temporary flag to avoid checking for available SEIs when
+                                       // peek NAL Units are used when getting SEIs, since they
+                                       // might be postponed.
 
   // For signing plugin
   void *plugin_handle;

@@ -438,8 +438,10 @@ prepare_for_nalus_to_prepend(signed_video_t *self)
     // proceed. But if there are vital SEI-nalus waiting to be pulled we return an error message
     // (SV_NOT_SUPPORTED).
 
-    SV_THROW_IF_WITH_MSG(
-        self->num_of_completed_seis > 0, SV_NOT_SUPPORTED, "There are remaining SEIs.");
+    if (!self->avoid_checking_available_seis) {
+      SV_THROW_IF_WITH_MSG(
+          self->num_of_completed_seis > 0, SV_NOT_SUPPORTED, "There are remaining SEIs.");
+    }
   SV_CATCH()
   SV_DONE(status)
 
@@ -652,6 +654,9 @@ signed_video_get_sei(signed_video_t *self,
     // Only display a SEI if the |peek_nalu| is a primary picture NAL Unit.
     if (!((nalu_info.nalu_type == NALU_TYPE_I || nalu_info.nalu_type == NALU_TYPE_P) &&
             nalu_info.is_primary_slice)) {
+      // Flip the sanity check flag since there are pending SEIs, which could not be fetched without
+      // breaking the H.26x standard.
+      self->avoid_checking_available_seis = true;
       return SV_OK;
     }
   }
