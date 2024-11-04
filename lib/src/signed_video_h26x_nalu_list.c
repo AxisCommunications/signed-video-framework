@@ -389,6 +389,7 @@ h26x_nalu_list_add_missing(h26x_nalu_list_t *list,
       SV_THROW_IF(!missing_nalu, SV_MEMORY);
 
       missing_nalu->validation_status = 'M';
+      missing_nalu->used_in_gop_hash = true;  // Belongs to the same GOP it is added to.
       if (append) {
         h26x_nalu_list_item_append_item(item, missing_nalu);
       } else {
