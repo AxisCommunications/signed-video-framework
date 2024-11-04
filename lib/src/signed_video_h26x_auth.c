@@ -184,6 +184,7 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
   const size_t hash_size = self->verify_data->hash_size;
   h26x_nalu_list_item_t *item = NULL;
   const uint8_t *hash_to_add = NULL;
+  int num_nalus_in_gop = 0;
   assert(nalu_list);
 
   h26x_nalu_list_print(nalu_list);
@@ -207,6 +208,11 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
       if (num_i_frames > 1) break;  // Break if encountered second I frame.
       // Ensure that only non-missing NALUs (which have non-null pointers) are processed.
       assert(item->nalu);
+      // Break at I-frame if NAL Units have been added to GOP hash, since a GOP hash cannot span
+      // across multiple GOPs.
+      if (item->nalu->is_first_nalu_in_gop && (num_nalus_in_gop > 0)) {
+        break;
+      }
 
       // Skip GOP SEI items as they do not contribute to the GOP hash.
       if (item == sei) {
@@ -216,6 +222,7 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
       // Since the GOP hash is initialized, it can be updated with each incoming NALU hash.
       SV_THROW(openssl_update_hash(self->crypto_handle, hash_to_add, hash_size, true));
       item->used_in_gop_hash = true;  // Mark the item as used in the GOP hash
+      num_nalus_in_gop++;
 
       item = item->next;
     }
