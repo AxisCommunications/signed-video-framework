@@ -26,8 +26,8 @@
 #include "lib/src/includes/signed_video_common.h"
 #include "lib/src/includes/signed_video_openssl.h"
 #include "lib/src/includes/signed_video_sign.h"
-#include "lib/src/signed_video_h26x_internal.h"  // parse_nalu_info()
-#include "lib/src/signed_video_internal.h"  // _signed_video_t
+#include "lib/src/signed_video_h26x_internal.h"  // parse_nalu_info(), , kUuidSignedVideo
+#include "lib/src/signed_video_internal.h"  // _signed_video_t, UUID_LEN
 #include "lib/src/signed_video_tlv.h"  // tlv_find_tag()
 
 #define RSA_PRIVATE_KEY_ALLOC_BYTES 2000
@@ -98,18 +98,22 @@ pull_seis(signed_video_t *sv, test_stream_item_t **item)
 {
   bool is_first_sei = true;
   int num_seis = 0;
+  int payload_offset = 0;
   size_t sei_size = 0;
   uint8_t *peek_nalu = (*item)->data;
   size_t peek_nalu_size = (*item)->data_size;
   // Only prepend the SEI if it follows the standard, by peeking the current NAL Unit.
   SignedVideoReturnCode sv_rc =
-      signed_video_get_sei(sv, NULL, &sei_size, peek_nalu, peek_nalu_size, NULL);
+      signed_video_get_sei(sv, NULL, &sei_size, &payload_offset, peek_nalu, peek_nalu_size, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   while (sv_rc == SV_OK && (sei_size != 0)) {
     uint8_t *sei = malloc(sei_size);
-    sv_rc = signed_video_get_sei(sv, sei, &sei_size, peek_nalu, peek_nalu_size, NULL);
+    sv_rc =
+        signed_video_get_sei(sv, sei, &sei_size, &payload_offset, peek_nalu, peek_nalu_size, NULL);
     ck_assert_int_eq(sv_rc, SV_OK);
+    // Check that the SEI payload starts with the Signed Video UUID.
+    ck_assert_int_eq(memcmp(sei + payload_offset, kUuidSignedVideo, UUID_LEN), 0);
     if (!is_first_sei) {
       // The first SEI could be a golden SEI, hence do not check.
       ck_assert(!signed_video_is_golden_sei(sv, sei, sei_size));
@@ -120,7 +124,8 @@ pull_seis(signed_video_t *sv, test_stream_item_t **item)
     test_stream_item_prepend(*item, new_item);
     num_seis++;
     // Ask for next completed SEI.
-    sv_rc = signed_video_get_sei(sv, NULL, &sei_size, peek_nalu, peek_nalu_size, NULL);
+    sv_rc =
+        signed_video_get_sei(sv, NULL, &sei_size, &payload_offset, peek_nalu, peek_nalu_size, NULL);
     ck_assert_int_eq(sv_rc, SV_OK);
     is_first_sei = false;
   }

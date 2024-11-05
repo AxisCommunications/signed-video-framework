@@ -628,6 +628,7 @@ SignedVideoReturnCode
 signed_video_get_sei(signed_video_t *self,
     uint8_t *sei,
     size_t *sei_size,
+    int *payload_offset,
     const uint8_t *peek_nalu,
     size_t peek_nalu_size,
     unsigned *num_pending_seis)
@@ -635,6 +636,9 @@ signed_video_get_sei(signed_video_t *self,
 
   if (!self || !sei_size) return SV_INVALID_PARAMETER;
   *sei_size = 0;
+  if (payload_offset) {
+    *payload_offset = 0;
+  }
   if (num_pending_seis) {
     *num_pending_seis = self->sei_data_buffer_idx;
   }
@@ -670,6 +674,13 @@ signed_video_get_sei(signed_video_t *self,
   free(self->sei_data_buffer[0].sei);
   --(self->num_of_completed_seis);
   shift_sei_buffer_at_index(self, 0);
+
+  // Get the offset to the start of the SEI payload if requested.
+  if (payload_offset) {
+    h26x_nalu_t nalu_info = parse_nalu_info(sei, *sei_size, self->codec, false, false);
+    free(nalu_info.nalu_data_wo_epb);
+    *payload_offset = nalu_info.payload - sei;
+  }
 
   // Update |num_pending_seis| in case SEIs were fetched.
   if (num_pending_seis) {
