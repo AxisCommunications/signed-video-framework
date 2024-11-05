@@ -256,18 +256,18 @@ signed_video_get_nalu_to_prepend(signed_video_t *self,
  *   SignedVideoReturnCode status;
  *   size_t sei_size = 0;
  *   // The first call of the function is for getting the |sei_size|.
- *   status = signed_video_get_sei(sv, NULL, &sei_size, NULL, 0, NULL);
+ *   status = signed_video_get_sei(sv, NULL, &sei_size, NULL, NULL, 0, NULL);
  *   // The second call is to get the sei.
  *   while (status == SV_OK && sei_size > 0) {
  *       uint8_t *sei = malloc(sei_size);
- *       status = signed_video_get_sei(sv, sei, &sei_size, NULL, 0, NULL);
+ *       status = signed_video_get_sei(sv, sei, &sei_size, NULL, NULL, 0, NULL);
  *       if (status != SV_OK) {
  *        // True error. Handle it properly.
  *       }
  *       // Add the SEI to the stream according to the standard.
  *       // The user is responsible for freeing |sei|.
  *       // Check for more SEIs.
- *       status = signed_video_get_sei(sv, NULL, &sei_size, NULL, 0, NULL);
+ *       status = signed_video_get_sei(sv, NULL, &sei_size, NULL, NULL, 0, NULL);
  *   }
  *   status = signed_video_add_nalu_for_signing_with_timestamp(sv, nalu, nalu_size, NULL);
  *   if (status != SV_OK) {
@@ -278,6 +278,9 @@ signed_video_get_nalu_to_prepend(signed_video_t *self,
  * @param sei Pointer to the memory to which a complete SEI will be copied.
  *   If a NULL pointer is used, only the |sei_size| is updated.
  * @param sei_size Pointer to where the size of the SEI is written.
+ * @param payload_offset Pointer to where the offset to the start of the SEI payload is written.
+ *   This is useful if the SEI is added by the encoder, which would take the SEI payload only and
+ *   then fill in the header, payload size and apply emulation prevention onto the data.
  * @param peek_nalu Pointer to the NAL Unit of which the SEI will be prepended as a
  *   header. When peeking at the next NAL Unit, SEIs can only be fetched if the NAL is a
  *   primary slice. A NULL pointer means that the user is responsible to add the SEI
@@ -293,6 +296,7 @@ SignedVideoReturnCode
 signed_video_get_sei(signed_video_t *self,
     uint8_t *sei,
     size_t *sei_size,
+    int *payload_offset,
     const uint8_t *peek_nalu,
     size_t peek_nalu_size,
     unsigned *num_pending_seis);

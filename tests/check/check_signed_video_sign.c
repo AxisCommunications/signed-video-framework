@@ -32,8 +32,8 @@
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "lib/src/includes/sv_vendor_axis_communications.h"
 #endif
-#include "lib/src/signed_video_h26x_internal.h"  // h26x_nalu_t
-#include "lib/src/signed_video_internal.h"  // set_hash_list_size()
+#include "lib/src/signed_video_h26x_internal.h"  // h26x_nalu_t, kUuidSignedVideo
+#include "lib/src/signed_video_internal.h"  // set_hash_list_size(), UUID_LEN
 #include "lib/src/signed_video_tlv.h"  // tlv_has_{optional, mandatory}_tags()
 #include "test_helpers.h"
 #include "test_stream.h"
@@ -140,18 +140,21 @@ get_seis(signed_video_t *sv, int num_seis_to_get, int *num_seis_gotten)
   int num_pulled_nalus = 0;
 
   size_t sei_size = 0;
+  int payload_offset = 0;
   // Pull SEIs without peek.
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, 0, NULL);
+  sv_rc = signed_video_get_sei(sv, NULL, &sei_size, &payload_offset, NULL, 0, NULL);
   while (num_seis_to_get != 0 && sv_rc == SV_OK && sei_size > 0) {
     uint8_t *sei = malloc(sei_size);
     ck_assert(sei);
-    sv_rc = signed_video_get_sei(sv, sei, &sei_size, NULL, 0, NULL);
+    sv_rc = signed_video_get_sei(sv, sei, &sei_size, &payload_offset, NULL, 0, NULL);
     ck_assert_int_eq(sv_rc, SV_OK);
+    // Check that the SEI payload starts with the Signed Video UUID.
+    ck_assert_int_eq(memcmp(sei + payload_offset, kUuidSignedVideo, UUID_LEN), 0);
     // Sizes can vary between SEIs, so it is better to free and allocate new memory for each SEI
     free(sei);
     num_pulled_nalus++;
     num_seis_to_get--;
-    sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, 0, NULL);
+    sv_rc = signed_video_get_sei(sv, NULL, &sei_size, &payload_offset, NULL, 0, NULL);
   }
 
   if (num_seis_gotten) *num_seis_gotten = num_pulled_nalus;
@@ -302,16 +305,16 @@ START_TEST(api_inputs)
   // TODO: Add check on |sv| to make sure nothing has changed.
   // Checking signed_video_get_sei() for NULL pointers.
   unsigned num_pending_seis = 0;
-  sv_rc = signed_video_get_sei(sv, NULL, NULL, NULL, 0, NULL);
+  sv_rc = signed_video_get_sei(sv, NULL, NULL, NULL, NULL, 0, NULL);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(sei_size == 0);
   ck_assert_int_eq(num_pending_seis, 0);
   uint8_t *sei = malloc(sei_size);
-  sv_rc = signed_video_get_sei(NULL, sei, &sei_size, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(NULL, sei, &sei_size, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_get_sei(sv, sei, &sei_size, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(sv, sei, &sei_size, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 0);
   // Checking signed_video_set_end_of_stream() for NULL pointers.
@@ -693,34 +696,34 @@ START_TEST(two_completed_seis_pending)
   unsigned num_pending_seis = 0;
   // First, peek with a secondary slice NAL Unit which should not provide a SEI.
   sv_rc = signed_video_get_sei(
-      sv, NULL, &sei_size_1, i_nalu_4->data, i_nalu_4->data_size, &num_pending_seis);
+      sv, NULL, &sei_size_1, NULL, i_nalu_4->data, i_nalu_4->data_size, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 2);
   ck_assert(sei_size_1 == 0);
   // Secondly, peek with a primary slice NAL Unit should reveil the SEI.
   sv_rc = signed_video_get_sei(
-      sv, NULL, &sei_size_1, p_nalu->data, p_nalu->data_size, &num_pending_seis);
+      sv, NULL, &sei_size_1, NULL, p_nalu->data, p_nalu->data_size, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 2);
   ck_assert(sei_size_1 != 0);
   uint8_t *sei_1 = malloc(sei_size_1);
   ck_assert_int_eq(sv_rc, SV_OK);
   // From now on skipping peeks.
-  sv_rc = signed_video_get_sei(sv, sei_1, &sei_size_1, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(sv, sei_1, &sei_size_1, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 1);
   // Now get the second one.
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size_2, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(sv, NULL, &sei_size_2, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 1);
   ck_assert(sei_size_2 != 0);
   uint8_t *sei_2 = malloc(sei_size_2);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_get_sei(sv, sei_2, &sei_size_2, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(sv, sei_2, &sei_size_2, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 0);
   // There should not be a third one.
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size_3, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(sv, NULL, &sei_size_3, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 0);
   ck_assert_int_eq(sei_size_3, 0);
@@ -757,12 +760,12 @@ START_TEST(golden_sei_created)
 
   unsigned num_pending_seis = 0;
   size_t sei_size = 0;
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, NULL, 0, &num_pending_seis);
   ck_assert(sei_size != 0);
   ck_assert_int_eq(num_pending_seis, 1);
   uint8_t *sei = malloc(sei_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_get_sei(sv, sei, &sei_size, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(sv, sei, &sei_size, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 0);
 
@@ -876,11 +879,11 @@ START_TEST(correct_timestamp)
   sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_2->data, i_nalu_2->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   unsigned num_pending_seis = 0;
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 1);
   uint8_t *sei = malloc(sei_size);
-  sv_rc = signed_video_get_sei(sv, sei, &sei_size, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(sv, sei, &sei_size, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 0);
   ck_assert(sei_size > 0);
@@ -891,11 +894,11 @@ START_TEST(correct_timestamp)
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_add_nalu_for_signing(sv_ts, i_nalu_2->data, i_nalu_2->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_get_sei(sv_ts, NULL, &sei_size_ts, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(sv_ts, NULL, &sei_size_ts, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 1);
   uint8_t *sei_ts = malloc(sei_size_ts);
-  sv_rc = signed_video_get_sei(sv_ts, sei_ts, &sei_size_ts, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(sv_ts, sei_ts, &sei_size_ts, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 0);
   ck_assert(sei_size_ts > 0);
@@ -992,12 +995,12 @@ START_TEST(w_wo_emulation_prevention_bytes)
     sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
         sv, i_nalu_2->data, i_nalu_2->data_size, &g_testTimestamp);
     ck_assert_int_eq(sv_rc, SV_OK);
-    sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, 0, &num_pending_seis);
+    sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, NULL, 0, &num_pending_seis);
     ck_assert_int_eq(sv_rc, SV_OK);
     ck_assert_int_eq(num_pending_seis, 1);
     ck_assert(sei_size > 0);
     seis[ii] = malloc(sei_size);
-    sv_rc = signed_video_get_sei(sv, seis[ii], &sei_size, NULL, 0, &num_pending_seis);
+    sv_rc = signed_video_get_sei(sv, seis[ii], &sei_size, NULL, NULL, 0, &num_pending_seis);
     ck_assert_int_eq(sv_rc, SV_OK);
     ck_assert_int_eq(num_pending_seis, 0);
     ck_assert(seis[ii]);
