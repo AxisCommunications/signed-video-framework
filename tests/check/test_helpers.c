@@ -26,7 +26,7 @@
 #include "lib/src/includes/signed_video_common.h"
 #include "lib/src/includes/signed_video_openssl.h"
 #include "lib/src/includes/signed_video_sign.h"
-#include "lib/src/signed_video_h26x_internal.h"  // parse_nalu_info(), , kUuidSignedVideo
+#include "lib/src/signed_video_h26x_internal.h"  // parse_nalu_info(), kUuidSignedVideo
 #include "lib/src/signed_video_internal.h"  // _signed_video_t, UUID_LEN
 #include "lib/src/signed_video_tlv.h"  // tlv_find_tag()
 
