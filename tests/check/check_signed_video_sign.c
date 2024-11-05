@@ -470,8 +470,8 @@ START_TEST(vendor_axis_communications_operation)
 
   // Add 2 P-NAL Units between 2 I-NAL Units to mimic a GOP structure in the stream to trigger a
   // SEI.
-  test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPI", false);
-  test_stream_check_types(list, "IPPSI");
+  test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIP", false);
+  test_stream_check_types(list, "IPPISP");
   verify_seis(list, setting);
   test_stream_free(list);
   signed_video_free(sv);
@@ -496,7 +496,7 @@ START_TEST(correct_nalu_sequence_with_eos)
    * in |settings|; See signed_video_helpers.h. */
 
   test_stream_t *list = create_signed_nalus("IPPIPP", settings[_i]);
-  test_stream_check_types(list, "SIPPSIPPS");
+  test_stream_check_types(list, "ISPPISPPS");
   test_stream_free(list);
 }
 END_TEST
@@ -508,7 +508,7 @@ START_TEST(correct_nalu_sequence_without_eos)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPP", settings[_i]);
-  test_stream_check_types(list, "IPPSIPPSIPPSIPPSIPPSIPP");
+  test_stream_check_types(list, "IPPISPPISPPISPPISPPISPP");
   verify_seis(list, settings[_i]);
   test_stream_free(list);
 }
@@ -536,7 +536,7 @@ START_TEST(correct_multislice_sequence_with_eos)
   // in |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i]);
-  test_stream_check_types(list, "SIiPpPpSIiPpPpS");
+  test_stream_check_types(list, "IiSPpPpIiSPpPpS");
   verify_seis(list, settings[_i]);
   test_stream_free(list);
 }
@@ -549,7 +549,7 @@ START_TEST(correct_multislice_nalu_sequence_without_eos)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i]);
-  test_stream_check_types(list, "IiPpPpSIiPpPp");
+  test_stream_check_types(list, "IiPpPpIiSPpPp");
   verify_seis(list, settings[_i]);
   test_stream_free(list);
 }
@@ -578,8 +578,8 @@ START_TEST(sei_increase_with_gop_length)
   // Enable verifying increased size of SEIs
   setting.increased_sei_size = true;
 
-  test_stream_t *list = create_signed_nalus("IPPIPPPPPI", setting);
-  test_stream_check_types(list, "IPPSIPPPPPSI");
+  test_stream_t *list = create_signed_nalus("IPPIPPPPPIP", setting);
+  test_stream_check_types(list, "IPPISPPPPPISP");
   verify_seis(list, setting);
   test_stream_free(list);
 }
@@ -612,11 +612,11 @@ START_TEST(fallback_to_gop_level)
   ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * MAX_HASH_SIZE), SV_OK);
 
   // Create a test stream given the input string.
-  test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPI", false);
-  test_stream_check_types(list, "IPPSIPPPPPPPPPPPPPPPPPPPPPPPPSI");
-  test_stream_item_t *sei_2 = test_stream_item_remove(list, 30);
+  test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIP", false);
+  test_stream_check_types(list, "IPPISPPPPPPPPPPPPPPPPPPPPPPPPISP");
+  test_stream_item_t *sei_2 = test_stream_item_remove(list, 31);
   test_stream_item_check_type(sei_2, 'S');
-  test_stream_item_t *sei_1 = test_stream_item_remove(list, 4);
+  test_stream_item_t *sei_1 = test_stream_item_remove(list, 5);
   test_stream_item_check_type(sei_1, 'S');
 
   // Verify that the HASH_LIST_TAG is present in the SEI when it should.
@@ -642,8 +642,8 @@ START_TEST(undefined_nalu_in_sequence)
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
 
-  test_stream_t *list = create_signed_nalus("IPXPIPPI", settings[_i]);
-  test_stream_check_types(list, "IPXPSIPPSI");
+  test_stream_t *list = create_signed_nalus("IPXPIPPIP", settings[_i]);
+  test_stream_check_types(list, "IPXPISPPISP");
   verify_seis(list, settings[_i]);
   test_stream_free(list);
 }
@@ -692,12 +692,14 @@ START_TEST(two_completed_seis_pending)
   // Now 2 SEIs should be available. Get the first one.
   unsigned num_pending_seis = 0;
   // First, peek with a secondary slice NAL Unit which should not provide a SEI.
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size_1, i_nalu_4->data, i_nalu_4->data_size, &num_pending_seis);
+  sv_rc = signed_video_get_sei(
+      sv, NULL, &sei_size_1, i_nalu_4->data, i_nalu_4->data_size, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 2);
   ck_assert(sei_size_1 == 0);
   // Secondly, peek with a primary slice NAL Unit should reveil the SEI.
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size_1, p_nalu->data, p_nalu->data_size, &num_pending_seis);
+  sv_rc = signed_video_get_sei(
+      sv, NULL, &sei_size_1, p_nalu->data, p_nalu->data_size, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 2);
   ck_assert(sei_size_1 != 0);
@@ -938,7 +940,7 @@ START_TEST(correct_signing_nalus_in_parts)
   // |settings|; See signed_video_helpers.h.
 
   test_stream_t *list = create_signed_splitted_nalus("IPPIPP", settings[_i]);
-  test_stream_check_types(list, "IPPSIPP");
+  test_stream_check_types(list, "IPPISPP");
   verify_seis(list, settings[_i]);
   test_stream_free(list);
 }
@@ -1037,12 +1039,12 @@ START_TEST(limited_sei_payload_size)
   setting.max_sei_payload_size = max_sei_payload_size;
   // Write SEIs without emulation prevention to avoid inserting unpredictable bytes.
   setting.ep_before_signing = false;
-  test_stream_t *list = create_signed_nalus("IPPIPPPPPPI", setting);
-  test_stream_check_types(list, "IPPSIPPPPPPSI");
+  test_stream_t *list = create_signed_nalus("IPPIPPPPPPIP", setting);
+  test_stream_check_types(list, "IPPISPPPPPPISP");
   verify_seis(list, setting);
 
   // Extract the SEIs and check their sizes, which should be smaller than |max_sei_payload_size|.
-  int sei_idx[2] = {12, 4};
+  int sei_idx[2] = {13, 5};
   for (int ii = 0; ii < 2; ii++) {
     test_stream_item_t *sei = test_stream_item_remove(list, sei_idx[ii]);
     ck_assert_int_eq(sei->type, 'S');
