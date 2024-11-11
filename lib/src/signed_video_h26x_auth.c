@@ -44,7 +44,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
     int *num_received_nalus,
     bool order_ok);
 static int
-set_validation_status_of_pending_items_used_in_gop_hash(h26x_nalu_list_t *nalu_list,
+set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
     char validation_status,
     h26x_nalu_list_item_t *sei);
 static bool
@@ -425,12 +425,13 @@ verify_hashes_with_hash_list(signed_video_t *self,
  *
  * Returns the number of items marked and -1 upon failure. */
 static int
-set_validation_status_of_pending_items_used_in_gop_hash(h26x_nalu_list_t *nalu_list,
+set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
     char validation_status,
     h26x_nalu_list_item_t *sei)
 {
-  if (!nalu_list) return -1;
+  if (!self || !sei) return -1;
 
+  h26x_nalu_list_t *nalu_list = self->nalu_list;
   int num_marked_items = 0;
 
   // Loop through the |nalu_list| and set the |validation_status| if the item is |used_in_gop_hash|
@@ -448,6 +449,7 @@ set_validation_status_of_pending_items_used_in_gop_hash(h26x_nalu_list_t *nalu_l
   // corrupted, the validation status would already have been set. Otherwise, this indicates that
   // the signature has been verified, confirming the SEI is valid.
   if (sei->validation_status == 'P') {
+    assert(self->gop_info->verified_signature_hash == 1);
     sei->validation_status = '.';
   }
   return num_marked_items;
@@ -515,8 +517,8 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
   while (first_gop_hash_item && !first_gop_hash_item->used_in_gop_hash) {
     first_gop_hash_item = first_gop_hash_item->next;
   }
-  num_received_hashes = set_validation_status_of_pending_items_used_in_gop_hash(
-      self->nalu_list, validation_status, sei);
+  num_received_hashes =
+      set_validation_status_of_pending_items_used_in_gop_hash(self, validation_status, sei);
 
   if (!self->validation_flags.is_first_validation && first_gop_hash_item) {
     int num_missing_nalus = num_expected_hashes - num_received_hashes;
@@ -584,8 +586,8 @@ verify_hashes_with_gop_hash(signed_video_t *self, int *num_expected_nalus, int *
   while (first_gop_hash_item && !first_gop_hash_item->used_in_gop_hash) {
     first_gop_hash_item = first_gop_hash_item->next;
   }
-  num_received_hashes = set_validation_status_of_pending_items_used_in_gop_hash(
-      self->nalu_list, validation_status, sei);
+  num_received_hashes =
+      set_validation_status_of_pending_items_used_in_gop_hash(self, validation_status, sei);
 
   if (!self->validation_flags.is_first_validation && first_gop_hash_item) {
     int num_missing_nalus = num_expected_hashes - num_received_hashes;
