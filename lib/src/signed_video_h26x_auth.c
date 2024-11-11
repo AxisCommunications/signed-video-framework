@@ -48,8 +48,6 @@ set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
     char validation_status,
     h26x_nalu_list_item_t *sei);
 static bool
-verify_hashes_with_gop_hash(signed_video_t *self, int *num_expected_nalus, int *num_received_nalus);
-static bool
 verify_hashes_without_sei(signed_video_t *self);
 static void
 validate_authenticity(signed_video_t *self);
@@ -534,75 +532,6 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
   return (status == SV_OK);
 }
 
-/* Verifies the hashes of the oldest pending GOP from a gop_hash.
- *
- * Since the gop_hash is one single hash representing the entire GOP we mark all of them as OK ('.')
- * if we can verify the gop_hash with the signature and Public key. Otherwise, they all become NOT
- * OK ('N').
- *
- * If we detect missing/lost NALUs, empty items marked 'M' are added.
- *
- * While verifying hashes the number of expected and received NALUs are computed. These can be
- * output.
- *
- * Returns false if we failed verifying hashes. Otherwise, returns true. */
-static bool
-verify_hashes_with_gop_hash(signed_video_t *self, int *num_expected_nalus, int *num_received_nalus)
-{
-  assert(self);
-
-  // Initialize to "Unknown"
-  int num_expected_hashes = -1;
-  int num_received_hashes = -1;
-  char validation_status = 'P';
-  h26x_nalu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(self->nalu_list);
-
-  // The verification of the gop_hash (|verified_signature_hash|) determines the |validation_status|
-  // of the entire GOP.
-  switch (self->gop_info->verified_signature_hash) {
-    case 1:
-      validation_status = '.';
-      break;
-    case 0:
-      validation_status = 'N';
-      break;
-    case -1:
-    default:
-      // Got an error when verifying the gop_hash. Verify without a SEI.
-      validation_status = 'E';
-      return verify_hashes_without_sei(self);
-  }
-
-  // TODO: Investigate if we have a flaw in the ability to detect missing NALUs. Note that we can
-  // only trust the information in the SEI if the |document_hash| (of the SEI) can successfully be
-  // verified. This is only feasible if we have NOT lost any NALUs, hence we have a Catch 22
-  // situation and can never add any missing NALUs.
-
-  // The number of hashes part of the gop_hash was transmitted in the SEI.
-  num_expected_hashes = (int)self->gop_info->num_sent_nalus;
-
-  // Identify the first NALU used in the gop_hash. This will be used to add missing NALUs.
-  h26x_nalu_list_item_t *first_gop_hash_item = self->nalu_list->first_item;
-  while (first_gop_hash_item && !first_gop_hash_item->used_in_gop_hash) {
-    first_gop_hash_item = first_gop_hash_item->next;
-  }
-  num_received_hashes =
-      set_validation_status_of_pending_items_used_in_gop_hash(self, validation_status, sei);
-
-  if (!self->validation_flags.is_first_validation && first_gop_hash_item) {
-    int num_missing_nalus = num_expected_hashes - num_received_hashes;
-    const bool append = first_gop_hash_item->nalu->is_first_nalu_in_gop;
-    // No need to check the return value. A failure only affects the statistics. In the worst case
-    // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
-    h26x_nalu_list_add_missing(self->nalu_list, num_missing_nalus, append, first_gop_hash_item);
-  }
-
-  if (num_expected_nalus) *num_expected_nalus = num_expected_hashes;
-  if (num_received_nalus) *num_received_nalus = num_received_hashes;
-
-  return true;
-}
-
 /* Verifying hashes without the SEI means that we have nothing to verify against. Therefore, we mark
  * all NALUs of the oldest pending GOP with |validation_status| = 'N'. This function is used both
  * for unsigned videos as well as when the SEI has been modified or lost.
@@ -697,21 +626,12 @@ validate_authenticity(signed_video_t *self)
     // verify this GOP. Marking this GOP as not OK by verify_hashes_without_sei().
     verify_success = verify_hashes_without_sei(self);
   } else {
-    if (self->gop_info->signature_hash_type == DOCUMENT_HASH) {
-      verify_success = verify_hashes_with_sei(self, &num_expected_nalus, &num_received_nalus);
-      // Set |latest_validated_gop| to recived gop counter for the next validation.
-      // TODO: Setting |latest_validated_gop| to the received GOP counter for the next validation
-      // can lead to a loss of sync between SEIs and their corresponding GOPs in certain
-      // scenarios(such as losing 2 SEIs). This will be addressed in future changes.
-      self->gop_info->latest_validated_gop = self->gop_info->global_gop_counter;
-    } else {
-      // The |signature_hash_type| is now consistently set to DOCUMENT_HASH with the latest gop hash
-      // computation.
-      // TODO: During refactoring, remove the |verify_hashes_with_gop_hash| function as it is no
-      // longer needed.
-      assert(false);
-      verify_success = verify_hashes_with_gop_hash(self, &num_expected_nalus, &num_received_nalus);
-    }
+    verify_success = verify_hashes_with_sei(self, &num_expected_nalus, &num_received_nalus);
+    // Set |latest_validated_gop| to recived gop counter for the next validation.
+    // TODO: Setting |latest_validated_gop| to the received GOP counter for the next validation
+    // can lead to a loss of sync between SEIs and their corresponding GOPs in certain
+    // scenarios(such as losing 2 SEIs). This will be addressed in future changes.
+    self->gop_info->latest_validated_gop = self->gop_info->global_gop_counter;
   }
 
   // Collect statistics from the nalu_list. This is used to validate the GOP and provide additional
