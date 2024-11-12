@@ -42,11 +42,13 @@
 
 /* Function pointer typedef for generating private key. */
 typedef SignedVideoReturnCode (*generate_key_fcn_t)(const char *, char **, size_t *);
+#define EC_KEY signed_video_generate_ecdsa_private_key
+#define RSA_KEY signed_video_generate_rsa_private_key
 
 struct sv_setting {
   SignedVideoCodec codec;
   SignedVideoAuthenticityLevel auth_level;
-  generate_key_fcn_t generate_key;
+  bool ec_key;
   bool ep_before_signing;
   bool with_golden_sei;
   size_t max_sei_payload_size;

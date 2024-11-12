@@ -33,9 +33,6 @@
 #define RSA_PRIVATE_KEY_ALLOC_BYTES 2000
 #define ECDSA_PRIVATE_KEY_ALLOC_BYTES 1000
 
-#define EC_KEY signed_video_generate_ecdsa_private_key
-#define RSA_KEY signed_video_generate_rsa_private_key
-
 // A dummy certificate chain with three certificates as expected. The last certificate has no
 // ending  '\n' to excercise more of the code.
 const char *axisDummyCertificateChain =
@@ -65,7 +62,7 @@ const int64_t g_testTimestamp = 42;
 // struct sv_setting {
 //   SignedVideoCodec codec;
 //   SignedVideoAuthenticityLevel auth_level;
-//   generate_key_fcn_t generate_key;
+//   bool ec_key;
 //   bool ep_before_signing;
 //   bool with_golden_sei;
 //   size_t max_sei_payload_size;
@@ -76,14 +73,14 @@ const int64_t g_testTimestamp = 42;
 //   bool is_vendor_axis;
 // };
 struct sv_setting settings[NUM_SETTINGS] = {
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, EC_KEY, true, false, 0, NULL, 0, 1, false, false},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, EC_KEY, true, false, 0, NULL, 0, 1, false, false},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, EC_KEY, true, false, 0, NULL, 0, 1, false, false},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, EC_KEY, true, false, 0, NULL, 0, 1, false, false},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, true, true, false, 0, NULL, 0, 1, false, false},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, true, true, false, 0, NULL, 0, 1, false, false},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, NULL, 0, 1, false, false},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, NULL, 0, 1, false, false},
     // Special cases
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, RSA_KEY, true, false, 0, NULL, 0, 1, false, false},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, RSA_KEY, true, false, 0, NULL, 0, 1, false, false},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, EC_KEY, true, false, 0, "sha512", 0, 1, false,
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, false, true, false, 0, NULL, 0, 1, false, false},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, false, true, false, 0, NULL, 0, 1, false, false},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, "sha512", 0, 1, false,
         false},
 };
 
@@ -245,15 +242,12 @@ get_initialized_signed_video(struct sv_setting settings, bool new_private_key)
   char *private_key = NULL;
   size_t private_key_size = 0;
 
-  if (settings.generate_key == EC_KEY) {
+  if (settings.ec_key) {
     private_key = private_key_ecdsa;
     private_key_size = private_key_size_ecdsa;
-  } else if (settings.generate_key == RSA_KEY) {
+  } else {
     private_key = private_key_rsa;
     private_key_size = private_key_size_rsa;
-  } else {
-    signed_video_free(sv);
-    return NULL;
   }
 
   // Generating private keys takes some time. In unit tests a new private key is only
@@ -262,7 +256,8 @@ get_initialized_signed_video(struct sv_setting settings, bool new_private_key)
   if (private_key_size == 0 || new_private_key) {
     char *tmp_key = NULL;
     size_t tmp_key_size = 0;
-    ck_assert_int_eq(settings.generate_key("./", &tmp_key, &tmp_key_size), SV_OK);
+    generate_key_fcn_t generate_key = settings.ec_key ? EC_KEY : RSA_KEY;
+    ck_assert_int_eq(generate_key("./", &tmp_key, &tmp_key_size), SV_OK);
     memcpy(private_key, tmp_key, tmp_key_size);
     private_key_size = tmp_key_size;
     free(tmp_key);
