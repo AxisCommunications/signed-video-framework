@@ -1618,9 +1618,7 @@ generate_and_set_private_key_on_camera_side(struct sv_setting setting,
   signed_video_t *sv = signed_video_create(setting.codec);
   ck_assert(sv);
   // Read and set content of private_key.
-  generate_key_fcn_t generate_key = setting.ec_key ? EC_KEY : RSA_KEY;
-  sv_rc = generate_key(NULL, &private_key, &private_key_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(read_test_private_key(setting.ec_key, &private_key, &private_key_size));
   sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
@@ -1767,9 +1765,7 @@ START_TEST(test_public_key_scenarios)
     sign_or_verify_data_t sign_data_wrong_key = {0};
     // Generate a new private key in order to extract a bad private key (a key not compatible with
     // the one generated on the camera side)
-    generate_key_fcn_t generate_key = settings[_i].ec_key ? EC_KEY : RSA_KEY;
-    sv_rc = generate_key(NULL, &tmp_private_key, &tmp_private_key_size);
-    ck_assert_int_eq(sv_rc, SV_OK);
+    ck_assert(read_test_private_key(settings[_i].ec_key, &tmp_private_key, &tmp_private_key_size));
     sv_rc = openssl_private_key_malloc(&sign_data_wrong_key, tmp_private_key, tmp_private_key_size);
     ck_assert_int_eq(sv_rc, SV_OK);
     openssl_read_pubkey_from_private_key(&sign_data_wrong_key, &wrong_public_key);
@@ -1820,9 +1816,7 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   // Generate a new private key in order to extract a bad private key (a key not compatible with the
   // one generated on the camera side)
   sign_or_verify_data_t sign_data = {0};
-  generate_key_fcn_t generate_key = settings[_i].ec_key ? EC_KEY : RSA_KEY;
-  sv_rc = generate_key(NULL, &tmp_private_key, &tmp_private_key_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(read_test_private_key(settings[_i].ec_key, &tmp_private_key, &tmp_private_key_size));
   sv_rc = openssl_private_key_malloc(&sign_data, tmp_private_key, tmp_private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   openssl_read_pubkey_from_private_key(&sign_data, &wrong_public_key);

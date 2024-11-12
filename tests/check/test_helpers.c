@@ -33,6 +33,11 @@
 #define RSA_PRIVATE_KEY_ALLOC_BYTES 2000
 #define ECDSA_PRIVATE_KEY_ALLOC_BYTES 1000
 
+/* Function pointer typedef for generating private key. */
+typedef SignedVideoReturnCode (*generate_key_fcn_t)(const char *, char **, size_t *);
+#define EC_KEY signed_video_generate_ecdsa_private_key
+#define RSA_KEY signed_video_generate_rsa_private_key
+
 // A dummy certificate chain with three certificates as expected. The last certificate has no
 // ending  '\n' to excercise more of the code.
 const char *axisDummyCertificateChain =
@@ -134,6 +139,34 @@ pull_seis(signed_video_t *sv, test_stream_item_t **item)
   }
 
   return pulled_seis;
+}
+
+bool
+read_test_private_key(bool ec_key, char **private_key, size_t *private_key_size)
+{
+  bool success = false;
+
+  // Sanity check inputs.
+  if (!private_key || !private_key_size) {
+    goto done;
+  }
+
+  // TODO: For now, still generate the key instead of reading a file.
+  // const char *private_key_name = ec_key ? EC_PRIVATE_KEY_FILE : RSA_PRIVATE_KEY_FILE;
+  // if (!read_file_content(private_key_name, private_key, private_key_size)) {
+  //   goto done;
+  // }
+  generate_key_fcn_t generate_key = ec_key ? EC_KEY : RSA_KEY;
+  ck_assert_int_eq(generate_key("./", private_key, private_key_size), SV_OK);
+
+  success = true;
+
+done:
+  if (!success && private_key) {
+    free(*private_key);
+  }
+
+  return success;
 }
 
 /* Generates a signed video test stream for a user-owned signed_video_t session.
@@ -256,8 +289,7 @@ get_initialized_signed_video(struct sv_setting settings, bool new_private_key)
   if (private_key_size == 0 || new_private_key) {
     char *tmp_key = NULL;
     size_t tmp_key_size = 0;
-    generate_key_fcn_t generate_key = settings.ec_key ? EC_KEY : RSA_KEY;
-    ck_assert_int_eq(generate_key("./", &tmp_key, &tmp_key_size), SV_OK);
+    ck_assert(read_test_private_key(settings.ec_key, &tmp_key, &tmp_key_size));
     memcpy(private_key, tmp_key, tmp_key_size);
     private_key_size = tmp_key_size;
     free(tmp_key);

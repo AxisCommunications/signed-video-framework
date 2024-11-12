@@ -40,11 +40,6 @@
   "aaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbb" \
   "bbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbaaaaaaaaaaaaaacc"
 
-/* Function pointer typedef for generating private key. */
-typedef SignedVideoReturnCode (*generate_key_fcn_t)(const char *, char **, size_t *);
-#define EC_KEY signed_video_generate_ecdsa_private_key
-#define RSA_KEY signed_video_generate_rsa_private_key
-
 struct sv_setting {
   SignedVideoCodec codec;
   SignedVideoAuthenticityLevel auth_level;
@@ -65,6 +60,24 @@ extern struct sv_setting settings[NUM_SETTINGS];
 extern const char *axisDummyCertificateChain;
 
 extern const int64_t g_testTimestamp;
+
+/**
+ * @brief Helper function to read test private key
+ *
+ * Reads either the pre-generated EC, or RSA, private key. The user can then pass the
+ * content to Signed Video through signed_video_set_private_key_new(). Memory is allocated
+ * for |private_key| and the content of |private_key_size| bytes is written. Note that the
+ * ownership is transferred.
+ *
+ * @param ec_key Selects the EC key if true, otherwise the RSA key.
+ * @param private_key Memory is allocated and the content of the private key PEM file is
+ *   copied to this output. Ownership is transferred.
+ * @param private_key_size Outputs the size of the |private_key|.
+ *
+ * @return true upon success, otherwise false.
+ */
+bool
+read_test_private_key(bool ec_key, char **private_key, size_t *private_key_size);
 
 /* Creates a signed_video_t session and initialize it from settings
  *
