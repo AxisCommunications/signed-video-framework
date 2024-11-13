@@ -707,6 +707,39 @@ START_TEST(remove_the_gi_nalus)
 }
 END_TEST
 
+START_TEST(two_sei_is_lost)
+{
+  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
+  test_stream_check_types(list, "IPPISPPISPPISPPISPPISPPISP");
+
+  // Remove the third 'I': IPPISPP I SPPISPPISPPISPPISP
+  int remove_nalu_number = 9;
+  remove_item_then_check_and_free(list, remove_nalu_number, 'S');
+  test_stream_check_types(list, "IPPISPPIPPISPPISPPISPPISP");
+  remove_nalu_number = 12;
+  remove_item_then_check_and_free(list, remove_nalu_number, 'S');
+  test_stream_check_types(list, "IPPISPPIPPIPPISPPISPPISP");
+
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_OK, false, 24, 21, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // IPPISPPIPPIPPISPPISPPISP
+  //
+  // IPPI                  PPPP                      ->  (unsigned)
+  // IPPIS                 ...P.                     ->  (   valid)
+  //    ISPPIPPIPPIS          N.NNNNN...P.           ->  ( invalid)
+  //               ISPPIS               ....P.       ->  (   valid)
+  //                   ISPPIS                 ....P. ->  (   valid)
+  const struct validation_stats expected = {.valid_gops = 3,
+      .invalid_gops = 1,
+      .pending_nalus = 8,
+      .unsigned_gops = 1,
+      .final_validation = &final_validation};
+  validate_nalu_list(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
 /* Test description
  * Verify that we can validate authenticity if the SEI arrives late. This is simulated by
  * moving the SEI to a 'P' in the next GOP.
@@ -2120,6 +2153,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, remove_the_g_nalu, s, e);
   tcase_add_loop_test(tc, remove_the_i_nalu, s, e);
   tcase_add_loop_test(tc, remove_the_gi_nalus, s, e);
+  tcase_add_loop_test(tc, two_sei_is_lost, s, e);
   tcase_add_loop_test(tc, sei_arrives_late, s, e);
   tcase_add_loop_test(tc, all_seis_arrive_late, s, e);
   tcase_add_loop_test(tc, all_seis_arrive_late_first_gop_scrapped, s, e);

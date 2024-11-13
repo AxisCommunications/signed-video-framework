@@ -115,6 +115,24 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
 }
 
 /**
+ * Detects if there are any missing SEI messages based on the GOP counter and updates the GOP state.
+ */
+static void
+detect_sei_loss_and_sync_gop(signed_video_t *self)
+{
+  // Get the last GOP counter before updating.
+  uint32_t last_gop_number = self->gop_info->latest_validated_gop;
+  uint32_t exp_gop_number = last_gop_number + 1;
+  uint32_t new_gop_number = self->gop_info->global_gop_counter;
+
+  // Compare new with last number of GOPs to detect potentially lost SEIs.
+  int64_t potentially_missed_gops = (int64_t)new_gop_number - exp_gop_number;
+
+  self->gop_state.has_lost_sei =
+      (potentially_missed_gops > 0) && self->gop_info->global_gop_counter_is_synced;
+}
+
+/**
  * Compares the computed link hash with the linked hash received from the
  * SEI.
  */
@@ -628,9 +646,6 @@ validate_authenticity(signed_video_t *self)
   } else {
     verify_success = verify_hashes_with_sei(self, &num_expected_nalus, &num_received_nalus);
     // Set |latest_validated_gop| to recived gop counter for the next validation.
-    // TODO: Setting |latest_validated_gop| to the received GOP counter for the next validation
-    // can lead to a loss of sync between SEIs and their corresponding GOPs in certain
-    // scenarios(such as losing 2 SEIs). This will be addressed in future changes.
     self->gop_info->latest_validated_gop = self->gop_info->global_gop_counter;
   }
 
@@ -879,6 +894,8 @@ prepare_for_validation(signed_video_t *self)
       if (self->gop_info->signature_hash_type == DOCUMENT_HASH) {
         memcpy(verify_data->hash, sei->hash, hash_size);
       }
+    } else if (sei && sei->has_been_decoded) {
+      detect_sei_loss_and_sync_gop(self);
     }
 
     if (sei) {
