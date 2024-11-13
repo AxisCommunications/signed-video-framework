@@ -178,21 +178,12 @@ START_TEST(api_inputs)
   size_t private_key_size = 0;
   size_t sei_size = 0;
 
-  // Check generate private key
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
-  generate_key_fcn_t generate_key = settings[_i].ec_key ? EC_KEY : RSA_KEY;
-  sv_rc = generate_key(NULL, NULL, NULL);
-  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = generate_key(NULL, NULL, &private_key_size);
-  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = generate_key(NULL, &private_key, NULL);
-  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   // Read content of private_key.
-  sv_rc = generate_key("./", NULL, NULL);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = generate_key(NULL, &private_key, &private_key_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(!read_test_private_key(settings[_i].ec_key, NULL, &private_key_size));
+  ck_assert(!read_test_private_key(settings[_i].ec_key, &private_key, NULL));
+  ck_assert(read_test_private_key(settings[_i].ec_key, &private_key, &private_key_size));
   // Check set_private_key
   if (!settings[_i].ec_key) {
     algo = SIGN_ALGO_RSA;
@@ -383,9 +374,7 @@ START_TEST(incorrect_operation)
   SignedVideoReturnCode sv_rc =
       signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
-  generate_key_fcn_t generate_key = settings[_i].ec_key ? EC_KEY : RSA_KEY;
-  sv_rc = generate_key(NULL, &private_key, &private_key_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(read_test_private_key(settings[_i].ec_key, &private_key, &private_key_size));
   sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
@@ -810,9 +799,7 @@ START_TEST(two_completed_seis_pending_legacy)
   test_stream_item_t *i_nalu_1 = test_stream_item_create_from_type('I', 0, codec);
   test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 1, codec);
   // Setup the key
-  generate_key_fcn_t generate_key = settings[_i].ec_key ? EC_KEY : RSA_KEY;
-  sv_rc = generate_key(NULL, &private_key, &private_key_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(read_test_private_key(settings[_i].ec_key, &private_key, &private_key_size));
 
   sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
