@@ -157,6 +157,7 @@ read_file_content(const char *filename, char **content, size_t *content_size)
   char full_path[MAX_PATH_LENGTH] = {0};
   char cwd[MAX_PATH_LENGTH] = {0};
 
+  assert(content && content_size);
   *content = NULL;
   *content_size = 0;
 
@@ -189,11 +190,16 @@ read_file_content(const char *filename, char **content, size_t *content_size)
 
   fseek(fp, 0L, SEEK_END);
   size_t file_size = ftell(fp);
-  rewind(fp);
+  if (file_size == 0) {
+    goto done;
+  }
+
   *content = malloc(file_size);
   if (!(*content)) {
     goto done;
   }
+
+  rewind(fp);
   if (fread(*content, sizeof(char), file_size / sizeof(char), fp) == 0) {
     goto done;
   }
