@@ -73,11 +73,12 @@ extern const int64_t g_testTimestamp;
  * @param private_key Memory is allocated and the content of the private key PEM file is
  *   copied to this output. Ownership is transferred.
  * @param private_key_size Outputs the size of the |private_key|.
+ * @param wrong_key Selects a new (wrong) key for signing.
  *
  * @return true upon success, otherwise false.
  */
 bool
-read_test_private_key(bool ec_key, char **private_key, size_t *private_key_size);
+read_test_private_key(bool ec_key, char **private_key, size_t *private_key_size, bool wrong_key);
 
 /* Creates a signed_video_t session and initialize it from settings
  *

@@ -1068,14 +1068,13 @@ START_TEST(camera_reset_on_signing_side)
   //               PIS              MNPN       ->  ( invalid, 1 missing I-frame)      [GOP level]
   //                ISPIS             .N.P.    ->  (   valid)                         [GOP level]
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, true, 21, 18, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_NOT_OK, false, 21, 18, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {.valid_gops = 3,
       .valid_gops_with_missing_info = 1,
       .invalid_gops = 1,
       .pending_nalus = 4 + 4,
       .missed_nalus = 1,
       .unsigned_gops = 1,
-      .public_key_has_changed = true,
       .final_validation = &final_validation};
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
     expected.valid_gops_with_missing_info = 0;
@@ -1618,7 +1617,7 @@ generate_and_set_private_key_on_camera_side(struct sv_setting setting,
   signed_video_t *sv = signed_video_create(setting.codec);
   ck_assert(sv);
   // Read and set content of private_key.
-  ck_assert(read_test_private_key(setting.ec_key, &private_key, &private_key_size));
+  ck_assert(read_test_private_key(setting.ec_key, &private_key, &private_key_size, false));
   sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
@@ -1765,7 +1764,8 @@ START_TEST(test_public_key_scenarios)
     sign_or_verify_data_t sign_data_wrong_key = {0};
     // Generate a new private key in order to extract a bad private key (a key not compatible with
     // the one generated on the camera side)
-    ck_assert(read_test_private_key(settings[_i].ec_key, &tmp_private_key, &tmp_private_key_size));
+    ck_assert(
+        read_test_private_key(settings[_i].ec_key, &tmp_private_key, &tmp_private_key_size, true));
     sv_rc = openssl_private_key_malloc(&sign_data_wrong_key, tmp_private_key, tmp_private_key_size);
     ck_assert_int_eq(sv_rc, SV_OK);
     openssl_read_pubkey_from_private_key(&sign_data_wrong_key, &wrong_public_key);
@@ -1816,7 +1816,8 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   // Generate a new private key in order to extract a bad private key (a key not compatible with the
   // one generated on the camera side)
   sign_or_verify_data_t sign_data = {0};
-  ck_assert(read_test_private_key(settings[_i].ec_key, &tmp_private_key, &tmp_private_key_size));
+  ck_assert(
+      read_test_private_key(settings[_i].ec_key, &tmp_private_key, &tmp_private_key_size, true));
   sv_rc = openssl_private_key_malloc(&sign_data, tmp_private_key, tmp_private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   openssl_read_pubkey_from_private_key(&sign_data, &wrong_public_key);

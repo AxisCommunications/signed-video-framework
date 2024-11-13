@@ -22,6 +22,14 @@
 
 #include <assert.h>  // assert
 #include <check.h>
+#include <stdio.h>  // FILE, fseek, ftell, rewind, fread, fclose
+#include <string.h>  // memset, strcat, strstr
+#if defined(_WIN32) || defined(_WIN64)
+#include <direct.h>
+#define getcwd _getcwd  // "deprecation" warning
+#else
+#include <unistd.h>  // getcwd
+#endif
 
 #include "lib/src/includes/signed_video_common.h"
 #include "lib/src/includes/signed_video_openssl.h"
@@ -32,11 +40,11 @@
 
 #define RSA_PRIVATE_KEY_ALLOC_BYTES 2000
 #define ECDSA_PRIVATE_KEY_ALLOC_BYTES 1000
-
-/* Function pointer typedef for generating private key. */
-typedef SignedVideoReturnCode (*generate_key_fcn_t)(const char *, char **, size_t *);
-#define EC_KEY signed_video_generate_ecdsa_private_key
-#define RSA_KEY signed_video_generate_rsa_private_key
+#define MAX_PATH_LENGTH 500
+#define EC_PRIVATE_KEY_FILE "private_ecdsa_key.pem"
+#define RSA_PRIVATE_KEY_FILE "private_rsa_key.pem"
+#define EC_WRONG_KEY_FILE "wrong_ecdsa_key.pem"
+#define RSA_WRONG_KEY_FILE "wrong_rsa_key.pem"
 
 // A dummy certificate chain with three certificates as expected. The last certificate has no
 // ending  '\n' to excercise more of the code.
@@ -141,8 +149,71 @@ pull_seis(signed_video_t *sv, test_stream_item_t **item)
   return pulled_seis;
 }
 
+static bool
+read_file_content(const char *filename, char **content, size_t *content_size)
+{
+  bool success = false;
+  FILE *fp = NULL;
+  char full_path[MAX_PATH_LENGTH] = {0};
+  char cwd[MAX_PATH_LENGTH] = {0};
+
+  *content = NULL;
+  *content_size = 0;
+
+  if (!getcwd(cwd, sizeof(cwd))) {
+    goto done;
+  }
+
+  // Find the root location of the library.
+  char *lib_root = NULL;
+  char *next_lib_root = strstr(cwd, "signed-video-framework");
+  while (next_lib_root) {
+    lib_root = next_lib_root;
+    next_lib_root = strstr(next_lib_root + 1, "signed-video-framework");
+  }
+  if (!lib_root) {
+    goto done;
+  }
+  // Terminate string after lib root.
+  memset(lib_root + strlen("signed-video-framework"), '\0', 1);
+
+  // Get certificate chain from folder tests/.
+  strcat(full_path, cwd);
+  strcat(full_path, "/tests/");
+  strcat(full_path, filename);
+
+  fp = fopen(full_path, "rb");
+  if (!fp) {
+    goto done;
+  }
+
+  fseek(fp, 0L, SEEK_END);
+  size_t file_size = ftell(fp);
+  rewind(fp);
+  *content = malloc(file_size);
+  if (!(*content)) {
+    goto done;
+  }
+  if (fread(*content, sizeof(char), file_size / sizeof(char), fp) == 0) {
+    goto done;
+  }
+  *content_size = file_size;
+
+  success = true;
+
+done:
+  if (fp) {
+    fclose(fp);
+  }
+  if (!success) {
+    free(*content);
+  }
+
+  return success;
+}
+
 bool
-read_test_private_key(bool ec_key, char **private_key, size_t *private_key_size)
+read_test_private_key(bool ec_key, char **private_key, size_t *private_key_size, bool wrong_key)
 {
   bool success = false;
 
@@ -151,13 +222,14 @@ read_test_private_key(bool ec_key, char **private_key, size_t *private_key_size)
     goto done;
   }
 
-  // TODO: For now, still generate the key instead of reading a file.
-  // const char *private_key_name = ec_key ? EC_PRIVATE_KEY_FILE : RSA_PRIVATE_KEY_FILE;
-  // if (!read_file_content(private_key_name, private_key, private_key_size)) {
-  //   goto done;
-  // }
-  generate_key_fcn_t generate_key = ec_key ? EC_KEY : RSA_KEY;
-  ck_assert_int_eq(generate_key("./", private_key, private_key_size), SV_OK);
+  const char *private_key_name = ec_key ? EC_PRIVATE_KEY_FILE : RSA_PRIVATE_KEY_FILE;
+  if (wrong_key) {
+    private_key_name = ec_key ? EC_WRONG_KEY_FILE : RSA_WRONG_KEY_FILE;
+  }
+
+  if (!read_file_content(private_key_name, private_key, private_key_size)) {
+    goto done;
+  }
 
   success = true;
 
@@ -289,7 +361,7 @@ get_initialized_signed_video(struct sv_setting settings, bool new_private_key)
   if (private_key_size == 0 || new_private_key) {
     char *tmp_key = NULL;
     size_t tmp_key_size = 0;
-    ck_assert(read_test_private_key(settings.ec_key, &tmp_key, &tmp_key_size));
+    ck_assert(read_test_private_key(settings.ec_key, &tmp_key, &tmp_key_size, new_private_key));
     memcpy(private_key, tmp_key, tmp_key_size);
     private_key_size = tmp_key_size;
     free(tmp_key);
