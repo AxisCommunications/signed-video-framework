@@ -112,9 +112,12 @@ detect_lost_sei(signed_video_t *self)
   // To estimate whether a wraparound has occurred, we check if the adjusted value
   // is within a specific range that indicates a likely wraparound. If so, we adjust
   // the value accordingly. This approach cannot definitively differentiate between
-  // a reset and a wraparound but provides a practical heuristic for handling the situation.
+  // a reset and a wraparound but provides a reasonable estimate to handle the situation.
+  // TODO: Investigate what happens if two SEI frames are interchanged.This will be
+  // addressed in future updates.
   bool is_wraparound = (potentially_missed_gops + INT64_MAX) < (INT64_MAX / 2);
-  if (is_wraparound) potentially_missed_gops = +INT64_MAX;
+  if (is_wraparound) potentially_missed_gops += INT64_MAX;
+
   // It is only possible to know if a SEI has been lost if the |global_gop_counter| is in sync.
   // Otherwise, the counter cannot be trusted.
   self->gop_state.has_lost_sei =
