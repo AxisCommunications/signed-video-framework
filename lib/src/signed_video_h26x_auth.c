@@ -37,7 +37,8 @@
 
 static svrc_t
 decode_sei_data(signed_video_t *signed_video, const uint8_t *payload, size_t payload_size);
-
+static void
+detect_lost_sei_and_update_gop_state(signed_video_t *self);
 static bool
 verify_hashes_with_hash_list(signed_video_t *self,
     int *num_expected_nalus,
@@ -79,29 +80,12 @@ static svrc_t
 decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_size)
 {
   assert(self && payload && (payload_size > 0));
-  // Get the last GOP counter before updating.
-  uint32_t last_gop_number = self->gop_info->latest_validated_gop;
-  uint32_t exp_gop_number = last_gop_number + 1;
-  DEBUG_LOG("SEI payload size = %zu, exp gop number = %u", payload_size, exp_gop_number);
-
+  DEBUG_LOG("SEI payload size = %zu, exp gop number = %u", payload_size,
+      self->gop_info->latest_validated_gop + 1);
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_WITH_MSG(tlv_decode(self, payload, payload_size), "Failed decoding SEI payload");
-
-    // Compare new with last number of GOPs to detect potentially lost SEIs.
-    uint32_t new_gop_number = self->gop_info->global_gop_counter;
-    int64_t potentially_missed_gops = (int64_t)new_gop_number - exp_gop_number;
-    // If number of |potentially_missed_gops| is negative, we have either lost SEIs together with a
-    // wraparound of |global_gop_counter|, or a reset of Signed Video was done on the camera. The
-    // correct number of lost SEIs is of less importance, since we only want to know IF we have lost
-    // any. Therefore, make sure we map the value into the positive side only. It is possible to
-    // signal to the validation side that a reset was done on the camera, but it is still not
-    // possible to validate pending NALUs.
-    if (potentially_missed_gops < 0) potentially_missed_gops += INT64_MAX;
-    // It is only possible to know if a SEI has been lost if the |global_gop_counter| is in sync.
-    // Otherwise, the counter cannot be trusted.
-    self->gop_state.has_lost_sei =
-        (potentially_missed_gops > 0) && self->gop_info->global_gop_counter_is_synced;
+    detect_lost_sei_and_update_gop_state(self);
     // Every SEI is associated with a GOP. If a lost SEI has been detected, and no GOP end has been
     // found prior to this SEI, it means both a SEI and an I-frame was lost. This is defined as a
     // lost GOP transition.
@@ -118,16 +102,23 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
  * Detects if there are any missing SEI messages based on the GOP counter and updates the GOP state.
  */
 static void
-detect_sei_loss_and_sync_gop(signed_video_t *self)
+detect_lost_sei_and_update_gop_state(signed_video_t *self)
 {
   // Get the last GOP counter before updating.
-  uint32_t last_gop_number = self->gop_info->latest_validated_gop;
-  uint32_t exp_gop_number = last_gop_number + 1;
-  uint32_t new_gop_number = self->gop_info->global_gop_counter;
-
+  uint32_t exp_gop_number = self->gop_info->latest_validated_gop + 1;
   // Compare new with last number of GOPs to detect potentially lost SEIs.
+  uint32_t new_gop_number = self->gop_info->global_gop_counter;
   int64_t potentially_missed_gops = (int64_t)new_gop_number - exp_gop_number;
-
+  // If number of |potentially_missed_gops| is negative, we have either lost SEIs together with a
+  // wraparound of |global_gop_counter|, or a reset of Signed Video was done on the camera. The
+  // correct number of lost SEIs is of less importance, since we only want to know If we have lost
+  // any. Therefore, make sure we map the value into the positive side only. It is possible to
+  // signal to the validation side that a reset was done on the camera, but it is still not
+  // possible to validate pending NALUs.
+  if (potentially_missed_gops < 0 && new_gop_number >= exp_gop_number)
+    potentially_missed_gops += INT64_MAX;
+  // It is only possible to know if a SEI has been lost if the |global_gop_counter| is in sync.
+  // Otherwise, the counter cannot be trusted.
   self->gop_state.has_lost_sei =
       (potentially_missed_gops > 0) && self->gop_info->global_gop_counter_is_synced;
 }
@@ -883,23 +874,18 @@ prepare_for_validation(signed_video_t *self)
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     h26x_nalu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(nalu_list);
-    if (sei && !sei->has_been_decoded) {
+    if (sei) {
       // Decode the SEI and set signature->hash
-      self->latest_validation->public_key_has_changed = false;
-      const uint8_t *tlv_data = sei->nalu->tlv_data;
-      size_t tlv_size = sei->nalu->tlv_size;
-
-      SV_THROW(decode_sei_data(self, tlv_data, tlv_size));
-      sei->has_been_decoded = true;
-      if (self->gop_info->signature_hash_type == DOCUMENT_HASH) {
+      if (!sei->has_been_decoded) {
+        self->latest_validation->public_key_has_changed = false;
+        const uint8_t *tlv_data = sei->nalu->tlv_data;
+        size_t tlv_size = sei->nalu->tlv_size;
+        SV_THROW(decode_sei_data(self, tlv_data, tlv_size));
+        sei->has_been_decoded = true;
         memcpy(verify_data->hash, sei->hash, hash_size);
       }
-    } else if (sei && sei->has_been_decoded) {
-      detect_sei_loss_and_sync_gop(self);
-    }
-
-    if (sei) {
       SV_THROW(prepare_for_link_and_gop_hash_verification(self, sei));
+      detect_lost_sei_and_update_gop_state(self);
     }
     // Check if we should compute the gop_hash.
     if (sei && sei->has_been_decoded && !sei->used_in_gop_hash &&

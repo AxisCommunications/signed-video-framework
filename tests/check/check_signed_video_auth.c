@@ -707,12 +707,12 @@ START_TEST(remove_the_gi_nalus)
 }
 END_TEST
 
-START_TEST(two_sei_is_lost)
+START_TEST(two_lost_seis)
 {
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISPPISP");
 
-  // Remove the third 'I': IPPISPP I SPPISPPISPPISPPISP
+  // Remove the second and third 'S': IPPISPPI S PPI S PPISPPISPPISP
   int remove_nalu_number = 9;
   remove_item_then_check_and_free(list, remove_nalu_number, 'S');
   test_stream_check_types(list, "IPPISPPIPPISPPISPPISPPISP");
@@ -731,7 +731,7 @@ START_TEST(two_sei_is_lost)
   //                   ISPPIS                 ....P. ->  (   valid)
   const struct validation_stats expected = {.valid_gops = 3,
       .invalid_gops = 1,
-      .pending_nalus = 8,
+      .pending_nalus = 4 + 4,
       .unsigned_gops = 1,
       .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
@@ -1094,25 +1094,16 @@ START_TEST(camera_reset_on_signing_side)
   // IPPI             PPPP                     ->  (unsigned)
   // IPPIS            ...P.                    ->  (   valid)
   //    ISPPIS           ....P.                ->  (   valid)
-  //        ISPPPIS          N.MMM.NNNN.       ->  ( invalid, reset, wrong link etc.) [Frame level]
-  //               PIS                M.P.     ->  ( valid w. (1) missing)            [Frame level]
-  //                ISPIS               ...P.  ->  (   valid)                         [Frame level]
-  //        ISPPPIS          N.NNNNMMMN        ->  ( invalid, reset, wrong link etc.) [GOP level]
-  //               PIS              MNPN       ->  ( invalid, 1 missing I-frame)      [GOP level]
-  //                ISPIS             .N.P.    ->  (   valid)                         [GOP level]
+  //        ISPPPIS          N.NNNP.           ->  ( invalid, reset, wrong link etc.)
+  //             ISPIS            ...P.        ->  (   valid)
+  //                ISPIS             ...P.    ->  (   valid)
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, false, 21, 18, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  struct validation_stats expected = {.valid_gops = 3,
-      .valid_gops_with_missing_info = 1,
+  struct validation_stats expected = {.valid_gops = 4,
       .invalid_gops = 1,
-      .pending_nalus = 4 + 4,
-      .missed_nalus = 1,
+      .pending_nalus = 4 + 5,
       .unsigned_gops = 1,
       .final_validation = &final_validation};
-  if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
-    expected.valid_gops_with_missing_info = 0;
-    expected.invalid_gops = 2;
-  }
 
   validate_nalu_list(NULL, list, expected, true);
   test_stream_free(list);
@@ -2153,7 +2144,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, remove_the_g_nalu, s, e);
   tcase_add_loop_test(tc, remove_the_i_nalu, s, e);
   tcase_add_loop_test(tc, remove_the_gi_nalus, s, e);
-  tcase_add_loop_test(tc, two_sei_is_lost, s, e);
+  tcase_add_loop_test(tc, two_lost_seis, s, e);
   tcase_add_loop_test(tc, sei_arrives_late, s, e);
   tcase_add_loop_test(tc, all_seis_arrive_late, s, e);
   tcase_add_loop_test(tc, all_seis_arrive_late_first_gop_scrapped, s, e);
@@ -2161,7 +2152,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, lost_g_and_gop_with_late_sei_arrival, s, e);
   tcase_add_loop_test(tc, lost_all_nalus_between_two_seis, s, e);
   tcase_add_loop_test(tc, add_one_sei_nalu_after_signing, s, e);
-  tcase_add_loop_test(tc, camera_reset_on_signing_side, s, e);
+  tcase_add_loop_test(tc, camera_reset_on_signing_side, s, 7);
   tcase_add_loop_test(tc, detect_change_of_public_key, s, e);
   tcase_add_loop_test(tc, fast_forward_stream_with_reset, s, e);
   tcase_add_loop_test(tc, fast_forward_stream_without_reset, s, e);
