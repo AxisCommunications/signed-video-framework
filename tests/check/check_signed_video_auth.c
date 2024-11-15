@@ -2152,7 +2152,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, lost_g_and_gop_with_late_sei_arrival, s, e);
   tcase_add_loop_test(tc, lost_all_nalus_between_two_seis, s, e);
   tcase_add_loop_test(tc, add_one_sei_nalu_after_signing, s, e);
-  tcase_add_loop_test(tc, camera_reset_on_signing_side, s, 7);
+  tcase_add_loop_test(tc, camera_reset_on_signing_side, s, e);
   tcase_add_loop_test(tc, detect_change_of_public_key, s, e);
   tcase_add_loop_test(tc, fast_forward_stream_with_reset, s, e);
   tcase_add_loop_test(tc, fast_forward_stream_without_reset, s, e);
