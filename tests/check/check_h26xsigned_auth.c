@@ -1257,20 +1257,24 @@ START_TEST(all_seis_arrive_late_first_gop_scrapped)
 
   // ISPPPISPPPISPPPISPSP (AV1)
   //
-  // IS                  ->    (signature) -> PU             1 pending
-  // ISPPPIS             ->    (signature) -> PUPPPPU        5 pending
+  // IS                  ->    (signature) -> PP             2 pending
+  // ISP                 ->    (signature) -> PUP            2 pending
+  // ISPPPIS             ->    (signature) -> PUPPPPP        6 pending
+  // ISPPPISP            ->    (signature) -> PUPPPPUP       6 pending
   // ISPPPISPPPIS        ->        (valid) -> .U...PUPPPP.   5 pending
   //      ISPPPISPPPIS   ->        (valid) -> .U...P.PPPP.   5 pending
   //           ISPPPISPS ->        (valid) -> .....P.P.      2 pending
-  //                                                        18 pending
+  //                                                        28 pending
   // ISPPPIPSPPIPSPPIPSSP
   //
-  // IS                  ->    (signature) -> PU             1 pending
-  // ISPPPIPS            ->    (signature) -> PUPPPPPU       6 pending
+  // IS                  ->    (signature) -> PP             2 pending
+  // ISP                 ->    (signature) -> PUP            2 pending
+  // ISPPPIPS            ->    (signature) -> PUPPPPPP       7 pending
+  // ISPPPIPSP           ->    (signature) -> PUPPPPPUP      7 pending
   // ISPPPIPSPPIPS       ->        (valid) -> .U...PPUPPPP.  6 pending
   //      IPSPPIPSPPIPS  ->        (valid) -> ..U..PP.PPPP.  6 pending
   //           IPSPPIPSS ->        (valid) -> .....PP..      2 pending
-  //                                                        21 pending
+  //                                                        32 pending
   const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
   const unsigned received = 15 * obu_factor + 5;  // I/P + S
   const unsigned validated = 12 * obu_factor + 3 + (is_obu_fh_style);  // I/P + S
@@ -1278,8 +1282,162 @@ START_TEST(all_seis_arrive_late_first_gop_scrapped)
   signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, received,
       validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {.valid_gops = 3,
-      .has_signature = 2,
-      .pending_nalus = is_obu_fh_style ? 18 : 21,
+      .has_signature = 4,
+      .pending_nalus = is_obu_fh_style ? 28 : 32,
+      .final_validation = &final_validation};
+  validate_nalu_list(NULL, list, expected);
+
+  nalu_list_free(list);
+}
+END_TEST
+
+START_TEST(all_seis_arrive_late_first_two_gops_scrapped)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings|; See signed_video_helpers.h.
+
+  SignedVideoCodec codec = settings[_i].codec;
+  bool is_obu_fh_style = codec == SV_CODEC_AV1 && !settings[_i].use_obu_frame;
+  nalu_list_t *list = generate_delayed_sei_list(settings[_i], true);
+
+  nalu_list_item_t *item = NULL;
+  if (is_obu_fh_style) {
+    // Remove the FH
+    item = nalu_list_pop_first_item(list);
+    nalu_list_free_item(item);
+  }
+  item = nalu_list_pop_first_item(list);
+  nalu_list_item_check_str(item, "I");
+  nalu_list_free_item(item);
+  if (is_obu_fh_style) {
+    nalu_list_check_str(list, "PPPPISPPPISPPPISPPPISPSP");
+    // Remove the FH
+    item = nalu_list_pop_first_item(list);
+    nalu_list_free_item(item);
+  } else {
+    nalu_list_check_str(list, "PPPPISPPPIPSPPIPSPPIPSSP");
+  }
+  item = nalu_list_pop_first_item(list);
+  nalu_list_item_check_str(item, "P");
+  nalu_list_free_item(item);
+  if (is_obu_fh_style) {
+    nalu_list_check_str(list, "PPPISPPPISPPPISPPPISPSP");
+    // Remove the FH
+    item = nalu_list_pop_first_item(list);
+    nalu_list_free_item(item);
+  } else {
+    nalu_list_check_str(list, "PPPISPPPIPSPPIPSPPIPSSP");
+  }
+  item = nalu_list_pop_first_item(list);
+  nalu_list_item_check_str(item, "P");
+  nalu_list_free_item(item);
+  if (is_obu_fh_style) {
+    nalu_list_check_str(list, "PPISPPPISPPPISPPPISPSP");
+    // Remove the FH
+    item = nalu_list_pop_first_item(list);
+    nalu_list_free_item(item);
+  } else {
+    nalu_list_check_str(list, "PPISPPPIPSPPIPSPPIPSSP");
+  }
+  item = nalu_list_pop_first_item(list);
+  nalu_list_item_check_str(item, "P");
+  nalu_list_free_item(item);
+  if (is_obu_fh_style) {
+    nalu_list_check_str(list, "PISPPPISPPPISPPPISPSP");
+    // Remove the FH
+    item = nalu_list_pop_first_item(list);
+    nalu_list_free_item(item);
+  } else {
+    nalu_list_check_str(list, "PISPPPIPSPPIPSPPIPSSP");
+  }
+  item = nalu_list_pop_first_item(list);
+  nalu_list_item_check_str(item, "P");
+  nalu_list_free_item(item);
+  if (is_obu_fh_style) {
+    nalu_list_check_str(list, "ISPPPISPPPISPPPISPSP");
+    // Remove the FH
+    item = nalu_list_pop_first_item(list);
+    nalu_list_free_item(item);
+  } else {
+    nalu_list_check_str(list, "ISPPPIPSPPIPSPPIPSSP");
+  }
+  item = nalu_list_pop_first_item(list);
+  nalu_list_item_check_str(item, "I");
+  nalu_list_free_item(item);
+  if (is_obu_fh_style) {
+    nalu_list_check_str(list, "SPPPISPPPISPPPISPSP");
+  } else {
+    nalu_list_check_str(list, "SPPPIPSPPIPSPPIPSSP");
+  }
+  item = nalu_list_pop_first_item(list);
+  nalu_list_item_check_str(item, "S");
+  nalu_list_free_item(item);
+  if (is_obu_fh_style) {
+    nalu_list_check_str(list, "PPPISPPPISPPPISPSP");
+    // Remove the FH
+    item = nalu_list_pop_first_item(list);
+    nalu_list_free_item(item);
+  } else {
+    nalu_list_check_str(list, "PPPIPSPPIPSPPIPSSP");
+  }
+  item = nalu_list_pop_first_item(list);
+  nalu_list_item_check_str(item, "P");
+  nalu_list_free_item(item);
+  if (is_obu_fh_style) {
+    nalu_list_check_str(list, "PPISPPPISPPPISPSP");
+    // Remove the FH
+    item = nalu_list_pop_first_item(list);
+    nalu_list_free_item(item);
+  } else {
+    nalu_list_check_str(list, "PPIPSPPIPSPPIPSSP");
+  }
+  item = nalu_list_pop_first_item(list);
+  nalu_list_item_check_str(item, "P");
+  nalu_list_free_item(item);
+  if (is_obu_fh_style) {
+    nalu_list_check_str(list, "PISPPPISPPPISPSP");
+    // Remove the FH
+    item = nalu_list_pop_first_item(list);
+    nalu_list_free_item(item);
+  } else {
+    nalu_list_check_str(list, "PIPSPPIPSPPIPSSP");
+  }
+  item = nalu_list_pop_first_item(list);
+  nalu_list_item_check_str(item, "P");
+  nalu_list_free_item(item);
+  if (is_obu_fh_style) {
+    nalu_list_check_str(list, "ISPPPISPPPISPSP");
+  } else {
+    nalu_list_check_str(list, "IPSPPIPSPPIPSSP");
+  }
+
+  // ISPPPISPPPISPSP (AV1)
+  //
+  // IS                 ->    (signature) -> PP              2 pending
+  // ISP                ->    (signature) -> PUP             2 pending
+  // ISPPPIS            ->    (signature) -> PUPPPPP         6 pending
+  // ISPPPISP           ->    (signature) -> PUPPPPUP        6 pending
+  // ISPPPISPPPIS       ->        (valid) -> .U...PUPPPP.    5 pending
+  //      ISPPPISPS     ->        (valid) ->      .U...P.P.  2 pending
+  //                                                        23 pending
+  // IPSPPIPSPPIPSSP
+  //
+  // IPS                ->    (signature) -> PPP             3 pending
+  // IPSP               ->    (signature) -> PPUP            3 pending
+  // IPSPPIPS           ->    (signature) -> PPUPPPPP        7 pending
+  // IPSPPIPSP          ->    (signature) -> PPUPPPPUP       7 pending
+  // IPSPPIPSPPIPS      ->        (valid) -> ..U..PPUPPPP.   6 pending
+  //      IPSPPIPSS     ->        (valid) ->      ..U..PP..  2 pending
+  //                                                        28 pending
+  const unsigned obu_factor = is_obu_fh_style ? 2 : 1;
+  const unsigned received = 11 * obu_factor + 4;  // I/P + S
+  const unsigned validated = 8 * obu_factor + 2 + (is_obu_fh_style);  // I/P + S
+  const unsigned pending = 3 * obu_factor + 2 - (is_obu_fh_style);  // I/P + S
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, received,
+      validated, pending, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  struct validation_stats expected = {.valid_gops = 2,
+      .has_signature = 4,
+      .pending_nalus = is_obu_fh_style ? 23 : 28,
       .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected);
 
@@ -1779,13 +1937,14 @@ START_TEST(fast_forward_stream_with_reset)
   // Validate SIPPPSIPPPSI:
   //
   // SI      -> UP           (SV_AUTH_RESULT_SIGNATURE_PRESENT)
+  // SIPPPS  -> UPPPPP       (signature)
   // SIPPPSI -> U.....P      (valid)
   // IPPPSI  ->       .....P (valid)
   //
-  // Total number of pending NALUs = 1 + 1 + 1 = 3
+  // Total number of pending NALUs = 1 + 5 + 1 + 1 = 8
   const struct validation_stats expected = {.valid_gops = 2,
-      .pending_nalus = 3,
-      .has_signature = 1,
+      .pending_nalus = 8,
+      .has_signature = 2,
       .final_validation = &final_validation};
 
   validate_nalu_list(sv, list, expected);
@@ -1897,13 +2056,14 @@ START_TEST(fast_forward_stream_with_delayed_seis)
       SV_AUTH_RESULT_OK, false, 9, 5, 4, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // Validate IPSPPIPS:
   //
-  // IPS      -> PPU           (SV_AUTH_RESULT_SIGNATURE_PRESENT)
+  // IPS      -> PPP           (SV_AUTH_RESULT_SIGNATURE_PRESENT)
+  // IPSP     -> PPUP          (signature)
   // IPSPPIPS -> ..U..PP.      (valid)
   //
-  // Total number of pending NALUs = 2 + 2 = 4
+  // Total number of pending NALUs = 3 + 3 + 2 = 8
   struct validation_stats expected = {.valid_gops = 1,
-      .pending_nalus = 4,
-      .has_signature = 1,
+      .pending_nalus = 8,
+      .has_signature = 2,
       .final_validation = &final_validation};
 
   validate_nalu_list(sv, list, expected);
@@ -1991,6 +2151,7 @@ START_TEST(file_export_with_dangling_end)
   // VSIPPSIPPSIPPSIPP (17 NALUs)
   //
   // VSI             -> (signature) -> _UP
+  //   IPPS          -> (signature) -> PPPP
   //   IPPSI         ->     (valid) -> ....P
   //       IPPSI     ->     (valid) -> ....P
   //           IPPSI ->     (valid) -> ....P
@@ -2000,8 +2161,8 @@ START_TEST(file_export_with_dangling_end)
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 17, 14, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {.valid_gops = 3,
-      .pending_nalus = 4,
-      .has_signature = 1,
+      .pending_nalus = 8,
+      .has_signature = 2,
       .final_validation = &final_validation};
 
   validate_nalu_list(sv, list, expected);
@@ -2029,6 +2190,7 @@ START_TEST(file_export_without_dangling_end)
   // VSIPPSIPPSIPPSIPPSI (19 NALUs)
   //
   // VSI                 -> (signature) -> _UP
+  //   IPPS              -> (signature) -> PPPP
   //   IPPSI             ->     (valid) -> ....P
   //       IPPSI         ->     (valid) -> ....P
   //           IPPSI     ->     (valid) -> ....P
@@ -2039,8 +2201,8 @@ START_TEST(file_export_without_dangling_end)
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 19, 18, 1, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {.valid_gops = 4,
-      .pending_nalus = 5,
-      .has_signature = 1,
+      .pending_nalus = 9,
+      .has_signature = 2,
       .final_validation = &final_validation};
   validate_nalu_list(sv, list, expected);
   // Free list and session.
@@ -2884,6 +3046,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, sei_arrives_late, s, e);
   tcase_add_loop_test(tc, all_seis_arrive_late, s, e);
   tcase_add_loop_test(tc, all_seis_arrive_late_first_gop_scrapped, s, e);
+  tcase_add_loop_test(tc, all_seis_arrive_late_first_two_gops_scrapped, s, e);
   tcase_add_loop_test(tc, lost_g_before_late_sei_arrival, s, e);
   tcase_add_loop_test(tc, lost_g_and_gop_with_late_sei_arrival, s, e);
   tcase_add_loop_test(tc, lost_all_nalus_between_two_seis, s, e);

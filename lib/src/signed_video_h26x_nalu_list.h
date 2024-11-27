@@ -204,4 +204,7 @@ h26x_nalu_list_clean_up(h26x_nalu_list_t* list);
 void
 h26x_nalu_list_print(const h26x_nalu_list_t* list);
 
+svi_rc
+h26x_nalu_list_update_status(h26x_nalu_list_t* nalu_list, bool update);
+
 #endif  // __SIGNED_VIDEO_H26X_NALU_LIST_H__

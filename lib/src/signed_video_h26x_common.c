@@ -1311,7 +1311,9 @@ hash_and_add_for_auth(signed_video_t *self, const h26x_nalu_t *nalu)
     // Check if we have a potential transition to a new GOP. This happens if the current NALU
     // |is_first_nalu_in_gop|. If we have lost the first NALU of a GOP we can still make a guess by
     // checking if |has_gop_sei| flag is set. It is set if the previous hashable NALU was SEI.
-    if (nalu->is_first_nalu_in_gop || (gop_state->validate_after_next_nalu && !nalu->is_gop_sei)) {
+    if (nalu->is_first_nalu_in_gop ||
+        (gop_state->validate_after_next_nalu && !nalu->is_gop_sei &&
+            gop_info->global_gop_counter_is_synced)) {
       // Updates counters and reset flags.
       gop_info->has_reference_hash = false;
 
