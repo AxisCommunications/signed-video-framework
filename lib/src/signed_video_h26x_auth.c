@@ -366,8 +366,8 @@ verify_hashes_with_hash_list(signed_video_t *self,
         latest_match_idx = compare_idx;
         num_invalid_nalus_since_latest_match = 0;
         // If the order is not correct, the validation status of the first NALU in the GOP should be
-        // 'N'. If that is the case, set |first_verification_not_authentic| to true and set
-        // |order_ok| to true for the next NALUs, so they are not affected by this issue.
+        // 'N'. If that is the case, set |order_ok| to true for the next NALUs, so they are not
+        // affected by this issue.
         if (!order_ok) {
           order_ok = true;
         }
@@ -688,9 +688,7 @@ validate_authenticity(signed_video_t *self)
       // part of the original stream not present in the file. Hence, mark as
       // SV_AUTH_RESULT_SIGNATURE_PRESENT instead.
       DEBUG_LOG("This first validation cannot be performed");
-      // Since we verify the linking hash twice we need to remove the set
-      // |first_verification_not_authentic|. Otherwise, the false failure leaks into the next GOP.
-      // Further, empty items marked 'M', may have been added at the beginning. These have no
+      // Empty items marked 'M', may have been added at the beginning. These have no
       // meaning and may only confuse the user. These should be removed. This is handled in
       // h26x_nalu_list_remove_missing_items().
       h26x_nalu_list_remove_missing_items(self->nalu_list);
@@ -1025,18 +1023,6 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
       // validation in the middle of a stream. Now it is time to reset it.
       validation_flags->is_first_validation = !validation_flags->signing_present;
 
-      if (validation_flags->reset_first_validation) {
-        validation_flags->is_first_validation = true;
-        h26x_nalu_list_item_t *item = self->nalu_list->first_item;
-        while (item) {
-          if (item->nalu && item->nalu->is_first_nalu_in_gop) {
-            item->need_second_verification = false;
-            item->first_verification_not_authentic = false;
-            break;
-          }
-          item = item->next;
-        }
-      }
       self->gop_info->verified_signature_hash = -1;
       self->validation_flags.has_auth_result = true;
 

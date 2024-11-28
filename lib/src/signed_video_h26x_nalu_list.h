@@ -111,8 +111,7 @@ h26x_nalu_list_add_missing(h26x_nalu_list_t* list,
  * @brief Removes 'M' items present at the beginning of a |list|
  *
  * There are scenarios when missing items are added to the front of the |list|, when the framework
- * actually could not verify the hashes. This function removes them and resets the flag
- * |first_verification_not_authentic| of non-pending items. Further, marks the decoded SEI as 'U',
+ * actually could not verify the hashes. This function marks the decoded SEI as 'U',
  * even if it could be verified, because it is not associated with this recording.
  *
  * @param list The |list| to remove items from.
