@@ -63,8 +63,6 @@ validation_is_feasible(const h26x_nalu_list_item_t *item);
 
 static void
 remove_used_in_gop_hash(h26x_nalu_list_t *nalu_list);
-static svrc_t
-compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei);
 
 #ifdef SIGNED_VIDEO_DEBUG
 static const char *kAuthResultValidStr[SV_AUTH_NUM_SIGNED_GOP_VALID_STATES] = {"SIGNATURE MISSING",
@@ -738,91 +736,6 @@ remove_used_in_gop_hash(h26x_nalu_list_t *nalu_list)
   }
 }
 
-/* Computes the gop_hash of the oldest pending GOP in the nalu_list and completes the recursive
- * operation with the hash of the |sei|. */
-static svrc_t
-compute_gop_hash(signed_video_t *self, h26x_nalu_list_item_t *sei)
-{
-  assert(self);
-
-  h26x_nalu_list_t *nalu_list = self->nalu_list;
-
-  // We expect a valid SEI and that it has been decoded.
-  if (!(sei && sei->has_been_decoded)) return SV_INVALID_PARAMETER;
-  if (!nalu_list) return SV_INVALID_PARAMETER;
-
-  const size_t hash_size = self->verify_data->hash_size;
-  h26x_nalu_list_item_t *item = NULL;
-  gop_info_t *gop_info = self->gop_info;
-  uint8_t *nalu_hash = gop_info->nalu_hash;
-
-  h26x_nalu_list_print(nalu_list);
-
-  svrc_t status = SV_UNKNOWN_FAILURE;
-  SV_TRY()
-    // Initialize the gop_hash by resetting it.
-    SV_THROW(reset_gop_hash(self));
-    // In general we do not know when the SEI, associated with a GOP, arrives. If it is delayed we
-    // should collect all NALUs of the GOP, that is, stop adding hashes when we find a new GOP. If
-    // the SEI is not delayed we need also the NALU right after the SEI to complete the operation.
-
-    // Loop through the items of |nalu_list| until we find a new GOP. If no new GOP is found until
-    // we reach the SEI we stop at the NALU right after the SEI. Update the gop_hash with each NALU
-    // hash and finalize the operation by updating with the hash of the SEI.
-    uint8_t *hash_to_add = NULL;
-    bool found_next_gop = false;
-    bool found_item_after_sei = false;
-    item = nalu_list->first_item;
-    while (item && !(found_next_gop || found_item_after_sei)) {
-      // If this item is not Pending, move to the next one.
-      if (item->validation_status != 'P') {
-        item = item->next;
-        continue;
-      }
-      // Only missing items can have a null pointer |nalu|, but they are not pending.
-      assert(item->nalu);
-      // Check if this is the item after the |sei|.
-      found_item_after_sei = (item->prev == sei);
-      // Check if this |is_first_nalu_in_gop|, but used in verification for the first time.
-      found_next_gop = (item->nalu->is_first_nalu_in_gop && !item->need_second_verification);
-      // If this is the SEI associated with the GOP, or any SEI, we skip it. The SEI hash will be
-      // added to |gop_hash| as the last hash.
-      if (item->nalu->is_gop_sei) {
-        item = item->next;
-        continue;
-      }
-
-      // Fetch the |hash_to_add|, which normally is the item->hash, but if the item has been used
-      // ones in verification we use the |second_hash|.
-      hash_to_add = item->need_second_verification ? item->second_hash : item->hash;
-      // Copy to the |nalu_hash| slot in the memory and update the gop_hash.
-      memcpy(nalu_hash, hash_to_add, hash_size);
-      SV_THROW(update_gop_hash(self->crypto_handle, gop_info));
-
-      // Mark the item and move to next.
-      item->used_in_gop_hash = true;
-      item = item->next;
-    }
-
-    // Complete the gop_hash with the hash of the SEI.
-    memcpy(nalu_hash, sei->hash, hash_size);
-    SV_THROW(update_gop_hash(self->crypto_handle, gop_info));
-#ifdef SIGNED_VIDEO_DEBUG
-    sv_print_hex_data(gop_info->gop_hash, hash_size, "Computed gop_hash ");
-    sv_print_hex_data(self->received_gop_hash, hash_size, "Received gop_hash ");
-#endif
-    sei->used_in_gop_hash = true;
-
-  SV_CATCH()
-  {
-    // Failed computing the gop_hash. Remove all used_in_gop_hash markers.
-    remove_used_in_gop_hash(nalu_list);
-  }
-  SV_DONE(status)
-
-  return status;
-}
-
 /**
  * Decodes the SEI message, retrieves necessary parameters for authentication, and computes the hash
  * for authenticity.
@@ -887,13 +800,6 @@ prepare_for_validation(signed_video_t *self)
       }
       detect_lost_sei(self);
       SV_THROW(prepare_for_link_and_gop_hash_verification(self, sei));
-    }
-    // Check if we should compute the gop_hash.
-    if (sei && sei->has_been_decoded && !sei->used_in_gop_hash &&
-        self->gop_info->signature_hash_type == GOP_HASH) {
-      SV_THROW(compute_gop_hash(self, sei));
-      // TODO: Is it possible to avoid a memcpy by using a pointer strategy?
-      memcpy(verify_data->hash, self->gop_info->gop_hash, hash_size);
     }
 
     SV_THROW_IF_WITH_MSG(validation_flags->signing_present && !self->has_public_key,
