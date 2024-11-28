@@ -2504,6 +2504,7 @@ START_TEST(vendor_axis_communications_operation)
   nalu_list_free_item(*p);
   nalu_list_free_item(*(p + 1));
   free(i);
+  free(p);
   signed_video_free(sv);
 }
 END_TEST
@@ -3008,6 +3009,7 @@ START_TEST(add_tile_list)
   validate_nalu_list(NULL, list, expected);
 
   nalu_list_free(list);
+  free(fh_tl);
 }
 END_TEST
 
