@@ -1054,6 +1054,67 @@ START_TEST(add_one_sei_nalu_after_signing)
 END_TEST
 
 /* Test description
+ * Verify that we get a valid authentication if first two SEIs delayed and GOPs that belegs to those
+ * SEIs are removed.
+ */
+START_TEST(remove_two_gop_in_start_of_stream)
+{
+  // Create a list of NAL Units given the input string.
+  test_stream_t *list = create_signed_nalus("IPIPIPPPIPPPPIPPIP", settings[_i]);
+  test_stream_check_types(list, "IPISPISPPPISPPPPISPPISP");
+
+  // Delay the first SEI by removing it from position 4 and appending it at position 5.
+  test_stream_item_t *sei = test_stream_item_remove(list, 4);
+  test_stream_item_check_type(sei, 'S');
+  test_stream_check_types(list, "IPIPISPPPISPPPPISPPISP");
+  test_stream_append_item(list, sei, 5);
+  test_stream_check_types(list, "IPIPISSPPPISPPPPISPPISP");
+  // Delay the second SEI by removing it from position 7 and appending it at position 8.
+  sei = test_stream_item_remove(list, 7);
+  test_stream_item_check_type(sei, 'S');
+  test_stream_check_types(list, "IPIPISPPPISPPPPISPPISP");
+  test_stream_append_item(list, sei, 8);
+  test_stream_check_types(list, "IPIPISPPSPISPPPPISPPISP");
+
+  // Remove the first 2 GOPs.
+  test_stream_t *removed_list = test_stream_pop(list, 4);
+  test_stream_check_types(removed_list, "IPIP");
+  test_stream_free(removed_list);
+  test_stream_check_types(list, "ISPPSPISPPPPISPPISP");
+
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_OK, false, 19, 16, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // ISPPSPISPPPPISPPISP
+  //
+  // IS                PU                      -> (signature)
+  // ISPPS             NUNN.                   -> (invalid)
+  //     PIS           MMMNP.                  -> (invalid)
+  //      ISPPPPIS              ......P.       -> (valid)
+  //            ISPPIS                 ....P.  -> (valid)
+  struct validation_stats expected = {.valid_gops = 2,
+      .invalid_gops = 2,
+      .pending_nalus = 4,
+      .missed_nalus = 2,
+      .has_signature = 1,
+      .final_validation = &final_validation};
+  // ISPPSPISPPPPISPPISP
+  // IS                PMU                     ->   (signature)
+  // ISPPS             NMUNN.                  ->   (invalid)
+  //     PIS             MMM.P.                ->   (valid with missing info)
+  //      ISPPPPIS              ......P.       ->   (valid)
+  //            ISPPIS                 ....P.  ->   (valid)
+  if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
+    expected.valid_gops_with_missing_info = 1;
+    expected.invalid_gops = 1;
+    expected.final_validation->authenticity = SV_AUTH_RESULT_NOT_OK;
+  }
+  validate_nalu_list(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
+/* Test description
  * Verify that we do get a valid authentication if the signing on the camera was reset. From a
  * signed video perspective this action is correct as long as recorded NAL Units are not transmitted
  * while the signing is down. That would on the other hand be detected at the client side through a
@@ -2152,6 +2213,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, lost_g_and_gop_with_late_sei_arrival, s, e);
   tcase_add_loop_test(tc, lost_all_nalus_between_two_seis, s, e);
   tcase_add_loop_test(tc, add_one_sei_nalu_after_signing, s, e);
+  tcase_add_loop_test(tc, remove_two_gop_in_start_of_stream, s, e);
   tcase_add_loop_test(tc, camera_reset_on_signing_side, s, e);
   tcase_add_loop_test(tc, detect_change_of_public_key, s, e);
   tcase_add_loop_test(tc, fast_forward_stream_with_reset, s, e);
