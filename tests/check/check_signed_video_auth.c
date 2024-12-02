@@ -1091,6 +1091,8 @@ START_TEST(remove_two_gop_in_start_of_stream)
   //     PIS           MMMNP.                  -> (invalid)
   //      ISPPPPIS              ......P.       -> (valid)
   //            ISPPIS                 ....P.  -> (valid)
+  // TODO: There is a flaw in this scenario. It would be best to expect no invalid GOPs in the
+  // stream, as the first validation should reset the validation status to ensure consistency.
   struct validation_stats expected = {.valid_gops = 2,
       .invalid_gops = 2,
       .pending_nalus = 4,
