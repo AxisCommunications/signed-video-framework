@@ -213,7 +213,12 @@ verify_hashes_with_hash_list(signed_video_t *self, int *num_expected_nalus, int 
     // Fetch the |hash_to_verify|, which normally is the item->hash, but if this is NALU has been
     // used in a previous verification we use item->second_hash.
     uint8_t *hash_to_verify = item->tmp_need_second_verification ? item->second_hash : item->hash;
-
+    const bool has_same_hash =
+        (item->second_hash && (memcmp(item->second_hash, item->hash, HASH_DIGEST_SIZE) == 0));
+    const bool is_first_received_nalu =
+        item->nalu->is_first_nalu_in_gop && has_same_hash && !item->tmp_need_second_verification;
+    const bool is_first_stream_sei = (num_expected_hashes == 1);
+    const bool skip_check = is_first_received_nalu && !is_first_stream_sei;
     // Compare |hash_to_verify| against all the |expected_hashes| since the |latest_match_idx|. Stop
     // when we get a match or reach the end.
     compare_idx = latest_match_idx + 1;
@@ -221,7 +226,7 @@ verify_hashes_with_hash_list(signed_video_t *self, int *num_expected_nalus, int 
     while (compare_idx < num_expected_hashes) {
       uint8_t *expected_hash = &expected_hashes[compare_idx * HASH_DIGEST_SIZE];
 
-      if (memcmp(hash_to_verify, expected_hash, HASH_DIGEST_SIZE) == 0) {
+      if (memcmp(hash_to_verify, expected_hash, HASH_DIGEST_SIZE) == 0 && !skip_check) {
         // We have a match. Set validation_status and add missing nalus if we have detected any.
         if (item->second_hash && !item->tmp_need_second_verification &&
             item->nalu->is_first_nalu_in_gop) {
