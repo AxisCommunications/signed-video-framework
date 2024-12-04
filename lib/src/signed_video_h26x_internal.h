@@ -97,11 +97,7 @@ struct _h26x_nalu_list_item_t {
   // Flags
   bool taken_ownership_of_nalu;  // Flag to indicate if the item has taken ownership of the |nalu|
   // memory, hence need to free the memory if the item is released.
-  bool need_second_verification;  // This NALU need another verification, either due to failures or
-  // because it is a chained hash, that is, used in two GOPs. The second verification is done with
-  // |second_hash|.
-  bool first_verification_not_authentic;  // Marks the NALU as not authentic so the second one does
-  // not overwrite with an acceptable status.
+
   bool has_been_decoded;  // Marks a SEI as decoded. Decoding it twice might overwrite vital
   // information.
   bool used_in_gop_hash;  // Marks the NALU as being part of a computed |gop_hash|.

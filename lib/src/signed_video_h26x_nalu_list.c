@@ -156,8 +156,6 @@ h26x_nalu_list_item_print(const h26x_nalu_list_item_t *item)
   // uint8_t hash[MAX_HASH_SIZE];
   // uint8_t *second_hash;
   // bool taken_ownership_of_nalu;
-  // bool need_second_verification;
-  // bool first_verification_not_authentic;
   // bool has_been_decoded;
   // bool used_in_gop_hash;
 
@@ -170,10 +168,8 @@ h26x_nalu_list_item_print(const h26x_nalu_list_item_t *item)
   memcpy(validation_status_str, &item->validation_status, 1);
 
   printf("NALU type = %s\n", nalu_type_str);
-  printf("validation_status = %s%s%s%s%s%s\n", validation_status_str,
+  printf("validation_status = %s%s%s%s\n", validation_status_str,
       (item->taken_ownership_of_nalu ? ", taken_ownership_of_nalu" : ""),
-      (item->need_second_verification ? ", need_second_verification" : ""),
-      (item->first_verification_not_authentic ? ", first_verification_not_authentic" : ""),
       (item->has_been_decoded ? ", has_been_decoded" : ""),
       (item->used_in_gop_hash ? ", used_in_gop_hash" : ""));
   sv_print_hex_data(item->hash, item->hash_size, "item->hash     ");
@@ -406,9 +402,8 @@ h26x_nalu_list_add_missing(h26x_nalu_list_t *list,
   return status;
 }
 
-/* Removes 'M' items present at the beginning of the |list|. The |first_verification_not_authentic|
- * flag is reset on all items until we find the first pending item, inclusive. Further, a decoded
- * SEI is marked as 'U' since it is not associated with this recording. The screening keeps going
+/* Removes 'M' items present at the beginning of the |list|. A decoded SEI is marked
+ * as 'U' since it is not associated with this recording. The screening keeps going
  * until we find the decoded SEI. */
 void
 h26x_nalu_list_remove_missing_items(h26x_nalu_list_t *list)
@@ -420,8 +415,6 @@ h26x_nalu_list_remove_missing_items(h26x_nalu_list_t *list)
   h26x_nalu_list_item_t *item = list->first_item;
   while (item && !(found_first_pending_nalu && found_decoded_sei)) {
     // Reset the invalid verification failure if we have not past the first pending item.
-
-    if (!found_first_pending_nalu) item->first_verification_not_authentic = false;
     // Remove the missing NALU in the front.
     if (item->validation_status == 'M' && (item == list->first_item)) {
       const h26x_nalu_list_item_t *item_to_remove = item;
@@ -492,11 +485,7 @@ h26x_nalu_list_get_stats(const h26x_nalu_list_t *list,
       // happens for out-of-sync SEIs for example.
       has_valid_nalus |= !(item->nalu && item->nalu->is_gop_sei);
     }
-    if (item->validation_status == 'P') {
-      // Count NALUs that were verified successfully the first time and waiting for a second
-      // verification.
-      has_valid_nalus |= item->need_second_verification && !item->first_verification_not_authentic;
-    }
+
     item = item->next;
   }
 
