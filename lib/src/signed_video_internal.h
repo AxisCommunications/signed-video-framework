@@ -269,10 +269,6 @@ struct_member_memory_allocated_and_copy(void **member_ptr,
 svrc_t
 set_hash_list_size(gop_info_t *gop_info, size_t hash_list_size);
 
-/* Resets the gop_hash. */
-svrc_t
-reset_gop_hash(signed_video_t *signed_video);
-
 void
 product_info_free_members(signed_video_product_info_t *product_info);
 

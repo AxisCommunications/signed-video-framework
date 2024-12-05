@@ -29,7 +29,7 @@
 #include "signed_video_authenticity.h"  // allocate_memory_and_copy_string
 #include "signed_video_defines.h"  // svrc_t, sv_tlv_tag_t
 #include "signed_video_h26x_internal.h"  // parse_nalu_info()
-#include "signed_video_internal.h"  // gop_info_t, reset_gop_hash()
+#include "signed_video_internal.h"  // gop_info_t
 #include "signed_video_openssl_internal.h"
 #include "signed_video_tlv.h"  // tlv_list_encode_or_get_size()
 
@@ -354,8 +354,8 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
       memcpy(sign_data->hash, gop_info->gop_hash, hash_size);
     }
 
-    // Reset the gop_hash since we start a new GOP.
-    SV_THROW(reset_gop_hash(self));
+    // Reset the |num_nalus_in_gop_hash| since we start a new GOP.
+    self->gop_info->num_nalus_in_gop_hash = 0;
     // Reset the |hash_list| by rewinding the |list_idx| since we start a new GOP.
     gop_info->list_idx = 0;
 

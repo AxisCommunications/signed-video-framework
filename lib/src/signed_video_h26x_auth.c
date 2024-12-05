@@ -29,9 +29,9 @@
 #include "legacy_validation.h"
 #include "signed_video_authenticity.h"  // create_local_authenticity_report_if_needed()
 #include "signed_video_defines.h"  // svrc_t
-#include "signed_video_h26x_internal.h"  // gop_state_*(), update_gop_hash(), update_validation_flags()
+#include "signed_video_h26x_internal.h"  // gop_state_*() , update_validation_flags()
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_append()
-#include "signed_video_internal.h"  // gop_info_t, gop_state_t, reset_gop_hash()
+#include "signed_video_internal.h"  // gop_info_t, gop_state_t
 #include "signed_video_openssl_internal.h"  // openssl_{verify_hash, public_key_malloc}()
 #include "signed_video_tlv.h"  // tlv_find_tag()
 
