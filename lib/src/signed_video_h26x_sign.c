@@ -355,7 +355,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     }
 
     // Reset the |num_nalus_in_gop_hash| since we start a new GOP.
-    self->gop_info->num_nalus_in_gop_hash = 0;
+    gop_info->num_nalus_in_gop_hash = 0;
     // Reset the |hash_list| by rewinding the |list_idx| since we start a new GOP.
     gop_info->list_idx = 0;
 
