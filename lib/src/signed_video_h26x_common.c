@@ -271,18 +271,6 @@ set_hash_list_size(gop_info_t *gop_info, size_t hash_list_size)
   return SV_OK;
 }
 
-svrc_t
-reset_gop_hash(signed_video_t *self)
-{
-  if (!self) return SV_INVALID_PARAMETER;
-
-  gop_info_t *gop_info = self->gop_info;
-  assert(gop_info);
-
-  gop_info->num_nalus_in_gop_hash = 0;
-  return openssl_hash_data(self->crypto_handle, &gop_info->gop_hash_init, 1, gop_info->gop_hash);
-}
-
 /**
  * Checks a pointer to member in struct if it's allocated, and correct size, then copies over the
  * data to that member.
@@ -837,23 +825,6 @@ update_num_nalus_in_gop_hash(signed_video_t *self, const h26x_nalu_t *nalu)
   }
 }
 
-svrc_t
-update_gop_hash(void *crypto_handle, gop_info_t *gop_info)
-{
-  if (!gop_info) return SV_INVALID_PARAMETER;
-
-  size_t hash_size = openssl_get_hash_size(crypto_handle);
-  svrc_t status = SV_UNKNOWN_FAILURE;
-  SV_TRY()
-    // Update the gop_hash, that is, hash the memory (both hashes) in hashes = [gop_hash, latest
-    // nalu_hash] and replace the gop_hash part with the new hash.
-    SV_THROW(openssl_hash_data(crypto_handle, gop_info->hashes, 2 * hash_size, gop_info->gop_hash));
-  SV_CATCH()
-  SV_DONE(status)
-
-  return status;
-}
-
 /* Initializes and updates the GOP hash regardless of available space. If there is enough
  * room, copies the |hash| and updates |list_idx|. Otherwise, sets |list_idx| to -1.
  */
@@ -1070,7 +1041,6 @@ hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
     if (nalu->is_last_nalu_part) {
       // The end of the NALU has been reached. Update hash list and GOP hash.
       check_and_copy_hash_to_hash_list(self, nalu_hash, hash_size);
-      SV_THROW(update_gop_hash(self->crypto_handle, gop_info));
       update_num_nalus_in_gop_hash(self, nalu);
     }
   SV_CATCH()
@@ -1171,8 +1141,7 @@ signed_video_create(SignedVideoCodec codec)
 
     self->gop_info = gop_info_create();
     SV_THROW_IF_WITH_MSG(!self->gop_info, SV_MEMORY, "Could not allocate gop_info");
-    SV_THROW_WITH_MSG(reset_gop_hash(self), "Could not reset gop_hash");
-
+    self->gop_info->num_nalus_in_gop_hash = 0;
     // Setup vendor handle.
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     self->vendor_handle = sv_vendor_axis_communications_setup();
@@ -1250,7 +1219,7 @@ signed_video_reset(signed_video_t *self)
     self->last_nalu->is_last_nalu_part = true;
     SV_THROW(openssl_init_hash(self->crypto_handle, false));
 
-    SV_THROW(reset_gop_hash(self));
+    self->gop_info->num_nalus_in_gop_hash = 0;
   SV_CATCH()
   SV_DONE(status)
 
