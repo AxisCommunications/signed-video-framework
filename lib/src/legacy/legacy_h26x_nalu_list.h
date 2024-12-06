@@ -197,4 +197,7 @@ legacy_h26x_nalu_list_get_str(const legacy_h26x_nalu_list_t* list,
 unsigned int
 legacy_h26x_nalu_list_clean_up(legacy_h26x_nalu_list_t* list);
 
+svrc_t
+legacy_h26x_nalu_list_update_status(legacy_h26x_nalu_list_t* nalu_list, bool update);
+
 #endif  // __LEGACY_H26X_NALU_LIST_H__

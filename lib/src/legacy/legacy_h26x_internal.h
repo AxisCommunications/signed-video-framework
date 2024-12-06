@@ -118,6 +118,11 @@ struct _legacy_h26x_nalu_list_item_st {
   bool has_been_decoded;  // Marks a SEI as decoded. Decoding it twice might overwrite vital
   // information.
   bool used_in_gop_hash;  // Marks the NALU as being part of a computed |gop_hash|.
+  bool in_validation;  // Marks the SEI that is currently up for use. Necessary for synchronization.
+  // Temporary flags used before updating the final ones.
+  char tmp_validation_status;
+  bool tmp_need_second_verification;
+  bool tmp_first_verification_not_authentic;
 
   // Linked list
   legacy_h26x_nalu_list_item_t
