@@ -91,6 +91,7 @@ h26x_nalu_list_item_create(const h26x_nalu_t *nalu)
   item->nalu = (h26x_nalu_t *)nalu;
   item->taken_ownership_of_nalu = false;
   item->validation_status = get_validation_status_from_nalu(nalu);
+  item->tmp_validation_status = item->validation_status;
 
   return item;
 }
@@ -385,6 +386,8 @@ h26x_nalu_list_add_missing(h26x_nalu_list_t *list,
       SV_THROW_IF(!missing_nalu, SV_MEMORY);
 
       missing_nalu->validation_status = 'M';
+      missing_nalu->tmp_validation_status = 'M';
+      missing_nalu->in_validation = true;
       missing_nalu->used_in_gop_hash = true;  // Belongs to the same GOP it is added to.
       if (append) {
         h26x_nalu_list_item_append_item(item, missing_nalu);
