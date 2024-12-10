@@ -780,8 +780,8 @@ END_TEST
 static test_stream_t *
 generate_delayed_sei_list(struct sv_setting setting, bool extra_delay)
 {
-  test_stream_t *list = create_signed_nalus("IPPPPIPPPIPPPIPPPIPPP", setting);
-  test_stream_check_types(list, "IPPPPISPPPISPPPISPPPISPPP");
+  test_stream_t *list = create_signed_nalus("IPPPPIPPPIPPPIPPPIPPPIPIP", setting);
+  test_stream_check_types(list, "IPPPPISPPPISPPPISPPPISPPPISPISP");
 
   // Remove each SEI in the list and append it 2 items later (which in practice becomes 1 item later
   // since one SEI was just removed).
@@ -801,9 +801,9 @@ generate_delayed_sei_list(struct sv_setting setting, bool extra_delay)
   test_stream_append_item(list, sei, 23);
 
   if (extra_delay) {
-    test_stream_check_types(list, "IPPPPIPPPIPPSPIPPSPIPPSSP");
+    test_stream_check_types(list, "IPPPPIPPPIPPSPIPPSPIPPSSPISPISP");
   } else {
-    test_stream_check_types(list, "IPPPPIPPSPIPPSPIPPSPIPPSP");
+    test_stream_check_types(list, "IPPPPIPPSPIPPSPIPPSPIPPSPISPISP");
   };
   return list;
 }
@@ -816,20 +816,22 @@ START_TEST(all_seis_arrive_late)
 {
   test_stream_t *list = generate_delayed_sei_list(settings[_i], true);
 
-  // IPPPPIPPPIPPSPIPPSPIPPSSP
+  // IPPPPIPPPIPPSPIPPSPIPPSSPISPISP
   //
-  // IPPPPI             PPPPPP                     ->  (unsigned)  6 pending
-  // IPPPPIPPPI         PPPPPPPPPP                 ->  (unsigned) 10 pending
-  // IPPPPIPPPIPPS      .....PPPPPPP.              ->  (   valid)  7 pending
-  //      IPPPIPPSPIPPS      ....PPP.PPPP.         ->  (   valid)  7 pending
-  //          IPPSPIPPSPIPPS     .....PPP.PPPP.    ->  (   valid)  7 pending
-  //               IPPSPIPPSS         .....PPP..   ->  (   valid)  3 pending
-  //                                                              40 pending
+  // IPPPPI             PPPPPP                           ->  (unsigned)  6 pending
+  // IPPPPIPPPI         PPPPPPPPPP                       ->  (unsigned) 10 pending
+  // IPPPPIPPPIPPS      .....PPPPPPP.                    ->  (   valid)  7 pending
+  //      IPPPIPPSPIPPS      ....PPP.PPPP.               ->  (   valid)  7 pending
+  //          IPPSPIPPSPIPPS     .....PPP.PPPP.          ->  (   valid)  7 pending
+  //               IPPSPIPPSS         .....PPP..         ->  (   valid)  3 pending
+  //                    IPPSSPIS           ......P.      ->  (   valid)  1 pending
+  //                          ISPIS              ...P.   ->  (   valid)  1 pending
+  //                                                                    42 pending
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 25, 19, 6, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  const struct validation_stats expected = {.valid_gops = 4,
+      SV_AUTH_RESULT_OK, false, 31, 28, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {.valid_gops = 6,
       .unsigned_gops = 2,
-      .pending_nalus = 40,
+      .pending_nalus = 42,
       .final_validation = &final_validation};
   validate_nalu_list(NULL, list, expected, true);
 
@@ -841,43 +843,78 @@ START_TEST(all_seis_arrive_late_first_gop_scrapped)
 {
   test_stream_t *list = generate_delayed_sei_list(settings[_i], true);
 
-  // Remove the first GOP: IPPPP IPPPIPPSPIPPSPIPPSSP
-  test_stream_item_t *item = test_stream_pop_first_item(list);
-  test_stream_item_check_type(item, 'I');
-  test_stream_check_types(list, "PPPPIPPPIPPSPIPPSPIPPSSP");
-  test_stream_item_free(item);
-  item = test_stream_pop_first_item(list);
-  test_stream_item_check_type(item, 'P');
-  test_stream_check_types(list, "PPPIPPPIPPSPIPPSPIPPSSP");
-  test_stream_item_free(item);
-  item = test_stream_pop_first_item(list);
-  test_stream_item_check_type(item, 'P');
-  test_stream_check_types(list, "PPIPPPIPPSPIPPSPIPPSSP");
-  test_stream_item_free(item);
-  item = test_stream_pop_first_item(list);
-  test_stream_item_check_type(item, 'P');
-  test_stream_check_types(list, "PIPPPIPPSPIPPSPIPPSSP");
-  test_stream_item_free(item);
-  item = test_stream_pop_first_item(list);
-  test_stream_item_check_type(item, 'P');
-  test_stream_check_types(list, "IPPPIPPSPIPPSPIPPSSP");
-  test_stream_item_free(item);
+  // Remove the first GOP: IPPPP IPPPIPPSPIPPSPIPPSSPISPISP
+  test_stream_t *scrapped = test_stream_pop(list, 5);
+  test_stream_free(scrapped);
 
-  // IPPPIPPSPIPPSPIPPSSP
+  // IPPPIPPSPIPPSPIPPSSPISPISP
   //
-  // IPPPI             PPPPP                 ->  ( unsigned)  5 pending
-  // IPPPIPPS          PPPPPPPU              ->  (signature)  7 pending
-  // IPPPIPPSPIPPS     ....PPPUPPPP.         ->  (    valid)  7 pending
-  //     IPPSPIPPSPIPPS    ...U.PPP.PPPP.    ->  (    valid)  7 pending
-  //          IPPSPIPPSS        .....PPP..   ->  (    valid)  3 pending
-  //                                                         29 pending
+  // IPPPI             PPPPP                       ->  ( unsigned)  5 pending
+  // IPPPIPPS          PPPPPPPU                    ->  (signature)  7 pending
+  // IPPPIPPSPIPPS     ....PPPUPPPP.               ->  (    valid)  7 pending
+  //     IPPSPIPPSPIPPS    ...U.PPP.PPPP.          ->  (    valid)  7 pending
+  //          IPPSPIPPSS        .....PPP..         ->  (    valid)  3 pending
+  //               IPPSSPIS          ......P.      ->  (    valid)  1 pending
+  //                     ISPIS             ...P.   ->  (    valid)  1 pending
+  //                                                               31 pending
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 20, 14, 6, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  const struct validation_stats expected = {.valid_gops = 3,
+      SV_AUTH_RESULT_OK, false, 26, 23, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {.valid_gops = 5,
       .has_signature = 1,
       .unsigned_gops = 1,
-      .pending_nalus = 29,
+      .pending_nalus = 31,
       .final_validation = &final_validation};
+  validate_nalu_list(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
+START_TEST(all_seis_arrive_late_two_gops_scrapped)
+{
+  test_stream_t *list = generate_delayed_sei_list(settings[_i], true);
+
+  // Remove the first two GOPs: IPPPPIPPP IPPSPIPPSPIPPSSPISPISP
+  test_stream_t *scrapped = test_stream_pop(list, 9);
+  test_stream_free(scrapped);
+
+  // IPPSPIPPSPIPPSSPISPISP
+  //
+  // IPPS                  ->    (signature) -> PPPU                       3 pending
+  // IPPSPIPPS             ->      (invalid) -> NNNUNPPP.                  3 pending
+  //      IPPSPIPPS        ->      (invalid) ->      NNN.NPPP.             3 pending
+  //           IPPSS       ->      (invalid) ->           NMNN..           0 pending, 1 missing
+  //                PIS    ->      (invalid) ->                 MMMNP.     1 pending, 3 missing
+  //                 ISPIS ->        (valid) ->                     ...P.  1 pending
+  //                                                                      11 pending
+  // IPPSPIPPSPIPPSSPISPISP (future)
+  //
+  // IPPS                  ->  (signature) -> PPPU                   3 pending
+  // IPPSPIPPS             ->  (signature) -> PPPUPPPPU              7 pending
+  // IPPSPIPPSPIPPS        ->      (valid) -> .....PPPUPPPP.         7 pending
+  //      IPPSPIPPSS       ->      (valid) ->      ...U.PPP..        3 pending
+  //           IPPSSPIS    ->      (valid) ->           ......P.     1 pending
+  //                 ISPIS ->      (valid) ->                 ...P.  1 pending
+  //                                                                22 pending
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_OK, false, 22, 19, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  struct validation_stats expected = {.valid_gops = 1,
+      .invalid_gops = 4,
+      .missed_nalus = 4,
+      .pending_nalus = 11,
+      .has_signature = 1,
+      .final_validation = &final_validation};
+  if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
+    // IPPS                  ->    (signature) -> PMMPPU                      3 pending, 2 missing
+    // IPPSPIPPS             ->      (invalid) -> NMMNNUNPPP.                 3 pending, 2 missing
+    //      IPPSPIPPS        ->      (invalid) ->        NNN.NPPP.            3 pending
+    //           IPPSS       ->      (invalid) ->            NMNN..           0 pending, 1 missing
+    //                PIS    ->      (missing) ->                  MMM.P.     1 pending, 3 missing
+    //                 ISPIS ->        (valid) ->                      ...P.  1 pending
+    //                                                                       11 pending
+    expected.valid_gops_with_missing_info = 1;
+    expected.invalid_gops = 3;
+  }
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -1354,12 +1391,12 @@ static test_stream_t *
 mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_setting setting)
 {
   test_stream_t *list = generate_delayed_sei_list(setting, false);
-  test_stream_check_types(list, "IPPPPIPPSPIPPSPIPPSPIPPSP");
+  test_stream_check_types(list, "IPPPPIPPSPIPPSPIPPSPIPPSPISPISP");
 
-  // Process the first 9 NAL Units before fast forward: IPPPPIPPS PIPPSPIPPSPIPPSP
+  // Process the first 9 NAL Units before fast forward: IPPPPIPPS PIPPSPIPPSPIPPSPISPISP
   test_stream_t *pre_fast_forward = test_stream_pop(list, 9);
   test_stream_check_types(pre_fast_forward, "IPPPPIPPS");
-  test_stream_check_types(list, "PIPPSPIPPSPIPPSP");
+  test_stream_check_types(list, "PIPPSPIPPSPIPPSPISPISP");
 
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 9, 5, 4, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
@@ -1374,12 +1411,12 @@ mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_se
   validate_nalu_list(sv, pre_fast_forward, expected, true);
   test_stream_free(pre_fast_forward);
 
-  // Mimic fast forward to second I-frame: PIPPSP IPPSPIPPSP
+  // Mimic fast forward to second I-frame: PIPPSP IPPSPIPPSPISPISP
   const int remove_items = 6;
   test_stream_t *fast_forward = test_stream_pop(list, remove_items);
   test_stream_check_types(fast_forward, "PIPPSP");
   test_stream_free(fast_forward);
-  test_stream_check_types(list, "IPPSPIPPSP");
+  test_stream_check_types(list, "IPPSPIPPSPISPISP");
 
   return list;
 }
@@ -1393,14 +1430,16 @@ START_TEST(fast_forward_stream_with_delayed_seis)
   // Reset session before we start validating.
   ck_assert_int_eq(signed_video_reset(sv), SV_OK);
 
-  // IPPSPIPPSP
+  // IPPSPIPPSPISPISP
   //
-  // IPPS           PPPU       ->  (signature)
-  // IPPSPIPPS      ...U.PPP.  ->  (    valid)
+  // IPPS           PPPU             ->  (signature)
+  // IPPSPIPPS      ...U.PPP.        ->  (    valid)
+  //      IPPSPIS        .....P.     ->  (    valid)
+  //           ISPIS          ...P.  ->  (    valid)
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 10, 5, 5, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  const struct validation_stats expected = {.valid_gops = 1,
-      .pending_nalus = 6,
+      SV_AUTH_RESULT_OK, false, 16, 13, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {.valid_gops = 3,
+      .pending_nalus = 8,
       .has_signature = 1,
       .final_validation = &final_validation};
 
@@ -1491,6 +1530,55 @@ START_TEST(file_export_with_dangling_end)
       .pending_nalus = 4,
       .has_signature = 1,
       .final_validation = &final_validation};
+
+  validate_nalu_list(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
+START_TEST(file_export_with_two_useless_seis)
+{
+  test_stream_t *list = generate_delayed_sei_list(settings[_i], true);
+  // IPPPPIPPPIPPSP IPPSPIPPSSPISPISP
+  test_stream_t *scrapped = test_stream_pop(list, 14);
+  test_stream_free(scrapped);
+
+  // IPPSPIPPSSPISPISP
+  //
+  // IPPS           PPPU                  ->  (signature) ->  3 pending
+  // IPPSPIPPS      NNNUNPPP.             ->    (invalid) ->  3 pending
+  //      IPPSS          NMNN..           ->    (invalid) ->  0 pending
+  //           PIS             MMMNP.     ->    (invalid) ->  1 pending
+  //            ISPIS              ...P.  ->      (valid) ->  1 pending
+  //                                                          8 pending
+  //
+  // IPPSPIPPSSPISPISP (future)
+  //
+  // IPPS           PPPU              ->  (signature) ->  3 pending
+  // IPPSPIPPS      PPPUPPPPU         ->  (signature) ->  7 pending
+  // IPPSPIPPSS     ...U.PPPU.        ->      (valid) ->  3 pending
+  //      IPPSSPIS       ...U..P.     ->      (valid) ->  1 pending
+  //            ISPIS          ...P.  ->      (valid) ->  1 pending
+  //                                                     15 pending
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_OK, false, 17, 14, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  struct validation_stats expected = {.valid_gops = 1,
+      .invalid_gops = 3,
+      .missed_nalus = 4,
+      .pending_nalus = 8,
+      .has_signature = 1,
+      .final_validation = &final_validation};
+  if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
+    // IPPS           PMPPU                 ->  (signature) ->  3 pending, 1 missing
+    // IPPSPIPPS      NMNNUNPPP.            ->    (invalid) ->  3 pending
+    //      IPPSS          NMNN..           ->    (invalid) ->  0 pending, 1 missing
+    //           PIS             MMM.P.     ->    (missing) ->  1 pending, 3 missing
+    //            ISPIS              ...P.  ->      (valid) ->  1 pending
+    //                                                          8 pending
+    expected.valid_gops_with_missing_info = 1;
+    expected.invalid_gops = 2;
+  }
 
   validate_nalu_list(NULL, list, expected, true);
 
@@ -2211,6 +2299,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, sei_arrives_late, s, e);
   tcase_add_loop_test(tc, all_seis_arrive_late, s, e);
   tcase_add_loop_test(tc, all_seis_arrive_late_first_gop_scrapped, s, e);
+  tcase_add_loop_test(tc, all_seis_arrive_late_two_gops_scrapped, s, e);
   tcase_add_loop_test(tc, lost_g_before_late_sei_arrival, s, e);
   tcase_add_loop_test(tc, lost_g_and_gop_with_late_sei_arrival, s, e);
   tcase_add_loop_test(tc, lost_all_nalus_between_two_seis, s, e);
@@ -2222,6 +2311,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, fast_forward_stream_without_reset, s, e);
   tcase_add_loop_test(tc, fast_forward_stream_with_delayed_seis, s, e);
   tcase_add_loop_test(tc, file_export_with_dangling_end, s, e);
+  tcase_add_loop_test(tc, file_export_with_two_useless_seis, s, e);
   tcase_add_loop_test(tc, no_signature, s, e);
   tcase_add_loop_test(tc, multislice_no_signature, s, e);
   tcase_add_loop_test(tc, test_public_key_scenarios, s, e);
