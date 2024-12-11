@@ -91,7 +91,7 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t* list, bool hash_algo_known);
  * @brief Appends or prepends a certain item of a list with a new item marked as missing
  *
  * Searches through the |list| for the |item| and if found appends/prepends it with a new item that
- * is marked as missing (|validation_status| = 'M'). The |nalu| of this missing item is a NULL
+ * is marked as missing (|tmp_validation_status| = 'M'). The |nalu| of this missing item is a NULL
  * pointer.
  *
  * @param list The |list| including the |item|.
@@ -162,6 +162,18 @@ int
 h26x_nalu_list_num_pending_items(const h26x_nalu_list_t* list);
 
 /**
+ * @brief Updates or resets validation status of all items in a list
+ *
+ * @param list The |list| to count pending items.
+ * @param update Updates |validation_status| with |tmp_validation_status| if 'true',
+ *   otherwise resets |tmp_validation_status| with |validation_status|.
+ *
+ * @return An appropriate Signed Video Return Code.
+ */
+svrc_t
+h26x_nalu_list_update_status(h26x_nalu_list_t* list, bool update);
+
+/**
  * @brief Returns a string with all authentication statuses of the items
  *
  * Transforms all |validation_status| characters, or NAL Unit character, of the items in
@@ -195,7 +207,7 @@ h26x_nalu_list_clean_up(h26x_nalu_list_t* list);
 /**
  * @brief Prints all items in the list
  *
- * The |validation_status| as well as flags and hashes are printed for all items in the |list|.
+ * The |tmp_validation_status| as well as flags and hashes are printed for all items in the |list|.
  *
  * @param list The |list| to print items.
  */
