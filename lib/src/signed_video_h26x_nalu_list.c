@@ -166,7 +166,7 @@ h26x_nalu_list_item_print(const h26x_nalu_list_item_t *item)
       ? "This NALU is missing"
       : (item->nalu->is_gop_sei ? "SEI" : (item->nalu->is_first_nalu_in_gop ? "I" : "Other"));
   char validation_status_str[2] = {'\0'};
-  memcpy(validation_status_str, &item->validation_status, 1);
+  memcpy(validation_status_str, &item->tmp_validation_status, 1);
 
   printf("NALU type = %s\n", nalu_type_str);
   printf("validation_status = %s%s%s%s\n", validation_status_str,
@@ -419,27 +419,27 @@ h26x_nalu_list_remove_missing_items(h26x_nalu_list_t *list)
   while (item && !(found_first_pending_nalu && found_decoded_sei)) {
     // Reset the invalid verification failure if we have not past the first pending item.
     // Remove the missing NALU in the front.
-    if (item->validation_status == 'M' && (item == list->first_item)) {
+    if (item->tmp_validation_status == 'M' && (item == list->first_item)) {
       const h26x_nalu_list_item_t *item_to_remove = item;
       item = item->next;
       h26x_nalu_list_remove_and_free_item(list, item_to_remove);
       continue;
     }
-    if (item->has_been_decoded && item->validation_status != 'U') {
+    if (item->has_been_decoded && item->tmp_validation_status != 'U') {
       // Usually, these items were added because we verified hashes with a SEI not associated with
       // this recording. This can happen if we export to file or fast forward in a recording. The
       // SEI used to generate these missing items is set to 'U'.
-      item->validation_status = 'U';
+      item->tmp_validation_status = 'U';
       found_decoded_sei = true;
     }
     // TODO: Resetting the item validation in the current GOP may affect the validation of the next
     // GOP. This needs to be fixed.
-    if (item->validation_status == 'N') {
+    if (item->tmp_validation_status == 'N') {
       // Reset validation status to 'P' for the next validation.
-      item->validation_status = 'P';
+      item->tmp_validation_status = 'P';
     }
     item = item->next;
-    if (item && item->validation_status == 'P') found_first_pending_nalu = true;
+    if (item && item->tmp_validation_status == 'P') found_first_pending_nalu = true;
   }
 }
 
@@ -451,7 +451,7 @@ h26x_nalu_list_get_next_sei_item(const h26x_nalu_list_t *list)
 
   h26x_nalu_list_item_t *item = list->first_item;
   while (item) {
-    if (item->nalu && item->nalu->is_gop_sei && item->validation_status == 'P') break;
+    if (item->nalu && item->nalu->is_gop_sei && item->tmp_validation_status == 'P') break;
     item = item->next;
   }
   return item;
@@ -481,9 +481,10 @@ h26x_nalu_list_get_stats(const h26x_nalu_list_t *list,
       item = item->next;
       continue;
     }
-    if (item->validation_status == 'M') local_num_missing_nalus++;
-    if (item->validation_status == 'N' || item->validation_status == 'E') local_num_invalid_nalus++;
-    if (item->validation_status == '.') {
+    if (item->tmp_validation_status == 'M') local_num_missing_nalus++;
+    if (item->tmp_validation_status == 'N' || item->tmp_validation_status == 'E')
+      local_num_invalid_nalus++;
+    if (item->tmp_validation_status == '.') {
       // Do not count SEIs, since they are marked valid if the signature could be verified, which
       // happens for out-of-sync SEIs for example.
       has_valid_nalus |= !(item->nalu && item->nalu->is_gop_sei);
@@ -507,11 +508,28 @@ h26x_nalu_list_num_pending_items(const h26x_nalu_list_t *list)
   int num_pending_nalus = 0;
   h26x_nalu_list_item_t *item = list->first_item;
   while (item) {
-    if (item->validation_status == 'P') num_pending_nalus++;
+    if (item->tmp_validation_status == 'P') num_pending_nalus++;
     item = item->next;
   }
 
   return num_pending_nalus;
+}
+
+svrc_t
+h26x_nalu_list_update_status(h26x_nalu_list_t *list, bool update)
+{
+  if (!list) return SV_INVALID_PARAMETER;
+
+  h26x_nalu_list_item_t *item = list->first_item;
+  while (item) {
+    if (update) {
+      item->validation_status = item->tmp_validation_status;
+    } else {
+      item->tmp_validation_status = item->validation_status;
+    }
+    item = item->next;
+  }
+  return SV_OK;
 }
 
 /* Transforms all |validation_status| characters of the items in the |list| into a char string and

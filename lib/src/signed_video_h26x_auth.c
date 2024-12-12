@@ -207,7 +207,7 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
     // Iterate through the NALU list until the end of the current GOP or SEI item is found.
     while (item) {
       // Skip non-pending items
-      if (item->validation_status != 'P') {
+      if (item->tmp_validation_status != 'P') {
         item = item->next;
         continue;
       }
@@ -294,13 +294,13 @@ verify_hashes_with_hash_list(signed_video_t *self,
   // is, the SEI NALU is invalid, all NALUs become invalid. Hence, verify_hashes_without_sei().
   switch (self->gop_info->verified_signature_hash) {
     case -1:
-      sei->validation_status = 'E';
+      sei->tmp_validation_status = 'E';
       return verify_hashes_without_sei(self);
     case 0:
-      sei->validation_status = 'N';
+      sei->tmp_validation_status = 'N';
       return verify_hashes_without_sei(self);
     case 1:
-      assert(sei->validation_status == 'P');
+      assert(sei->tmp_validation_status == 'P');
       break;
     default:
       // We should not end up here.
@@ -325,7 +325,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
   // against the feasible hashes in the received |hash_list|.
   while (item && !(found_next_gop || found_item_after_sei)) {
     // If this item is not Pending or not part of the GOP hash, move to the next one.
-    if (item->validation_status != 'P' || !item->used_in_gop_hash) {
+    if (item->tmp_validation_status != 'P' || !item->used_in_gop_hash) {
       DEBUG_LOG("Skipping non-pending NALU");
       item = item->next;
       continue;
@@ -354,8 +354,8 @@ verify_hashes_with_hash_list(signed_video_t *self,
       uint8_t *expected_hash = &expected_hashes[compare_idx * hash_size];
 
       if (memcmp(hash_to_verify, expected_hash, hash_size) == 0) {
-        // We have a match. Set validation_status and add missing nalus if we have detected any.
-        item->validation_status = order_ok ? '.' : 'N';
+        // We have a match. Set tmp_validation_status and add missing nalus if we have detected any.
+        item->tmp_validation_status = order_ok ? '.' : 'N';
         // Add missing items to |nalu_list|.
         int num_detected_missing_nalus =
             (compare_idx - latest_match_idx) - 1 - num_invalid_nalus_since_latest_match;
@@ -381,7 +381,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
       // We have compared against all feasible hashes in |hash_list| without a match. Mark as NOT
       // OK, or keep pending for second use.
 
-      item->validation_status = 'N';
+      item->tmp_validation_status = 'N';
       // Update counters.
       num_invalid_nalus_since_latest_match++;
     }
@@ -419,7 +419,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
 
   // Done with the SEI. Mark as valid, because if we failed verifying the |document_hash| we would
   // not be here.
-  sei->validation_status = '.';
+  sei->tmp_validation_status = '.';
 
   if (num_expected_nalus) *num_expected_nalus = num_expected_hashes;
   if (num_received_nalus) *num_received_nalus = num_verified_hashes;
@@ -427,7 +427,8 @@ verify_hashes_with_hash_list(signed_video_t *self,
   return true;
 }
 
-/* Sets the |validation_status| of all items in |nalu_list| that are pending and |used_in_gop_hash|.
+/* Sets the |tmp_validation_status| of all items in |nalu_list| that are pending and
+ * |used_in_gop_hash|.
  *
  * Returns the number of items marked and -1 upon failure. */
 static int
@@ -440,23 +441,24 @@ set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
   h26x_nalu_list_t *nalu_list = self->nalu_list;
   int num_marked_items = 0;
 
-  // Loop through the |nalu_list| and set the |validation_status| if the item is |used_in_gop_hash|
+  // Loop through the |nalu_list| and set the |tmp_validation_status| if the item is
+  // |used_in_gop_hash|
   h26x_nalu_list_item_t *item = nalu_list->first_item;
   while (item) {
-    if (item->used_in_gop_hash && item->validation_status == 'P') {
+    if (item->used_in_gop_hash && item->tmp_validation_status == 'P') {
       if (!item->nalu->is_gop_sei) {
         num_marked_items++;
       }
-      item->validation_status = validation_status;
+      item->tmp_validation_status = validation_status;
     }
     item = item->next;
   }
   // Validates the SEI if the validation status has not been set previously. If the signature was
   // corrupted, the validation status would already have been set. Otherwise, this indicates that
   // the signature has been verified, confirming the SEI is valid.
-  if (sei->validation_status == 'P') {
+  if (sei->tmp_validation_status == 'P') {
     assert(self->gop_info->verified_signature_hash == 1);
-    sei->validation_status = '.';
+    sei->tmp_validation_status = '.';
   }
   return num_marked_items;
 }
@@ -508,11 +510,11 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
     }
   } else if (self->gop_info->verified_signature_hash == 0) {
     validation_status = 'N';
-    sei->validation_status = validation_status;
+    sei->tmp_validation_status = validation_status;
   } else {
     // An error occurred when verifying the GOP hash. Verify without a SEI.
     validation_status = 'E';
-    sei->validation_status = validation_status;
+    sei->tmp_validation_status = validation_status;
     // Remove |used_in_gop_hash| from marked NALUs.
     remove_used_in_gop_hash(self->nalu_list);
     return verify_hashes_without_sei(self);
@@ -541,8 +543,8 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
 }
 
 /* Verifying hashes without the SEI means that we have nothing to verify against. Therefore, we mark
- * all NALUs of the oldest pending GOP with |validation_status| = 'N'. This function is used both
- * for unsigned videos as well as when the SEI has been modified or lost.
+ * all NALUs of the oldest pending GOP with |tmp_validation_status| = 'N'. This function is used
+ * both for unsigned videos as well as when the SEI has been modified or lost.
  *
  * Returns false if we failed verifying hashes, which happens if there is no list or if there are no
  * pending NALUs. Otherwise, returns true. */
@@ -564,7 +566,7 @@ verify_hashes_without_sei(signed_video_t *self)
   bool found_next_gop = false;
   while (item && !found_next_gop) {
     // Skip non-pending items.
-    if (item->validation_status != 'P') {
+    if (item->tmp_validation_status != 'P') {
       item = item->next;
       continue;
     }
@@ -573,7 +575,7 @@ verify_hashes_without_sei(signed_video_t *self)
     if (item->nalu->is_gop_sei) {
       break;
     }
-    item->validation_status = 'N';
+    item->tmp_validation_status = 'N';
     num_marked_items++;
 
     item = item->next;
@@ -591,7 +593,7 @@ verify_hashes_without_sei(signed_video_t *self)
 
 /* Validates the authenticity using hashes in the |nalu_list|.
  *
- * In brief, the validation verifies hashes and sets the |validation_status| given the outcome.
+ * In brief, the validation verifies hashes and sets the |tmp_validation_status| given the outcome.
  * Verifying a hash means comparing two and check if they are identical. There are three ways to
  * verify hashes
  * 1) verify_hashes_without_sei(): There is no SEI available, hence no expected hash to compare
@@ -606,8 +608,8 @@ verify_hashes_without_sei(signed_video_t *self)
  * If we during verification detect missing NALUs, we add empty items (marked 'M') to the
  * |nalu_list|.
  *
- * - After verification, hence the |validation_status| of each item in the list has been updated,
- *   statistics are collected from the list, using h26x_nalu_list_get_stats().
+ * - After verification, hence the |tmp_validation_status| of each item in the list has been
+ * updated, statistics are collected from the list, using h26x_nalu_list_get_stats().
  * - Based on the statistics a validation decision can be made.
  * - Update |latest_validation| with the validation result.
  */
@@ -855,7 +857,7 @@ is_recurrent_data_decoded(signed_video_t *self)
   h26x_nalu_list_item_t *item = nalu_list->first_item;
 
   while (item && !recurrent_data_decoded) {
-    if (item->nalu && item->nalu->is_gop_sei && item->validation_status == 'P') {
+    if (item->nalu && item->nalu->is_gop_sei && item->tmp_validation_status == 'P') {
       const uint8_t *tlv_data = item->nalu->tlv_data;
       size_t tlv_size = item->nalu->tlv_size;
       recurrent_data_decoded = tlv_find_and_decode_optional_tags(self, tlv_data, tlv_size);
@@ -887,7 +889,7 @@ has_pending_gop(signed_video_t *self)
     gop_state_update(gop_state, item->nalu);
     // Collect statistics from pending and hashable NALUs only. The others are either out of date or
     // not part of the validation.
-    if (item->validation_status == 'P' && item->nalu && item->nalu->is_hashable) {
+    if (item->tmp_validation_status == 'P' && item->nalu && item->nalu->is_hashable) {
       num_pending_gop_ends += item->nalu->is_first_nalu_in_gop;
       found_pending_gop_sei |= item->nalu->is_gop_sei;
       found_pending_nalu_after_gop_sei |=
@@ -928,7 +930,7 @@ validation_is_feasible(const h26x_nalu_list_item_t *item)
   // Validation for Golden SEIs are handled separately and therefore validation is not feasible.
   if (item->nalu->is_golden_sei) return false;
   if (!item->nalu->is_hashable) return false;
-  if (item->validation_status != 'P') return false;
+  if (item->tmp_validation_status != 'P') return false;
   // Validation may be done upon a SEI.
   if (item->nalu->is_gop_sei) return true;
   // Validation may be done upon the end of a GOP.
@@ -961,25 +963,26 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
   if (!validation_feasible) {
     // If this is the first arrived SEI, but could still not validate the authenticity, signal to
     // the user that the Signed Video feature has been detected.
+    svrc_t status = SV_OK;
     if (validation_flags->is_first_sei) {
       // Check if the data is golden. If it is, update the validation status accordingly.
       if (nalu->is_golden_sei) {
         switch (self->gop_info->verified_signature_hash) {
           case 1:
             // Signature verified successfully.
-            nalu_list->last_item->validation_status = '.';
+            nalu_list->last_item->tmp_validation_status = '.';
             latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
             break;
           case 0:
             // Signature verification failed.
-            nalu_list->last_item->validation_status = 'N';
+            nalu_list->last_item->tmp_validation_status = 'N';
             latest->authenticity = SV_AUTH_RESULT_NOT_OK;
             self->has_public_key = false;
             break;
           case -1:
           default:
             // Error occurred during verification; handle as an error.
-            nalu_list->last_item->validation_status = 'E';
+            nalu_list->last_item->tmp_validation_status = 'E';
             latest->authenticity = SV_AUTH_RESULT_NOT_OK;
             self->has_public_key = false;
         }
@@ -990,9 +993,10 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
       latest->number_of_expected_picture_nalus = -1;
       latest->number_of_received_picture_nalus = -1;
       latest->number_of_pending_picture_nalus = h26x_nalu_list_num_pending_items(nalu_list);
+      status = h26x_nalu_list_update_status(nalu_list, true);
       self->validation_flags.has_auth_result = true;
     }
-    return SV_OK;
+    return status;
   }
 
   svrc_t status = SV_UNKNOWN_FAILURE;
@@ -1018,6 +1022,9 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
       } else {
         validate_authenticity(self);
       }
+
+      // Update |validation_status|.
+      SV_THROW(h26x_nalu_list_update_status(nalu_list, true));
 
       // The flag |is_first_validation| is used to ignore the first validation if we start the
       // validation in the middle of a stream. Now it is time to reset it.
@@ -1177,8 +1184,10 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
       h26x_nalu_list_copy_last_item(nalu_list, self->validation_flags.hash_algo_known);
   // Make sure to return the first failure if both operations failed.
   status = (status == SV_OK) ? copy_nalu_status : status;
-  if (status != SV_OK) nalu_list->last_item->validation_status = 'E';
-
+  if (status != SV_OK) {
+    nalu_list->last_item->validation_status = 'E';
+    nalu_list->last_item->tmp_validation_status = 'E';
+  }
   free(nalu.nalu_data_wo_epb);
 
   return status;
