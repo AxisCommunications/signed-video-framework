@@ -104,6 +104,10 @@ struct _h26x_nalu_list_item_t {
 
   bool used_for_linked_hash;
 
+  // Members used when synchronizing the first usable SEI with the I-frame(s).
+  bool in_validation;  // Marks the SEI that is currently up for use.
+  char tmp_validation_status;  // Temporary status used before updating the final one.
+
   // Linked list
   h26x_nalu_list_item_t *prev;  // Points to the previously added NALU. Is NULL if this is the first
   // item.
