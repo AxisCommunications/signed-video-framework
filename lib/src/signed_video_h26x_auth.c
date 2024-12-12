@@ -710,9 +710,9 @@ validate_authenticity(signed_video_t *self)
       valid = SV_AUTH_RESULT_SIGNATURE_PRESENT;
       num_expected_nalus = -1;
       num_received_nalus = -1;
-      // If validation was tried with the very first SEI in stream it cannot be part at.
-      // Reset the first validation to be able to validate a segment in the middle of the stream.
-      self->validation_flags.reset_first_validation = (self->gop_info->num_sent_nalus == 1);
+      // If no valid NAL Units were found, reset validation to be able to make more attepts to
+      // synchronize the SEIs.
+      self->validation_flags.reset_first_validation = !has_valid_nalus;
     }
   }
   if (latest->public_key_has_changed) valid = SV_AUTH_RESULT_NOT_OK;
@@ -835,6 +835,7 @@ prepare_for_validation(signed_video_t *self)
   SV_TRY()
     h26x_nalu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(nalu_list);
     if (sei) {
+      sei->in_validation = true;
       if (!sei->has_been_decoded) {
         // Decode the SEI and set signature->hash
         self->latest_validation->public_key_has_changed = false;
@@ -1047,21 +1048,20 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
+    bool update_validation_status = false;
     bool public_key_has_changed = false;
     char sei_validation_status = 'U';
     // Keep validating as long as there are pending GOPs.
     bool stop_validating = false;
     while (has_pending_gop(self) && !stop_validating) {
       // Initialize latest validation.
-      if (!self->validation_flags.has_auth_result) {
+      if (!self->validation_flags.has_auth_result || validation_flags->is_first_validation) {
         latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
         latest->number_of_expected_picture_nalus = 0;
         latest->number_of_received_picture_nalus = 0;
         latest->number_of_pending_picture_nalus = -1;
         latest->public_key_has_changed = public_key_has_changed;
-      }
-      if (validation_flags->is_first_validation) {
-        // Reset in_validation.
+        // Reset |in_validation|.
         update_sei_in_validation(self, true, NULL, NULL);
       }
 
@@ -1081,30 +1081,35 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
         // Fetch the |tmp_validation_status| for later use.
         update_sei_in_validation(self, false, &sei_validation_status, NULL);
       }
-      // Update |validation_status|.
-      SV_THROW(h26x_nalu_list_update_status(nalu_list, true));
 
       // The flag |is_first_validation| is used to ignore the first validation if we start the
       // validation in the middle of a stream. Now it is time to reset it.
       validation_flags->is_first_validation = !validation_flags->signing_present;
 
+      if (validation_flags->reset_first_validation) {
+        validation_flags->is_first_validation = true;
+        validation_flags->reset_first_validation = false;
+      } else {
+        update_validation_status = true;
+      }
       self->gop_info->verified_signature_hash = -1;
       self->validation_flags.has_auth_result = true;
       public_key_has_changed |= latest->public_key_has_changed;  // Pass on public key failure.
-
-      if (validation_flags->is_first_validation) {
-        // Reset any set linked hashes if the session is still waiting for a first validation.
-        reset_linked_hash(self);
-      }
-      // All statistics but pending NALUs have already been collected.
-      latest->number_of_pending_picture_nalus = h26x_nalu_list_num_pending_items(nalu_list);
-
-      DEBUG_LOG("Validated GOP as %s", kAuthResultValidStr[latest->authenticity]);
-      DEBUG_LOG("Expected number of NALUs = %d", latest->number_of_expected_picture_nalus);
-      DEBUG_LOG("Received number of NALUs = %d", latest->number_of_received_picture_nalus);
-      DEBUG_LOG("Number of pending NALUs = %d", latest->number_of_pending_picture_nalus);
     }
 
+    SV_THROW(h26x_nalu_list_update_status(nalu_list, update_validation_status));
+    if (validation_flags->is_first_validation) {
+      update_sei_in_validation(self, false, NULL, &sei_validation_status);
+      // Reset any set linked hashes if the session is still waiting for a first validation.
+      reset_linked_hash(self);
+    }
+
+    // All statistics but pending NALUs have already been collected.
+    latest->number_of_pending_picture_nalus = h26x_nalu_list_num_pending_items(nalu_list);
+    DEBUG_LOG("Validated GOP as %s", kAuthResultValidStr[latest->authenticity]);
+    DEBUG_LOG("Expected number of NALUs = %d", latest->number_of_expected_picture_nalus);
+    DEBUG_LOG("Received number of NALUs = %d", latest->number_of_received_picture_nalus);
+    DEBUG_LOG("Number of pending NALUs = %d", latest->number_of_pending_picture_nalus);
   SV_CATCH()
   SV_DONE(status)
 

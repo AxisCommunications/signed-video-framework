@@ -880,15 +880,6 @@ START_TEST(all_seis_arrive_late_two_gops_scrapped)
 
   // IPPSPIPPSPIPPSSPISPISP
   //
-  // IPPS                  ->    (signature) -> PPPU                       3 pending
-  // IPPSPIPPS             ->      (invalid) -> NNNUNPPP.                  3 pending
-  //      IPPSPIPPS        ->      (invalid) ->      NNN.NPPP.             3 pending
-  //           IPPSS       ->      (invalid) ->           NMNN..           0 pending, 1 missing
-  //                PIS    ->      (invalid) ->                 MMMNP.     1 pending, 3 missing
-  //                 ISPIS ->        (valid) ->                     ...P.  1 pending
-  //                                                                      11 pending
-  // IPPSPIPPSPIPPSSPISPISP (future)
-  //
   // IPPS                  ->  (signature) -> PPPU                   3 pending
   // IPPSPIPPS             ->  (signature) -> PPPUPPPPU              7 pending
   // IPPSPIPPSPIPPS        ->      (valid) -> .....PPPUPPPP.         7 pending
@@ -897,24 +888,11 @@ START_TEST(all_seis_arrive_late_two_gops_scrapped)
   //                 ISPIS ->      (valid) ->                 ...P.  1 pending
   //                                                                22 pending
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 22, 19, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  struct validation_stats expected = {.valid_gops = 1,
-      .invalid_gops = 4,
-      .missed_nalus = 4,
-      .pending_nalus = 11,
-      .has_signature = 1,
+      SV_AUTH_RESULT_OK, false, 22, 19, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {.valid_gops = 4,
+      .pending_nalus = 22,
+      .has_signature = 2,
       .final_validation = &final_validation};
-  if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    // IPPS                  ->    (signature) -> PMMPPU                      3 pending, 2 missing
-    // IPPSPIPPS             ->      (invalid) -> NMMNNUNPPP.                 3 pending, 2 missing
-    //      IPPSPIPPS        ->      (invalid) ->        NNN.NPPP.            3 pending
-    //           IPPSS       ->      (invalid) ->            NMNN..           0 pending, 1 missing
-    //                PIS    ->      (missing) ->                  MMM.P.     1 pending, 3 missing
-    //                 ISPIS ->        (valid) ->                      ...P.  1 pending
-    //                                                                       11 pending
-    expected.valid_gops_with_missing_info = 1;
-    expected.invalid_gops = 3;
-  }
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -1120,33 +1098,19 @@ START_TEST(remove_two_gop_in_start_of_stream)
   test_stream_check_types(list, "ISPPSPISPPPPISPPISP");
 
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 19, 16, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 19, 16, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // ISPPSPISPPPPISPPISP
   //
-  // IS                PU                      -> (signature)
-  // ISPPS             NUNN.                   -> (invalid)
-  //     PIS           MMMNP.                  -> (invalid)
-  //      ISPPPPIS              ......P.       -> (valid)
-  //            ISPPIS                 ....P.  -> (valid)
-  // TODO: There is a flaw in this scenario. It would be best to expect no invalid GOPs in the
-  // stream, as the first validation should reset the validation status to ensure consistency.
-  struct validation_stats expected = {.valid_gops = 2,
-      .invalid_gops = 2,
-      .pending_nalus = 4,
-      .missed_nalus = 2,
-      .has_signature = 1,
+  // IS                PU                      -> (signature) 1 pending
+  // ISPPS             PUPPU                   -> (signature) 3 pending
+  // ISPPSPIS          .U..U.P.                ->     (valid) 1 pending
+  //       ISPPPPIS          ......P.          ->     (valid) 1 pending
+  //             ISPPIS            ....P.      ->     (valid) 1 pending
+  //                                                          7 pending
+  const struct validation_stats expected = {.valid_gops = 3,
+      .pending_nalus = 7,
+      .has_signature = 2,
       .final_validation = &final_validation};
-  // ISPPSPISPPPPISPPISP
-  // IS                PMU                     ->   (signature)
-  // ISPPS             NMUNN.                  ->   (invalid)
-  //     PIS             MMM.P.                ->   (valid with missing info)
-  //      ISPPPPIS              ......P.       ->   (valid)
-  //            ISPPIS                 ....P.  ->   (valid)
-  if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    expected.valid_gops_with_missing_info = 1;
-    expected.invalid_gops = 1;
-    expected.final_validation->authenticity = SV_AUTH_RESULT_NOT_OK;
-  }
   validate_nalu_list(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -1540,20 +1504,12 @@ END_TEST
 START_TEST(file_export_with_two_useless_seis)
 {
   test_stream_t *list = generate_delayed_sei_list(settings[_i], true);
+  // Remove the first three GOPs.
   // IPPPPIPPPIPPSP IPPSPIPPSSPISPISP
   test_stream_t *scrapped = test_stream_pop(list, 14);
   test_stream_free(scrapped);
 
   // IPPSPIPPSSPISPISP
-  //
-  // IPPS           PPPU                  ->  (signature) ->  3 pending
-  // IPPSPIPPS      NNNUNPPP.             ->    (invalid) ->  3 pending
-  //      IPPSS          NMNN..           ->    (invalid) ->  0 pending
-  //           PIS             MMMNP.     ->    (invalid) ->  1 pending
-  //            ISPIS              ...P.  ->      (valid) ->  1 pending
-  //                                                          8 pending
-  //
-  // IPPSPIPPSSPISPISP (future)
   //
   // IPPS           PPPU              ->  (signature) ->  3 pending
   // IPPSPIPPS      PPPUPPPPU         ->  (signature) ->  7 pending
@@ -1562,23 +1518,11 @@ START_TEST(file_export_with_two_useless_seis)
   //            ISPIS          ...P.  ->      (valid) ->  1 pending
   //                                                     15 pending
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 17, 14, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  struct validation_stats expected = {.valid_gops = 1,
-      .invalid_gops = 3,
-      .missed_nalus = 4,
-      .pending_nalus = 8,
-      .has_signature = 1,
+      SV_AUTH_RESULT_OK, false, 17, 14, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {.valid_gops = 3,
+      .pending_nalus = 15,
+      .has_signature = 2,
       .final_validation = &final_validation};
-  if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_FRAME) {
-    // IPPS           PMPPU                 ->  (signature) ->  3 pending, 1 missing
-    // IPPSPIPPS      NMNNUNPPP.            ->    (invalid) ->  3 pending
-    //      IPPSS          NMNN..           ->    (invalid) ->  0 pending, 1 missing
-    //           PIS             MMM.P.     ->    (missing) ->  1 pending, 3 missing
-    //            ISPIS              ...P.  ->      (valid) ->  1 pending
-    //                                                          8 pending
-    expected.valid_gops_with_missing_info = 1;
-    expected.invalid_gops = 2;
-  }
 
   validate_nalu_list(NULL, list, expected, true);
 
