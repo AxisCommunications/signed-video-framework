@@ -174,6 +174,19 @@ update_link_hash_for_auth(signed_video_t *self)
   }
 }
 
+/* Resets the buffer of linked hashes and removes |used_for_linked_hash| flag from the
+ * items int the |nalu_list|. */
+static void
+reset_linked_hash(signed_video_t *self)
+{
+  h26x_nalu_list_item_t *item = self->nalu_list->first_item;
+  while (item) {
+    item->used_for_linked_hash = false;
+    item = item->next;
+  }
+  memset(self->gop_info->linked_hashes, 0, 2 * MAX_HASH_SIZE);
+}
+
 /* Marks the NALUs that are used in GOP hash and computes the GOP hash.
  *
  * This function iterates through the NALU list, identifies the NALUs that belong to the current
@@ -1033,6 +1046,10 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
       self->gop_info->verified_signature_hash = -1;
       self->validation_flags.has_auth_result = true;
 
+      if (validation_flags->is_first_validation) {
+        // Reset any set linked hashes if the session is still waiting for a first validation.
+        reset_linked_hash(self);
+      }
       // All statistics but pending NALUs have already been collected.
       latest->number_of_pending_picture_nalus = h26x_nalu_list_num_pending_items(nalu_list);
 
