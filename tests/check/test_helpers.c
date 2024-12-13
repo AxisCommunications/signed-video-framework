@@ -168,6 +168,13 @@ read_file_content(const char *filename, char **content, size_t *content_size)
   // Find the root location of the library.
   char *lib_root = NULL;
   char *next_lib_root = strstr(cwd, "signed-video-framework");
+  if (!next_lib_root) {
+    // Current location is not inside signed-video-framework. Assuming current working directory is
+    // the parent directory, to give it another try. If that is not the case opening the |full_path|
+    // will fail, which is fine since the true location is not known anyhow.
+    strcat(cwd, "/signed-video-framework");
+    next_lib_root = strstr(cwd, "signed-video-framework");
+  }
   while (next_lib_root) {
     lib_root = next_lib_root;
     next_lib_root = strstr(next_lib_root + 1, "signed-video-framework");
