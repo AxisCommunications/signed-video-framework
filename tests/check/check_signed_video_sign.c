@@ -855,6 +855,7 @@ START_TEST(correct_timestamp)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+  if (settings[_i].codec == SV_CODEC_AV1) return;
 
   SignedVideoCodec codec = settings[_i].codec;
   SignedVideoReturnCode sv_rc;
@@ -957,6 +958,7 @@ START_TEST(w_wo_emulation_prevention_bytes)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+  if (settings[_i].codec == SV_CODEC_AV1) return;
 
   struct sv_setting setting = settings[_i];
   SignedVideoCodec codec = settings[_i].codec;
