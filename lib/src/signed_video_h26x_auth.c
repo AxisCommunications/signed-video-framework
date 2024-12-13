@@ -1047,6 +1047,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
+    bool public_key_has_changed = false;
     char sei_validation_status = 'U';
     // Keep validating as long as there are pending GOPs.
     bool stop_validating = false;
@@ -1057,6 +1058,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
         latest->number_of_expected_picture_nalus = 0;
         latest->number_of_received_picture_nalus = 0;
         latest->number_of_pending_picture_nalus = -1;
+        latest->public_key_has_changed = public_key_has_changed;
       }
       if (validation_flags->is_first_validation) {
         // Reset in_validation.
@@ -1088,6 +1090,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
 
       self->gop_info->verified_signature_hash = -1;
       self->validation_flags.has_auth_result = true;
+      public_key_has_changed |= latest->public_key_has_changed;  // Pass on public key failure.
 
       if (validation_flags->is_first_validation) {
         // Reset any set linked hashes if the session is still waiting for a first validation.
