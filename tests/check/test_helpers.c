@@ -95,6 +95,9 @@ struct sv_setting settings[NUM_SETTINGS] = {
     {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, false, true, false, 0, NULL, 0, 1, false, false},
     {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, "sha512", 0, 1, false,
         false},
+    // AV1 tests
+    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_GOP, true, true, false, 0, NULL, 0, 1, false, false},
+    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, NULL, 0, 1, false, false},
 };
 
 static char private_key_rsa[RSA_PRIVATE_KEY_ALLOC_BYTES];

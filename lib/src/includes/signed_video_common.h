@@ -59,7 +59,12 @@ typedef enum {
  *
  * The following codecs are supported. The codec in use when creating the signed video session.
  */
-typedef enum { SV_CODEC_H264 = 0, SV_CODEC_H265 = 1, SV_CODEC_NUM } SignedVideoCodec;
+typedef enum {
+  SV_CODEC_H264 = 0,
+  SV_CODEC_H265 = 1,
+  SV_CODEC_AV1 = 2,
+  SV_CODEC_NUM
+} SignedVideoCodec;
 
 /**
  * @brief Creates a new signed video session.

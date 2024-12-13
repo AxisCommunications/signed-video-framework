@@ -422,6 +422,7 @@ START_TEST(vendor_axis_communications_operation)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+  if (settings[_i].codec == SV_CODEC_AV1) return;
 
   SignedVideoReturnCode sv_rc;
   struct sv_setting setting = settings[_i];
@@ -500,6 +501,7 @@ START_TEST(correct_nalu_sequence_without_eos)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+  if (settings[_i].codec == SV_CODEC_AV1) return;
 
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISPP");
@@ -541,6 +543,7 @@ START_TEST(correct_multislice_nalu_sequence_without_eos)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+  if (settings[_i].codec == SV_CODEC_AV1) return;
 
   test_stream_t *list = create_signed_nalus("IiPpPpIiPpPp", settings[_i]);
   test_stream_check_types(list, "IiPpPpIiSPpPp");
@@ -565,6 +568,7 @@ START_TEST(sei_increase_with_gop_length)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+  if (settings[_i].codec == SV_CODEC_AV1) return;
 
   struct sv_setting setting = settings[_i];
   // Turn off emulation prevention
@@ -595,6 +599,7 @@ START_TEST(fallback_to_gop_level)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+  if (settings[_i].codec == SV_CODEC_AV1) return;
 
   // By construction, run the test for SV_AUTHENTICITY_LEVEL_FRAME only.
   if (settings[_i].auth_level != SV_AUTHENTICITY_LEVEL_FRAME) return;
@@ -635,6 +640,7 @@ START_TEST(undefined_nalu_in_sequence)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+  if (settings[_i].codec == SV_CODEC_AV1) return;
 
   test_stream_t *list = create_signed_nalus("IPXPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPXPISPPISP");
@@ -653,6 +659,7 @@ END_TEST
  */
 START_TEST(two_completed_seis_pending)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
 #ifdef SIGNED_VIDEO_DEBUG
   // Verification the signature is not yet working for buffered signatures.
   return;
@@ -741,6 +748,7 @@ END_TEST
  */
 START_TEST(golden_sei_created)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
 
   SignedVideoReturnCode sv_rc;
   signed_video_t *sv = get_initialized_signed_video(settings[_i], false);
@@ -778,6 +786,7 @@ END_TEST
  */
 START_TEST(two_completed_seis_pending_legacy)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
 #ifdef SIGNED_VIDEO_DEBUG
   // Verification the signature is not yet working for buffered signatures.
   return;
@@ -931,6 +940,7 @@ START_TEST(correct_signing_nalus_in_parts)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+  if (settings[_i].codec == SV_CODEC_AV1) return;
 
   test_stream_t *list = create_signed_splitted_nalus("IPPIPP", settings[_i]);
   test_stream_check_types(list, "IPPISPP");
@@ -1021,6 +1031,7 @@ START_TEST(limited_sei_payload_size)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
+  if (settings[_i].codec == SV_CODEC_AV1) return;
 
   // No need to run this with GOP level authentication, since only frame level
   // authentication can dynamically affect the payload size.
