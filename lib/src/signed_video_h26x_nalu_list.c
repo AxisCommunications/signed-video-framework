@@ -415,32 +415,25 @@ h26x_nalu_list_remove_missing_items(h26x_nalu_list_t *list)
 
   bool found_first_pending_nalu = false;
   bool found_decoded_sei = false;
+  int num_removed_items = 0;
   h26x_nalu_list_item_t *item = list->first_item;
   while (item && !(found_first_pending_nalu && found_decoded_sei)) {
     // Reset the invalid verification failure if we have not past the first pending item.
     // Remove the missing NALU in the front.
-    if (item->tmp_validation_status == 'M' && (item == list->first_item)) {
+    if (item->tmp_validation_status == 'M' && item->in_validation) {
       const h26x_nalu_list_item_t *item_to_remove = item;
       item = item->next;
       h26x_nalu_list_remove_and_free_item(list, item_to_remove);
+      num_removed_items++;
       continue;
     }
-    if (item->has_been_decoded && item->tmp_validation_status != 'U') {
-      // Usually, these items were added because we verified hashes with a SEI not associated with
-      // this recording. This can happen if we export to file or fast forward in a recording. The
-      // SEI used to generate these missing items is set to 'U'.
-      item->tmp_validation_status = 'U';
+    if (item->has_been_decoded && item->tmp_validation_status != 'U' && item->in_validation) {
       found_decoded_sei = true;
-    }
-    // TODO: Resetting the item validation in the current GOP may affect the validation of the next
-    // GOP. This needs to be fixed.
-    if (item->tmp_validation_status == 'N') {
-      // Reset validation status to 'P' for the next validation.
-      item->tmp_validation_status = 'P';
     }
     item = item->next;
     if (item && item->tmp_validation_status == 'P') found_first_pending_nalu = true;
   }
+  if (num_removed_items > 0) DEBUG_LOG("Removed %d missing items to list", num_removed_items);
 }
 
 /* Searches for, and returns, the next pending SEI item. */
@@ -482,8 +475,14 @@ h26x_nalu_list_get_stats(const h26x_nalu_list_t *list,
       continue;
     }
     if (item->tmp_validation_status == 'M') local_num_missing_nalus++;
-    if (item->tmp_validation_status == 'N' || item->tmp_validation_status == 'E')
-      local_num_invalid_nalus++;
+    if (item->nalu && item->nalu->is_gop_sei) {
+      if (item->in_validation &&
+          (item->tmp_validation_status == 'N' || item->tmp_validation_status == 'E'))
+        local_num_invalid_nalus++;
+    } else {
+      if (item->tmp_validation_status == 'N' || item->tmp_validation_status == 'E')
+        local_num_invalid_nalus++;
+    }
     if (item->tmp_validation_status == '.') {
       // Do not count SEIs, since they are marked valid if the signature could be verified, which
       // happens for out-of-sync SEIs for example.
