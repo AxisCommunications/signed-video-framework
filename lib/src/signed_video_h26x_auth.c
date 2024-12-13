@@ -749,6 +749,39 @@ remove_used_in_gop_hash(h26x_nalu_list_t *nalu_list)
   }
 }
 
+/* Updates validation status for SEI that is |in_validation|. */
+static void
+update_sei_in_validation(signed_video_t *self,
+    bool reset_in_validation,
+    char *get_validation_status,
+    char *set_validation_status)
+{
+  // Search for the SEI |in_validation|.
+  const h26x_nalu_list_item_t *item = self->nalu_list->first_item;
+  while (item && !(item->nalu && item->nalu->is_gop_sei && item->in_validation)) {
+    item = item->next;
+  }
+  if (item) {
+    // Found SEI |in_validation|.
+    h26x_nalu_list_item_t *sei = (h26x_nalu_list_item_t *)item;
+    if (reset_in_validation) {
+      sei->in_validation = false;
+    }
+    if (get_validation_status) {
+      // Fetch the validation status, if not pending, before resetting tmp variable.
+      if (sei->tmp_validation_status != 'P') {
+        *get_validation_status = sei->tmp_validation_status;
+      }
+      sei->tmp_validation_status = sei->validation_status;
+    }
+    // Set the |validation_status| unless it has been set before.
+    if (set_validation_status && sei->validation_status == 'P') {
+      sei->validation_status = *set_validation_status;
+      sei->tmp_validation_status = *set_validation_status;
+    }
+  }
+}
+
 /**
  * Decodes the SEI message, retrieves necessary parameters for authentication, and computes the hash
  * for authenticity.
@@ -1014,6 +1047,7 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
+    char sei_validation_status = 'U';
     // Keep validating as long as there are pending GOPs.
     bool stop_validating = false;
     while (has_pending_gop(self) && !stop_validating) {
@@ -1024,6 +1058,11 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
         latest->number_of_received_picture_nalus = 0;
         latest->number_of_pending_picture_nalus = -1;
       }
+      if (validation_flags->is_first_validation) {
+        // Reset in_validation.
+        update_sei_in_validation(self, true, NULL, NULL);
+      }
+
       SV_THROW(prepare_for_validation(self));
       update_link_hash_for_auth(self);
 
@@ -1036,6 +1075,10 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
         validate_authenticity(self);
       }
 
+      if (validation_flags->is_first_validation && (latest->authenticity != SV_AUTH_RESULT_OK)) {
+        // Fetch the |tmp_validation_status| for later use.
+        update_sei_in_validation(self, false, &sei_validation_status, NULL);
+      }
       // Update |validation_status|.
       SV_THROW(h26x_nalu_list_update_status(nalu_list, true));
 
