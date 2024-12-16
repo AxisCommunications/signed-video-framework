@@ -37,7 +37,7 @@
 #include "includes/signed_video_signing_plugin.h"
 #include "signed_video_authenticity.h"  // latest_validation_init()
 #include "signed_video_defines.h"  // svrc_t
-#include "signed_video_h26x_internal.h"  // h26x_nalu_list_item_t
+#include "signed_video_h26x_internal.h"  // h26x_nalu_list_item_t, METADATA_TYPE_USER_PRIVATE
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_create()
 #include "signed_video_internal.h"  // gop_info_t, gop_state_t, MAX_HASH_SIZE, DEFAULT_HASH_SIZE
 #include "signed_video_openssl_internal.h"
@@ -46,7 +46,6 @@
 #define USER_DATA_UNREGISTERED 5
 #define H264_NALU_HEADER_LEN 1  // length of forbidden_zero_bit, nal_ref_idc and nal_unit_type
 #define H265_NALU_HEADER_LEN 2  // length of nal_unit_header as per ISO/ITU spec
-#define METADATA_TYPE_USER_PRIVATE 25
 #define AV1_OBU_HEADER_LEN 1
 // The salt added to the recursive hash to get the final gop_hash
 #define GOP_HASH_SALT 1
@@ -259,7 +258,7 @@ gop_info_reset(gop_info_t *gop_info)
   gop_info->verified_signature_hash = -1;
   // If a reset is forced, the stored hashes in |hash_list| have no meaning anymore.
   gop_info->list_idx = 0;
-  gop_info->has_reference_hash = false;
+  gop_info->has_reference_hash = true;
   gop_info->global_gop_counter_is_synced = false;
 }
 
@@ -1149,11 +1148,11 @@ hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     if (nalu->is_first_nalu_part && !nalu->is_last_nalu_part) {
-      // If this is the first part of a non-complete NALU, initialize the |crypto_handle| to enable
-      // sequentially updating the hash with more parts.
+      // If this is the first part of a non-complete NALU/OBU, initialize the |crypto_handle| to
+      // enable sequentially updating the hash with more parts.
       SV_THROW(openssl_init_hash(self->crypto_handle, false));
     }
-    // Select hash function, hash the NALU and store as 'latest hash'
+    // Select hash function, hash the NALU/OBU and store as 'latest hash'
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
     SV_THROW(hash_wrapper(self, nalu, nalu_hash, hash_size));
 #ifdef SIGNED_VIDEO_DEBUG
@@ -1274,7 +1273,7 @@ signed_video_create(SignedVideoCodec codec)
     self->authenticity_level = DEFAULT_AUTHENTICITY_LEVEL;
     self->recurrence = RECURRENCE_ALWAYS;
     self->add_public_key_to_sei = true;
-    self->sei_epb = true;
+    self->sei_epb = codec != SV_CODEC_AV1;
     self->signing_started = false;
     self->sign_data = sign_or_verify_data_create();
     self->sign_data->hash_size = openssl_get_hash_size(self->crypto_handle);

@@ -96,8 +96,8 @@ struct sv_setting settings[NUM_SETTINGS] = {
     {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, "sha512", 0, 1, false,
         false},
     // AV1 tests
-    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_GOP, true, true, false, 0, NULL, 0, 1, false, false},
-    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, NULL, 0, 1, false, false},
+    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_GOP, true, false, false, 0, NULL, 0, 1, false, false},
+    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_FRAME, true, false, false, 0, NULL, 0, 1, false, false},
 };
 
 static char private_key_rsa[RSA_PRIVATE_KEY_ALLOC_BYTES];
@@ -388,7 +388,9 @@ get_initialized_signed_video(struct sv_setting settings, bool new_private_key)
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
   ck_assert_int_eq(signed_video_set_max_sei_payload_size(sv, settings.max_sei_payload_size), SV_OK);
   ck_assert_int_eq(signed_video_set_hash_algo(sv, settings.hash_algo_name), SV_OK);
-  ck_assert_int_eq(signed_video_set_sei_epb(sv, settings.ep_before_signing), SV_OK);
+  if (settings.codec != SV_CODEC_AV1) {
+    ck_assert_int_eq(signed_video_set_sei_epb(sv, settings.ep_before_signing), SV_OK);
+  }
   ck_assert_int_eq(signed_video_set_using_golden_sei(sv, settings.with_golden_sei), SV_OK);
 
   if (settings.with_golden_sei) {

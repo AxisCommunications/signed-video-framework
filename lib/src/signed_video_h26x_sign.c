@@ -28,7 +28,7 @@
 #include "includes/signed_video_signing_plugin.h"
 #include "signed_video_authenticity.h"  // allocate_memory_and_copy_string
 #include "signed_video_defines.h"  // svrc_t, sv_tlv_tag_t
-#include "signed_video_h26x_internal.h"  // parse_nalu_info()
+#include "signed_video_h26x_internal.h"  // parse_nalu_info(), METADATA_TYPE_USER_PRIVATE
 #include "signed_video_internal.h"  // gop_info_t
 #include "signed_video_openssl_internal.h"
 #include "signed_video_tlv.h"  // tlv_list_encode_or_get_size()
@@ -248,9 +248,29 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     sei_buffer_size += payload_size / 256 + 1;  // Size field
     sei_buffer_size += payload_size;
     sei_buffer_size += 1;  // Stop bit in a separate byte
+    if (self->codec != SV_CODEC_AV1) {
+      sei_buffer_size += self->codec == SV_CODEC_H264 ? 6 : 7;  // NALU header
+      sei_buffer_size += payload_size / 256 + 1;  // Size field
+      sei_buffer_size += payload_size;
+      sei_buffer_size += 1;  // Stop bit in a separate byte
+    } else {
+      payload_size += 3;  // 2 trailing-bit bytes, 1 metadata_type byte
+      int payload_size_bytes = 0;
+      size_t tmp_payload_size = payload_size;
+      while (tmp_payload_size > 0) {
+        payload_size_bytes++;
+        tmp_payload_size >>= 7;
+      }
+      sei_buffer_size += 1;  // OBU header
+      sei_buffer_size += payload_size_bytes;  // Size field
+      sei_buffer_size += payload_size;
+    }
 
-    // Secure enough memory for emulation prevention. Worst case will add 1 extra byte per 3 bytes.
-    sei_buffer_size = sei_buffer_size * 4 / 3;
+    if (self->codec != SV_CODEC_AV1) {
+      // Secure enough memory for emulation prevention. Worst case will add 1 extra byte per 3
+      // bytes.
+      sei_buffer_size = sei_buffer_size * 4 / 3;
+    }
 
     // Allocate memory for payload + SEI header to return
     *payload = (uint8_t *)malloc(sei_buffer_size);
@@ -263,30 +283,54 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     // Reset last_two_bytes before writing bytes
     self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
     uint16_t *last_two_bytes = &self->last_two_bytes;
-    // Start code prefix
-    *payload_ptr++ = 0x00;
-    *payload_ptr++ = 0x00;
-    *payload_ptr++ = 0x00;
-    *payload_ptr++ = 0x01;
+    if (self->codec != SV_CODEC_AV1) {
+      // Start code prefix
+      *payload_ptr++ = 0x00;
+      *payload_ptr++ = 0x00;
+      *payload_ptr++ = 0x00;
+      *payload_ptr++ = 0x01;
 
-    if (self->codec == SV_CODEC_H264) {
-      write_byte(last_two_bytes, &payload_ptr, 0x06, false);  // SEI NAL type
-    } else if (self->codec == SV_CODEC_H265) {
-      write_byte(last_two_bytes, &payload_ptr, 0x4E, false);  // SEI NAL type
-      // nuh_layer_id and nuh_temporal_id_plus1
-      write_byte(last_two_bytes, &payload_ptr, 0x01, false);
-    }
-    // last_payload_type_byte : user_data_unregistered
-    write_byte(last_two_bytes, &payload_ptr, 0x05, false);
+      if (self->codec == SV_CODEC_H264) {
+        write_byte(last_two_bytes, &payload_ptr, 0x06, false);  // SEI NAL type
+      } else if (self->codec == SV_CODEC_H265) {
+        write_byte(last_two_bytes, &payload_ptr, 0x4E, false);  // SEI NAL type
+        // nuh_layer_id and nuh_temporal_id_plus1
+        write_byte(last_two_bytes, &payload_ptr, 0x01, false);
+      }
+      // last_payload_type_byte : user_data_unregistered
+      write_byte(last_two_bytes, &payload_ptr, 0x05, false);
 
-    // Payload size
-    size_t size_left = payload_size;
-    while (size_left >= 0xFF) {
-      write_byte(last_two_bytes, &payload_ptr, 0xFF, false);
-      size_left -= 0xFF;
+      // Payload size
+      size_t size_left = payload_size;
+      while (size_left >= 0xFF) {
+        write_byte(last_two_bytes, &payload_ptr, 0xFF, false);
+        size_left -= 0xFF;
+      }
+      // last_payload_size_byte - u(8)
+      write_byte(last_two_bytes, &payload_ptr, (uint8_t)size_left, false);
+    } else {
+      write_byte(last_two_bytes, &payload_ptr, 0x2A, false);  // OBU header
+      // Write payload size
+      size_t size_left = payload_size;
+      while (size_left > 0) {
+        // get first 7 bits
+        int byte = (0x7F & size_left);
+        // Check if more bytes to come
+        size_left >>= 7;
+        if (size_left > 0) {
+          // More bytes to come. Set highest bit
+          byte |= 0x80;
+        } else {
+          // No more bytes to come. Clear highest bit
+          byte &= 0x7F;
+        }
+        write_byte(last_two_bytes, &payload_ptr, byte, false);  // obu_size
+      }
+      // Write metadata_type
+      write_byte(last_two_bytes, &payload_ptr, METADATA_TYPE_USER_PRIVATE, false);  // metadata_type
+      // Intermediate trailing byte
+      write_byte(last_two_bytes, &payload_ptr, 0x80, false);  // trailing byte
     }
-    // last_payload_size_byte - u(8)
-    write_byte(last_two_bytes, &payload_ptr, (uint8_t)size_left, false);
 
     // User data unregistered UUID field
     h26x_set_nal_uuid_type(self, &payload_ptr, UUID_TYPE_SIGNED_VIDEO);
@@ -402,7 +446,7 @@ get_sign_and_complete_sei_nalu(signed_video_t *self,
       tlv_list_encode_or_get_size(self, gop_info_encoders, num_gop_encoders, payload_ptr);
   payload_ptr += written_size;
 
-  // Stop bit
+  // Stop bit (Trailing bit identical for both H.26x and AV1)
   write_byte(last_two_bytes, &payload_ptr, 0x80, false);
 
 #ifdef SIGNED_VIDEO_DEBUG
@@ -501,11 +545,6 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       nalu_data_size--;
     }
     nalu.hashable_data_size = nalu_data_size;
-  }
-  if (self->codec == SV_CODEC_AV1) {
-    // Not yet implemented, but return SV_OK to run through tests.
-    free(nalu.nalu_data_wo_epb);
-    return prepare_for_nalus_to_prepend(self);
   }
 
   svrc_t status = SV_UNKNOWN_FAILURE;
@@ -884,6 +923,7 @@ SignedVideoReturnCode
 signed_video_set_sei_epb(signed_video_t *self, bool sei_epb)
 {
   if (!self) return SV_INVALID_PARAMETER;
+  if (self->codec == SV_CODEC_AV1) return SV_NOT_SUPPORTED;
   self->sei_epb = sei_epb;
   return SV_OK;
 }

@@ -26,6 +26,8 @@
 #include "signed_video_defines.h"  // svrc_t
 #include "signed_video_internal.h"  // gop_info_t, gop_state_t, MAX_HASH_SIZE
 
+#define METADATA_TYPE_USER_PRIVATE 25
+
 typedef struct _h26x_nalu_list_item_t h26x_nalu_list_item_t;
 
 typedef enum {

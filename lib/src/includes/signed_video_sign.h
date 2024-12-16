@@ -502,10 +502,13 @@ signed_video_set_recurrence_interval_frames(signed_video_t *self, unsigned recur
  * If this API is not used, SEI payload is written with EPBs, hence equivalent with setting
  * |sei_epb| to True.
  *
+ * NOTE: AV1 does not have emulation prevention. Therefore, this API is not supported for AV1.
+ *
  * @param self Session struct pointer
  * @param sei_epb SEI payload written with EPB (default True)
  *
  * @returns SV_OK SEI w/o EPB was successfully set,
+ *          SV_NOT_SUPPORTED if codec is AV1,
  *          SV_INVALID_PARAMETER Invalid parameter.
  */
 SignedVideoReturnCode
