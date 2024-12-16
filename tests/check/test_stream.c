@@ -77,6 +77,22 @@ static const uint8_t p_nalu_h265[DUMMY_NALU_SIZE] = {0x02, 0x01, 0x00, 0x00, 0x8
 static const uint8_t pps_nalu_h265[DUMMY_NALU_SIZE] = {0x44, 0x01, 0x00, 0x00, 0x80};
 static const uint8_t sei_nalu_h265[DUMMY_SEI_SIZE] = {0x4e, 0x01, 0x05, 0x11, 0xaa, 0xaa, 0xaa,
     0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x80};
+/* The AV1 pattern is as follows:
+ *
+ *  general OBU
+ * |-- 1 byte --|-- 1 byte --|-- 1 byte --|-- 1 byte --|-- 1 byte --|
+ *   OBU header      size     frame header      id        stop bit
+ *
+ * "SEI"
+ * |-- 1 byte --|-- 1 byte --|--  1 byte  --|-- 1 byte --|-- 1 byte --|
+ *   OBU header      size      metadata type      id        stop bit
+ *
+ */
+const uint8_t I_av1[DUMMY_NALU_SIZE] = {0x32, 0x03, 0x10, 0x00, 0x80};
+const uint8_t P_av1[DUMMY_NALU_SIZE] = {0x32, 0x03, 0x30, 0x00, 0x80};
+const uint8_t sh_av1[DUMMY_NALU_SIZE] = {0x0a, 0x03, 0x00, 0x00, 0x80};
+const uint8_t sei_av1[DUMMY_NALU_SIZE] = {0x2a, 0x03, 0x18, 0x00, 0x80};
+const uint8_t invalid_av1[DUMMY_NALU_SIZE] = {0x02, 0x03, 0xff, 0x00, 0xff};
 
 /* Helper that parses information from the NAL Unit |data| and returns a character
  * representing the NAL Unit type. */
@@ -151,41 +167,57 @@ generate_nalu(bool valid_start_code,
 test_stream_item_t *
 test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec)
 {
-  uint8_t *nalu = NULL;  // Final NAL Unit with start code and id.
+  uint8_t *nalu = NULL;  // Final NAL Unit (or OBU) with id and with/without start code.
   const uint8_t *nalu_data = NULL;
-  size_t nalu_data_size = DUMMY_NALU_SIZE;  // Change if we have a SEI.
-  bool start_code = true;  // Use a valid start code by default.
+  size_t nalu_data_size = DUMMY_NALU_SIZE;  // Change if it is a H.26x SEI.
+  bool start_code = true;  // Use a valid start code by default unless AV1.
 
   // Find out which type of NAL Unit the character is and point |nalu_data| to it.
   switch (type) {
     case 'I':
-      nalu_data = codec == SV_CODEC_H264 ? I_nalu_h264 : I_nalu_h265;
+      nalu_data =
+          codec == SV_CODEC_H264 ? I_nalu_h264 : (codec == SV_CODEC_H265 ? I_nalu_h265 : I_av1);
       break;
     case 'i':
-      nalu_data = codec == SV_CODEC_H264 ? i_nalu_h264 : i_nalu_h265;
+      // Not yet valid for AV1.
+      nalu_data = codec == SV_CODEC_H264 ? i_nalu_h264
+                                         : (codec == SV_CODEC_H265 ? i_nalu_h265 : invalid_av1);
       break;
     case 'P':
-      nalu_data = codec == SV_CODEC_H264 ? P_nalu_h264 : P_nalu_h265;
+      nalu_data =
+          codec == SV_CODEC_H264 ? P_nalu_h264 : (codec == SV_CODEC_H265 ? P_nalu_h265 : P_av1);
       break;
     case 'p':
-      nalu_data = codec == SV_CODEC_H264 ? p_nalu_h264 : p_nalu_h265;
+      // Not yet valid for AV1.
+      nalu_data = codec == SV_CODEC_H264 ? p_nalu_h264
+                                         : (codec == SV_CODEC_H265 ? p_nalu_h265 : invalid_av1);
       break;
     case 'Z':
-      nalu_data = codec == SV_CODEC_H264 ? sei_nalu_h264 : sei_nalu_h265;
-      nalu_data_size = DUMMY_SEI_SIZE;
+      nalu_data = codec == SV_CODEC_H264 ? sei_nalu_h264
+                                         : (codec == SV_CODEC_H265 ? sei_nalu_h265 : sei_av1);
+      nalu_data_size = (codec != SV_CODEC_AV1) ? DUMMY_SEI_SIZE : DUMMY_NALU_SIZE;
       break;
     case 'V':
-      nalu_data = codec == SV_CODEC_H264 ? pps_nalu_h264 : pps_nalu_h265;
+      nalu_data = codec == SV_CODEC_H264 ? pps_nalu_h264
+                                         : (codec == SV_CODEC_H265 ? pps_nalu_h265 : sh_av1);
       break;
     case 'X':
     default:
-      nalu_data = invalid_nalu;
+      nalu_data = (codec != SV_CODEC_AV1) ? invalid_nalu : invalid_av1;
       start_code = false;
       break;
   }
 
   size_t nalu_size = 0;
-  nalu = generate_nalu(start_code, nalu_data, nalu_data_size, id, &nalu_size);
+  if (codec != SV_CODEC_AV1) {
+    nalu = generate_nalu(start_code, nalu_data, nalu_data_size, id, &nalu_size);
+  } else {
+    // For AV1 all OBUs are of same size and have no start code. No need for a function.
+    nalu = (uint8_t *)malloc(DUMMY_NALU_SIZE);
+    memcpy(nalu, nalu_data, nalu_data_size);
+    nalu[DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
+    nalu_size = DUMMY_NALU_SIZE;
+  }
   ck_assert(nalu);
   ck_assert(nalu_size > 0);
   ck_assert_int_eq(nalu[nalu_size - 2], id);  // Check id.
