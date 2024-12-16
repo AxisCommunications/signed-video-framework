@@ -277,6 +277,7 @@ END_TEST
  */
 START_TEST(intact_stream)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   // Create a list of NAL Units given the input string.
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISPPISP");
@@ -295,6 +296,7 @@ END_TEST
 
 START_TEST(intact_multislice_stream)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("IiPpPpIiPpPpIiPp", settings[_i]);
   test_stream_check_types(list, "IiPpPpIiSPpPpIiSPp");
 
@@ -312,6 +314,7 @@ END_TEST
 
 START_TEST(intact_stream_with_splitted_nalus)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   // Create a list of NAL Units given the input string.
   test_stream_t *list = create_signed_splitted_nalus("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISPPISP");
@@ -334,6 +337,7 @@ END_TEST
  * SEI(s) before the PPS. */
 START_TEST(intact_stream_with_pps_nalu_stream)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("VIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "VIPPISPPISP");
 
@@ -352,6 +356,7 @@ END_TEST
 
 START_TEST(intact_ms_stream_with_pps_nalu_stream)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("VIiPpPpIiPpPpIiPp", settings[_i]);
   test_stream_check_types(list, "VIiPpPpIiSPpPpIiSPp");
 
@@ -378,6 +383,7 @@ END_TEST
  */
 START_TEST(intact_with_undefined_nalu_in_stream)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("IPXPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPXPISPPISP");
 
@@ -395,6 +401,7 @@ END_TEST
 
 START_TEST(intact_with_undefined_multislice_nalu_in_stream)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("IiPpXPpIiPpPpIiPp", settings[_i]);
   test_stream_check_types(list, "IiPpXPpIiSPpPpIiSPp");
 
@@ -418,6 +425,7 @@ END_TEST
  */
 START_TEST(remove_one_p_nalu)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("IPPIPPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPPISPPISP");
 
@@ -463,6 +471,7 @@ END_TEST
  */
 START_TEST(interchange_two_p_nalus)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("IPPIPPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPPISPPISP");
 
@@ -501,6 +510,7 @@ END_TEST
  */
 START_TEST(modify_one_p_nalu)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("IPPIPPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPPISPPISP");
 
@@ -529,6 +539,7 @@ END_TEST
 
 START_TEST(modify_one_i_nalu)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("IPPIPPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPPISPPISPPISP");
 
@@ -565,6 +576,7 @@ END_TEST
 
 START_TEST(modify_one_sei)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("IPPIPPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPPISPPISP");
 
@@ -604,6 +616,7 @@ END_TEST
  * 3. Check the authentication result */
 START_TEST(remove_the_g_nalu)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISP");
 
@@ -634,6 +647,7 @@ END_TEST
 
 START_TEST(remove_the_i_nalu)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISPPISP");
 
@@ -667,6 +681,7 @@ END_TEST
 
 START_TEST(remove_the_gi_nalus)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISP");
 
@@ -709,6 +724,7 @@ END_TEST
 
 START_TEST(two_lost_seis)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISPPISP");
 
@@ -746,6 +762,7 @@ END_TEST
  */
 START_TEST(sei_arrives_late)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("IPPPIPPPIPPPIP", settings[_i]);
   test_stream_check_types(list, "IPPPISPPPISPPPISP");
 
@@ -814,6 +831,7 @@ generate_delayed_sei_list(struct sv_setting setting, bool extra_delay)
  */
 START_TEST(all_seis_arrive_late)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = generate_delayed_sei_list(settings[_i], true);
 
   // IPPPPIPPPIPPSPIPPSPIPPSSPISPISP
@@ -841,6 +859,7 @@ END_TEST
 
 START_TEST(all_seis_arrive_late_first_gop_scrapped)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = generate_delayed_sei_list(settings[_i], true);
 
   // Remove the first GOP: IPPPP IPPPIPPSPIPPSPIPPSSPISPISP
@@ -872,6 +891,7 @@ END_TEST
 
 START_TEST(all_seis_arrive_late_two_gops_scrapped)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = generate_delayed_sei_list(settings[_i], true);
 
   // Remove the first two GOPs: IPPPPIPPP IPPSPIPPSPIPPSSPISPISP
@@ -905,6 +925,7 @@ END_TEST
  */
 START_TEST(lost_g_before_late_sei_arrival)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("IPPPIPPPIPPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPPISPPPISPPPISPPISPPISP");
 
@@ -946,6 +967,7 @@ END_TEST
  */
 START_TEST(lost_g_and_gop_with_late_sei_arrival)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   if (TMP_FIX_TO_ALLOW_TWO_INVALID_SEIS_AT_STARTUP) return;
 
   // TODO: This test is not up-to-date, since it is currently not used.
@@ -1002,6 +1024,7 @@ END_TEST
  * Verify that we can validate authenticity correctly if we lose all NAL Units between two SEIs. */
 START_TEST(lost_all_nalus_between_two_seis)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("IPPPIPPPIPPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPPISPPPISPPPISPPISPPISP");
 
@@ -1045,6 +1068,7 @@ END_TEST
  */
 START_TEST(add_one_sei_nalu_after_signing)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("IPPIPPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPPISPPISP");
 
@@ -1074,6 +1098,7 @@ END_TEST
  */
 START_TEST(remove_two_gop_in_start_of_stream)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   // Create a list of NAL Units given the input string.
   test_stream_t *list = create_signed_nalus("IPIPIPPPIPPPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPISPISPPPISPPPPISPPISP");
@@ -1128,6 +1153,7 @@ END_TEST
  */
 START_TEST(camera_reset_on_signing_side)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   // Generate 2 GOPs
   test_stream_t *list = create_signed_nalus("IPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISP");
@@ -1178,6 +1204,7 @@ END_TEST
  */
 START_TEST(detect_change_of_public_key)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   // Generate 2 GOPs
   test_stream_t *list = create_signed_nalus("IPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISP");
@@ -1291,6 +1318,7 @@ mimic_au_fast_forward_and_get_list(signed_video_t *sv, struct sv_setting setting
 
 START_TEST(fast_forward_stream_with_reset)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   // Create a session.
   signed_video_t *sv = get_initialized_signed_video(settings[_i], false);
   ck_assert(sv);
@@ -1319,6 +1347,7 @@ END_TEST
 
 START_TEST(fast_forward_stream_without_reset)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   // Create a session.
   signed_video_t *sv = get_initialized_signed_video(settings[_i], false);
   ck_assert(sv);
@@ -1387,6 +1416,7 @@ mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_se
 
 START_TEST(fast_forward_stream_with_delayed_seis)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   // Create a new session.
   signed_video_t *sv = get_initialized_signed_video(settings[_i], false);
   ck_assert(sv);
@@ -1480,6 +1510,7 @@ mimic_file_export(struct sv_setting setting, bool delayed_seis)
 
 START_TEST(file_export_with_dangling_end)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = mimic_file_export(settings[_i], false);
 
   // VISPPISPPISPPISPP
@@ -1503,6 +1534,7 @@ END_TEST
 
 START_TEST(file_export_with_two_useless_seis)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = generate_delayed_sei_list(settings[_i], true);
   // Remove the first three GOPs.
   // IPPPPIPPPIPPSP IPPSPIPPSSPISPISP
@@ -1535,6 +1567,7 @@ END_TEST
  */
 START_TEST(no_signature)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = test_stream_create("IPPIPPIPPIPPI", settings[_i].codec);
   test_stream_check_types(list, "IPPIPPIPPIPPI");
 
@@ -1562,6 +1595,7 @@ END_TEST
 
 START_TEST(multislice_no_signature)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = test_stream_create("IiPpPpIiPpPpIiPpPpIiPpPpIi", settings[_i].codec);
   test_stream_check_types(list, "IiPpPpIiPpPpIiPpPpIiPpPpIi");
 
@@ -1599,6 +1633,7 @@ END_TEST
  */
 START_TEST(fallback_to_gop_level)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   const size_t kFallbackSize = 10;
   signed_video_t *sv = get_initialized_signed_video(settings[_i], false);
   ck_assert(sv);
@@ -1627,6 +1662,7 @@ END_TEST
  * APIs in vendors/axis-communications are used and tests both signing and validation parts. */
 START_TEST(vendor_axis_communications_operation)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   SignedVideoReturnCode sv_rc;
   struct sv_setting setting = settings[_i];
   SignedVideoCodec codec = settings[_i].codec;
@@ -1836,6 +1872,7 @@ validate_public_key_scenario(signed_video_t *sv,
  */
 START_TEST(test_public_key_scenarios)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   struct pk_setting {
     bool pk_in_sei;
     bool use_wrong_pk;
@@ -1916,6 +1953,7 @@ END_TEST
 /* Test description */
 START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
   test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
@@ -1985,6 +2023,7 @@ END_TEST
  * the other case is the default and executed for all other tests. */
 START_TEST(no_emulation_prevention_bytes)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   struct sv_setting setting = settings[_i];
   SignedVideoCodec codec = settings[_i].codec;
   SignedVideoReturnCode sv_rc;
@@ -2115,6 +2154,7 @@ END_TEST
  */
 START_TEST(with_blocked_signing)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISP");
   test_stream_item_t *sei = test_stream_item_remove(list, 17);
@@ -2158,6 +2198,7 @@ END_TEST
  */
 START_TEST(golden_sei_principle)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   struct sv_setting setting = settings[_i];
   setting.with_golden_sei = true;
 
@@ -2193,6 +2234,7 @@ END_TEST
  */
 START_TEST(legacy_stream)
 {
+  if (settings[_i].codec == SV_CODEC_AV1) return;
   test_stream_t *list = get_legacy_stream(_i, settings[_i].codec);
   if (!list) return;
 

@@ -54,7 +54,7 @@ struct sv_setting {
   bool is_vendor_axis;
 };
 
-#define NUM_SETTINGS 7
+#define NUM_SETTINGS 9
 extern struct sv_setting settings[NUM_SETTINGS];
 
 extern const char *axisDummyCertificateChain;
