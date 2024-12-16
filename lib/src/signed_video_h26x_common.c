@@ -579,6 +579,7 @@ parse_av1_obu_header(h26x_nalu_t *obu)
       obu->nalu_type = NALU_TYPE_SEI;
       break;
     case 6:  // 6 OBU_FRAME
+      // Read frame_type (2 bits)
       obu->nalu_type = ((*obu_ptr & 0x60) >> 5) == 0 ? NALU_TYPE_I : NALU_TYPE_P;
       obu->is_primary_slice = true;
       break;

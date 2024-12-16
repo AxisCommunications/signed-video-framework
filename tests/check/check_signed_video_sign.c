@@ -501,11 +501,14 @@ START_TEST(correct_nalu_sequence_without_eos)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
-  if (settings[_i].codec == SV_CODEC_AV1) return;
 
   test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPP", settings[_i]);
-  test_stream_check_types(list, "IPPISPPISPPISPPISPPISPP");
-  verify_seis(list, settings[_i]);
+  if (settings[_i].codec == SV_CODEC_AV1) {
+    test_stream_check_types(list, "IPPIPPIPPIPPIPPIPP");
+  } else {
+    test_stream_check_types(list, "IPPISPPISPPISPPISPPISPP");
+    verify_seis(list, settings[_i]);
+  }
   test_stream_free(list);
 }
 END_TEST

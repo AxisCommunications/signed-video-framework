@@ -502,6 +502,11 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     }
     nalu.hashable_data_size = nalu_data_size;
   }
+  if (self->codec == SV_CODEC_AV1) {
+    // Not yet implemented, but return SV_OK to run through tests.
+    free(nalu.nalu_data_wo_epb);
+    return prepare_for_nalus_to_prepend(self);
+  }
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
