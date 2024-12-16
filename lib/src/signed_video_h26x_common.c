@@ -338,7 +338,7 @@ av1_get_payload_size(const uint8_t *data, size_t *payload_size)
   int shift_bits = 0;
   int metadata_length = 0;
   *payload_size = 0;
-  // Get payload size (including uuid), assuming that the |data| points to the size bytes.
+  // Get payload size assuming that the input |data| pointer points to the size bytes.
   while (true) {
     int byte = *data_ptr & 0xff;
     metadata_length |= (byte & 0x7F) << shift_bits;
@@ -549,17 +549,16 @@ parse_av1_obu_header(h26x_nalu_t *obu)
   bool obu_extension_flag = (bool)(obu_header & 0x04);  // One bit
   bool obu_has_size_field = (bool)(obu_header & 0x02);  // One bit
   bool obu_reserved_bit = (bool)(obu_header & 0x01);  // One bit
+  // Only support AV1 with size field.
   bool nalu_header_is_valid = !obu_extension_flag && obu_has_size_field && !obu_reserved_bit;
 
   obu_ptr++;
-  // Read size
+  // Read size. Only supports AV1 which has size field.
   size_t obu_size = 0;
   size_t read_bytes = av1_get_payload_size(obu_ptr, &obu_size);
   obu_ptr += read_bytes;
 
-  // First slice in the current NALU or not
   obu->is_primary_slice = false;
-
   switch (obu_type) {
     case 1:  // 1 OBU_SEQUENCE_HEADER
       obu->nalu_type = NALU_TYPE_PS;
@@ -570,11 +569,11 @@ parse_av1_obu_header(h26x_nalu_t *obu)
       break;
     case 3:  // 3 OBU_FRAME_HEADER
       obu->nalu_type = NALU_TYPE_OTHER;
-      nalu_header_is_valid = false;
+      nalu_header_is_valid = false;  // Not yet supported
       break;
     case 4:  // 4 OBU_TILE_GROUP
       obu->nalu_type = NALU_TYPE_OTHER;
-      nalu_header_is_valid = false;
+      nalu_header_is_valid = false;  // Not yet supported
       break;
     case 5:  // 5 OBU_METADATA
       obu->nalu_type = NALU_TYPE_SEI;
@@ -603,7 +602,7 @@ parse_av1_obu_header(h26x_nalu_t *obu)
       break;
   }
 
-  // If the forbidden_zero_bit is set this is not a correct NALU header.
+  // If the forbidden_zero_bit is set this is not a correct OBU header.
   nalu_header_is_valid &= !forbidden_zero_bit;
   return nalu_header_is_valid;
 }
@@ -702,6 +701,7 @@ parse_nalu_info(const uint8_t *nalu_data,
   bool nalu_header_is_valid = false;
 
   if (codec != SV_CODEC_AV1) {
+    // There is no start code for AV1.
     read_bytes = read_32bits(nalu_data, &start_code);
     if (start_code != kStartCode) {
       // Check if this is a 3 byte Start Code.
@@ -751,7 +751,6 @@ parse_nalu_info(const uint8_t *nalu_data,
     const uint8_t *payload = nalu.hashable_data + nalu_header_len;
     uint8_t user_data_unregistered = 0;
     size_t payload_size = 0;
-    size_t read_bytes = 0;
     nalu.uuid_type = UUID_TYPE_UNDEFINED;
     if (codec != SV_CODEC_AV1) {
       // Check user_data_unregistered
@@ -759,8 +758,7 @@ parse_nalu_info(const uint8_t *nalu_data,
       payload++;
       if (user_data_unregistered == USER_DATA_UNREGISTERED) {
         // Decode payload size and compute emulation prevention bytes
-        read_bytes = h264_get_payload_size(payload, &payload_size);
-        payload += read_bytes;
+        payload += h264_get_payload_size(payload, &payload_size);
         nalu.payload = payload;
         nalu.payload_size = payload_size;
         // We now know the payload size, including UUID (16 bytes) and excluding stop bit. This
@@ -780,8 +778,7 @@ parse_nalu_info(const uint8_t *nalu_data,
       }
     } else {
       // Decode payload size
-      read_bytes = av1_get_payload_size(payload, &payload_size);
-      payload += read_bytes;
+      payload += av1_get_payload_size(payload, &payload_size);
       // Read metadata_type
       user_data_unregistered = *payload++;
       // Read intermediate trailing byte
@@ -790,8 +787,7 @@ parse_nalu_info(const uint8_t *nalu_data,
       if (user_data_unregistered == METADATA_TYPE_USER_PRIVATE) {
         nalu.payload = payload;
         nalu.payload_size = payload_size - 1;  // Exclude ending trailing byte
-        // We now know the payload size, including UUID (16 bytes) and excluding stop bit. This
-        // means that we can determine if we have added any emulation prevention bytes.
+        // AV1 does not have emulation prevention bytes.
         nalu.emulation_prevention_bytes = 0;
 
         // Decode UUID type
@@ -801,10 +797,10 @@ parse_nalu_info(const uint8_t *nalu_data,
     nalu.is_gop_sei = (nalu.uuid_type == UUID_TYPE_SIGNED_VIDEO);
 
     if (codec != SV_CODEC_AV1) {
-      // Only Signed Video generated SEI-NALUs are valid and hashable.
+      // Only Signed Video generated SEIs are valid and hashable.
       nalu.is_hashable = nalu.is_gop_sei && is_auth_side;
     } else {
-      // Hash all Metadata OBUs unless it is a Signed Video generated SEI and on signing side.
+      // Hash all Metadata OBUs unless it is a Signed Video generated "SEI" and on signing side.
       nalu.is_hashable = !(nalu.is_gop_sei && !is_auth_side);
     }
 
