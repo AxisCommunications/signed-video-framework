@@ -47,8 +47,6 @@
 #define H264_NALU_HEADER_LEN 1  // length of forbidden_zero_bit, nal_ref_idc and nal_unit_type
 #define H265_NALU_HEADER_LEN 2  // length of nal_unit_header as per ISO/ITU spec
 #define AV1_OBU_HEADER_LEN 1
-// The salt added to the recursive hash to get the final gop_hash
-#define GOP_HASH_SALT 1
 
 static bool
 version_str_to_bytes(int *arr, const char *str);
@@ -228,7 +226,6 @@ gop_info_create(void)
   gop_info_t *gop_info = (gop_info_t *)calloc(1, sizeof(gop_info_t));
   if (!gop_info) return NULL;
 
-  gop_info->gop_hash_init = GOP_HASH_SALT;
   gop_info->global_gop_counter = 0;
   // Initialize |verified_signature_hash| as 'error', since we lack data.
   gop_info->verified_signature_hash = -1;

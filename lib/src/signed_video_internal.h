@@ -230,7 +230,6 @@ struct _gop_info_t {
   size_t hash_list_size;  // The allowed size of the |hash_list|. This can be less than allocated.
   int list_idx;  // Pointing to next available slot in the |hash_list|. If something has gone wrong,
   // like exceeding available memory, |list_idx| = -1.
-  uint8_t gop_hash_init;  // The initialization value for the |gop_hash|.
   uint8_t *nalu_hash;  // Pointing to the memory slot of the NALU hash in |hashes|.
   uint8_t document_hash[MAX_HASH_SIZE];  // Memory for storing the document hash to be signed
   // when SV_AUTHENTICITY_LEVEL_FRAME.

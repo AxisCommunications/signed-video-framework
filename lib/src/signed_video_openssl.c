@@ -81,6 +81,8 @@ get_path_to_key(const char *dir_to_key, const char *key_filename);
 #define PRIVATE_ECDSA_KEY_FILE "private_ecdsa_key.pem"
 
 #define DEFAULT_HASH_ALGO "sha256"
+// The salt added to the |gop_hash|.
+static const int gop_hash_salt = 1;
 
 /* Frees a key represented by an EVP_PKEY_CTX object. */
 void
@@ -345,6 +347,10 @@ openssl_init_hash(void *handle, bool use_primary_ctx)
     if (!(*ctx)) return SV_EXTERNAL_ERROR;
     // Set a message digest type and initialize the hashing function.
     ret = EVP_DigestInit_ex(*ctx, self->hash_algo.type, NULL);
+  }
+  if (use_primary_ctx && ret == 1) {
+    // Initialize GOP hash with the salt.
+    ret = EVP_DigestUpdate(*ctx, &gop_hash_salt, 1);
   }
   return ret == 1 ? SV_OK : SV_EXTERNAL_ERROR;
 }
