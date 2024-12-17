@@ -8,7 +8,7 @@ The repository comes with unittests which use the check test framework. For gett
 ## Description
 The main scope of the unittests is to verify that the framework behaves as expected for
 - incorrect calls of public APIs
-- correctly generating SEIs
+- correctly generating SEIs/OBU Metadata
 - correct validation results of various tampering attempts 
 - correct validation results of various valid and invalid operations of a signed video
 
