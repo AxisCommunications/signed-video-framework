@@ -99,9 +99,9 @@ signed_video_free(signed_video_t* self);
  * Resets the session and puts it in a pre-stream state, that is, waiting for a new GOP. Once a new
  * GOP is found the operations start over.
  *
- * For the signing part, this means starting to produce the required SEI-NALUs needed for
+ * For the signing part, this means starting to produce the required SEIs/OBU Metadata needed for
  * authentication. For the authentication part, this should be used when scrubbing the video.
- * Otherwise the lib will fail authentication due to skipped NALUs.
+ * Otherwise the lib will fail authentication due to skipped NALUs/OBUs.
  *
  * @param self Signed Video session in use
  *
@@ -133,20 +133,20 @@ int
 signed_video_compare_versions(const char* version1, const char* version2);
 
 /**
- * @brief Checks if a NALU is a golden SEI
+ * @brief Checks if a NALU/OBU is a golden SEI/OBU Metadata
  *
- * A golden SEI is a self-signed SEI that includes all information only needed once
- * such as the Public key. Usually a golden SEI is sent only once in the beginning of
- * a stream.
- * With this function the validation side can detect these to store them for later use,
- * e.g., at file export.
- * For the signing side it can help out to verify that a pre-generated golden SEI
- * actually is a golden SEI before adding it to the stream
+ * A golden SEI/OBU Metadata is a self-signed SEI/OBU Metadata that includes all information only
+ * needed once such as the Public key. Usually a golden SEI/OBU Metadata is sent only once in the
+ * beginning of a stream.
+ * With this function the validation side can detect these to store them for later use, e.g., at
+ * file export.
+ * For the signing side it can help out to verify that a pre-generated golden SEI/OBU Metadata
+ * actually is a golden SEI/OBU Metadata before adding it to the stream.
  *
- * @param nalu A pointer to the NALU data
+ * @param nalu A pointer to the NALU/OBU data
  * @param nalu_size Size of the |nalu|
  *
- * @returns True if |nalu| is a golden SEI
+ * @returns True if |nalu| is a golden SEI/OBU Metadata
  */
 bool
 signed_video_is_golden_sei(signed_video_t* self, const uint8_t* nalu, size_t nalu_size);

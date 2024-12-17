@@ -27,8 +27,8 @@ plugin. The interfaces can be found in
 with both a threaded and an unthreaded signing plugin. When building the library with the meson
 structure in this repository, the library includes that plugin.
 
-Vendor specific code and APIs are typically handling extra metadata added to the SEI, which needs to
-be interpreted correctly when validating authenticity. With the meson option `vendor` the user can
-select which vendor(s) to include in the build. Typically, when building for signing the vendor for
-that camera is selected, whereas when building for validation all vendors are included. By default,
-all vendors are added.
+Vendor specific code and APIs are typically handling extra metadata added to the SEI/OBU Metadata,
+which needs to be interpreted correctly when validating authenticity. With the meson option `vendor`
+the user can select which vendor(s) to include in the build. Typically, when building for signing
+the vendor for that camera is selected, whereas when building for validation all vendors are
+included. By default, all vendors are added.
