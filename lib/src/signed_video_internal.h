@@ -52,7 +52,7 @@ typedef struct _h26x_nalu_t h26x_nalu_t;
 #define DEFAULT_HASH_SIZE (256 / 8)
 
 #define SV_VERSION_BYTES 3
-#define SIGNED_VIDEO_VERSION "v1.1.29"
+#define SIGNED_VIDEO_VERSION "v2.0.0"
 #define SV_VERSION_MAX_STRLEN 13  // Longest possible string
 
 #define DEFAULT_AUTHENTICITY_LEVEL SV_AUTHENTICITY_LEVEL_FRAME
