@@ -21,6 +21,9 @@ endif
 if get_option('parsesei')
   add_global_arguments('-DPRINT_DECODED_SEI', language : 'c')
 endif
+if get_option('generatetestkeys')
+  add_global_arguments('-DGENERATE_TEST_KEYS', language : 'c')
+endif
 
 build_with_axis = ('axis-communications' in get_option('vendors')) or ('all' in get_option('vendors'))
 if build_with_axis

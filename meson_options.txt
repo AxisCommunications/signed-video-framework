@@ -15,3 +15,7 @@ option('parsesei',
   type : 'boolean',
   value : false,
   description : 'Parse SEI frames')
+option('generatetestkeys',
+  type : 'boolean',
+  value : false,
+  description : 'Generate signing keys for tests')

@@ -35,7 +35,7 @@
 #include "lib/src/includes/signed_video_openssl.h"
 #include "lib/src/includes/signed_video_sign.h"
 #include "lib/src/signed_video_h26x_internal.h"  // parse_nalu_info(), kUuidSignedVideo
-#include "lib/src/signed_video_internal.h"  // _signed_video_t, UUID_LEN
+#include "lib/src/signed_video_internal.h"  // _signed_video_t, UUID_LEN, ATTR_UNUSED
 #include "lib/src/signed_video_tlv.h"  // tlv_find_tag()
 
 #define RSA_PRIVATE_KEY_ALLOC_BYTES 2000
@@ -104,6 +104,10 @@ static char private_key_rsa[RSA_PRIVATE_KEY_ALLOC_BYTES];
 static size_t private_key_size_rsa;
 static char private_key_ecdsa[ECDSA_PRIVATE_KEY_ALLOC_BYTES];
 static size_t private_key_size_ecdsa;
+static char new_private_key_rsa[RSA_PRIVATE_KEY_ALLOC_BYTES];
+static size_t new_private_key_size_rsa;
+static char new_private_key_ecdsa[ECDSA_PRIVATE_KEY_ALLOC_BYTES];
+static size_t new_private_key_size_ecdsa;
 
 /* Pull SEIs from the signed_video_t session |sv| and prepend them to the test stream |item|. */
 static int
@@ -152,6 +156,7 @@ pull_seis(signed_video_t *sv, test_stream_item_t **item)
   return pulled_seis;
 }
 
+#ifndef GENERATE_TEST_KEYS
 static bool
 read_file_content(const char *filename, char **content, size_t *content_size)
 {
@@ -227,9 +232,17 @@ done:
 
   return success;
 }
+#endif
 
 bool
-read_test_private_key(bool ec_key, char **private_key, size_t *private_key_size, bool wrong_key)
+read_test_private_key(bool ec_key,
+    char **private_key,
+    size_t *private_key_size,
+#ifdef GENERATE_TEST_KEYS
+    ATTR_UNUSED bool wrong_key)
+#else
+    bool wrong_key)
+#endif
 {
   bool success = false;
 
@@ -238,6 +251,17 @@ read_test_private_key(bool ec_key, char **private_key, size_t *private_key_size,
     goto done;
   }
 
+#ifdef GENERATE_TEST_KEYS
+  svrc_t status = SV_UNKNOWN_FAILURE;
+  if (ec_key) {
+    status = signed_video_generate_ecdsa_private_key("./", private_key, private_key_size);
+  } else {
+    status = signed_video_generate_rsa_private_key("./", private_key, private_key_size);
+  }
+  if (status != SV_OK) {
+    goto done;
+  }
+#else
   const char *private_key_name = ec_key ? EC_PRIVATE_KEY_FILE : RSA_PRIVATE_KEY_FILE;
   if (wrong_key) {
     private_key_name = ec_key ? EC_WRONG_KEY_FILE : RSA_WRONG_KEY_FILE;
@@ -246,6 +270,7 @@ read_test_private_key(bool ec_key, char **private_key, size_t *private_key_size,
   if (!read_file_content(private_key_name, private_key, private_key_size)) {
     goto done;
   }
+#endif
 
   success = true;
 
@@ -361,29 +386,29 @@ get_initialized_signed_video(struct sv_setting settings, bool new_private_key)
   signed_video_t *sv = signed_video_create(settings.codec);
   ck_assert(sv);
   char *private_key = NULL;
-  size_t private_key_size = 0;
+  size_t *private_key_size;
 
   if (settings.ec_key) {
-    private_key = private_key_ecdsa;
-    private_key_size = private_key_size_ecdsa;
+    private_key = new_private_key ? new_private_key_ecdsa : private_key_ecdsa;
+    private_key_size = new_private_key ? &new_private_key_size_ecdsa : &private_key_size_ecdsa;
   } else {
-    private_key = private_key_rsa;
-    private_key_size = private_key_size_rsa;
+    private_key = new_private_key ? new_private_key_rsa : private_key_rsa;
+    private_key_size = new_private_key ? &new_private_key_size_rsa : &private_key_size_rsa;
   }
 
   // Generating private keys takes some time. In unit tests a new private key is only
   // generated if it is really needed. One RSA key and one ECDSA key is stored globally to
   // handle the scenario.
-  if (private_key_size == 0 || new_private_key) {
+  if (*private_key_size == 0 || new_private_key) {
     char *tmp_key = NULL;
     size_t tmp_key_size = 0;
     ck_assert(read_test_private_key(settings.ec_key, &tmp_key, &tmp_key_size, new_private_key));
     memcpy(private_key, tmp_key, tmp_key_size);
-    private_key_size = tmp_key_size;
+    *private_key_size = tmp_key_size;
     free(tmp_key);
   }
-  ck_assert(private_key && private_key_size > 0);
-  ck_assert_int_eq(signed_video_set_private_key_new(sv, private_key, private_key_size), SV_OK);
+  ck_assert(private_key && *private_key_size > 0);
+  ck_assert_int_eq(signed_video_set_private_key_new(sv, private_key, *private_key_size), SV_OK);
   ck_assert_int_eq(signed_video_set_product_info(sv, HW_ID, FW_VER, SER_NO, MANUFACT, ADDR), SV_OK);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
   ck_assert_int_eq(signed_video_set_max_sei_payload_size(sv, settings.max_sei_payload_size), SV_OK);
