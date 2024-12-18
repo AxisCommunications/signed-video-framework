@@ -68,6 +68,7 @@ struct _h26x_nalu_list_t {
   h26x_nalu_list_item_t *last_item;  // Points to the last item in the linked list, that is, the
   // latest NALU added for validation.
   int num_items;  // The number of items linked together in the list.
+  int num_gops;  // The number of gops linked together in the list, that is, I-frames.
 };
 
 /**
