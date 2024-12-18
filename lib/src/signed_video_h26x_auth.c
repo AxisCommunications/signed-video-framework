@@ -69,6 +69,12 @@ static const char *kAuthResultValidStr[SV_AUTH_NUM_SIGNED_GOP_VALID_STATES] = {"
     "SIGNATURE PRESENT", "NOT OK", "OK WITH MISSING INFO", "OK", "VERSION MISMATCH"};
 #endif
 
+/* Before the first SEI/OBU Metadata arrives the hashing algorithm is unknown. While waiting, the
+ * complete NALU/OBU data is stored. As a result, the memory increases dramatically in particular
+ * if the stream is not signed. If no SEI/OBU Metadata has arrived after 20 GOPs, the default hash
+ * is used. This limits the size to a minimum and the operations can proceed. */
+#define MAX_UNHASHED_GOPS 20
+
 /**
  * The function is called when we receive a SEI NALU holding all the GOP information such as a
  * signed hash. The payload is decoded and the signature hash is verified against the gop_hash in
@@ -504,7 +510,6 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
   int num_received_hashes = -1;
   char validation_status = 'P';
   h26x_nalu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(self->nalu_list);
-  svrc_t status = SV_UNKNOWN_FAILURE;
 
   bool gop_is_ok = verify_gop_hash(self);
   bool order_ok = verify_linked_hash(self);
@@ -552,7 +557,7 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
   if (num_expected_nalus) *num_expected_nalus = num_expected_hashes;
   if (num_received_nalus) *num_received_nalus = num_received_hashes;
 
-  return (status == SV_OK);
+  return true;
 }
 
 /* Verifying hashes without the SEI means that we have nothing to verify against. Therefore, we mark
@@ -1093,7 +1098,16 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
         update_validation_status = true;
       }
       self->gop_info->verified_signature_hash = -1;
-      self->validation_flags.has_auth_result = true;
+      validation_flags->has_auth_result = true;
+      if (latest->authenticity == SV_AUTH_RESULT_NOT_SIGNED) {
+        // Only report "stream is unsigned" in the accumulated report.
+        validation_flags->has_auth_result = false;
+      }
+      if (latest->authenticity == SV_AUTH_RESULT_SIGNATURE_PRESENT) {
+        // Do not report "stream is signed" more than once.
+        validation_flags->has_auth_result =
+            latest->authenticity != self->accumulated_validation->authenticity;
+      }
       public_key_has_changed |= latest->public_key_has_changed;  // Pass on public key failure.
     }
 
@@ -1205,10 +1219,11 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
   // Skip validation if it is done with the legacy code.
   if (self->legacy_sv) return SV_OK;
 
+  validation_flags_t *validation_flags = &(self->validation_flags);
   h26x_nalu_list_t *nalu_list = self->nalu_list;
   h26x_nalu_t nalu = parse_nalu_info(nalu_data, nalu_data_size, self->codec, true, true);
   DEBUG_LOG("Received a %s of size %zu B", nalu_type_to_str(&nalu), nalu.nalu_data_size);
-  self->validation_flags.has_auth_result = false;
+  validation_flags->has_auth_result = false;
 
   self->accumulated_validation->number_of_received_nalus++;
 
@@ -1221,22 +1236,24 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
     // is set accordingly.
     SV_THROW(h26x_nalu_list_append(nalu_list, &nalu));
     SV_THROW_IF(nalu.is_valid < 0, SV_UNKNOWN_FAILURE);
-    update_validation_flags(&self->validation_flags, &nalu);
+    update_validation_flags(validation_flags, &nalu);
     SV_THROW(register_nalu(self, nalu_list->last_item));
     // As soon as the first Signed Video SEI arrives (|signing_present| is true) and the
     // crypto TLV tag has been decoded it is feasible to hash the temporarily stored NAL
     // Units.
-    if (!self->validation_flags.hash_algo_known && self->validation_flags.signing_present &&
-        is_recurrent_data_decoded(self)) {
-      if (!self->validation_flags.hash_algo_known) {
+    if (!validation_flags->hash_algo_known &&
+        ((validation_flags->signing_present && is_recurrent_data_decoded(self)) ||
+            (nalu_list->num_gops > MAX_UNHASHED_GOPS))) {
+      if (!validation_flags->hash_algo_known) {
         DEBUG_LOG("No cryptographic information found in SEI. Using default hash algo");
-        self->validation_flags.hash_algo_known = true;
+        validation_flags->hash_algo_known = true;
       }
       if (nalu.is_golden_sei) SV_THROW(prepare_golden_sei(self, nalu_list->last_item));
 
       // Determine if legacy validation should be applied, that is, if the legacy way of
       // using linked hashes and recursive GOP hash is detected.
-      if (!(nalu.reserved_byte & 0x30) && !nalu.is_golden_sei) {
+      if (validation_flags->signing_present &&
+          (!(nalu.reserved_byte & 0x30) && !nalu.is_golden_sei)) {
         self->legacy_sv = legacy_sv_create(self);
         SV_THROW_IF(!self->legacy_sv, SV_MEMORY);
         accumulated_validation_init(self->accumulated_validation);
@@ -1249,7 +1266,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
 
   // Need to make a copy of the |nalu| independently of failure.
   svrc_t copy_nalu_status =
-      h26x_nalu_list_copy_last_item(nalu_list, self->validation_flags.hash_algo_known);
+      h26x_nalu_list_copy_last_item(nalu_list, validation_flags->hash_algo_known);
   // Make sure to return the first failure if both operations failed.
   status = (status == SV_OK) ? copy_nalu_status : status;
   if (status != SV_OK) {

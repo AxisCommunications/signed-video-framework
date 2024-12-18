@@ -217,6 +217,7 @@ h26x_nalu_list_refresh(h26x_nalu_list_t *list)
 
   // Start from scratch, that is, reset num_items.
   list->num_items = 0;
+  list->num_gops = -1;
   // Rewind first_item to get the 'true' first list item.
   while (list->first_item && (list->first_item)->prev) {
     list->first_item = (list->first_item)->prev;
@@ -225,6 +226,9 @@ h26x_nalu_list_refresh(h26x_nalu_list_t *list)
   h26x_nalu_list_item_t *item = list->first_item;
   while (item) {
     list->num_items++;
+    if (item->nalu && item->nalu->is_first_nalu_in_gop) {
+      list->num_gops++;
+    }
 
     if (!item->next) break;
     item = item->next;
