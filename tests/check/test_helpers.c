@@ -104,6 +104,10 @@ static char private_key_rsa[RSA_PRIVATE_KEY_ALLOC_BYTES];
 static size_t private_key_size_rsa;
 static char private_key_ecdsa[ECDSA_PRIVATE_KEY_ALLOC_BYTES];
 static size_t private_key_size_ecdsa;
+static char new_private_key_rsa[RSA_PRIVATE_KEY_ALLOC_BYTES];
+static size_t new_private_key_size_rsa;
+static char new_private_key_ecdsa[ECDSA_PRIVATE_KEY_ALLOC_BYTES];
+static size_t new_private_key_size_ecdsa;
 
 /* Pull SEIs from the signed_video_t session |sv| and prepend them to the test stream |item|. */
 static int
@@ -385,11 +389,11 @@ get_initialized_signed_video(struct sv_setting settings, bool new_private_key)
   size_t *private_key_size;
 
   if (settings.ec_key) {
-    private_key = private_key_ecdsa;
-    private_key_size = &private_key_size_ecdsa;
+    private_key = new_private_key ? new_private_key_ecdsa : private_key_ecdsa;
+    private_key_size = new_private_key ? &new_private_key_size_ecdsa : &private_key_size_ecdsa;
   } else {
-    private_key = private_key_rsa;
-    private_key_size = &private_key_size_rsa;
+    private_key = new_private_key ? new_private_key_rsa : private_key_rsa;
+    private_key_size = new_private_key ? &new_private_key_size_rsa : &private_key_size_rsa;
   }
 
   // Generating private keys takes some time. In unit tests a new private key is only
