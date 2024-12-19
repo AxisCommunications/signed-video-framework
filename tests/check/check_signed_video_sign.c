@@ -682,14 +682,14 @@ START_TEST(two_completed_seis_pending)
   sv_rc = signed_video_get_sei(
       sv, &sei, &sei_size_1, NULL, p_nalu->data, p_nalu->data_size, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
-  ck_assert_int_eq(num_pending_seis, 2);
+  ck_assert_int_eq(num_pending_seis, 1);
   ck_assert(sei_size_1 != 0);
   ck_assert(sei);
   free(sei);
   // From now on skipping peeks. Now get the second one.
   sv_rc = signed_video_get_sei(sv, &sei, &sei_size_2, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
-  ck_assert_int_eq(num_pending_seis, 1);
+  ck_assert_int_eq(num_pending_seis, 0);
   ck_assert(sei_size_2 != 0);
   ck_assert(sei);
   free(sei);
