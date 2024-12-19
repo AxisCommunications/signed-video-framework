@@ -998,7 +998,16 @@ legacy_maybe_validate_gop(legacy_sv_t *self, legacy_h26x_nalu_t *nalu)
         update_validation_status = true;
       }
       self->gop_info->verified_signature_hash = -1;
-      self->validation_flags.has_auth_result = true;
+      validation_flags->has_auth_result = true;
+      if (latest->authenticity == SV_AUTH_RESULT_NOT_SIGNED) {
+        // Only report "stream is unsigned" in the accumulated report.
+        validation_flags->has_auth_result = false;
+      }
+      if (latest->authenticity == SV_AUTH_RESULT_SIGNATURE_PRESENT) {
+        // Do not report "stream is signed" more than once.
+        validation_flags->has_auth_result =
+            latest->authenticity != self->accumulated_validation->authenticity;
+      }
       public_key_has_changed |= latest->public_key_has_changed;
     }
     SV_THROW(legacy_h26x_nalu_list_update_status(nalu_list, update_validation_status));
