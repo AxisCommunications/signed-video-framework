@@ -143,22 +143,19 @@ get_seis(signed_video_t *sv, int num_seis_to_get, int *num_seis_gotten)
   SignedVideoReturnCode sv_rc = SV_OK;
   int num_pulled_nalus = 0;
 
+  uint8_t *sei = NULL;
   size_t sei_size = 0;
-  int payload_offset = 0;
+  unsigned payload_offset = 0;
   // Pull SEIs without peek.
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size, &payload_offset, NULL, 0, NULL);
+  sv_rc = signed_video_get_sei(sv, &sei, &sei_size, &payload_offset, NULL, 0, NULL);
   while (num_seis_to_get != 0 && sv_rc == SV_OK && sei_size > 0) {
-    uint8_t *sei = malloc(sei_size);
-    ck_assert(sei);
-    sv_rc = signed_video_get_sei(sv, sei, &sei_size, &payload_offset, NULL, 0, NULL);
-    ck_assert_int_eq(sv_rc, SV_OK);
     // Check that the SEI payload starts with the Signed Video UUID.
     ck_assert_int_eq(memcmp(sei + payload_offset, kUuidSignedVideo, UUID_LEN), 0);
     // Sizes can vary between SEIs, so it is better to free and allocate new memory for each SEI
     free(sei);
     num_pulled_nalus++;
     num_seis_to_get--;
-    sv_rc = signed_video_get_sei(sv, NULL, &sei_size, &payload_offset, NULL, 0, NULL);
+    sv_rc = signed_video_get_sei(sv, &sei, &sei_size, &payload_offset, NULL, 0, NULL);
   }
 
   if (num_seis_gotten) *num_seis_gotten = num_pulled_nalus;
@@ -178,6 +175,7 @@ START_TEST(api_inputs)
   test_stream_item_t *invalid = test_stream_item_create_from_type('X', 0, codec);
   char *private_key = NULL;
   size_t private_key_size = 0;
+  uint8_t *sei = NULL;
   size_t sei_size = 0;
 
   signed_video_t *sv = signed_video_create(codec);
@@ -306,14 +304,9 @@ START_TEST(api_inputs)
   unsigned num_pending_seis = 0;
   sv_rc = signed_video_get_sei(sv, NULL, NULL, NULL, NULL, 0, NULL);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, NULL, 0, &num_pending_seis);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  ck_assert(sei_size == 0);
-  ck_assert_int_eq(num_pending_seis, 0);
-  uint8_t *sei = malloc(sei_size);
-  sv_rc = signed_video_get_sei(NULL, sei, &sei_size, NULL, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(NULL, &sei, &sei_size, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_get_sei(sv, sei, &sei_size, NULL, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(sv, &sei, &sei_size, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 0);
   // Checking signed_video_set_end_of_stream() for NULL pointers.
@@ -654,6 +647,7 @@ START_TEST(two_completed_seis_pending)
 
   SignedVideoCodec codec = settings[_i].codec;
   SignedVideoReturnCode sv_rc;
+  uint8_t *sei = NULL;
   size_t sei_size_1 = 0;
   size_t sei_size_2 = 0;
   size_t sei_size_3 = 0;
@@ -679,37 +673,32 @@ START_TEST(two_completed_seis_pending)
   unsigned num_pending_seis = 0;
   // First, peek with a secondary slice NAL Unit which should not provide a SEI.
   sv_rc = signed_video_get_sei(
-      sv, NULL, &sei_size_1, NULL, i_nalu_4->data, i_nalu_4->data_size, &num_pending_seis);
+      sv, &sei, &sei_size_1, NULL, i_nalu_4->data, i_nalu_4->data_size, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 2);
-  ck_assert(sei_size_1 == 0);
+  ck_assert_int_eq(sei_size_1, 0);
+  ck_assert(!sei);
   // Secondly, peek with a primary slice NAL Unit should reveil the SEI.
   sv_rc = signed_video_get_sei(
-      sv, NULL, &sei_size_1, NULL, p_nalu->data, p_nalu->data_size, &num_pending_seis);
+      sv, &sei, &sei_size_1, NULL, p_nalu->data, p_nalu->data_size, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
-  ck_assert_int_eq(num_pending_seis, 2);
+  ck_assert_int_eq(num_pending_seis, 1);
   ck_assert(sei_size_1 != 0);
-  uint8_t *sei_1 = malloc(sei_size_1);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  // From now on skipping peeks.
-  sv_rc = signed_video_get_sei(sv, sei_1, &sei_size_1, NULL, NULL, 0, &num_pending_seis);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  ck_assert_int_eq(num_pending_seis, 1);
-  // Now get the second one.
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size_2, NULL, NULL, 0, &num_pending_seis);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  ck_assert_int_eq(num_pending_seis, 1);
-  ck_assert(sei_size_2 != 0);
-  uint8_t *sei_2 = malloc(sei_size_2);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_get_sei(sv, sei_2, &sei_size_2, NULL, NULL, 0, &num_pending_seis);
+  ck_assert(sei);
+  free(sei);
+  // From now on skipping peeks. Now get the second one.
+  sv_rc = signed_video_get_sei(sv, &sei, &sei_size_2, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 0);
+  ck_assert(sei_size_2 != 0);
+  ck_assert(sei);
+  free(sei);
   // There should not be a third one.
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size_3, NULL, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(sv, &sei, &sei_size_3, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 0);
   ck_assert_int_eq(sei_size_3, 0);
+  ck_assert(!sei);
 
   // Verify the transfer order of NAL Units
   // Expect |sei_size_1| to be less than |sei_size_2| because the second SEI includes one
@@ -722,8 +711,6 @@ START_TEST(two_completed_seis_pending)
   test_stream_item_free(i_nalu_3);
   test_stream_item_free(i_nalu_4);
   signed_video_free(sv);
-  free(sei_1);
-  free(sei_2);
 }
 END_TEST
 
@@ -741,15 +728,13 @@ START_TEST(golden_sei_created)
   ck_assert_int_eq(sv_rc, SV_OK);
 
   unsigned num_pending_seis = 0;
+  uint8_t *sei = NULL;
   size_t sei_size = 0;
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, NULL, 0, &num_pending_seis);
-  ck_assert(sei_size != 0);
-  ck_assert_int_eq(num_pending_seis, 1);
-  uint8_t *sei = malloc(sei_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_get_sei(sv, sei, &sei_size, NULL, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(sv, &sei, &sei_size, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 0);
+  ck_assert(sei_size != 0);
+  ck_assert(sei);
 
   // Verify the golden SEI
   ck_assert(signed_video_is_golden_sei(sv, sei, sei_size));
@@ -848,6 +833,8 @@ START_TEST(correct_timestamp)
   ck_assert(sv_ts);
   test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
   test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 1, codec);
+  uint8_t *sei = NULL;
+  uint8_t *sei_ts = NULL;
   size_t sei_size = 0;
   size_t sei_size_ts = 0;
 
@@ -857,14 +844,11 @@ START_TEST(correct_timestamp)
   sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_2->data, i_nalu_2->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   unsigned num_pending_seis = 0;
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, NULL, 0, &num_pending_seis);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  ck_assert_int_eq(num_pending_seis, 1);
-  uint8_t *sei = malloc(sei_size);
-  sv_rc = signed_video_get_sei(sv, sei, &sei_size, NULL, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(sv, &sei, &sei_size, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 0);
   ck_assert(sei_size > 0);
+  ck_assert(sei);
 
   // Test new API with timestamp as NULL. It should give the same result as the old API
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
@@ -872,14 +856,11 @@ START_TEST(correct_timestamp)
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_add_nalu_for_signing(sv_ts, i_nalu_2->data, i_nalu_2->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_get_sei(sv_ts, NULL, &sei_size_ts, NULL, NULL, 0, &num_pending_seis);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  ck_assert_int_eq(num_pending_seis, 1);
-  uint8_t *sei_ts = malloc(sei_size_ts);
-  sv_rc = signed_video_get_sei(sv_ts, sei_ts, &sei_size_ts, NULL, NULL, 0, &num_pending_seis);
+  sv_rc = signed_video_get_sei(sv_ts, &sei_ts, &sei_size_ts, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 0);
   ck_assert(sei_size_ts > 0);
+  ck_assert(sei_ts);
 
   // Verify the sizes of the nalus
   ck_assert(sei_size > 0);
@@ -970,14 +951,10 @@ START_TEST(w_wo_emulation_prevention_bytes)
     sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
         sv, i_nalu_2->data, i_nalu_2->data_size, &g_testTimestamp);
     ck_assert_int_eq(sv_rc, SV_OK);
-    sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, NULL, 0, &num_pending_seis);
-    ck_assert_int_eq(sv_rc, SV_OK);
-    ck_assert_int_eq(num_pending_seis, 1);
-    ck_assert(sei_size > 0);
-    seis[ii] = malloc(sei_size);
-    sv_rc = signed_video_get_sei(sv, seis[ii], &sei_size, NULL, NULL, 0, &num_pending_seis);
+    sv_rc = signed_video_get_sei(sv, &seis[ii], &sei_size, NULL, NULL, 0, &num_pending_seis);
     ck_assert_int_eq(sv_rc, SV_OK);
     ck_assert_int_eq(num_pending_seis, 0);
+    ck_assert(sei_size > 0);
     ck_assert(seis[ii]);
     sei_sizes[ii] = sei_size;
     nalus[ii] = parse_nalu_info(seis[ii], sei_sizes[ii], codec, false, true);

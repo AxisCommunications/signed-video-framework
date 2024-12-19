@@ -1566,6 +1566,7 @@ START_TEST(vendor_axis_communications_operation)
   test_stream_item_t *p_nalu = test_stream_item_create_from_type('P', 1, codec);
   test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 2, codec);
   test_stream_item_t *sei_item = NULL;
+  uint8_t *sei = NULL;
   size_t sei_size = 0;
 
   // Check generate private key.
@@ -1591,17 +1592,17 @@ START_TEST(vendor_axis_communications_operation)
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_2->data, i_nalu_2->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, NULL, 0, NULL);
+  sv_rc = signed_video_get_sei(sv, &sei, &sei_size, NULL, NULL, 0, NULL);
+  ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(sei_size > 0);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  uint8_t *sei = malloc(sei_size);
-  sv_rc = signed_video_get_sei(sv, sei, &sei_size, NULL, NULL, 0, NULL);
-  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(sei);
   sei_item = test_stream_item_create(sei, sei_size, codec);
   ck_assert(tag_is_present(sei_item, codec, VENDOR_AXIS_COMMUNICATIONS_TAG));
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, NULL, 0, NULL);
+  uint8_t *tmp_sei = NULL;
+  sv_rc = signed_video_get_sei(sv, &tmp_sei, &sei_size, NULL, NULL, 0, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
-  ck_assert(sei_size == 0);
+  ck_assert_int_eq(sei_size, 0);
+  ck_assert(!tmp_sei);
 
   signed_video_free(sv);
 
@@ -1682,18 +1683,14 @@ generate_and_set_private_key_on_camera_side(struct sv_setting setting,
   sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_2->data, i_nalu_2->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
+  uint8_t *sei = NULL;
   size_t sei_size = 0;
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, NULL, 0, NULL);
+  sv_rc = signed_video_get_sei(sv, &sei, &sei_size, NULL, NULL, 0, NULL);
+  ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(sei_size > 0);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  uint8_t *sei = malloc(sei_size);
-  sv_rc = signed_video_get_sei(sv, sei, &sei_size, NULL, NULL, 0, NULL);
-  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(sei);
   *sei_item = test_stream_item_create(sei, sei_size, setting.codec);
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, NULL, 0, NULL);
 
-  ck_assert_int_eq(sv_rc, SV_OK);
-  ck_assert(sei_size == 0);
   ck_assert(tag_is_present(*sei_item, setting.codec, PUBLIC_KEY_TAG) == add_public_key_to_sei);
 
   test_stream_item_free(i_nalu);
@@ -1925,6 +1922,7 @@ START_TEST(no_emulation_prevention_bytes)
   test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 1, codec);
 
   test_stream_item_t *sei_item = NULL;
+  uint8_t *sei = NULL;
   size_t sei_size;
 
   // Signing side
@@ -1952,12 +1950,9 @@ START_TEST(no_emulation_prevention_bytes)
       sv, i_nalu_2->data, i_nalu_2->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  sv_rc = signed_video_get_sei(sv, NULL, &sei_size, NULL, NULL, 0, NULL);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  uint8_t *sei = malloc(sei_size);
-  sv_rc = signed_video_get_sei(sv, sei, &sei_size, NULL, NULL, 0, NULL);
-
+  sv_rc = signed_video_get_sei(sv, &sei, &sei_size, NULL, NULL, 0, NULL);
   ck_assert(sei_size != 0);
+  ck_assert(sei);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Allocate memory for a new buffer to write to, and add emulation prevention bytes.
@@ -1970,14 +1965,15 @@ START_TEST(no_emulation_prevention_bytes)
   size_t src_size = sei_size - 4;
   write_byte_many(&sei_p, src, src_size, &last_two_bytes, true);
   size_t sei_with_epb_size = sei_p - sei_with_epb;
-  signed_video_nalu_data_free(sei);
+  free(sei);
 
   // Create a SEI.
   sei_item = test_stream_item_create(sei_with_epb, sei_with_epb_size, codec);
 
-  sv_rc = signed_video_get_sei(sv, sei, &sei_size, NULL, NULL, 0, NULL);
+  sv_rc = signed_video_get_sei(sv, &sei, &sei_size, NULL, NULL, 0, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
-  ck_assert(sei_size == 0);
+  ck_assert_int_eq(sei_size, 0);
+  ck_assert(!sei);
 
   // Close signing side.
   signed_video_free(sv);

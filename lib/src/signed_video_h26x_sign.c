@@ -670,15 +670,16 @@ get_latest_sei(signed_video_t *self, uint8_t *sei, size_t *sei_size)
 
 SignedVideoReturnCode
 signed_video_get_sei(signed_video_t *self,
-    uint8_t *sei,
+    uint8_t **sei,
     size_t *sei_size,
-    int *payload_offset,
+    unsigned *payload_offset,
     const uint8_t *peek_nalu,
     size_t peek_nalu_size,
     unsigned *num_pending_seis)
 {
 
-  if (!self || !sei_size) return SV_INVALID_PARAMETER;
+  if (!self || !sei || !sei_size) return SV_INVALID_PARAMETER;
+  *sei = NULL;
   *sei_size = 0;
   if (payload_offset) {
     *payload_offset = 0;
@@ -710,21 +711,19 @@ signed_video_get_sei(signed_video_t *self,
   }
 
   *sei_size = self->sei_data_buffer[0].completed_sei_size;
-  if (!sei) return SV_OK;
-  // Copy the SEI data to the provided pointer.
-  memcpy(sei, self->sei_data_buffer[0].sei, *sei_size);
-
-  // Reset the fetched SEI information from the sei buffer.
-  free(self->sei_data_buffer[0].sei);
-  --(self->num_of_completed_seis);
-  shift_sei_buffer_at_index(self, 0);
+  // Transfer the memory.
+  *sei = self->sei_data_buffer[0].sei;
 
   // Get the offset to the start of the SEI payload if requested.
   if (payload_offset) {
-    h26x_nalu_t nalu_info = parse_nalu_info(sei, *sei_size, self->codec, false, false);
+    h26x_nalu_t nalu_info = parse_nalu_info(*sei, *sei_size, self->codec, false, false);
     free(nalu_info.nalu_data_wo_epb);
-    *payload_offset = nalu_info.payload - sei;
+    *payload_offset = (unsigned)(nalu_info.payload - *sei);
   }
+
+  // Reset the fetched SEI information from the sei buffer.
+  --(self->num_of_completed_seis);
+  shift_sei_buffer_at_index(self, 0);
 
   // Update |num_pending_seis| in case SEIs were fetched.
   if (num_pending_seis) {
