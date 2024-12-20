@@ -762,51 +762,43 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
     uint8_t attestation_size,
     const char *certificate_chain)
 {
-  // Sanity check inputs. It is allowed to set either one of |attestation| and |certificate_chain|,
-  // but a mismatch between |attestation| and |attestation_size| returns SV_INVALID_PARAMETER.
+  // Sanity check inputs. It is allowed to skip |attestation| but not |certificate_chain|.
   if (!sv) return SV_INVALID_PARAMETER;
-  if (!attestation && !certificate_chain) return SV_INVALID_PARAMETER;
+  if (!certificate_chain) return SV_INVALID_PARAMETER;
   if ((attestation && attestation_size == 0) || (!attestation && attestation_size > 0)) {
     return SV_INVALID_PARAMETER;
   }
   if (!sv->vendor_handle) return SV_NOT_SUPPORTED;
 
   sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)sv->vendor_handle;
-  bool allocated_attestation = false;
-  bool allocated_certificate_chain = false;
+  // If |certificate_chain| already exists, return error.
+  if (self->certificate_chain) return SV_NOT_SUPPORTED;
+  // Check if there is anything to copy.
+  size_t certificate_chain_size = strlen(certificate_chain);
+  if (certificate_chain_size == 0) goto catch_error;
+
+  bool has_newline_at_end = false;
+  if (certificate_chain[certificate_chain_size - 1] == '\n') {
+    has_newline_at_end = true;
+  }
+  // Allocate memory for |certificate_chain| + null-terminated character and maybe extra '\n'.
+  self->certificate_chain = calloc(1, certificate_chain_size + (has_newline_at_end ? 1 : 2));
+  if (!self->certificate_chain) goto catch_error;
+  strcpy(self->certificate_chain, certificate_chain);
+  if (!has_newline_at_end) {
+    // Add newline.
+    strcpy(self->certificate_chain + certificate_chain_size, "\n");
+  }
+
   // The user wants to set the |attestation|.
   if (attestation) {
     // If |attestation| already exists, return error.
     if (self->attestation) return SV_NOT_SUPPORTED;
     // Allocate memory and copy to |self|.
     self->attestation = malloc(attestation_size);
-    allocated_attestation = true;
     if (!self->attestation) goto catch_error;
     memcpy(self->attestation, attestation, attestation_size);
     self->attestation_size = attestation_size;
-  }
-
-  // The user wants to set the |certificate_chain|.
-  if (certificate_chain) {
-    // If |certificate_chain| already exists, return error.
-    if (self->certificate_chain) return SV_NOT_SUPPORTED;
-    // Check if there is anything to copy.
-    size_t certificate_chain_size = strlen(certificate_chain);
-    if (certificate_chain_size == 0) goto catch_error;
-
-    bool has_newline_at_end = false;
-    if (certificate_chain[certificate_chain_size - 1] == '\n') {
-      has_newline_at_end = true;
-    }
-    // Allocate memory for |certificate_chain| + null-terminated character and maybe extra '\n'.
-    self->certificate_chain = calloc(1, certificate_chain_size + (has_newline_at_end ? 1 : 2));
-    allocated_certificate_chain = true;
-    if (!self->certificate_chain) goto catch_error;
-    strcpy(self->certificate_chain, certificate_chain);
-    if (!has_newline_at_end) {
-      strcpy(self->certificate_chain + certificate_chain_size, "\n");
-      DEBUG_LOG("Adding newline since certificate_chain did not end with it.");
-    }
   }
 
   sv->vendor_encoders = axis_communications_encoders;
@@ -816,15 +808,11 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
 
 catch_error:
   // Free all memory.
-  if (allocated_attestation) {
-    free(self->attestation);
-    self->attestation = NULL;
-    self->attestation_size = 0;
-  }
-  if (allocated_certificate_chain) {
-    free(self->certificate_chain);
-    self->certificate_chain = NULL;
-  }
+  free(self->attestation);
+  self->attestation = NULL;
+  self->attestation_size = 0;
+  free(self->certificate_chain);
+  self->certificate_chain = NULL;
 
   return SV_MEMORY;
 }
