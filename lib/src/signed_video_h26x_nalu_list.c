@@ -324,7 +324,7 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list, bool hash_algo_known)
   while (!(item->nalu)) {
     item = item->prev;
   }
-  int hashable_data_offset = item->nalu->hashable_data - item->nalu->nalu_data;
+  int hashable_data_offset = (int)(item->nalu->hashable_data - item->nalu->nalu_data);
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
