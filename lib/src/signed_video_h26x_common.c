@@ -967,7 +967,7 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
   // a valid |hash_list| exists, and the |hash| can be copied to it.
   if (*list_idx >= 0) {
     memcpy(&hash_list[*list_idx], hash, hash_size);
-    *list_idx += hash_size;
+    *list_idx += (int)hash_size;
   }
   openssl_update_hash(self->crypto_handle, hash, hash_size, true);
 }

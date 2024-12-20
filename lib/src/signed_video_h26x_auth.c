@@ -293,7 +293,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
   assert(hash_size > 0);
   // Expected hashes.
   uint8_t *expected_hashes = self->gop_info->hash_list;
-  const int num_expected_hashes = self->gop_info->list_idx / hash_size;
+  const int num_expected_hashes = (const int)(self->gop_info->list_idx / hash_size);
 
   h26x_nalu_list_t *nalu_list = self->nalu_list;
   h26x_nalu_list_item_t *last_used_item = NULL;
