@@ -562,8 +562,8 @@ encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, bool e
   size_t certificate_chain_encode_size = get_untrusted_certificates_size(self);
   const uint8_t version = 1;  // Increment when the change breaks the format
 
-  // If there is no attestation or certificate chain, skip encoding, that is return 0.
-  if (!self->attestation || !self->certificate_chain) return 0;
+  // If there is no certificate chain, skip encoding, that is return 0.
+  if (!self->certificate_chain) return 0;
 
   // Version 1:
   //  - version (1 byte)
@@ -616,9 +616,8 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
     SV_THROW_IF(version != 1, SV_INCOMPATIBLE_VERSION);
     // Read |attestation_size|.
     attestation_size = *data_ptr++;
-    SV_THROW_IF(attestation_size == 0, SV_NOT_SUPPORTED);
     // Allocate memory for |attestation|.
-    if (!self->attestation) {
+    if (attestation_size > 0 && !self->attestation) {
       self->attestation = malloc(attestation_size);
       SV_THROW_IF(!self->attestation, SV_MEMORY);
       // Read |attestation|.
@@ -628,7 +627,9 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
     // Check if the received |attestation| differ from the present one. If so, return
     // SV_NOT_SUPPORTED, since a change in attestation is not allowed.
     SV_THROW_IF(attestation_size != self->attestation_size, SV_NOT_SUPPORTED);
-    SV_THROW_IF(memcmp(data_ptr, self->attestation, attestation_size), SV_NOT_SUPPORTED);
+    if (attestation_size > 0) {
+      SV_THROW_IF(memcmp(data_ptr, self->attestation, attestation_size), SV_NOT_SUPPORTED);
+    }
     // Move pointer past |attestation|.
     data_ptr += attestation_size;
 
@@ -657,8 +658,10 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
     memcpy(cert_chain_str, self->certificate_chain, cert_size);
     printf("\nAxis Communications Tag\n");
     printf("             tag version: %u\n", version);
-    sv_print_hex_data(
-        self->attestation, attestation_size, "     attestation (%3u B): ", attestation_size);
+    if (attestation_size) {
+      sv_print_hex_data(
+          self->attestation, attestation_size, "     attestation (%3u B): ", attestation_size);
+    }
     printf("       certificate chain:\n%s\n", cert_chain_str);
     free(cert_chain_str);
 #endif
