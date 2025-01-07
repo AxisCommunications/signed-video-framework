@@ -171,7 +171,7 @@ update_link_hash_for_auth(signed_video_t *self)
   while (item) {
     if (item->used_in_gop_hash && item->nalu->is_first_nalu_in_gop) {
       if (!item->used_for_linked_hash) {
-        update_linked_hash(self, item->second_hash, hash_size);
+        update_linked_hash(self, item->hash, hash_size);
         item->used_for_linked_hash = true;
       }
       break;
@@ -244,7 +244,7 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
       if (item == sei) {
         break;  // Break if encountered SEI frame.
       }
-      hash_to_add = item->nalu->is_first_nalu_in_gop ? item->second_hash : item->hash;
+      hash_to_add = item->hash;
       // Since the GOP hash is initialized, it can be updated with each incoming NALU hash.
       SV_THROW(openssl_update_hash(self->crypto_handle, hash_to_add, hash_size, true));
       item->used_in_gop_hash = true;  // Mark the item as used in the GOP hash
@@ -362,9 +362,8 @@ verify_hashes_with_hash_list(signed_video_t *self,
     }
     num_verified_hashes++;
 
-    // Fetch the |hash_to_verify|, which normally is the item->hash, but if this is NALU is an
-    // I frame we use item->second_hash.
-    uint8_t *hash_to_verify = item->nalu->is_first_nalu_in_gop ? item->second_hash : item->hash;
+    // Fetch the |hash_to_verify|
+    uint8_t *hash_to_verify = item->hash;
     // Compare |hash_to_verify| against all the |expected_hashes| since the |latest_match_idx|. Stop
     // when we get a match or reach the end.
     compare_idx = latest_match_idx + 1;
@@ -415,7 +414,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
     // We do not know where in the sequence of NALUs they were lost. Simply add them before the
     // first item. If the first item needs a second opinion, that is, it has already been verified
     // once, we append that item. Otherwise, prepend it with missing items.
-    const bool append = !!nalu_list->first_item->second_hash;
+    const bool append = !!nalu_list->first_item->nalu->is_first_nalu_in_gop;
     // No need to check the return value. A failure only affects the statistics. In the worst case
     // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
     h26x_nalu_list_add_missing(nalu_list, num_missing_nalus, append, nalu_list->first_item);
