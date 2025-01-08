@@ -1061,7 +1061,19 @@ static svrc_t
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 decode_axis_communications(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
-  return decode_axis_communications_handle(self->vendor_handle, data, data_size);
+  svrc_t status = SV_UNKNOWN_FAILURE;
+  SV_TRY()
+    SV_THROW(decode_axis_communications_handle(self->vendor_handle, data, data_size));
+    // If the signing key is provisioned in factory, the public key is transmitted through the leaf
+    // certificate of the certificate chain.
+    if (!self->has_public_key) {
+      SV_THROW(get_axis_communications_public_key(self->vendor_handle, &(self->verify_data->key)));
+      self->has_public_key = (self->verify_data->key != NULL);
+    }
+  SV_CATCH()
+  SV_DONE(status)
+
+  return status;
 #else
 decode_axis_communications(signed_video_t ATTR_UNUSED *self,
     const uint8_t ATTR_UNUSED *data,

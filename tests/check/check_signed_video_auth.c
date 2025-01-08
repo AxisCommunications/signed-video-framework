@@ -1653,6 +1653,109 @@ START_TEST(vendor_axis_communications_operation)
   signed_video_free(sv);
 }
 END_TEST
+
+/* Similar to |vendor_axis_communications_operation| above, but with factory provisioned
+ * signing. This means that the public key is transmitted as part of the certificate
+ * chain. */
+START_TEST(factory_provisioned_key)
+{
+  // There are currently no means to generate a certificate chain, hence this test does
+  // not apply if keys are to be generated on the fly.
+#ifdef GENERATE_TEST_KEYS
+  return;
+#endif
+  struct sv_setting setting = settings[_i];
+  // Only EC keys are tested.
+  if (!setting.ec_key) return;
+
+  SignedVideoReturnCode sv_rc;
+  SignedVideoCodec codec = setting.codec;
+  test_stream_item_t *i_item = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *p_item = test_stream_item_create_from_type('P', 1, codec);
+  test_stream_item_t *i_item_2 = test_stream_item_create_from_type('I', 2, codec);
+  test_stream_item_t *sei_item = NULL;
+  uint8_t *sei = NULL;
+  size_t sei_size = 0;
+
+  // Check generate private key.
+  signed_video_t *sv = get_initialized_signed_video(setting, false);
+  ck_assert(sv);
+
+  char *certificate_chain = NULL;
+  ck_assert(read_test_certificate_chain(&certificate_chain));
+  // Setting |certificate_chain|.
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, certificate_chain);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  free(certificate_chain);
+
+  sv_rc = signed_video_set_product_info(sv, HW_ID, FW_VER, NULL, "Axis Communications AB", ADDR);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Mimic a GOP with 1 P-NAL Unit between 2 I-NAL Units to trigger an SEI message.
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_item->data, i_item->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_add_nalu_for_signing(sv, p_item->data, p_item->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_item_2->data, i_item_2->data_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_get_sei(sv, &sei, &sei_size, NULL, NULL, 0, NULL);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(sei_size > 0);
+  ck_assert(sei);
+  sei_item = test_stream_item_create(sei, sei_size, codec);
+  ck_assert(tag_is_present(sei_item, codec, VENDOR_AXIS_COMMUNICATIONS_TAG));
+  ck_assert(!tag_is_present(sei_item, codec, PUBLIC_KEY_TAG));  // Public key in leaf cert.
+  uint8_t *tmp_sei = NULL;
+  sv_rc = signed_video_get_sei(sv, &tmp_sei, &sei_size, NULL, NULL, 0, NULL);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert_int_eq(sei_size, 0);
+  ck_assert(!tmp_sei);
+
+  signed_video_free(sv);
+
+  // End of signing side. Start a new session on the validation side.
+  sv = signed_video_create(codec);
+  ck_assert(sv);
+
+  // Validate this first GOP.
+  signed_video_authenticity_t *auth_report = NULL;
+  signed_video_latest_validation_t *latest = NULL;
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, i_item->data, i_item->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(!auth_report);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, p_item->data, p_item->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc =
+      signed_video_add_nalu_and_authenticate(sv, i_item_2->data, i_item_2->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert(!auth_report);
+  sv_rc =
+      signed_video_add_nalu_and_authenticate(sv, sei_item->data, sei_item->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  ck_assert(auth_report);
+  latest = &(auth_report->latest_validation);
+  ck_assert(latest);
+  ck_assert_int_eq(strcmp(latest->validation_str, "..P."), 0);
+  ck_assert_int_eq(latest->public_key_validation, SV_PUBKEY_VALIDATION_NOT_OK);
+  ck_assert_int_eq(auth_report->accumulated_validation.authenticity, SV_AUTH_RESULT_OK);
+  ck_assert_int_eq(auth_report->accumulated_validation.public_key_has_changed, false);
+  ck_assert_int_eq(auth_report->accumulated_validation.number_of_received_nalus, 4);
+  ck_assert_int_eq(auth_report->accumulated_validation.number_of_validated_nalus, 2);
+  ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_nalus, 2);
+  ck_assert_int_eq(
+      auth_report->accumulated_validation.public_key_validation, SV_PUBKEY_VALIDATION_NOT_OK);
+  // We are done with auth_report.
+  signed_video_authenticity_report_free(auth_report);
+
+  // Free nalu_list_item and session.
+  test_stream_item_free(sei_item);
+  test_stream_item_free(i_item);
+  test_stream_item_free(i_item_2);
+  test_stream_item_free(p_item);
+  signed_video_free(sv);
+}
+END_TEST
 #endif
 
 static signed_video_t *
@@ -2189,6 +2292,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, golden_sei_principle, s, e);
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
+  tcase_add_loop_test(tc, factory_provisioned_key, s, e);
 #endif
   tcase_add_loop_test(tc, no_emulation_prevention_bytes, s, e);
   tcase_add_loop_test(tc, with_blocked_signing, s, e);
