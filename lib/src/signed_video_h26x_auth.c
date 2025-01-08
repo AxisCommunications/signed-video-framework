@@ -409,6 +409,8 @@ verify_hashes_with_hash_list(signed_video_t *self,
     int num_missing_nalus = num_expected_hashes - num_invalid_nalus_since_latest_match;
     // No need to check the return value. A failure only affects the statistics. In the worst case
     // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
+    // TODO: Investigate whether adding missing items to the start of the list could cause problems
+    // during the validation of multiple GOPs in one go.
     h26x_nalu_list_add_missing(nalu_list, num_missing_nalus, true, nalu_list->first_item);
   }
 
