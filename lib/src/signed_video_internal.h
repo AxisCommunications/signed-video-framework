@@ -221,7 +221,6 @@ typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;
 struct _gop_info_t {
   uint8_t hash_buddies[2 * MAX_HASH_SIZE];  // Memory for two hashes organized as
   // [reference_hash, nalu_hash].
-  bool has_reference_hash;  // Flags if the reference hash in |hash_buddies| is valid.
   uint8_t hashes[2 * MAX_HASH_SIZE];  // Memory for storing, in order, the gop_hash and
   // 'latest hash'.
   uint8_t *gop_hash;  // Pointing to the memory slot of the gop_hash in |hashes|.

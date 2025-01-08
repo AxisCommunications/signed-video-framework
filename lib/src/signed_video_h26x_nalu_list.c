@@ -111,7 +111,6 @@ h26x_nalu_list_item_free(h26x_nalu_list_item_t *item)
     }
     free(item->nalu);
   }
-  free(item->second_hash);
   free(item);
 }
 
@@ -155,7 +154,6 @@ h26x_nalu_list_item_print(const h26x_nalu_list_item_t *item)
   // h26x_nalu_t *nalu;
   // char validation_status;
   // uint8_t hash[MAX_HASH_SIZE];
-  // uint8_t *second_hash;
   // bool taken_ownership_of_nalu;
   // bool has_been_decoded;
   // bool used_in_gop_hash;
@@ -174,7 +172,6 @@ h26x_nalu_list_item_print(const h26x_nalu_list_item_t *item)
       (item->has_been_decoded ? ", has_been_decoded" : ""),
       (item->used_in_gop_hash ? ", used_in_gop_hash" : ""));
   sv_print_hex_data(item->hash, item->hash_size, "item->hash     ");
-  sv_print_hex_data(item->second_hash, item->hash_size, "item->second_hash ");
 }
 #endif
 

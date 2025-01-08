@@ -171,7 +171,7 @@ update_link_hash_for_auth(signed_video_t *self)
   while (item) {
     if (item->used_in_gop_hash && item->nalu->is_first_nalu_in_gop) {
       if (!item->used_for_linked_hash) {
-        update_linked_hash(self, item->second_hash, hash_size);
+        update_linked_hash(self, item->hash, hash_size);
         item->used_for_linked_hash = true;
       }
       break;
@@ -209,7 +209,6 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
   h26x_nalu_list_t *nalu_list = self->nalu_list;
   const size_t hash_size = self->verify_data->hash_size;
   h26x_nalu_list_item_t *item = NULL;
-  const uint8_t *hash_to_add = NULL;
   int num_nalus_in_gop = 0;
   assert(nalu_list);
 
@@ -244,9 +243,8 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
       if (item == sei) {
         break;  // Break if encountered SEI frame.
       }
-      hash_to_add = item->nalu->is_first_nalu_in_gop ? item->second_hash : item->hash;
       // Since the GOP hash is initialized, it can be updated with each incoming NALU hash.
-      SV_THROW(openssl_update_hash(self->crypto_handle, hash_to_add, hash_size, true));
+      SV_THROW(openssl_update_hash(self->crypto_handle, item->hash, hash_size, true));
       item->used_in_gop_hash = true;  // Mark the item as used in the GOP hash
       num_nalus_in_gop++;
 
@@ -336,7 +334,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
   // Initialization
   int latest_match_idx = -1;  // The latest matching hash in |hash_list|
   int compare_idx = 0;  // The offset in |hash_list| selecting the hash to compared
-                        // against the |hash_to_verify|
+                        // against the |item->hash|
   bool found_next_gop = false;
   bool found_item_after_sei = false;
   h26x_nalu_list_item_t *item = nalu_list->first_item;
@@ -362,17 +360,14 @@ verify_hashes_with_hash_list(signed_video_t *self,
     }
     num_verified_hashes++;
 
-    // Fetch the |hash_to_verify|, which normally is the item->hash, but if this is NALU is an
-    // I frame we use item->second_hash.
-    uint8_t *hash_to_verify = item->nalu->is_first_nalu_in_gop ? item->second_hash : item->hash;
-    // Compare |hash_to_verify| against all the |expected_hashes| since the |latest_match_idx|. Stop
+    // Compare |item->hash| against all the |expected_hashes| since the |latest_match_idx|. Stop
     // when we get a match or reach the end.
     compare_idx = latest_match_idx + 1;
     // This while-loop searches for a match among the feasible hashes in |hash_list|.
     while (compare_idx < num_expected_hashes) {
       uint8_t *expected_hash = &expected_hashes[compare_idx * hash_size];
 
-      if (memcmp(hash_to_verify, expected_hash, hash_size) == 0) {
+      if (memcmp(item->hash, expected_hash, hash_size) == 0) {
         // We have a match. Set tmp_validation_status and add missing nalus if we have detected any.
         item->tmp_validation_status = order_ok ? '.' : 'N';
         // Add missing items to |nalu_list|.
@@ -412,13 +407,11 @@ verify_hashes_with_hash_list(signed_video_t *self,
   if (latest_match_idx == -1) {
     DEBUG_LOG("Never found a matching hash at all");
     int num_missing_nalus = num_expected_hashes - num_invalid_nalus_since_latest_match;
-    // We do not know where in the sequence of NALUs they were lost. Simply add them before the
-    // first item. If the first item needs a second opinion, that is, it has already been verified
-    // once, we append that item. Otherwise, prepend it with missing items.
-    const bool append = !!nalu_list->first_item->second_hash;
     // No need to check the return value. A failure only affects the statistics. In the worst case
     // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
-    h26x_nalu_list_add_missing(nalu_list, num_missing_nalus, append, nalu_list->first_item);
+    // TODO: Investigate whether adding missing items to the start of the list could cause problems
+    // during the validation of multiple GOPs in one go.
+    h26x_nalu_list_add_missing(nalu_list, num_missing_nalus, true, nalu_list->first_item);
   }
 
   // If the last invalid NALU is the first NALU in a GOP or the NALU after the SEI, keep it

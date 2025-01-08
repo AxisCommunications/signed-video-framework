@@ -255,7 +255,6 @@ gop_info_reset(gop_info_t *gop_info)
   gop_info->verified_signature_hash = -1;
   // If a reset is forced, the stored hashes in |hash_list| have no meaning anymore.
   gop_info->list_idx = 0;
-  gop_info->has_reference_hash = true;
   gop_info->global_gop_counter_is_synced = false;
 }
 
@@ -1011,7 +1010,7 @@ get_hash_wrapper(signed_video_t *self, const h26x_nalu_t *nalu)
     // A SEI, i.e., the document_hash, is hashed without reference, since that one may be verified
     // separately.
     return simply_hash;
-  } else if (nalu->is_first_nalu_in_gop && !self->gop_info->has_reference_hash) {
+  } else if (nalu->is_first_nalu_in_gop) {
     // If the current NALU |is_first_nalu_in_gop| and we do not already have a reference, we should
     // |simply_hash| and copy the hash to reference.
     return hash_and_copy_to_ref;
@@ -1068,8 +1067,7 @@ simply_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *hash, size_t
  * extends simply_hash() by also copying the |hash| to the reference hash used to
  * hash_with_reference().
  *
- * This is needed for the first NALU of a GOP, which serves as a reference. The member variable
- * |has_reference_hash| is set to true after a successful operation. */
+ * This is needed for the first NALU of a GOP, which serves as a reference. */
 static svrc_t
 hash_and_copy_to_ref(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *hash, size_t hash_size)
 {
@@ -1084,8 +1082,6 @@ hash_and_copy_to_ref(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *has
     SV_THROW(simply_hash(self, nalu, hash, hash_size));
     // Copy the |nalu_hash| to |reference_hash| to be used in hash_with_reference().
     memcpy(reference_hash, hash, hash_size);
-    // Tell the user there is a new reference hash.
-    gop_info->has_reference_hash = true;
   SV_CATCH()
   SV_DONE(status)
 
@@ -1187,9 +1183,6 @@ hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
     return SV_OK;
   }
 
-  gop_info_t *gop_info = self->gop_info;
-  gop_state_t *gop_state = &self->gop_state;
-
   uint8_t *nalu_hash = NULL;
   nalu_hash = item->hash;
   assert(nalu_hash);
@@ -1204,26 +1197,6 @@ hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
 #ifdef SIGNED_VIDEO_DEBUG
     sv_print_hex_data(nalu_hash, hash_size, "Hash of %s: ", nalu_type_to_str(nalu));
 #endif
-    // Check if we have a potential transition to a new GOP. This happens if the current NALU
-    // |is_first_nalu_in_gop|. If we have lost the first NALU of a GOP we can still make a guess by
-    // checking if |has_sei| flag is set. It is set if the previous hashable NALU was SEI.
-    if (nalu->is_first_nalu_in_gop || (gop_state->validate_after_next_nalu && !nalu->is_gop_sei)) {
-      // Updates counters and reset flags.
-      gop_info->has_reference_hash = false;
-
-      // Hash the NALU again, but this time store the hash as a |second_hash|. This is needed since
-      // the current NALU belongs to both the ended and the started GOP. Note that we need to get
-      // the hash wrapper again since conditions may have changed.
-      hash_wrapper = get_hash_wrapper(self, nalu);
-      free(item->second_hash);
-      item->second_hash = malloc(MAX_HASH_SIZE);
-      SV_THROW_IF(!item->second_hash, SV_MEMORY);
-      SV_THROW(hash_wrapper(self, nalu, item->second_hash, hash_size));
-#ifdef SIGNED_VIDEO_DEBUG
-      sv_print_hex_data(nalu_hash, hash_size, "Second hash of %s: ", nalu_type_to_str(nalu));
-#endif
-    }
-
   SV_CATCH()
   SV_DONE(status)
 
