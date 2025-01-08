@@ -97,8 +97,6 @@ struct _gop_state_t {
   bool gop_transition_is_lost;  // The transition between GOPs has been lost.
   // This can be detected if a lost SEI is detected, and at the same time waiting for an I NALU. An
   // example when this happens is if an entire AU is lost including both the SEI and the I NALU.
-  bool validate_after_next_nalu;  // State to inform the algorithm to perform validation up the next
-  // hashable NALU.
 };
 
 // Buffer of |last_two_bytes| and pointers to |sei| memory and current |write_position|.
