@@ -436,17 +436,13 @@ START_TEST(vendor_axis_communications_operation)
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, attestation_size, NULL);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  // Setting only the |attestation| is a valid operation.
+  // Setting only the |attestation| is not a valid operation.
   sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, attestation, 1, NULL);
-  ck_assert_int_eq(sv_rc, SV_OK);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   // Setting only the |axisDummyCertificateChain| is a valid operation.
-  sv_rc =
-      sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, axisDummyCertificateChain);
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(
+      sv, attestation, attestation_size, axisDummyCertificateChain);
   ck_assert_int_eq(sv_rc, SV_OK);
-  // Setting a new |attestation| is not supported.
-  sv_rc =
-      sv_vendor_axis_communications_set_attestation_report(sv, attestation, attestation_size, NULL);
-  ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
   // Setting a new |axisDummyCertificateChain| is not supported.
   sv_rc =
       sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, axisDummyCertificateChain);
