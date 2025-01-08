@@ -45,6 +45,7 @@
 #define RSA_PRIVATE_KEY_FILE "private_rsa_key.pem"
 #define EC_WRONG_KEY_FILE "wrong_ecdsa_key.pem"
 #define RSA_WRONG_KEY_FILE "wrong_rsa_key.pem"
+#define CERT_CHAIN_FILE "cert_chain.pem"
 
 // A dummy certificate chain with three certificates as expected. The last certificate has no
 // ending  '\n' to excercise more of the code.
@@ -83,21 +84,20 @@ const int64_t g_testTimestamp = 42;
 //   unsigned max_signing_nalus;
 //   unsigned signing_frequency;
 //   bool increased_sei_size;
-//   bool is_vendor_axis;
+//   int vendor_axis_mode;
 // };
 struct sv_setting settings[NUM_SETTINGS] = {
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, true, true, false, 0, NULL, 0, 1, false, false},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, true, true, false, 0, NULL, 0, 1, false, false},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, NULL, 0, 1, false, false},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, NULL, 0, 1, false, false},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, true, true, false, 0, NULL, 0, 1, false, 0},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, true, true, false, 0, NULL, 0, 1, false, 0},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, NULL, 0, 1, false, 0},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, NULL, 0, 1, false, 0},
     // Special cases
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, false, true, false, 0, NULL, 0, 1, false, false},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, false, true, false, 0, NULL, 0, 1, false, false},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, "sha512", 0, 1, false,
-        false},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, false, true, false, 0, NULL, 0, 1, false, 0},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, false, true, false, 0, NULL, 0, 1, false, 0},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, "sha512", 0, 1, false, 0},
     // AV1 tests
-    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_GOP, true, false, false, 0, NULL, 0, 1, false, false},
-    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_FRAME, true, false, false, 0, NULL, 0, 1, false, false},
+    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_GOP, true, false, false, 0, NULL, 0, 1, false, 0},
+    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_FRAME, true, false, false, 0, NULL, 0, 1, false, 0},
 };
 
 static char private_key_rsa[RSA_PRIVATE_KEY_ALLOC_BYTES];
@@ -206,7 +206,7 @@ read_file_content(const char *filename, char **content, size_t *content_size)
     goto done;
   }
 
-  *content = malloc(file_size);
+  *content = malloc(file_size + 1);  // One extra byte for '\0' in case the content is a string.
   if (!(*content)) {
     goto done;
   }
@@ -274,6 +274,35 @@ read_test_private_key(bool ec_key,
 done:
   if (!success && private_key) {
     free(*private_key);
+  }
+
+  return success;
+}
+
+bool
+read_test_certificate_chain(char **certificate_chain)
+{
+  bool success = false;
+
+  // Sanity check inputs.
+  if (!certificate_chain) {
+    goto done;
+  }
+
+#ifndef GENERATE_TEST_KEYS
+  size_t certificate_chain_size = 0;
+  if (!read_file_content(CERT_CHAIN_FILE, certificate_chain, &certificate_chain_size)) {
+    goto done;
+  }
+  // Complete |certificate_chain| with a terminating character.
+  (*certificate_chain)[certificate_chain_size] = '\0';
+
+  success = true;
+#endif
+
+done:
+  if (!success && certificate_chain) {
+    free(*certificate_chain);
   }
 
   return success;

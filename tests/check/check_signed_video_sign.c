@@ -73,6 +73,7 @@ verify_seis(test_stream_t *list, struct sv_setting setting)
       const bool has_signature = tag_is_present(item, list->codec, SIGNATURE_TAG);
       const bool has_hash_list = tag_is_present(item, list->codec, HASH_LIST_TAG);
       const bool has_axis_tag = tag_is_present(item, list->codec, VENDOR_AXIS_COMMUNICATIONS_TAG);
+      const bool has_public_key_tag = tag_is_present(item, list->codec, PUBLIC_KEY_TAG);
       const bool has_optional_tags = tlv_has_optional_tags(nalu_info.tlv_data, nalu_info.tlv_size);
       const bool has_mandatory_tags =
           tlv_has_mandatory_tags(nalu_info.tlv_data, nalu_info.tlv_size);
@@ -122,7 +123,8 @@ verify_seis(test_stream_t *list, struct sv_setting setting)
         ck_assert(has_signature);
       }
       // Verify that Axis vendor tag is present.
-      ck_assert(!(setting.is_vendor_axis ^ has_axis_tag));
+      ck_assert(!((setting.vendor_axis_mode > 0) ^ has_axis_tag));
+      ck_assert((setting.vendor_axis_mode == 2) ^ has_public_key_tag);
 #ifdef PRINT_DECODED_SEI
       printf("\n--- SEI # %d ---\n", num_seis);
       signed_video_parse_sei(item->data, item->data_size, list->codec);
@@ -450,7 +452,7 @@ START_TEST(vendor_axis_communications_operation)
   free(attestation);
 
   // Signal that Axis vendor specifics has been added.
-  setting.is_vendor_axis = true;
+  setting.vendor_axis_mode = 1;
 
   // Add 2 P-NAL Units between 2 I-NAL Units to mimic a GOP structure in the stream to trigger a
   // SEI.
@@ -926,7 +928,7 @@ START_TEST(w_wo_emulation_prevention_bytes)
 
   for (size_t ii = 0; ii < NUM_EPB_CASES; ii++) {
     setting.ep_before_signing = with_emulation_prevention[ii];
-    setting.is_vendor_axis = false;
+    setting.vendor_axis_mode = 0;
     signed_video_t *sv = get_initialized_signed_video(setting, false);
     ck_assert(sv);
 
@@ -938,7 +940,7 @@ START_TEST(w_wo_emulation_prevention_bytes)
         sv, attestation, attestation_size, axisDummyCertificateChain);
     ck_assert_int_eq(sv_rc, SV_OK);
     free(attestation);
-    setting.is_vendor_axis = true;
+    setting.vendor_axis_mode = 0;
 #endif
 
     // Add I-frame for signing and get SEI frame

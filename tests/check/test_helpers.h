@@ -51,7 +51,7 @@ struct sv_setting {
   unsigned max_signing_nalus;  // Not yet activated
   unsigned signing_frequency;  // Not yet activated
   bool increased_sei_size;
-  bool is_vendor_axis;
+  int vendor_axis_mode;  // 0: not Axis, 1: attestation, 2: factory provisioned
 };
 
 #define NUM_SETTINGS 9
@@ -79,6 +79,23 @@ extern const int64_t g_testTimestamp;
  */
 bool
 read_test_private_key(bool ec_key, char **private_key, size_t *private_key_size, bool wrong_key);
+
+/**
+ * @brief Helper function to read test certificate chain
+ *
+ * Reads the pre-generated certificate chain for factory provisioned signing. The user can
+ * then pass the content to Signed Video through
+ * sv_vendor_axis_communications_set_attestation_report(). Memory is allocated
+ * for |certificate_chain| and the content is written with a null-terminated charater.
+ * Note that the ownership is transferred.
+ *
+ * @param certificate_chain Memory is allocated and the content of the certificate chain
+ *   PEM file is copied to this output. Ownership is transferred.
+ *
+ * @return true upon success, otherwise false.
+ */
+bool
+read_test_certificate_chain(char **certificate_chain);
 
 /* Creates a signed_video_t session and initialize it from settings
  *
