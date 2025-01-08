@@ -110,6 +110,21 @@ set_axis_communications_public_key(void *handle,
     bool public_key_has_changed);
 
 /**
+ * @brief Gets the Public key to verify signatures
+ *
+ * A reference to the |public_key| is provided, hence memory is not transferred. This only
+ * has an impact if the signing key is factory provisioned and its public key is part of
+ * the leaf certificate.
+ *
+ * @param handle The handle to which the Public key is set.
+ * @param public_key Pointer to where the Public key object will be pointing.
+ *
+ * @return An appropriate return code.
+ */
+svrc_t
+get_axis_communications_public_key(void *handle, void **public_key);
+
+/**
  * @brief Gets the Axis supplemental authenticity report
  *
  * With the attestation report and certificate chain, set by the signer and added as metadata in the

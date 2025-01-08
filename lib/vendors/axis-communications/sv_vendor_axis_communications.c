@@ -731,6 +731,66 @@ set_axis_communications_public_key(void *handle,
   return status;
 }
 
+/* Reads the public key from the leaf certificate, which is expected to be on PEM form,
+ * and then creates an EVP_PKEY_CTX object out of it and sets it to |public_key|. */
+static svrc_t
+get_public_key_from_cert(sv_vendor_axis_communications_t *self)
+{
+  // Sanity check input.
+  if (!self || !self->certificate_chain) {
+    return SV_INVALID_PARAMETER;
+  }
+  if (self->public_key) {
+    // Public key already exists. No reason to read again.
+    return SV_OK;
+  }
+
+  EVP_PKEY_CTX *ctx = NULL;
+  EVP_PKEY *verification_key = NULL;
+  X509 *leaf_cert = NULL;
+
+  svrc_t status = SV_UNKNOWN_FAILURE;
+  SV_TRY()
+    // Read public key from leaf certificate.
+    BIO *bp = BIO_new_mem_buf(self->certificate_chain, (int)strlen(self->certificate_chain));
+    SV_THROW_IF(!bp, SV_EXTERNAL_ERROR);
+    leaf_cert = PEM_read_bio_X509(bp, NULL, NULL, NULL);
+    BIO_free(bp);
+    verification_key = X509_get0_pubkey(leaf_cert);
+    SV_THROW_IF(!verification_key, SV_EXTERNAL_ERROR);
+
+    // Create an EVP context
+    ctx = EVP_PKEY_CTX_new(verification_key, NULL /* No engine */);
+    SV_THROW_IF(!ctx, SV_EXTERNAL_ERROR);
+    SV_THROW_IF(EVP_PKEY_verify_init(ctx) <= 0, SV_EXTERNAL_ERROR);
+    self->public_key = (const void *)ctx;
+  SV_CATCH()
+  {
+    EVP_PKEY_CTX_free(ctx);
+    ctx = NULL;
+  }
+  SV_DONE(status)
+
+  X509_free(leaf_cert);
+
+  return status;
+}
+
+svrc_t
+get_axis_communications_public_key(void *handle, void **public_key)
+{
+  // Sanity check input.
+  if (!handle || !public_key) {
+    return SV_INVALID_PARAMETER;
+  }
+  sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
+  svrc_t status = get_public_key_from_cert(self);
+  if (status == SV_OK) {
+    *public_key = (void *)self->public_key;
+  }
+  return status;
+}
+
 svrc_t
 get_axis_communications_supplemental_authenticity(void *handle,
     sv_vendor_axis_supplemental_authenticity_t **supplemental_authenticity)
