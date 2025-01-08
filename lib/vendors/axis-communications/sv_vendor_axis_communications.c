@@ -108,6 +108,7 @@ typedef struct _sv_vendor_axis_communications_t {
   void *attestation;
   uint8_t attestation_size;
   char *certificate_chain;
+  bool factory_provisioned;  // Helper member to select between factory and device provisioning.
 
   // Information needed for public key validation.
   EVP_MD_CTX *md_ctx;  // Message digest context for verifying the public key
@@ -115,9 +116,10 @@ typedef struct _sv_vendor_axis_communications_t {
   uint8_t chip_id[CHIP_ID_SIZE];
   struct attestation_report attestation_report;
 
-  // Public key to validate using |attestation| and |certificate_chain|
-  const void *public_key;  // A pointer to the public key used for validation. Assumed to be a
-  // EVP_PKEY struct. Ownership is NOT transferred.
+  // Public key to validate using |attestation| and |certificate_chain|, or simply present
+  // in the leaf certificate if factory provisioned. The |public_key| is assumed to be a
+  // EVP_PKEY_CTX struct. Ownership is NOT transferred.
+  const void *public_key;
 
   // Public key validation results
   sv_vendor_axis_supplemental_authenticity_t supplemental_authenticity;
@@ -312,7 +314,7 @@ deserialize_attestation(sv_vendor_axis_communications_t *self)
 {
   assert(self);
 
-  if (!self->attestation) return SV_VENDOR_ERROR;
+  if (self->factory_provisioned) return SV_OK;
   // The |attestation_size| has to be at least 23 bytes to be deserializable.
   if (self->attestation_size < 24) return SV_VENDOR_ERROR;
 
@@ -536,6 +538,11 @@ get_untrusted_certificates_size(const sv_vendor_axis_communications_t *self)
   const char *cert_chain_ptr = self->certificate_chain;
   const char *cert_ptr = self->certificate_chain;
   int certs_left = NUM_UNTRUSTED_CERTIFICATES + 1;
+  if (self->factory_provisioned) {
+    // Temporary solution until it is known how many (if any) intermediate certificates there are.
+    // Assuming no intermediate certificates.
+    certs_left = 2;  // Leaf and root certificate.
+  }
   while (certs_left > 0 && cert_ptr) {
     cert_ptr = strstr(cert_chain_ptr, "-----BEGIN CERTIFICATE-----");
     certs_left--;
@@ -802,6 +809,11 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
     if (!self->attestation) goto catch_error;
     memcpy(self->attestation, attestation, attestation_size);
     self->attestation_size = attestation_size;
+    self->factory_provisioned = false;
+    sv->add_public_key_to_sei = true;
+  } else {
+    self->factory_provisioned = true;
+    sv->add_public_key_to_sei = false;
   }
 
   sv->vendor_encoders = axis_communications_encoders;
