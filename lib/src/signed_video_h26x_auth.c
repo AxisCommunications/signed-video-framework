@@ -953,9 +953,6 @@ has_pending_gop(signed_video_t *self)
     item = item->next;
   }
 
-  if (!found_pending_gop && last_hashable_item && last_hashable_item->nalu->is_gop_sei) {
-    gop_state->validate_after_next_nalu = true;
-  }
   gop_state->no_gop_end_before_sei = found_pending_nalu_after_gop_sei && (num_pending_gop_ends < 2);
 
   return found_pending_gop;

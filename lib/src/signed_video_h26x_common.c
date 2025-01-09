@@ -890,7 +890,6 @@ gop_state_print(const gop_state_t *gop_state)
   if (!gop_state) return;
 
   DEBUG_LOG("                 has_sei: %u", gop_state->has_sei);
-  DEBUG_LOG("validate_after_next_nalu: %u", gop_state->validate_after_next_nalu);
   DEBUG_LOG("   no_gop_end_before_sei: %u", gop_state->no_gop_end_before_sei);
   DEBUG_LOG("            has_lost_sei: %u", gop_state->has_lost_sei);
   DEBUG_LOG("  gop_transition_is_lost: %u", gop_state->gop_transition_is_lost);
@@ -922,7 +921,6 @@ gop_state_reset(gop_state_t *gop_state)
   gop_state->gop_transition_is_lost = false;
   gop_state->has_sei = false;
   gop_state->no_gop_end_before_sei = false;
-  gop_state->validate_after_next_nalu = false;
 }
 
 /* Others */
