@@ -39,7 +39,7 @@
 #include "signed_video_defines.h"  // svrc_t
 #include "signed_video_h26x_internal.h"  // h26x_nalu_list_item_t, METADATA_TYPE_USER_PRIVATE
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_create()
-#include "signed_video_internal.h"  // gop_info_t, gop_state_t, MAX_HASH_SIZE, DEFAULT_HASH_SIZE
+#include "signed_video_internal.h"  // gop_info_t, validation_flags_t, MAX_HASH_SIZE, DEFAULT_HASH_SIZE
 #include "signed_video_openssl_internal.h"
 #include "signed_video_tlv.h"  // read_32bits()
 
@@ -881,46 +881,14 @@ update_validation_flags(validation_flags_t *validation_flags, h26x_nalu_t *nalu)
   validation_flags->signing_present |= nalu->is_gop_sei;
 }
 
-/* Internal APIs for gop_state_t functions */
-
-/* Prints the |gop_state| */
+/* Resets the gop information in |validation_flags| after validating a GOP. */
 void
-gop_state_print(const gop_state_t *gop_state)
+reset_gop_info_from_validation_flags(validation_flags_t *validation_flags)
 {
-  if (!gop_state) return;
+  if (!validation_flags) return;
 
-  DEBUG_LOG("                 has_sei: %u", gop_state->has_sei);
-  DEBUG_LOG("   no_gop_end_before_sei: %u", gop_state->no_gop_end_before_sei);
-  DEBUG_LOG("            has_lost_sei: %u", gop_state->has_lost_sei);
-  DEBUG_LOG("  gop_transition_is_lost: %u", gop_state->gop_transition_is_lost);
-  DEBUG_LOG("");
-}
-
-/* Updates the |gop_state| w.r.t. a |nalu|.
- *
- * Since auth_state is updated along the way, the only thing we need to update is |has_sei| to
- * know if we have received a signature for this GOP. */
-void
-gop_state_update(gop_state_t *gop_state, h26x_nalu_t *nalu)
-{
-  if (!gop_state || !nalu) return;
-
-  // If the NALU is not valid nor hashable no action should be taken.
-  if (nalu->is_valid <= 0 || !nalu->is_hashable) return;
-
-  gop_state->has_sei |= nalu->is_gop_sei;
-}
-
-/* Resets the |gop_state| after validating a GOP. */
-void
-gop_state_reset(gop_state_t *gop_state)
-{
-  if (!gop_state) return;
-
-  gop_state->has_lost_sei = false;
-  gop_state->gop_transition_is_lost = false;
-  gop_state->has_sei = false;
-  gop_state->no_gop_end_before_sei = false;
+  validation_flags->has_lost_sei = false;
+  validation_flags->gop_transition_is_lost = false;
 }
 
 /* Others */
@@ -1265,7 +1233,7 @@ signed_video_create(SignedVideoCodec codec)
     self->authentication_started = false;
 
     validation_flags_init(&(self->validation_flags));
-    gop_state_reset(&(self->gop_state));
+    reset_gop_info_from_validation_flags(&(self->validation_flags));
     self->has_public_key = false;
 
     self->verify_data = sign_or_verify_data_create();
@@ -1295,7 +1263,7 @@ signed_video_reset(signed_video_t *self)
     self->sei_generation_enabled = false;
     gop_info_reset(self->gop_info);
 
-    gop_state_reset(&(self->gop_state));
+    reset_gop_info_from_validation_flags(&(self->validation_flags));
     validation_flags_init(&(self->validation_flags));
     latest_validation_init(self->latest_validation);
     accumulated_validation_init(self->accumulated_validation);

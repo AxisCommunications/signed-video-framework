@@ -159,16 +159,9 @@ validation_flags_init(validation_flags_t *validation_flags);
 void
 update_validation_flags(validation_flags_t *validation_flags, h26x_nalu_t *nalu);
 
+/* Resets/Initializes the gop information in |validation_flags_t| after validating a GOP. */
 void
-gop_state_print(const gop_state_t *gop_state);
-
-/* Updates the |gop_state| w.r.t. a |nalu|. */
-void
-gop_state_update(gop_state_t *gop_state, h26x_nalu_t *nalu);
-
-/* Resets/Initializes the |gop_state| after validating a GOP. */
-void
-gop_state_reset(gop_state_t *gop_state);
+reset_gop_info_from_validation_flags(validation_flags_t *gop_state);
 
 /* Others */
 void
