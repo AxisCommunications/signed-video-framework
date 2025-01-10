@@ -87,10 +87,9 @@ struct _validation_flags_t {
   // from false to true unless a reset is performed.
   bool is_first_sei;  // Indicates that this is the first received SEI.
   bool hash_algo_known;  // Information on what hash algorithm to use has been received.
+
+  // GOP-related flags.
   bool has_lost_sei;  // Has detected a lost SEI since last validation.
-  bool gop_transition_is_lost;  // The transition between GOPs has been lost.
-  // This can be detected if a lost SEI is detected, and at the same time waiting for an I NALU. An
-  // example when this happens is if an entire AU is lost including both the SEI and the I NALU.
 };
 
 // Buffer of |last_two_bytes| and pointers to |sei| memory and current |write_position|.

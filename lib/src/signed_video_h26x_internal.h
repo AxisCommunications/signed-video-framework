@@ -147,7 +147,7 @@ struct _h26x_nalu_t {
   bool is_golden_sei;
 };
 
-/* Internal APIs for gop_state_t functions */
+/* Internal APIs for validation_flags_t functions */
 
 void
 validation_flags_print(const validation_flags_t *validation_flags);
@@ -155,13 +155,9 @@ validation_flags_print(const validation_flags_t *validation_flags);
 void
 validation_flags_init(validation_flags_t *validation_flags);
 
-/* Updates the |gop_state| w.r.t. a |nalu|. */
+/* Updates the |validation_flags| w.r.t. a |nalu|. */
 void
 update_validation_flags(validation_flags_t *validation_flags, h26x_nalu_t *nalu);
-
-/* Resets/Initializes the gop information in |validation_flags_t| after validating a GOP. */
-void
-reset_gop_info_from_validation_flags(validation_flags_t *gop_state);
 
 /* Others */
 void

@@ -869,6 +869,7 @@ validation_flags_init(validation_flags_t *validation_flags)
 
   memset(validation_flags, 0, sizeof(validation_flags_t));
   validation_flags->is_first_validation = true;
+  validation_flags->has_lost_sei = false;
 }
 
 void
@@ -879,16 +880,6 @@ update_validation_flags(validation_flags_t *validation_flags, h26x_nalu_t *nalu)
   validation_flags->is_first_sei = !validation_flags->signing_present && nalu->is_gop_sei;
   // As soon as we receive a SEI, Signed Video is present.
   validation_flags->signing_present |= nalu->is_gop_sei;
-}
-
-/* Resets the gop information in |validation_flags| after validating a GOP. */
-void
-reset_gop_info_from_validation_flags(validation_flags_t *validation_flags)
-{
-  if (!validation_flags) return;
-
-  validation_flags->has_lost_sei = false;
-  validation_flags->gop_transition_is_lost = false;
 }
 
 /* Others */
@@ -1233,7 +1224,6 @@ signed_video_create(SignedVideoCodec codec)
     self->authentication_started = false;
 
     validation_flags_init(&(self->validation_flags));
-    reset_gop_info_from_validation_flags(&(self->validation_flags));
     self->has_public_key = false;
 
     self->verify_data = sign_or_verify_data_create();
@@ -1261,9 +1251,9 @@ signed_video_reset(signed_video_t *self)
     SV_THROW(legacy_sv_reset(self->legacy_sv));
     self->signing_started = false;
     self->sei_generation_enabled = false;
+    self->validation_flags.has_lost_sei = false;
     gop_info_reset(self->gop_info);
 
-    reset_gop_info_from_validation_flags(&(self->validation_flags));
     validation_flags_init(&(self->validation_flags));
     latest_validation_init(self->latest_validation);
     accumulated_validation_init(self->accumulated_validation);

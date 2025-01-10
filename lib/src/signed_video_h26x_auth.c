@@ -910,17 +910,14 @@ static bool
 has_pending_gop(signed_video_t *self)
 {
   assert(self && self->nalu_list);
-  validation_flags_t *validation_flags = &(self->validation_flags);
   h26x_nalu_list_item_t *item = self->nalu_list->first_item;
-  h26x_nalu_list_item_t *last_hashable_item = NULL;
   // Statistics collected while looping through the NALUs.
   int num_pending_gop_ends = 0;
   bool found_pending_gop_sei = false;
-  bool found_pending_nalu_after_gop_sei = false;
   bool found_pending_gop = false;
 
-  // Reset the |validation_flags| members before running through the NALUs in |nalu_list|.
-  reset_gop_info_from_validation_flags(validation_flags);
+  // Reset the GOP-related |has_lost_sei|member before running through the NALUs in |nalu_list|.
+  self->validation_flags.has_lost_sei = false;
 
   while (item && !found_pending_gop) {
     // Collect statistics from pending and hashable NALUs only. The others are either out of date or
@@ -928,9 +925,6 @@ has_pending_gop(signed_video_t *self)
     if (item->tmp_validation_status == 'P' && item->nalu && item->nalu->is_hashable) {
       num_pending_gop_ends += item->nalu->is_first_nalu_in_gop;
       found_pending_gop_sei |= item->nalu->is_gop_sei;
-      found_pending_nalu_after_gop_sei |=
-          last_hashable_item && last_hashable_item->nalu->is_gop_sei;
-      last_hashable_item = item;
     }
     if (!self->validation_flags.signing_present) {
       // If the video is not signed we need at least 2 I-frames to have a complete GOP.
@@ -939,8 +933,6 @@ has_pending_gop(signed_video_t *self)
       // When the video is signed it is time to validate when there is at least one GOP and a SEI.
       found_pending_gop |= (num_pending_gop_ends > 0) && found_pending_gop_sei;
     }
-    // When a SEI is detected there can at most be one more NALU to perform validation.
-    found_pending_gop |= found_pending_nalu_after_gop_sei;
     item = item->next;
   }
 
