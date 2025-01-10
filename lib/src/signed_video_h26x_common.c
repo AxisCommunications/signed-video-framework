@@ -869,7 +869,6 @@ validation_flags_init(validation_flags_t *validation_flags)
 
   memset(validation_flags, 0, sizeof(validation_flags_t));
   validation_flags->is_first_validation = true;
-  validation_flags->has_lost_sei = false;
 }
 
 void
@@ -1251,7 +1250,6 @@ signed_video_reset(signed_video_t *self)
     SV_THROW(legacy_sv_reset(self->legacy_sv));
     self->signing_started = false;
     self->sei_generation_enabled = false;
-    self->validation_flags.has_lost_sei = false;
     gop_info_reset(self->gop_info);
 
     validation_flags_init(&(self->validation_flags));

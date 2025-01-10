@@ -916,7 +916,7 @@ has_pending_gop(signed_video_t *self)
   bool found_pending_gop_sei = false;
   bool found_pending_gop = false;
 
-  // Reset the GOP-related |has_lost_sei|member before running through the NALUs in |nalu_list|.
+  // Reset the GOP-related |has_lost_sei| member before running through the NALUs in |nalu_list|.
   self->validation_flags.has_lost_sei = false;
 
   while (item && !found_pending_gop) {
