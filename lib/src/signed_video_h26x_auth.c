@@ -29,9 +29,9 @@
 #include "legacy_validation.h"
 #include "signed_video_authenticity.h"  // create_local_authenticity_report_if_needed()
 #include "signed_video_defines.h"  // svrc_t
-#include "signed_video_h26x_internal.h"  // gop_state_*(), update_validation_flags()
+#include "signed_video_h26x_internal.h"  // update_validation_flags()
 #include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_append()
-#include "signed_video_internal.h"  // gop_info_t, gop_state_t
+#include "signed_video_internal.h"  // gop_info_t, validation_flags_t
 #include "signed_video_openssl_internal.h"  // openssl_{verify_hash, public_key_malloc}()
 #include "signed_video_tlv.h"  // tlv_find_tag()
 
@@ -90,12 +90,6 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
   SV_TRY()
     SV_THROW_WITH_MSG(tlv_decode(self, payload, payload_size), "Failed decoding SEI payload");
     detect_lost_sei(self);
-    // Every SEI is associated with a GOP. If a lost SEI has been detected, and no GOP end has been
-    // found prior to this SEI, it means both a SEI and an I-frame was lost. This is defined as a
-    // lost GOP transition.
-    if (self->gop_state.no_gop_end_before_sei && self->gop_state.has_lost_sei) {
-      self->gop_state.gop_transition_is_lost = true;
-    }
   SV_CATCH()
   SV_DONE(status)
 
@@ -124,7 +118,7 @@ detect_lost_sei(signed_video_t *self)
 
   // It is only possible to know if a SEI has been lost if the |global_gop_counter| is in sync.
   // Otherwise, the counter cannot be trusted.
-  self->gop_state.has_lost_sei =
+  self->validation_flags.has_lost_sei =
       (potentially_missed_gops > 0) && self->gop_info->global_gop_counter_is_synced;
 }
 
@@ -629,7 +623,6 @@ validate_authenticity(signed_video_t *self)
 {
   assert(self);
 
-  gop_state_t *gop_state = &(self->gop_state);
   validation_flags_t *validation_flags = &(self->validation_flags);
   signed_video_latest_validation_t *latest = self->latest_validation;
 
@@ -641,7 +634,7 @@ validate_authenticity(signed_video_t *self)
   int num_missed_nalus = -1;
   bool verify_success = false;
 
-  if (gop_state->has_lost_sei && !gop_state->gop_transition_is_lost) {
+  if (validation_flags->has_lost_sei) {
     DEBUG_LOG("We never received the SEI associated with this GOP");
     // We never received the SEI nalu, but we know we have passed a GOP transition. Hence, we cannot
     // verify this GOP. Marking this GOP as not OK by verify_hashes_without_sei().
@@ -727,7 +720,7 @@ validate_authenticity(signed_video_t *self)
     latest->authenticity = valid;
   }
   latest->number_of_received_picture_nalus += num_received_nalus;
-  if (self->gop_state.has_lost_sei) {
+  if (self->validation_flags.has_lost_sei) {
     latest->number_of_expected_picture_nalus = -1;
   } else if (latest->number_of_expected_picture_nalus != -1) {
     latest->number_of_expected_picture_nalus += num_expected_nalus;
@@ -802,7 +795,6 @@ prepare_golden_sei(signed_video_t *self, h26x_nalu_list_item_t *sei)
     SV_THROW(hash_and_add_for_auth(self, sei));
     memcpy(verify_data->hash, sei->hash, verify_data->hash_size);
 
-    self->gop_state.has_sei = true;
     SV_THROW(prepare_for_validation(self));
   SV_CATCH()
   SV_DONE(status)
@@ -880,7 +872,7 @@ prepare_for_validation(signed_video_t *self)
 #endif
 
     // If we have received a SEI there is a signature to use for verification.
-    if (self->gop_state.has_sei) {
+    if (sei) {
       SV_THROW(openssl_verify_hash(verify_data, &self->gop_info->verified_signature_hash));
     }
 
@@ -918,28 +910,21 @@ static bool
 has_pending_gop(signed_video_t *self)
 {
   assert(self && self->nalu_list);
-  gop_state_t *gop_state = &(self->gop_state);
   h26x_nalu_list_item_t *item = self->nalu_list->first_item;
-  h26x_nalu_list_item_t *last_hashable_item = NULL;
   // Statistics collected while looping through the NALUs.
   int num_pending_gop_ends = 0;
   bool found_pending_gop_sei = false;
-  bool found_pending_nalu_after_gop_sei = false;
   bool found_pending_gop = false;
 
-  // Reset the |gop_state| members before running through the NALUs in |nalu_list|.
-  gop_state_reset(gop_state);
+  // Reset the GOP-related |has_lost_sei| member before running through the NALUs in |nalu_list|.
+  self->validation_flags.has_lost_sei = false;
 
   while (item && !found_pending_gop) {
-    gop_state_update(gop_state, item->nalu);
     // Collect statistics from pending and hashable NALUs only. The others are either out of date or
     // not part of the validation.
     if (item->tmp_validation_status == 'P' && item->nalu && item->nalu->is_hashable) {
       num_pending_gop_ends += item->nalu->is_first_nalu_in_gop;
       found_pending_gop_sei |= item->nalu->is_gop_sei;
-      found_pending_nalu_after_gop_sei |=
-          last_hashable_item && last_hashable_item->nalu->is_gop_sei;
-      last_hashable_item = item;
     }
     if (!self->validation_flags.signing_present) {
       // If the video is not signed we need at least 2 I-frames to have a complete GOP.
@@ -948,12 +933,8 @@ has_pending_gop(signed_video_t *self)
       // When the video is signed it is time to validate when there is at least one GOP and a SEI.
       found_pending_gop |= (num_pending_gop_ends > 0) && found_pending_gop_sei;
     }
-    // When a SEI is detected there can at most be one more NALU to perform validation.
-    found_pending_gop |= found_pending_nalu_after_gop_sei;
     item = item->next;
   }
-
-  gop_state->no_gop_end_before_sei = found_pending_nalu_after_gop_sei && (num_pending_gop_ends < 2);
 
   return found_pending_gop;
 }

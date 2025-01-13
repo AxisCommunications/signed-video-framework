@@ -34,7 +34,6 @@
 
 typedef struct _gop_info_t gop_info_t;
 typedef struct _validation_flags_t validation_flags_t;
-typedef struct _gop_state_t gop_state_t;
 typedef struct _sei_data_t sei_data_t;
 
 // Forward declare h26x_nalu_list_t here for signed_video_t.
@@ -88,15 +87,9 @@ struct _validation_flags_t {
   // from false to true unless a reset is performed.
   bool is_first_sei;  // Indicates that this is the first received SEI.
   bool hash_algo_known;  // Information on what hash algorithm to use has been received.
-};
 
-struct _gop_state_t {
-  bool has_sei;  // The GOP includes a SEI.
+  // GOP-related flags.
   bool has_lost_sei;  // Has detected a lost SEI since last validation.
-  bool no_gop_end_before_sei;  // No GOP end (I-frame) has been found before the SEI.
-  bool gop_transition_is_lost;  // The transition between GOPs has been lost.
-  // This can be detected if a lost SEI is detected, and at the same time waiting for an I NALU. An
-  // example when this happens is if an entire AU is lost including both the SEI and the I NALU.
 };
 
 // Buffer of |last_two_bytes| and pointers to |sei| memory and current |write_position|.
@@ -190,7 +183,6 @@ struct _signed_video_t {
   // authenticating. |received_gop_hash| will be compared against |computed_gop_hash|.
 
   validation_flags_t validation_flags;
-  gop_state_t gop_state;
   bool has_public_key;  // State to indicate if public key is received/added
   // For signature verification
   sign_or_verify_data_t *verify_data;  // All necessary information to verify a signature.
