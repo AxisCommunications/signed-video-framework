@@ -463,6 +463,43 @@ START_TEST(vendor_axis_communications_operation)
   signed_video_free(sv);
 }
 END_TEST
+
+/* Similar test as |vendor_axis_communications_operation|, but with factory provisioned
+ * signing, i.e., the public key is transmitted in a certificate. */
+START_TEST(factory_provisioned_key)
+{
+  // There are currently no means to generate a certificate chain, hence this test does
+  // not apply if keys are to be generated on the fly.
+#ifdef GENERATE_TEST_KEYS
+  return;
+#endif
+  SignedVideoReturnCode sv_rc;
+  struct sv_setting setting = settings[_i];
+  // Only EC keys are tested.
+  if (!setting.ec_key) return;
+
+  signed_video_t *sv = get_initialized_signed_video(setting, false);
+  ck_assert(sv);
+  char *certificate_chain = NULL;
+  ck_assert(read_test_certificate_chain(&certificate_chain));
+
+  // Setting |certificate_chain|.
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, certificate_chain);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Signal that Axis vendor specifics has been added and factory provisioning in particular.
+  setting.vendor_axis_mode = 2;
+
+  // Generate a GOP to trigger a SEI.
+  test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIP", false);
+  test_stream_check_types(list, "IPPISP");
+  verify_seis(list, setting);
+
+  test_stream_free(list);
+  signed_video_free(sv);
+  free(certificate_chain);
+}
+END_TEST
 #endif
 
 /* Test description
@@ -1026,6 +1063,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, incorrect_operation, s, e);
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
+  tcase_add_loop_test(tc, factory_provisioned_key, s, e);
 #endif
   // tcase_add_loop_test(tc, correct_nalu_sequence_with_eos, s, e);
   // tcase_add_loop_test(tc, correct_multislice_sequence_with_eos, s, e);
