@@ -30,9 +30,9 @@
 #endif
 #include "includes/signed_video_common.h"  // Return codes
 #include "includes/signed_video_openssl.h"  // sign_or_verify_data_t
-#include "signed_video_authenticity.h"  // allocate_memory_and_copy_string, transfer_product_info()
-#include "signed_video_openssl_internal.h"  // openssl_public_key_malloc()
-#include "signed_video_tlv.h"  // read_8bits, read_16bits, read_32bits, read_64bits_signed
+#include "sv_authenticity.h"  // allocate_memory_and_copy_string, transfer_product_info()
+#include "sv_openssl_internal.h"  // openssl_public_key_malloc()
+#include "sv_tlv.h"  // read_8bits, read_16bits, read_32bits, read_64bits_signed
 
 /**
  * Decoder interfaces

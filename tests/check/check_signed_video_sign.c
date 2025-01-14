@@ -32,9 +32,9 @@
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "lib/src/includes/sv_vendor_axis_communications.h"
 #endif
-#include "lib/src/signed_video_h26x_internal.h"  // h26x_nalu_t, kUuidSignedVideo
-#include "lib/src/signed_video_internal.h"  // set_hash_list_size(), UUID_LEN
-#include "lib/src/signed_video_tlv.h"  // tlv_has_{optional, mandatory}_tags()
+#include "lib/src/sv_h26x_internal.h"  // h26x_nalu_t, kUuidSignedVideo
+#include "lib/src/sv_internal.h"  // set_hash_list_size(), UUID_LEN
+#include "lib/src/sv_tlv.h"  // tlv_has_{optional, mandatory}_tags()
 #include "test_helpers.h"
 #include "test_stream.h"
 

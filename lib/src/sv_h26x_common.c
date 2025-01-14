@@ -35,13 +35,13 @@
 #include "includes/signed_video_helpers.h"  // onvif_media_signing_parse_sei()
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "includes/signed_video_signing_plugin.h"
-#include "signed_video_authenticity.h"  // latest_validation_init()
-#include "signed_video_defines.h"  // svrc_t
-#include "signed_video_h26x_internal.h"  // h26x_nalu_list_item_t, METADATA_TYPE_USER_PRIVATE
-#include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_create()
-#include "signed_video_internal.h"  // gop_info_t, validation_flags_t, MAX_HASH_SIZE, DEFAULT_HASH_SIZE
-#include "signed_video_openssl_internal.h"
-#include "signed_video_tlv.h"  // read_32bits()
+#include "sv_authenticity.h"  // latest_validation_init()
+#include "sv_defines.h"  // svrc_t
+#include "sv_h26x_internal.h"  // h26x_nalu_list_item_t, METADATA_TYPE_USER_PRIVATE
+#include "sv_h26x_nalu_list.h"  // h26x_nalu_list_create()
+#include "sv_internal.h"  // gop_info_t, validation_flags_t, MAX_HASH_SIZE, DEFAULT_HASH_SIZE
+#include "sv_openssl_internal.h"
+#include "sv_tlv.h"  // read_32bits()
 
 #define USER_DATA_UNREGISTERED 5
 #define H264_NALU_HEADER_LEN 1  // length of forbidden_zero_bit, nal_ref_idc and nal_unit_type

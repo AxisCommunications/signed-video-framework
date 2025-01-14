@@ -22,8 +22,8 @@
 #define __SIGNED_VIDEO_AUTHENTICITY_H__
 
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
-#include "signed_video_defines.h"  // svrc_t
-#include "signed_video_internal.h"
+#include "sv_defines.h"  // svrc_t
+#include "sv_internal.h"
 
 /**
  * @brief Transfers all members in signed_video_product_info_t from |src| to |dst|

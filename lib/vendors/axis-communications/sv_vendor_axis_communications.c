@@ -29,8 +29,8 @@
 #include <stdbool.h>
 #include <stdlib.h>  // malloc, memcpy, calloc, free
 
-#include "signed_video_internal.h"  // signed_video_t
-#include "signed_video_tlv.h"
+#include "sv_internal.h"  // signed_video_t
+#include "sv_tlv.h"
 #include "sv_vendor_axis_communications_internal.h"
 
 // List of TLV encoders to include in SEI.

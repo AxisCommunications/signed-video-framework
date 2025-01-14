@@ -27,13 +27,13 @@
 #include "includes/signed_video_auth.h"
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "legacy_validation.h"
-#include "signed_video_authenticity.h"  // create_local_authenticity_report_if_needed()
-#include "signed_video_defines.h"  // svrc_t
-#include "signed_video_h26x_internal.h"  // update_validation_flags()
-#include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_append()
-#include "signed_video_internal.h"  // gop_info_t, validation_flags_t
-#include "signed_video_openssl_internal.h"  // openssl_{verify_hash, public_key_malloc}()
-#include "signed_video_tlv.h"  // tlv_find_tag()
+#include "sv_authenticity.h"  // create_local_authenticity_report_if_needed()
+#include "sv_defines.h"  // svrc_t
+#include "sv_h26x_internal.h"  // update_validation_flags()
+#include "sv_h26x_nalu_list.h"  // h26x_nalu_list_append()
+#include "sv_internal.h"  // gop_info_t, validation_flags_t
+#include "sv_openssl_internal.h"  // openssl_{verify_hash, public_key_malloc}()
+#include "sv_tlv.h"  // tlv_find_tag()
 
 static svrc_t
 decode_sei_data(signed_video_t *signed_video, const uint8_t *payload, size_t payload_size);

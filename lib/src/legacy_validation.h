@@ -27,7 +27,7 @@
 
 #include "includes/signed_video_auth.h"  // signed_video_authenticity_t
 #include "includes/signed_video_common.h"  // signed_video_t
-#include "signed_video_defines.h"  // svrc_t
+#include "sv_defines.h"  // svrc_t
 
 typedef struct _legacy_sv_t legacy_sv_t;
 

@@ -27,7 +27,7 @@
 
 #include "lib/src/includes/signed_video_common.h"  // signed_video_t, SignedVideoCodec
 #include "lib/src/includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
-#include "lib/src/signed_video_defines.h"  // sv_tlv_tag_t
+#include "lib/src/sv_defines.h"  // sv_tlv_tag_t
 #include "test_stream.h"  // test_stream_t, test_stream_item_t
 
 #define HW_ID "hardware_id"

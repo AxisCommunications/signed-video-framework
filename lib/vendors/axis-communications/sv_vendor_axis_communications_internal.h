@@ -29,7 +29,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "signed_video_defines.h"  // svrc_t
+#include "sv_defines.h"  // svrc_t
 
 #define SV_VENDOR_AXIS_SER_NO_MAX_LENGTH 20
 /**

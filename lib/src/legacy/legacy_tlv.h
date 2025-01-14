@@ -26,7 +26,7 @@
 #include <stdlib.h>  // size_t
 
 #include "legacy/legacy_internal.h"  // legacy_sv_t
-#include "signed_video_defines.h"  // svrc_t, sv_tlv_tag_t
+#include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
 
 /**
  * @brief Decodes a SEI payload into the singed_video_t object.

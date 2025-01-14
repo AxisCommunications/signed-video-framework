@@ -27,8 +27,8 @@
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t, signed_video_authenticity_t
 #include "includes/signed_video_common.h"  // signed_video_t, SignedVideoCodec
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
-#include "signed_video_defines.h"  // svrc_t, sv_tlv_tag_t
-#include "signed_video_internal.h"  // MAX_HASH_SIZE, HASH_LIST_SIZE
+#include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
+#include "sv_internal.h"  // MAX_HASH_SIZE, HASH_LIST_SIZE
 
 // Forward declarations for legacy_sv_t.
 typedef struct _legacy_h26x_nalu_list_st legacy_h26x_nalu_list_t;

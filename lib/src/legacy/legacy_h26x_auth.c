@@ -31,9 +31,9 @@
 #include "legacy/legacy_h26x_nalu_list.h"
 #include "legacy/legacy_internal.h"
 #include "legacy/legacy_tlv.h"  // legacy_tlv_decode()
-#include "signed_video_authenticity.h"  // update_accumulated_validation()
-#include "signed_video_openssl_internal.h"  // openssl_verify_hash()
-#include "signed_video_tlv.h"  // tlv_find_tag()
+#include "sv_authenticity.h"  // update_accumulated_validation()
+#include "sv_openssl_internal.h"  // openssl_verify_hash()
+#include "sv_tlv.h"  // tlv_find_tag()
 
 static bool
 legacy_verify_hashes_without_sei(legacy_sv_t *self);

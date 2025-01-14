@@ -18,7 +18,7 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#include "signed_video_authenticity.h"
+#include "sv_authenticity.h"
 
 #include <assert.h>  // assert
 #include <stdint.h>  // uint8_t
@@ -26,7 +26,7 @@
 #include <string.h>  // strlen, strcpy
 
 #include "includes/signed_video_common.h"  // signed_video_compare_versions()
-#include "signed_video_h26x_nalu_list.h"  // h26x_nalu_list_get_validation_str()
+#include "sv_h26x_nalu_list.h"  // h26x_nalu_list_get_validation_str()
 
 /* Transfer functions. */
 static svrc_t

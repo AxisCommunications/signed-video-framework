@@ -30,7 +30,7 @@
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
 #include "legacy_validation.h"  // legacy_sv_t
-#include "signed_video_defines.h"  // svrc_t, sv_tlv_tag_t
+#include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
 
 typedef struct _gop_info_t gop_info_t;
 typedef struct _validation_flags_t validation_flags_t;

@@ -25,7 +25,7 @@
 #include <stdlib.h>  // calloc, free
 #include <string.h>  // memcpy, memset, strcmp
 
-#include "lib/src/signed_video_h26x_internal.h"  // parse_nalu_info()
+#include "lib/src/sv_h26x_internal.h"  // parse_nalu_info()
 
 #define START_CODE_SIZE 4
 #define DUMMY_NALU_SIZE 5
