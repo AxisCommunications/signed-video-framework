@@ -25,9 +25,9 @@
 #include "legacy/legacy_h26x_nalu_list.h"  // legacy_h26x_nalu_list_create()
 #include "legacy/legacy_internal.h"  // Has public declarations
 #include "legacy_validation.h"  // Has public declarations
-#include "signed_video_authenticity.h"  // latest_validation_init()
-#include "signed_video_openssl_internal.h"  // openssl_hash_data
-#include "signed_video_tlv.h"  // read_32bits(), read_byte()
+#include "sv_authenticity.h"  // latest_validation_init()
+#include "sv_openssl_internal.h"  // openssl_hash_data
+#include "sv_tlv.h"  // read_32bits(), read_byte()
 
 // The salt added to the recursive hash to get the final gop_hash
 #define GOP_HASH_SALT 1

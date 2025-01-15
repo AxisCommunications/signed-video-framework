@@ -26,7 +26,7 @@
 #include <stdlib.h>  // size_t
 
 #include "includes/signed_video_common.h"  // signed_video_t
-#include "signed_video_defines.h"  // svrc_t, sv_tlv_tag_t
+#include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
 
 /**
  * @brief Encodes a SEI payload defined by a list of tags.

@@ -28,7 +28,7 @@
 #include <stdlib.h>  // calloc, malloc, free, size_t
 #include <string.h>  // memcpy
 
-#include "signed_video_h26x_nalu_list.h"
+#include "sv_h26x_nalu_list.h"
 
 /* Declarations of static h26x_nalu_list_item_t functions. */
 static h26x_nalu_list_item_t *

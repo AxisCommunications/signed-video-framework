@@ -26,7 +26,7 @@
 #include <string.h>  // size_t
 
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
-#include "signed_video_defines.h"  // svrc_t
+#include "sv_defines.h"  // svrc_t
 
 /**
  * @brief Create cryptographic handle

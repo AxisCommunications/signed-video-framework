@@ -40,9 +40,9 @@
 #endif
 
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
-#include "signed_video_defines.h"
-#include "signed_video_internal.h"  // MAX_HASH_SIZE
-#include "signed_video_openssl_internal.h"
+#include "sv_defines.h"
+#include "sv_internal.h"  // MAX_HASH_SIZE
+#include "sv_openssl_internal.h"
 
 /**
  * Object to keep a message digest as both an EVP_MD type and on serialized OID form. This

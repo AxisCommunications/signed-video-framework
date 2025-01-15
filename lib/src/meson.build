@@ -10,19 +10,19 @@ signedvideoframework_public_headers = files(
 
 signedvideoframework_sources = files(
   'legacy_validation.h',
-  'signed_video_authenticity.c',
-  'signed_video_authenticity.h',
-  'signed_video_defines.h',
-  'signed_video_h26x_auth.c',
-  'signed_video_h26x_common.c',
-  'signed_video_h26x_internal.h',
-  'signed_video_h26x_nalu_list.c',
-  'signed_video_h26x_nalu_list.h',
-  'signed_video_h26x_sign.c',
-  'signed_video_internal.h',
-  'signed_video_openssl.c',
-  'signed_video_tlv.c',
-  'signed_video_tlv.h',
+  'sv_authenticity.c',
+  'sv_authenticity.h',
+  'sv_defines.h',
+  'sv_h26x_auth.c',
+  'sv_h26x_common.c',
+  'sv_h26x_internal.h',
+  'sv_h26x_nalu_list.c',
+  'sv_h26x_nalu_list.h',
+  'sv_h26x_sign.c',
+  'sv_internal.h',
+  'sv_openssl.c',
+  'sv_tlv.c',
+  'sv_tlv.h',
 )
 
 legacy_sources = files(

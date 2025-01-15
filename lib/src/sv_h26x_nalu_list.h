@@ -21,8 +21,8 @@
 #ifndef __SIGNED_VIDEO_H26X_NALU_LIST_H__
 #define __SIGNED_VIDEO_H26X_NALU_LIST_H__
 
-#include "signed_video_defines.h"
-#include "signed_video_h26x_internal.h"
+#include "sv_defines.h"
+#include "sv_h26x_internal.h"
 
 typedef enum {
   VALIDATION_STR = 0,

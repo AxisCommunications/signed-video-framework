@@ -30,9 +30,9 @@
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "lib/src/includes/sv_vendor_axis_communications.h"
 #endif
-#include "lib/src/signed_video_internal.h"  // set_hash_list_size()
-#include "lib/src/signed_video_openssl_internal.h"  // openssl_read_pubkey_from_private_key()
-#include "lib/src/signed_video_tlv.h"  // write_byte_many()
+#include "lib/src/sv_internal.h"  // set_hash_list_size()
+#include "lib/src/sv_openssl_internal.h"  // openssl_read_pubkey_from_private_key()
+#include "lib/src/sv_tlv.h"  // write_byte_many()
 #include "test_helpers.h"  // sv_setting, create_signed_nalus()
 #include "test_stream.h"  // test_stream_create()
 

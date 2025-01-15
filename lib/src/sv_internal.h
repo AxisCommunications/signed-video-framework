@@ -30,7 +30,7 @@
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
 #include "legacy_validation.h"  // legacy_sv_t
-#include "signed_video_defines.h"  // svrc_t, sv_tlv_tag_t
+#include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
 
 typedef struct _gop_info_t gop_info_t;
 typedef struct _validation_flags_t validation_flags_t;
@@ -51,7 +51,7 @@ typedef struct _h26x_nalu_t h26x_nalu_t;
 #define DEFAULT_HASH_SIZE (256 / 8)
 
 #define SV_VERSION_BYTES 3
-#define SIGNED_VIDEO_VERSION "v2.0.2"
+#define SIGNED_VIDEO_VERSION "v2.0.3"
 #define SV_VERSION_MAX_STRLEN 13  // Longest possible string
 
 #define DEFAULT_AUTHENTICITY_LEVEL SV_AUTHENTICITY_LEVEL_FRAME

@@ -18,7 +18,7 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#include "signed_video_tlv.h"
+#include "sv_tlv.h"
 
 #ifdef PRINT_DECODED_SEI
 #include <stdio.h>
@@ -29,8 +29,8 @@
 #endif
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
-#include "signed_video_authenticity.h"  // transfer_product_info()
-#include "signed_video_openssl_internal.h"  // openssl_public_key_malloc()
+#include "sv_authenticity.h"  // transfer_product_info()
+#include "sv_openssl_internal.h"  // openssl_public_key_malloc()
 
 /**
  * Encoder and decoder interfaces

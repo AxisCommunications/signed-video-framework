@@ -26,12 +26,12 @@
 #include "includes/signed_video_openssl.h"  // pem_pkey_t
 #include "includes/signed_video_sign.h"
 #include "includes/signed_video_signing_plugin.h"
-#include "signed_video_authenticity.h"  // allocate_memory_and_copy_string
-#include "signed_video_defines.h"  // svrc_t, sv_tlv_tag_t
-#include "signed_video_h26x_internal.h"  // parse_nalu_info(), METADATA_TYPE_USER_PRIVATE
-#include "signed_video_internal.h"  // gop_info_t
-#include "signed_video_openssl_internal.h"
-#include "signed_video_tlv.h"  // tlv_list_encode_or_get_size()
+#include "sv_authenticity.h"  // allocate_memory_and_copy_string
+#include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
+#include "sv_h26x_internal.h"  // parse_nalu_info(), METADATA_TYPE_USER_PRIVATE
+#include "sv_internal.h"  // gop_info_t
+#include "sv_openssl_internal.h"
+#include "sv_tlv.h"  // tlv_list_encode_or_get_size()
 
 static void
 h26x_set_nal_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDType uuid_type);

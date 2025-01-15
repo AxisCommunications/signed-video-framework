@@ -24,7 +24,7 @@
 #include <stdbool.h>
 
 #include "legacy/legacy_h26x_internal.h"
-#include "signed_video_defines.h"  // svrc_t
+#include "sv_defines.h"  // svrc_t
 
 typedef enum {
   LEGACY_VALIDATION_STR = 0,
