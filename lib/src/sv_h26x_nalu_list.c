@@ -22,7 +22,7 @@
 #ifdef SIGNED_VIDEO_DEBUG
 #include <stdio.h>  // printf
 
-#include "signed_video_internal.h"  // SHA_HASH_SIZE
+#include "sv_internal.h"  // SHA_HASH_SIZE
 #endif
 #include <stdint.h>
 #include <stdlib.h>  // calloc, malloc, free, size_t
