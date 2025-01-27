@@ -61,30 +61,24 @@ h264_get_payload_size(const uint8_t *data, size_t *payload_size);
 static SignedVideoUUIDType
 h264_get_uuid_sei_type(const uint8_t *uuid);
 static void
-remove_epb_from_sei_payload(h26x_nalu_t *nalu);
+remove_epb_from_sei_payload(bu_t *nalu);
 
 /* Hash wrapper functions */
-typedef svrc_t (*hash_wrapper_t)(signed_video_t *, const h26x_nalu_t *, uint8_t *, size_t);
+typedef svrc_t (*hash_wrapper_t)(signed_video_t *, const bu_t *, uint8_t *, size_t);
 static hash_wrapper_t
-get_hash_wrapper(signed_video_t *self, const h26x_nalu_t *nalu);
+get_hash_wrapper(signed_video_t *self, const bu_t *nalu);
 static svrc_t
-update_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *hash, size_t hash_size);
+update_hash(signed_video_t *self, const bu_t *nalu, uint8_t *hash, size_t hash_size);
 static svrc_t
-simply_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *hash, size_t hash_size);
+simply_hash(signed_video_t *self, const bu_t *nalu, uint8_t *hash, size_t hash_size);
 static svrc_t
-hash_and_copy_to_ref(signed_video_t *self,
-    const h26x_nalu_t *nalu,
-    uint8_t *hash,
-    size_t hash_size);
+hash_and_copy_to_ref(signed_video_t *self, const bu_t *nalu, uint8_t *hash, size_t hash_size);
 static svrc_t
-hash_with_reference(signed_video_t *self,
-    const h26x_nalu_t *nalu,
-    uint8_t *buddy_hash,
-    size_t hash_size);
+hash_with_reference(signed_video_t *self, const bu_t *nalu, uint8_t *buddy_hash, size_t hash_size);
 
 #ifdef SIGNED_VIDEO_DEBUG
 char *
-nalu_type_to_str(const h26x_nalu_t *nalu)
+nalu_type_to_str(const bu_t *nalu)
 {
   switch (nalu->nalu_type) {
     case NALU_TYPE_SEI:
@@ -107,7 +101,7 @@ nalu_type_to_str(const h26x_nalu_t *nalu)
 #endif
 
 char
-nalu_type_to_char(const h26x_nalu_t *nalu)
+nalu_type_to_char(const bu_t *nalu)
 {
   // If no NALU is present, mark as missing, i.e., empty ' '.
   if (!nalu) return ' ';
@@ -357,7 +351,7 @@ h264_get_uuid_sei_type(const uint8_t *uuid)
 }
 
 static bool
-parse_h264_nalu_header(h26x_nalu_t *nalu)
+parse_h264_nalu_header(bu_t *nalu)
 {
   // Parse the H264 NAL Unit Header
   uint8_t nalu_header = *(nalu->hashable_data);
@@ -420,7 +414,7 @@ parse_h264_nalu_header(h26x_nalu_t *nalu)
 }
 
 static bool
-parse_h265_nalu_header(h26x_nalu_t *nalu)
+parse_h265_nalu_header(bu_t *nalu)
 {
   // Parse the H265 NAL Unit Header
   uint8_t nalu_header = *(nalu->hashable_data);
@@ -534,7 +528,7 @@ parse_h265_nalu_header(h26x_nalu_t *nalu)
 }
 
 static bool
-parse_av1_obu_header(h26x_nalu_t *obu)
+parse_av1_obu_header(bu_t *obu)
 {
   // Parse the AV1 OBU Header
   const uint8_t *obu_ptr = obu->hashable_data;
@@ -609,7 +603,7 @@ parse_av1_obu_header(h26x_nalu_t *obu)
  * If emulation prevention bytes are present, temporary memory is allocated to hold the new tlv
  * data. Once emulation prevention bytes have been removed the new tlv data can be decoded. */
 static void
-remove_epb_from_sei_payload(h26x_nalu_t *nalu)
+remove_epb_from_sei_payload(bu_t *nalu)
 {
   assert(nalu);
   if (!nalu->is_hashable || !nalu->is_gop_sei || (nalu->is_valid <= 0)) return;
@@ -666,7 +660,7 @@ remove_epb_from_sei_payload(h26x_nalu_t *nalu)
  * Emulation prevention bytes may have been removed and if so, memory has been allocated. The user
  * is responsible for freeing |nalu_data_wo_epb|.
  */
-h26x_nalu_t
+bu_t
 parse_nalu_info(const uint8_t *nalu_data,
     size_t nalu_data_size,
     SignedVideoCodec codec,
@@ -674,7 +668,7 @@ parse_nalu_info(const uint8_t *nalu_data,
     bool is_auth_side)
 {
   uint32_t nalu_header_len = 0;
-  h26x_nalu_t nalu = {0};
+  bu_t nalu = {0};
   // Initialize NALU
   nalu.nalu_data = nalu_data;
   nalu.nalu_data_size = nalu_data_size;
@@ -812,11 +806,11 @@ parse_nalu_info(const uint8_t *nalu_data,
  * Copies all members, but the pointers from |src_nalu| to |dst_nalu|. All pointers and set to NULL.
  */
 void
-copy_nalu_except_pointers(h26x_nalu_t *dst_nalu, const h26x_nalu_t *src_nalu)
+copy_nalu_except_pointers(bu_t *dst_nalu, const bu_t *src_nalu)
 {
   if (!dst_nalu || !src_nalu) return;
 
-  memcpy(dst_nalu, src_nalu, sizeof(h26x_nalu_t));
+  memcpy(dst_nalu, src_nalu, sizeof(bu_t));
   // Set pointers to NULL, since memory is not transfered to next NALU.
   dst_nalu->nalu_data = NULL;
   dst_nalu->hashable_data = NULL;
@@ -872,7 +866,7 @@ validation_flags_init(validation_flags_t *validation_flags)
 }
 
 void
-update_validation_flags(validation_flags_t *validation_flags, h26x_nalu_t *nalu)
+update_validation_flags(validation_flags_t *validation_flags, bu_t *nalu)
 {
   if (!validation_flags || !nalu) return;
 
@@ -884,7 +878,7 @@ update_validation_flags(validation_flags_t *validation_flags, h26x_nalu_t *nalu)
 /* Others */
 
 void
-update_num_nalus_in_gop_hash(signed_video_t *self, const h26x_nalu_t *nalu)
+update_num_nalus_in_gop_hash(signed_video_t *self, const bu_t *nalu)
 {
   if (!self || !nalu) return;
 
@@ -955,7 +949,7 @@ update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
 
 /* A getter that determines which hash wrapper to use and returns it. */
 static hash_wrapper_t
-get_hash_wrapper(signed_video_t *self, const h26x_nalu_t *nalu)
+get_hash_wrapper(signed_video_t *self, const bu_t *nalu)
 {
   assert(self && nalu);
 
@@ -983,7 +977,7 @@ get_hash_wrapper(signed_video_t *self, const h26x_nalu_t *nalu)
  * takes the |hashable_data| from the NALU, and updates the hash in |crypto_handle|. */
 static svrc_t
 update_hash(signed_video_t *self,
-    const h26x_nalu_t *nalu,
+    const bu_t *nalu,
     uint8_t ATTR_UNUSED *hash,
     size_t ATTR_UNUSED hash_size)
 {
@@ -998,7 +992,7 @@ update_hash(signed_video_t *self,
  *
  * takes the |hashable_data| from the NALU, hash it and store the hash in |nalu_hash|. */
 static svrc_t
-simply_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *hash, size_t hash_size)
+simply_hash(signed_video_t *self, const bu_t *nalu, uint8_t *hash, size_t hash_size)
 {
   // It should not be possible to end up here unless the NALU data includes the last part.
   assert(nalu && nalu->is_last_nalu_part && hash);
@@ -1025,7 +1019,7 @@ simply_hash(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *hash, size_t
  *
  * This is needed for the first NALU of a GOP, which serves as a reference. */
 static svrc_t
-hash_and_copy_to_ref(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *hash, size_t hash_size)
+hash_and_copy_to_ref(signed_video_t *self, const bu_t *nalu, uint8_t *hash, size_t hash_size)
 {
   assert(self && nalu && hash);
 
@@ -1055,10 +1049,7 @@ hash_and_copy_to_ref(signed_video_t *self, const h26x_nalu_t *nalu, uint8_t *has
  * This hash wrapper should be used for all NALUs except the initial one (the reference).
  */
 static svrc_t
-hash_with_reference(signed_video_t *self,
-    const h26x_nalu_t *nalu,
-    uint8_t *buddy_hash,
-    size_t hash_size)
+hash_with_reference(signed_video_t *self, const bu_t *nalu, uint8_t *buddy_hash, size_t hash_size)
 {
   assert(self && nalu && buddy_hash);
 
@@ -1080,7 +1071,7 @@ hash_with_reference(signed_video_t *self,
 }
 
 svrc_t
-hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu)
+hash_and_add(signed_video_t *self, const bu_t *nalu)
 {
   if (!self || !nalu) return SV_INVALID_PARAMETER;
 
@@ -1127,7 +1118,7 @@ hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
 {
   if (!self || !item) return SV_INVALID_PARAMETER;
 
-  const h26x_nalu_t *nalu = item->nalu;
+  const bu_t *nalu = item->nalu;
   if (!nalu) return SV_INVALID_PARAMETER;
 
   if (!nalu->is_hashable) {
@@ -1209,7 +1200,7 @@ signed_video_create(SignedVideoCodec codec)
     self->has_recurrent_data = false;
     self->frame_count = 0;
 
-    self->last_nalu = (h26x_nalu_t *)calloc(1, sizeof(h26x_nalu_t));
+    self->last_nalu = (bu_t *)calloc(1, sizeof(bu_t));
     SV_THROW_IF(!self->last_nalu, SV_MEMORY);
     // Mark the last NALU as complete, hence, no ongoing hashing is present.
     self->last_nalu->is_last_nalu_part = true;
@@ -1259,7 +1250,7 @@ signed_video_reset(signed_video_t *self)
     h26x_nalu_list_free_items(self->nalu_list);
 
     memset(self->gop_info->linked_hashes, 0, sizeof(self->gop_info->linked_hashes));
-    memset(self->last_nalu, 0, sizeof(h26x_nalu_t));
+    memset(self->last_nalu, 0, sizeof(bu_t));
     self->last_nalu->is_last_nalu_part = true;
     SV_THROW(openssl_init_hash(self->crypto_handle, false));
 
@@ -1340,7 +1331,7 @@ signed_video_is_golden_sei(signed_video_t *self, const uint8_t *nalu, size_t nal
 {
   if (!self || !nalu || (nalu_size == 0)) return false;
 
-  h26x_nalu_t parsed_nalu = parse_nalu_info(nalu, nalu_size, self->codec, false, true);
+  bu_t parsed_nalu = parse_nalu_info(nalu, nalu_size, self->codec, false, true);
   free(parsed_nalu.nalu_data_wo_epb);
   return parsed_nalu.is_golden_sei;
 };
@@ -1353,7 +1344,7 @@ signed_video_parse_sei(uint8_t *nalu, size_t nalu_size, SignedVideoCodec codec)
   }
 
 #ifdef PRINT_DECODED_SEI
-  h26x_nalu_t nalu_info = parse_nalu_info(nalu, nalu_size, codec, true, true);
+  bu_t nalu_info = parse_nalu_info(nalu, nalu_size, codec, true, true);
   if (nalu_info.is_gop_sei) {
     printf("\nSEI (%zu bytes):\n", nalu_size);
     for (size_t i = 0; i < nalu_size; ++i) {

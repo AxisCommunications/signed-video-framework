@@ -32,7 +32,7 @@
 
 /* Declarations of static h26x_nalu_list_item_t functions. */
 static h26x_nalu_list_item_t *
-h26x_nalu_list_item_create(const h26x_nalu_t *nalu);
+h26x_nalu_list_item_create(const bu_t *nalu);
 static void
 h26x_nalu_list_item_free(h26x_nalu_list_item_t *item);
 static void
@@ -53,10 +53,10 @@ h26x_nalu_list_refresh(h26x_nalu_list_t *list);
 
 /* Helper functions. */
 
-/* Determines and returns the validation status character from a h26x_nalu_t object.
+/* Determines and returns the validation status character from a bu_t object.
  */
 static char
-get_validation_status_from_nalu(const h26x_nalu_t *nalu)
+get_validation_status_from_nalu(const bu_t *nalu)
 {
   if (!nalu) return '\0';
 
@@ -83,12 +83,12 @@ get_validation_status_from_nalu(const h26x_nalu_t *nalu)
 /* Creates a new NALU list item and sets the pointer to the |nalu|. A NULL pointer is a valid input,
  * which will create an empty item. */
 static h26x_nalu_list_item_t *
-h26x_nalu_list_item_create(const h26x_nalu_t *nalu)
+h26x_nalu_list_item_create(const bu_t *nalu)
 {
   h26x_nalu_list_item_t *item = (h26x_nalu_list_item_t *)calloc(1, sizeof(h26x_nalu_list_item_t));
   if (!item) return NULL;
 
-  item->nalu = (h26x_nalu_t *)nalu;
+  item->nalu = (bu_t *)nalu;
   item->taken_ownership_of_nalu = false;
   item->validation_status = get_validation_status_from_nalu(nalu);
   item->tmp_validation_status = item->validation_status;
@@ -151,7 +151,7 @@ h26x_nalu_list_item_prepend_item(h26x_nalu_list_item_t *list_item, h26x_nalu_lis
 static void
 h26x_nalu_list_item_print(const h26x_nalu_list_item_t *item)
 {
-  // h26x_nalu_t *nalu;
+  // bu_t *nalu;
   // char validation_status;
   // uint8_t hash[MAX_HASH_SIZE];
   // bool taken_ownership_of_nalu;
@@ -283,7 +283,7 @@ h26x_nalu_list_free_items(h26x_nalu_list_t *list)
 /* Appends the |last_item| of the |list| with a new item. The new item has a pointer to |nalu|, but
  * does not take ownership of it. */
 svrc_t
-h26x_nalu_list_append(h26x_nalu_list_t *list, const h26x_nalu_t *nalu)
+h26x_nalu_list_append(h26x_nalu_list_t *list, const bu_t *nalu)
 {
   if (!list || !nalu) return SV_INVALID_PARAMETER;
 
@@ -309,7 +309,7 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list, bool hash_algo_known)
 {
   if (!list) return SV_INVALID_PARAMETER;
 
-  h26x_nalu_t *copied_nalu = NULL;
+  bu_t *copied_nalu = NULL;
   uint8_t *nalu_data = NULL;
   uint8_t *hashable_data = NULL;
   uint8_t *nalu_data_wo_epb = NULL;
@@ -326,7 +326,7 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list, bool hash_algo_known)
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_IF(!item->nalu, SV_UNKNOWN_FAILURE);
-    copied_nalu = (h26x_nalu_t *)malloc(sizeof(h26x_nalu_t));
+    copied_nalu = (bu_t *)malloc(sizeof(bu_t));
     SV_THROW_IF(!copied_nalu, SV_MEMORY);
     if (item->nalu->tlv_data) {
       nalu_data_wo_epb = malloc(item->nalu->tlv_size);

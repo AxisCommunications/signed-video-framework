@@ -48,11 +48,11 @@ typedef enum {
 /* Semicolon needed after, ex. DEBUG_LOG("my debug: %d", 42); */
 #ifdef SIGNED_VIDEO_DEBUG
 char *
-nalu_type_to_str(const h26x_nalu_t *nalu);
+nalu_type_to_str(const bu_t *nalu);
 #endif
 
 char
-nalu_type_to_char(const h26x_nalu_t *nalu);
+nalu_type_to_char(const bu_t *nalu);
 
 /* SEI UUID types */
 extern const uint8_t kUuidSignedVideo[UUID_LEN];
@@ -76,7 +76,7 @@ struct _h26x_nalu_list_t {
  * NALU data as well as pointers to the previous and next items in the list.
  */
 struct _h26x_nalu_list_item_t {
-  h26x_nalu_t *nalu;  // The parsed NALU information.
+  bu_t *nalu;  // The parsed NALU information.
   char validation_status;  // The authentication status which can take on the following characters:
   // 'P' : Pending validation. This is the initial value. The NALU has been registered and waiting
   //       for validating the authenticity.
@@ -119,7 +119,7 @@ struct _h26x_nalu_list_item_t {
  * NALU data size, pointer to hashable data and size of the hashable data. Further, includes
  * information on NALU type, uuid type (if any) and if the NALU is valid for use/hashing.
  */
-struct _h26x_nalu_t {
+struct _bu_t {
   const uint8_t *nalu_data;  // The actual NALU data
   size_t nalu_data_size;  // The total size of the NALU data
   const uint8_t *hashable_data;  // The NALU data for potential hashing
@@ -157,11 +157,11 @@ validation_flags_init(validation_flags_t *validation_flags);
 
 /* Updates the |validation_flags| w.r.t. a |nalu|. */
 void
-update_validation_flags(validation_flags_t *validation_flags, h26x_nalu_t *nalu);
+update_validation_flags(validation_flags_t *validation_flags, bu_t *nalu);
 
 /* Others */
 void
-update_num_nalus_in_gop_hash(signed_video_t *signed_video, const h26x_nalu_t *nalu);
+update_num_nalus_in_gop_hash(signed_video_t *signed_video, const bu_t *nalu);
 
 void
 check_and_copy_hash_to_hash_list(signed_video_t *signed_video,
@@ -169,7 +169,7 @@ check_and_copy_hash_to_hash_list(signed_video_t *signed_video,
     size_t hash_size);
 
 svrc_t
-hash_and_add(signed_video_t *self, const h26x_nalu_t *nalu);
+hash_and_add(signed_video_t *self, const bu_t *nalu);
 
 svrc_t
 update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size);
@@ -177,7 +177,7 @@ update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size);
 svrc_t
 hash_and_add_for_auth(signed_video_t *signed_video, h26x_nalu_list_item_t *item);
 
-h26x_nalu_t
+bu_t
 parse_nalu_info(const uint8_t *nalu_data,
     size_t nalu_data_size,
     SignedVideoCodec codec,
@@ -185,9 +185,9 @@ parse_nalu_info(const uint8_t *nalu_data,
     bool is_auth_side);
 
 void
-copy_nalu_except_pointers(h26x_nalu_t *dst_nalu, const h26x_nalu_t *src_nalu);
+copy_nalu_except_pointers(bu_t *dst_nalu, const bu_t *src_nalu);
 
 void
-update_hashable_data(h26x_nalu_t *nalu);
+update_hashable_data(bu_t *nalu);
 
 #endif  // __SIGNED_VIDEO_H26X_INTERNAL__

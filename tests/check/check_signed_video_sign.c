@@ -32,7 +32,7 @@
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "lib/src/includes/sv_vendor_axis_communications.h"
 #endif
-#include "lib/src/sv_h26x_internal.h"  // h26x_nalu_t, kUuidSignedVideo
+#include "lib/src/sv_h26x_internal.h"  // bu_t, kUuidSignedVideo
 #include "lib/src/sv_internal.h"  // set_hash_list_size(), UUID_LEN
 #include "lib/src/sv_tlv.h"  // tlv_has_{optional, mandatory}_tags()
 #include "test_helpers.h"
@@ -63,7 +63,7 @@ verify_seis(test_stream_t *list, struct sv_setting setting)
   size_t sei_size = 0;
   test_stream_item_t *item = list->first_item;
   while (item) {
-    h26x_nalu_t nalu_info = parse_nalu_info(item->data, item->data_size, list->codec, false, true);
+    bu_t nalu_info = parse_nalu_info(item->data, item->data_size, list->codec, false, true);
     if (nalu_info.is_gop_sei) {
       if (num_seis == 0) {
         // Set the SEI size for the first detected SEI.
@@ -903,8 +903,8 @@ START_TEST(correct_timestamp)
   ck_assert(sei_size == sei_size_ts);
 
   // Get the hashable data (includes the signature)
-  h26x_nalu_t nalu = parse_nalu_info(sei, sei_size, codec, false, true);
-  h26x_nalu_t nalu_ts = parse_nalu_info(sei_ts, sei_size, codec, false, true);
+  bu_t nalu = parse_nalu_info(sei, sei_size, codec, false, true);
+  bu_t nalu_ts = parse_nalu_info(sei_ts, sei_size, codec, false, true);
 
   // Remove the signature
   update_hashable_data(&nalu);
@@ -953,7 +953,7 @@ START_TEST(w_wo_emulation_prevention_bytes)
   SignedVideoCodec codec = settings[_i].codec;
   SignedVideoReturnCode sv_rc;
 
-  h26x_nalu_t nalus[NUM_EPB_CASES] = {0};
+  bu_t nalus[NUM_EPB_CASES] = {0};
   uint8_t *seis[NUM_EPB_CASES] = {NULL, NULL};
   size_t sei_sizes[NUM_EPB_CASES] = {0, 0};
   bool with_emulation_prevention[NUM_EPB_CASES] = {true, false};
