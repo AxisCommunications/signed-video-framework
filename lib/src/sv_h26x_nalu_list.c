@@ -278,14 +278,14 @@ bu_list_free_items(bu_list_t *list)
   }
 }
 
-/* Appends the |last_item| of the |list| with a new item. The new item has a pointer to |nalu|, but
- * does not take ownership of it. */
+/* Appends the |last_item| of the |list| with a new item. The new item has a pointer to
+ * |bu|, but does not take ownership of it. */
 svrc_t
-h26x_nalu_list_append(bu_list_t *list, const bu_info_t *nalu)
+bu_list_append(bu_list_t *list, const bu_info_t *bu)
 {
-  if (!list || !nalu) return SV_INVALID_PARAMETER;
+  if (!list || !bu) return SV_INVALID_PARAMETER;
 
-  bu_list_item_t *new_item = h26x_nalu_list_item_create(nalu);
+  bu_list_item_t *new_item = h26x_nalu_list_item_create(bu);
   if (!new_item) return SV_MEMORY;
 
   // List is empty. Set |new_item| as first_item. The h26x_nalu_list_refresh() call will fix the
@@ -303,7 +303,7 @@ h26x_nalu_list_append(bu_list_t *list, const bu_info_t *nalu)
  * released. If the |nalu| could not be copied it will be a NULL pointer. If hash algo is
  * not known the |hashable_data| is copied so the NALU can be hashed later. */
 svrc_t
-h26x_nalu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
+bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
 {
   if (!list) return SV_INVALID_PARAMETER;
 

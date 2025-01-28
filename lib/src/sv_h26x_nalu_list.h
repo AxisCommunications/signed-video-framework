@@ -59,33 +59,37 @@ bu_list_free_items(bu_list_t* list);
 /**
  * @brief Appends a list with a new item
  *
- * From the |nalu| a bu_list_item_t is created. The new item is the added to the |list| by
- * appending the last item. @note that the ownership of |nalu| is not transferred. The list item
- * only holds a pointer to the |nalu| memory. To store |nalu| for the future use
- * h26x_nalu_list_copy_last_item(...) before releasing the |nalu| memory.
+ * From the |bu| a bu_list_item_t is created. The new item is the added to the |list| by
+ * appending the last item.
+ * @note that the ownership of |bu| is not transferred. The list item only holds a pointer
+ * to the |bu| memory. To store |bu| for the future use bu_list_copy_last_item(...) before
+ * releasing the |bu| memory.
  *
- * @param list The list to which the NALU should be added.
- * @param nalu The bu_info_t to add to the list through a new item.
+ * @param list The list to which the BU should be added.
+ * @param bu The bu_info_t to add to the list through a new item.
  *
- * @returns Signed Video Internal Return Code
+ * @return Signed Video Return Code
  */
 svrc_t
-h26x_nalu_list_append(bu_list_t* list, const bu_info_t* nalu);
+bu_list_append(bu_list_t* list, const bu_info_t* bu);
 
 /**
  * @brief Makes a copy of the last item in a list
  *
- * A copy of the |nalu| in the last bu_list_item_t of the |list| is made, but only the
- * necessary information is kept. For example, most of the pointers are not needed and therefore set
- * to NULL. The ownership of |nalu| is handed over and the user can now safely free the memory. If
- * the |nalu| could not be copied it will be a NULL pointer and an error is returned.
+ * A copy of the |bu| in the last bu_list_item_t of the |list| is made, but only the
+ * necessary information is kept. For example, most of the pointers are not needed and
+ * therefore set to NULL. The ownership of |bu| is handed over and the user can now safely
+ * free the memory. If the |bu| could not be copied it will be a NULL pointer and an error
+ * is returned.
  *
  * @param list The list of which the last item is to be copied.
+ * @param hash_algo_known Flag to indicate if the hash algorithm is known. If not, the
+ *   entire BU data is copied, otherwise not.
  *
- * @returns Signed Video Internal Return Code
+ * @return Signed Video Return Code
  */
 svrc_t
-h26x_nalu_list_copy_last_item(bu_list_t* list, bool hash_algo_known);
+bu_list_copy_last_item(bu_list_t* list, bool hash_algo_known);
 
 /**
  * @brief Appends or prepends a certain item of a list with a new item marked as missing
