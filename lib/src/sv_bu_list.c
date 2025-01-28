@@ -28,7 +28,7 @@
 #include <stdlib.h>  // calloc, malloc, free, size_t
 #include <string.h>  // memcpy
 
-#include "sv_h26x_nalu_list.h"
+#include "sv_bu_list.h"
 
 /* Declarations of static bu_list_item_t functions. */
 static bu_list_item_t *
