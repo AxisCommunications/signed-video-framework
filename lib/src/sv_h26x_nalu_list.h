@@ -29,16 +29,16 @@ typedef enum {
   NALU_STR = 1,
 } NaluListStringType;
 
-/* Function declarations needed to handle the linked list of NALUs used to validate the authenticity
- * of a Signed Video. */
+/* Function declarations needed to handle the linked list of BUs used to validate the
+ * authenticity of a Signed Video. */
 
 /**
  * @brief Creates a nalu list
  *
- * @returns A pointer to the created object, or NULL upon failure.
+ * @return A pointer to the created object, or NULL upon failure.
  */
 bu_list_t*
-h26x_nalu_list_create();
+bu_list_create();
 
 /**
  * @brief Frees all the items in the list and the list itself
@@ -46,7 +46,7 @@ h26x_nalu_list_create();
  * @param list The bu_list_t object to free.
  */
 void
-h26x_nalu_list_free(bu_list_t* list);
+bu_list_free(bu_list_t* list);
 
 /**
  * @brief Removes and frees all the items in a bu_list_t
@@ -54,7 +54,7 @@ h26x_nalu_list_free(bu_list_t* list);
  * @param list The list to empty. All items in the list are freed.
  */
 void
-h26x_nalu_list_free_items(bu_list_t* list);
+bu_list_free_items(bu_list_t* list);
 
 /**
  * @brief Appends a list with a new item

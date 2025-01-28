@@ -38,7 +38,7 @@
 #include "sv_authenticity.h"  // latest_validation_init()
 #include "sv_defines.h"  // svrc_t
 #include "sv_h26x_internal.h"  // bu_list_item_t, METADATA_TYPE_USER_PRIVATE
-#include "sv_h26x_nalu_list.h"  // h26x_nalu_list_create()
+#include "sv_h26x_nalu_list.h"  // bu_list_create(), bu_list_free()
 #include "sv_internal.h"  // gop_info_t, validation_flags_t, MAX_HASH_SIZE, DEFAULT_HASH_SIZE
 #include "sv_openssl_internal.h"
 #include "sv_tlv.h"  // read_32bits()
@@ -1214,7 +1214,7 @@ signed_video_create(SignedVideoCodec codec)
     self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
 
     // Initialize validation members
-    self->nalu_list = h26x_nalu_list_create();
+    self->nalu_list = bu_list_create();
     // No need to check if |nalu_list| is a nullptr, since it is only of importance on the
     // authentication side. The check is done there instead.
     self->authentication_started = false;
@@ -1253,7 +1253,7 @@ signed_video_reset(signed_video_t *self)
     latest_validation_init(self->latest_validation);
     accumulated_validation_init(self->accumulated_validation);
     // Empty the |nalu_list|.
-    h26x_nalu_list_free_items(self->nalu_list);
+    bu_list_free_items(self->nalu_list);
 
     memset(self->gop_info->linked_hashes, 0, sizeof(self->gop_info->linked_hashes));
     memset(self->last_nalu, 0, sizeof(bu_info_t));
@@ -1289,7 +1289,7 @@ signed_video_free(signed_video_t *self)
   free_sei_data_buffer(self->sei_data_buffer);
 
   free(self->last_nalu);
-  h26x_nalu_list_free(self->nalu_list);
+  bu_list_free(self->nalu_list);
 
   signed_video_authenticity_report_free(self->authenticity);
   product_info_free(self->product_info);

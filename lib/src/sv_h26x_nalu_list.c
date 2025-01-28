@@ -253,23 +253,23 @@ is_in_list(const bu_list_t *list, const bu_list_item_t *item_to_find)
 
 /* Creates and returns a nalu list. */
 bu_list_t *
-h26x_nalu_list_create()
+bu_list_create()
 {
   return (bu_list_t *)calloc(1, sizeof(bu_list_t));
 }
 
 /* Frees all the items in the list and the list itself. */
 void
-h26x_nalu_list_free(bu_list_t *list)
+bu_list_free(bu_list_t *list)
 {
   if (!list) return;
-  h26x_nalu_list_free_items(list);
+  bu_list_free_items(list);
   free(list);
 }
 
 /* Removes and frees all the items in the |list|. */
 void
-h26x_nalu_list_free_items(bu_list_t *list)
+bu_list_free_items(bu_list_t *list)
 {
   if (!list) return;
   // Pop all items and free them.
