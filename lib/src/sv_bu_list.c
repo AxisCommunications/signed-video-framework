@@ -32,9 +32,9 @@
 
 /* Declarations of static bu_list_item_t functions. */
 static bu_list_item_t *
-h26x_nalu_list_item_create(const bu_info_t *nalu);
+bu_list_item_create(const bu_info_t *bu);
 static void
-h26x_nalu_list_item_free(bu_list_item_t *item);
+bu_list_item_free(bu_list_item_t *item);
 static void
 h26x_nalu_list_item_append_item(bu_list_item_t *list_item, bu_list_item_t *new_item);
 static void
@@ -79,17 +79,19 @@ get_validation_status_from_nalu(const bu_info_t *nalu)
  * Static bu_list_item_t functions.
  */
 
-/* Creates a new NALU list item and sets the pointer to the |nalu|. A NULL pointer is a valid input,
- * which will create an empty item. */
+/* Creates a new BU list item and sets the pointer to the |bu|. A NULL pointer is a valid
+ * input, which will create an empty item. */
 static bu_list_item_t *
-h26x_nalu_list_item_create(const bu_info_t *nalu)
+bu_list_item_create(const bu_info_t *bu)
 {
   bu_list_item_t *item = (bu_list_item_t *)calloc(1, sizeof(bu_list_item_t));
-  if (!item) return NULL;
+  if (!item) {
+    return NULL;
+  }
 
-  item->nalu = (bu_info_t *)nalu;
+  item->nalu = (bu_info_t *)bu;
   item->taken_ownership_of_nalu = false;
-  item->validation_status = get_validation_status_from_nalu(nalu);
+  item->validation_status = get_validation_status_from_nalu(bu);
   item->tmp_validation_status = item->validation_status;
 
   return item;
@@ -98,9 +100,11 @@ h26x_nalu_list_item_create(const bu_info_t *nalu)
 /* Frees the |item|. Also frees the |nalu| data, hence this operation should be used with care if it
  * is used by others. */
 static void
-h26x_nalu_list_item_free(bu_list_item_t *item)
+bu_list_item_free(bu_list_item_t *item)
 {
-  if (!item) return;
+  if (!item) {
+    return;
+  }
 
   // If we have |nalu| data we free the temporarily used TLV memory slot.
   if (item->taken_ownership_of_nalu) {
@@ -199,7 +203,7 @@ h26x_nalu_list_remove_and_free_item(bu_list_t *list, const bu_list_item_t *item_
   if (list->last_item == item) list->last_item = item->prev;
   h26x_nalu_list_refresh(list);
 
-  h26x_nalu_list_item_free(item);
+  bu_list_item_free(item);
 }
 
 /* Makes a refresh on the list. Helpful if the list is out of sync. Rewinds the |first_item| to the
@@ -291,7 +295,7 @@ bu_list_append(bu_list_t *list, const bu_info_t *bu)
     return SV_INVALID_PARAMETER;
   }
 
-  bu_list_item_t *new_item = h26x_nalu_list_item_create(bu);
+  bu_list_item_t *new_item = bu_list_item_create(bu);
   if (!new_item) {
     return SV_MEMORY;
   }
@@ -392,7 +396,7 @@ bu_list_add_missing(bu_list_t *list, int num_missing, bool append, bu_list_item_
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     for (added_items = 0; added_items < num_missing; added_items++) {
-      bu_list_item_t *missing_bu = h26x_nalu_list_item_create(NULL);
+      bu_list_item_t *missing_bu = bu_list_item_create(NULL);
       SV_THROW_IF(!missing_bu, SV_MEMORY);
 
       missing_bu->validation_status = 'M';
