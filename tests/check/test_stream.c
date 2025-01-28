@@ -99,7 +99,7 @@ const uint8_t invalid_av1[DUMMY_NALU_SIZE] = {0x02, 0x03, 0xff, 0x00, 0xff};
 static char
 get_type_char(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
 {
-  h26x_nalu_t nalu = parse_nalu_info(data, data_size, codec, false, true);
+  bu_info_t nalu = parse_nalu_info(data, data_size, codec, false, true);
 
   char type;
   switch (nalu.nalu_type) {

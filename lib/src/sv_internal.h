@@ -38,7 +38,7 @@ typedef struct _sei_data_t sei_data_t;
 
 // Forward declare h26x_nalu_list_t here for signed_video_t.
 typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
-typedef struct _h26x_nalu_t h26x_nalu_t;
+typedef struct _bu_info_t bu_info_t;  // Bitstream Unit (BU); NALU or OBU
 
 #if defined(_WIN32) || defined(_WIN64)
 #define ATTR_UNUSED
@@ -160,7 +160,7 @@ struct _signed_video_t {
   bool has_recurrent_data;
   int frame_count;
 
-  h26x_nalu_t *last_nalu;  // Track last parsed h26x_nalu_t to pass on to next part
+  bu_info_t *last_nalu;  // Track last parsed bu_info_t to pass on to next part
 
   uint8_t received_linked_hash[MAX_HASH_SIZE];  // Stores linked hash data for liked hash method.
   // Members associated with SEI writing

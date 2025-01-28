@@ -65,12 +65,12 @@ h26x_nalu_list_free_items(h26x_nalu_list_t* list);
  * h26x_nalu_list_copy_last_item(...) before releasing the |nalu| memory.
  *
  * @param list The list to which the NALU should be added.
- * @param nalu The h26x_nalu_t to add to the list through a new item.
+ * @param nalu The bu_info_t to add to the list through a new item.
  *
  * @returns Signed Video Internal Return Code
  */
 svrc_t
-h26x_nalu_list_append(h26x_nalu_list_t* list, const h26x_nalu_t* nalu);
+h26x_nalu_list_append(h26x_nalu_list_t* list, const bu_info_t* nalu);
 
 /**
  * @brief Makes a copy of the last item in a list

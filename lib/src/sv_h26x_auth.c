@@ -965,7 +965,7 @@ validation_is_feasible(const h26x_nalu_list_item_t *item)
 /* Validates the authenticity of the video since last time if the state says so. After the
  * validation the gop state is reset w.r.t. a new GOP. */
 static svrc_t
-maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
+maybe_validate_gop(signed_video_t *self, bu_info_t *nalu)
 {
   assert(self && nalu);
 
@@ -1105,10 +1105,10 @@ maybe_validate_gop(signed_video_t *self, h26x_nalu_t *nalu)
  * bytes from NALU header to stop bit are hashed. This holds for all NALU types but the Signed Video
  * generated SEI NALUs. For these, the last X bytes storing the signature are not hashed.
  *
- * In this function we update the h26x_nalu_t member |hashable_data_size| w.r.t. that. The pointer
+ * In this function we update the bu_info_t member |hashable_data_size| w.r.t. that. The pointer
  * to the start is still the same. */
 void
-update_hashable_data(h26x_nalu_t *nalu)
+update_hashable_data(bu_info_t *nalu)
 {
   assert(nalu && (nalu->is_valid > 0));
   if (!nalu->is_hashable || !nalu->is_gop_sei) return;
@@ -1128,7 +1128,7 @@ update_hashable_data(h26x_nalu_t *nalu)
 static svrc_t
 register_nalu(signed_video_t *self, h26x_nalu_list_item_t *item)
 {
-  h26x_nalu_t *nalu = item->nalu;
+  bu_info_t *nalu = item->nalu;
   assert(self && nalu && nalu->is_valid >= 0);
 
   if (nalu->is_valid == 0) return SV_OK;
@@ -1192,7 +1192,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
 
   validation_flags_t *validation_flags = &(self->validation_flags);
   h26x_nalu_list_t *nalu_list = self->nalu_list;
-  h26x_nalu_t nalu = parse_nalu_info(nalu_data, nalu_data_size, self->codec, true, true);
+  bu_info_t nalu = parse_nalu_info(nalu_data, nalu_data_size, self->codec, true, true);
   DEBUG_LOG("Received a %s of size %zu B", nalu_type_to_str(&nalu), nalu.nalu_data_size);
   validation_flags->has_auth_result = false;
 
