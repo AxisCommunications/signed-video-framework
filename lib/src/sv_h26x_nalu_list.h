@@ -59,7 +59,7 @@ h26x_nalu_list_free_items(h26x_nalu_list_t* list);
 /**
  * @brief Appends a list with a new item
  *
- * From the |nalu| a h26x_nalu_list_item_t is created. The new item is the added to the |list| by
+ * From the |nalu| a bu_list_item_t is created. The new item is the added to the |list| by
  * appending the last item. @note that the ownership of |nalu| is not transferred. The list item
  * only holds a pointer to the |nalu| memory. To store |nalu| for the future use
  * h26x_nalu_list_copy_last_item(...) before releasing the |nalu| memory.
@@ -75,7 +75,7 @@ h26x_nalu_list_append(h26x_nalu_list_t* list, const bu_info_t* nalu);
 /**
  * @brief Makes a copy of the last item in a list
  *
- * A copy of the |nalu| in the last h26x_nalu_list_item_t of the |list| is made, but only the
+ * A copy of the |nalu| in the last bu_list_item_t of the |list| is made, but only the
  * necessary information is kept. For example, most of the pointers are not needed and therefore set
  * to NULL. The ownership of |nalu| is handed over and the user can now safely free the memory. If
  * the |nalu| could not be copied it will be a NULL pointer and an error is returned.
@@ -105,7 +105,7 @@ svrc_t
 h26x_nalu_list_add_missing(h26x_nalu_list_t* list,
     int num_missing,
     bool append,
-    h26x_nalu_list_item_t* item);
+    bu_list_item_t* item);
 
 /**
  * @brief Removes 'M' items present at the beginning of a |list|
@@ -124,10 +124,10 @@ h26x_nalu_list_remove_missing_items(h26x_nalu_list_t* list);
  *
  * @param list The |list| to search for the next SEI.
  *
- * @returns The nex h26x_nalu_list_item_t that holds a SEI NALU, which also is 'pending' validation.
+ * @returns The nex bu_list_item_t that holds a SEI NALU, which also is 'pending' validation.
  *   If no pending SEI item is found a NULL pointer is returned.
  */
-h26x_nalu_list_item_t*
+bu_list_item_t*
 h26x_nalu_list_get_next_sei_item(const h26x_nalu_list_t* list);
 
 /**
