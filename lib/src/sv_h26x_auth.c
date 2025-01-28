@@ -1015,7 +1015,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *nalu)
       latest->number_of_expected_picture_nalus = -1;
       latest->number_of_received_picture_nalus = -1;
       latest->number_of_pending_picture_nalus = bu_list_num_pending_items(nalu_list);
-      status = h26x_nalu_list_update_status(nalu_list, true);
+      status = bu_list_update_status(nalu_list, true);
       self->validation_flags.has_auth_result = true;
     }
     return status;
@@ -1081,7 +1081,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *nalu)
       public_key_has_changed |= latest->public_key_has_changed;  // Pass on public key failure.
     }
 
-    SV_THROW(h26x_nalu_list_update_status(nalu_list, update_validation_status));
+    SV_THROW(bu_list_update_status(nalu_list, update_validation_status));
     if (validation_flags->is_first_validation) {
       update_sei_in_validation(self, false, NULL, &sei_validation_status);
       // Reset any set linked hashes if the session is still waiting for a first validation.

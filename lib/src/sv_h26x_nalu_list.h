@@ -68,7 +68,7 @@ bu_list_free_items(bu_list_t* list);
  * @param list The list to which the BU should be added.
  * @param bu The bu_info_t to add to the list through a new item.
  *
- * @return Signed Video Return Code
+ * @return An appropriate Signed Video Return Code.
  */
 svrc_t
 bu_list_append(bu_list_t* list, const bu_info_t* bu);
@@ -86,7 +86,7 @@ bu_list_append(bu_list_t* list, const bu_info_t* bu);
  * @param hash_algo_known Flag to indicate if the hash algorithm is known. If not, the
  *   entire BU data is copied, otherwise not.
  *
- * @return Signed Video Return Code
+ * @return An appropriate Signed Video Return Code.
  */
 svrc_t
 bu_list_copy_last_item(bu_list_t* list, bool hash_algo_known);
@@ -103,7 +103,7 @@ bu_list_copy_last_item(bu_list_t* list, bool hash_algo_known);
  * @param append Appends |item| if true and prepends |item| if false.
  * @param item The |item| of which the 'missing' items are append/prepend.
  *
- * @return Signed Video Return Code
+ * @return An appropriate Signed Video Return Code.
  */
 svrc_t
 bu_list_add_missing(bu_list_t* list, int num_missing, bool append, bu_list_item_t* item);
@@ -170,7 +170,7 @@ bu_list_num_pending_items(const bu_list_t* list);
  * @return An appropriate Signed Video Return Code.
  */
 svrc_t
-h26x_nalu_list_update_status(bu_list_t* list, bool update);
+bu_list_update_status(bu_list_t* list, bool update);
 
 /**
  * @brief Returns a string with all authentication statuses of the items
