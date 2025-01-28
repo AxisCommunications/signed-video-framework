@@ -614,7 +614,7 @@ verify_hashes_without_sei(signed_video_t *self)
  * |nalu_list|.
  *
  * - After verification, hence the |tmp_validation_status| of each item in the list has been
- * updated, statistics are collected from the list, using h26x_nalu_list_get_stats().
+ * updated, statistics are collected from the list, using bu_list_get_stats().
  * - Based on the statistics a validation decision can be made.
  * - Update |latest_validation| with the validation result.
  */
@@ -647,8 +647,7 @@ validate_authenticity(signed_video_t *self)
 
   // Collect statistics from the nalu_list. This is used to validate the GOP and provide additional
   // information to the user.
-  bool has_valid_nalus =
-      h26x_nalu_list_get_stats(self->nalu_list, &num_invalid_nalus, &num_missed_nalus);
+  bool has_valid_nalus = bu_list_get_stats(self->nalu_list, &num_invalid_nalus, &num_missed_nalus);
   DEBUG_LOG("Number of invalid NALUs = %d.", num_invalid_nalus);
   DEBUG_LOG("Number of missed NALUs = %d.", num_missed_nalus);
   remove_used_in_gop_hash(self->nalu_list);
@@ -1015,7 +1014,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *nalu)
       }
       latest->number_of_expected_picture_nalus = -1;
       latest->number_of_received_picture_nalus = -1;
-      latest->number_of_pending_picture_nalus = h26x_nalu_list_num_pending_items(nalu_list);
+      latest->number_of_pending_picture_nalus = bu_list_num_pending_items(nalu_list);
       status = h26x_nalu_list_update_status(nalu_list, true);
       self->validation_flags.has_auth_result = true;
     }
@@ -1090,7 +1089,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *nalu)
     }
 
     // All statistics but pending NALUs have already been collected.
-    latest->number_of_pending_picture_nalus = h26x_nalu_list_num_pending_items(nalu_list);
+    latest->number_of_pending_picture_nalus = bu_list_num_pending_items(nalu_list);
     DEBUG_LOG("Validated GOP as %s", kAuthResultValidStr[latest->authenticity]);
     DEBUG_LOG("Expected number of NALUs = %d", latest->number_of_expected_picture_nalus);
     DEBUG_LOG("Received number of NALUs = %d", latest->number_of_received_picture_nalus);
