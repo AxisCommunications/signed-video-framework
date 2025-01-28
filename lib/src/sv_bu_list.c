@@ -41,14 +41,14 @@ static void
 bu_list_item_prepend_item(bu_list_item_t *list_item, bu_list_item_t *new_item);
 #ifdef SIGNED_VIDEO_DEBUG
 static void
-h26x_nalu_list_item_print(const bu_list_item_t *item);
+bu_list_item_print(const bu_list_item_t *item);
 #endif
 
 /* Declarations of static bu_list_t functions. */
 static void
-h26x_nalu_list_remove_and_free_item(bu_list_t *list, const bu_list_item_t *item_to_remove);
+bu_list_remove_and_free_item(bu_list_t *list, const bu_list_item_t *item_to_remove);
 static void
-h26x_nalu_list_refresh(bu_list_t *list);
+bu_list_refresh(bu_list_t *list);
 
 /* Helper functions. */
 
@@ -152,7 +152,7 @@ bu_list_item_prepend_item(bu_list_item_t *list_item, bu_list_item_t *new_item)
 #ifdef SIGNED_VIDEO_DEBUG
 /* Prints the members of an |item|. */
 static void
-h26x_nalu_list_item_print(const bu_list_item_t *item)
+bu_list_item_print(const bu_list_item_t *item)
 {
   // bu_info_t *nalu;
   // char validation_status;
@@ -164,12 +164,12 @@ h26x_nalu_list_item_print(const bu_list_item_t *item)
   if (!item) return;
 
   char *nalu_type_str = !item->nalu
-      ? "This NALU is missing"
+      ? "This BU is missing"
       : (item->nalu->is_gop_sei ? "SEI" : (item->nalu->is_first_nalu_in_gop ? "I" : "Other"));
   char validation_status_str[2] = {'\0'};
   memcpy(validation_status_str, &item->tmp_validation_status, 1);
 
-  printf("NALU type = %s\n", nalu_type_str);
+  printf("BU type = %s\n", nalu_type_str);
   printf("validation_status = %s%s%s%s\n", validation_status_str,
       (item->taken_ownership_of_nalu ? ", taken_ownership_of_nalu" : ""),
       (item->has_been_decoded ? ", has_been_decoded" : ""),
@@ -184,24 +184,36 @@ h26x_nalu_list_item_print(const bu_list_item_t *item)
 
 /* Finds and removes |item_to_remove| from the |list|. The |item_to_remove| is then freed. */
 static void
-h26x_nalu_list_remove_and_free_item(bu_list_t *list, const bu_list_item_t *item_to_remove)
+bu_list_remove_and_free_item(bu_list_t *list, const bu_list_item_t *item_to_remove)
 {
   // Find the |item_to_remove|.
   bu_list_item_t *item = list->first_item;
-  while (item && (item != item_to_remove)) item = item->next;
+  while (item && (item != item_to_remove)) {
+    item = item->next;
+  }
 
-  if (!item) return;  // Did not find the |item_to_remove|.
+  if (!item) {
+    return;  // Did not find the |item_to_remove|.
+  }
 
   // Connect the previous and next items in the list. This removes the |item_to_remove| from the
   // |list|.
-  if (item->prev) item->prev->next = item->next;
-  if (item->next) item->next->prev = item->prev;
+  if (item->prev) {
+    item->prev->next = item->next;
+  }
+  if (item->next) {
+    item->next->prev = item->prev;
+  }
 
-  // Fix the broken list. To use h26x_nalu_list_refresh(), first_item needs to be part of the list.
+  // Fix the broken list. To use bu_list_refresh(), first_item needs to be part of the list.
   // If |item_to_remove| was that first_item, we need to set a new one.
-  if (list->first_item == item) list->first_item = item->next;
-  if (list->last_item == item) list->last_item = item->prev;
-  h26x_nalu_list_refresh(list);
+  if (list->first_item == item) {
+    list->first_item = item->next;
+  }
+  if (list->last_item == item) {
+    list->last_item = item->prev;
+  }
+  bu_list_refresh(list);
 
   bu_list_item_free(item);
 }
@@ -210,9 +222,11 @@ h26x_nalu_list_remove_and_free_item(bu_list_t *list, const bu_list_item_t *item_
  * beginning and loops through all items to compute |num_items| and set the |last_item|. Note that
  * the |first_item| has to be represented somewhere in the |list|. */
 static void
-h26x_nalu_list_refresh(bu_list_t *list)
+bu_list_refresh(bu_list_t *list)
 {
-  if (!list) return;
+  if (!list) {
+    return;
+  }
 
   // Start from scratch, that is, reset num_items.
   list->num_items = 0;
@@ -229,7 +243,9 @@ h26x_nalu_list_refresh(bu_list_t *list)
       list->num_gops++;
     }
 
-    if (!item->next) break;
+    if (!item->next) {
+      break;
+    }
     item = item->next;
   }
   list->last_item = item;
@@ -282,7 +298,7 @@ bu_list_free_items(bu_list_t *list)
   }
   // Pop all items and free them.
   while (list->first_item) {
-    h26x_nalu_list_remove_and_free_item(list, list->first_item);
+    bu_list_remove_and_free_item(list, list->first_item);
   }
 }
 
@@ -300,12 +316,12 @@ bu_list_append(bu_list_t *list, const bu_info_t *bu)
     return SV_MEMORY;
   }
 
-  // List is empty. Set |new_item| as first_item. The h26x_nalu_list_refresh() call will fix the
+  // List is empty. Set |new_item| as first_item. The bu_list_refresh() call will fix the
   // rest of the list.
   if (!list->first_item) list->first_item = new_item;
   if (list->last_item) bu_list_item_append_item(list->last_item, new_item);
 
-  h26x_nalu_list_refresh(list);
+  bu_list_refresh(list);
 
   return SV_OK;
 }
@@ -408,7 +424,7 @@ bu_list_add_missing(bu_list_t *list, int num_missing, bool append, bu_list_item_
       } else {
         bu_list_item_prepend_item(item, missing_bu);
       }
-      h26x_nalu_list_refresh(list);
+      bu_list_refresh(list);
     }
 
   SV_CATCH()
@@ -439,7 +455,7 @@ bu_list_remove_missing_items(bu_list_t *list)
     if (item->tmp_validation_status == 'M' && item->in_validation) {
       const bu_list_item_t *item_to_remove = item;
       item = item->next;
-      h26x_nalu_list_remove_and_free_item(list, item_to_remove);
+      bu_list_remove_and_free_item(list, item_to_remove);
       num_removed_items++;
       continue;
     }
@@ -605,7 +621,7 @@ bu_list_clean_up(bu_list_t *list)
     if (item->validation_status != 'M') {
       removed_items++;
     }
-    h26x_nalu_list_remove_and_free_item(list, list->first_item);
+    bu_list_remove_and_free_item(list, list->first_item);
     item = list->first_item;
   }
 
@@ -623,7 +639,7 @@ bu_list_print(const bu_list_t *list)
   const bu_list_item_t *item = list->first_item;
   printf("\n");
   while (item) {
-    h26x_nalu_list_item_print(item);
+    bu_list_item_print(item);
     item = item->next;
   }
   printf("\n");
