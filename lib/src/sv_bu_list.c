@@ -55,20 +55,26 @@ bu_list_refresh(bu_list_t *list);
 /* Determines and returns the validation status character from a bu_info_t object.
  */
 static char
-get_validation_status_from_nalu(const bu_info_t *nalu)
+get_validation_status_from_bu(const bu_info_t *bu)
 {
-  if (!nalu) return '\0';
+  if (!bu) {
+    return '\0';
+  }
 
-  // Currently there is some redundancy between |is_valid| and |is_hashable|. Basically there are
-  // three kinds of NALUs;
-  //  1) |nalu| could not be parsed into an H26x NALU -> is_valid = 0
-  //  2) |nalu| could successfully be parsed into an H26x NALU -> is_valid = 1
-  //  3) |nalu| is used in the hashing scheme -> is_hashable = true (and is_valid = 1)
+  // Currently there is some redundancy between |is_valid| and |is_hashable|. Basically
+  // there are three kinds of Bitstream Units (BUs);
+  //  1) |bu| could not be parsed into a codec specific BU -> is_valid = 0
+  //  2) |bu| could successfully be parsed into a codec specific BU -> is_valid = 1
+  //  3) |bu| is used in the hashing scheme -> is_hashable = true (and is_valid = 1)
   //  4) an error occured -> is_valid < 0
 
-  if (nalu->is_valid < 0) return 'E';
-  if (nalu->is_valid == 0) return 'U';
-  if (nalu->is_hashable) {
+  if (bu->is_valid < 0) {
+    return 'E';
+  }
+  if (bu->is_valid == 0) {
+    return 'U';
+  }
+  if (bu->is_hashable) {
     return 'P';
   } else {
     return '_';
@@ -91,7 +97,7 @@ bu_list_item_create(const bu_info_t *bu)
 
   item->nalu = (bu_info_t *)bu;
   item->taken_ownership_of_nalu = false;
-  item->validation_status = get_validation_status_from_nalu(bu);
+  item->validation_status = get_validation_status_from_bu(bu);
   item->tmp_validation_status = item->validation_status;
 
   return item;
@@ -161,15 +167,17 @@ bu_list_item_print(const bu_list_item_t *item)
   // bool has_been_decoded;
   // bool used_in_gop_hash;
 
-  if (!item) return;
+  if (!item) {
+    return;
+  }
 
-  char *nalu_type_str = !item->nalu
+  char *bu_type_str = !item->nalu
       ? "This BU is missing"
       : (item->nalu->is_gop_sei ? "SEI" : (item->nalu->is_first_nalu_in_gop ? "I" : "Other"));
   char validation_status_str[2] = {'\0'};
   memcpy(validation_status_str, &item->tmp_validation_status, 1);
 
-  printf("BU type = %s\n", nalu_type_str);
+  printf("BU type = %s\n", bu_type_str);
   printf("validation_status = %s%s%s%s\n", validation_status_str,
       (item->taken_ownership_of_nalu ? ", taken_ownership_of_nalu" : ""),
       (item->has_been_decoded ? ", has_been_decoded" : ""),
@@ -271,7 +279,7 @@ is_in_list(const bu_list_t *list, const bu_list_item_t *item_to_find)
  * Public bu_list_t functions.
  */
 
-/* Creates and returns a nalu list. */
+/* Creates and returns a bitstream unit list. */
 bu_list_t *
 bu_list_create()
 {
@@ -318,8 +326,12 @@ bu_list_append(bu_list_t *list, const bu_info_t *bu)
 
   // List is empty. Set |new_item| as first_item. The bu_list_refresh() call will fix the
   // rest of the list.
-  if (!list->first_item) list->first_item = new_item;
-  if (list->last_item) bu_list_item_append_item(list->last_item, new_item);
+  if (!list->first_item) {
+    list->first_item = new_item;
+  }
+  if (list->last_item) {
+    bu_list_item_append_item(list->last_item, new_item);
+  }
 
   bu_list_refresh(list);
 
@@ -337,10 +349,10 @@ bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
     return SV_INVALID_PARAMETER;
   }
 
-  bu_info_t *copied_nalu = NULL;
-  uint8_t *nalu_data = NULL;
+  bu_info_t *copied_bu = NULL;
+  uint8_t *bu_data = NULL;
   uint8_t *hashable_data = NULL;
-  uint8_t *nalu_data_wo_epb = NULL;
+  uint8_t *bu_data_wo_epb = NULL;
   bu_list_item_t *item = list->last_item;
   /* Iteration is performed backwards through the list to find the previous item that contains
    * a valid NALU. If a NALU is missing, it cannot be copied, as there is nothing to copy.
@@ -354,43 +366,45 @@ bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_IF(!item->nalu, SV_UNKNOWN_FAILURE);
-    copied_nalu = (bu_info_t *)malloc(sizeof(bu_info_t));
-    SV_THROW_IF(!copied_nalu, SV_MEMORY);
+    copied_bu = (bu_info_t *)malloc(sizeof(bu_info_t));
+    SV_THROW_IF(!copied_bu, SV_MEMORY);
     if (item->nalu->tlv_data) {
-      nalu_data_wo_epb = malloc(item->nalu->tlv_size);
-      SV_THROW_IF(!nalu_data_wo_epb, SV_MEMORY);
-      memcpy(nalu_data_wo_epb, item->nalu->tlv_data, item->nalu->tlv_size);
+      bu_data_wo_epb = malloc(item->nalu->tlv_size);
+      SV_THROW_IF(!bu_data_wo_epb, SV_MEMORY);
+      memcpy(bu_data_wo_epb, item->nalu->tlv_data, item->nalu->tlv_size);
     }
     // If the library does not know which hash algo to use, store the |hashable_data| for later.
     if (!hash_algo_known) {
-      nalu_data = malloc(item->nalu->nalu_data_size);
-      SV_THROW_IF(!nalu_data, SV_MEMORY);
-      memcpy(nalu_data, item->nalu->nalu_data, item->nalu->nalu_data_size);
+      bu_data = malloc(item->nalu->nalu_data_size);
+      SV_THROW_IF(!bu_data, SV_MEMORY);
+      memcpy(bu_data, item->nalu->nalu_data, item->nalu->nalu_data_size);
       if (item->nalu->is_hashable) {
-        hashable_data = nalu_data + hashable_data_offset;
+        hashable_data = bu_data + hashable_data_offset;
       }
     }
-    copy_nalu_except_pointers(copied_nalu, item->nalu);
-    copied_nalu->nalu_data_wo_epb = nalu_data_wo_epb;
-    copied_nalu->tlv_data = copied_nalu->nalu_data_wo_epb;
-    copied_nalu->pending_nalu_data = nalu_data;
-    copied_nalu->nalu_data = copied_nalu->pending_nalu_data;
-    copied_nalu->hashable_data = hashable_data;
+    copy_nalu_except_pointers(copied_bu, item->nalu);
+    copied_bu->nalu_data_wo_epb = bu_data_wo_epb;
+    copied_bu->tlv_data = copied_bu->nalu_data_wo_epb;
+    copied_bu->pending_nalu_data = bu_data;
+    copied_bu->nalu_data = copied_bu->pending_nalu_data;
+    copied_bu->hashable_data = hashable_data;
   SV_CATCH()
   {
-    free(nalu_data_wo_epb);  // At this point, nalu_data_wo_epb is actually NULL.
-    free(copied_nalu);
-    copied_nalu = NULL;
+    free(bu_data_wo_epb);  // At this point, bu_data_wo_epb is actually NULL.
+    free(copied_bu);
+    copied_bu = NULL;
   }
   SV_DONE(status)
 
   if (item->taken_ownership_of_nalu) {
     // We have taken ownership of the existing |nalu|, hence we need to free it when releasing it.
     // NOTE: This should not happen if the list is used properly.
-    if (item->nalu) free(item->nalu->nalu_data_wo_epb);
+    if (item->nalu) {
+      free(item->nalu->nalu_data_wo_epb);
+    }
     free(item->nalu);
   }
-  item->nalu = copied_nalu;
+  item->nalu = copied_bu;
   item->taken_ownership_of_nalu = true;
 
   return status;
@@ -430,7 +444,9 @@ bu_list_add_missing(bu_list_t *list, int num_missing, bool append, bu_list_item_
   SV_CATCH()
   SV_DONE(status)
 
-  if (added_items > 0) DEBUG_LOG("Added %d missing NALU items to list", added_items);
+  if (added_items > 0) {
+    DEBUG_LOG("Added %d missing NALU items to list", added_items);
+  }
 
   return status;
 }
@@ -445,13 +461,12 @@ bu_list_remove_missing_items(bu_list_t *list)
     return;
   }
 
-  bool found_first_pending_nalu = false;
+  bool found_first_pending_bu = false;
   bool found_decoded_sei = false;
   int num_removed_items = 0;
   bu_list_item_t *item = list->first_item;
-  while (item && !(found_first_pending_nalu && found_decoded_sei)) {
-    // Reset the invalid verification failure if we have not past the first pending item.
-    // Remove the missing NALU in the front.
+  while (item && !(found_first_pending_bu && found_decoded_sei)) {
+    // Remove the missing BU in the front.
     if (item->tmp_validation_status == 'M' && item->in_validation) {
       const bu_list_item_t *item_to_remove = item;
       item = item->next;
@@ -463,9 +478,13 @@ bu_list_remove_missing_items(bu_list_t *list)
       found_decoded_sei = true;
     }
     item = item->next;
-    if (item && item->tmp_validation_status == 'P') found_first_pending_nalu = true;
+    if (item && item->tmp_validation_status == 'P') {
+      found_first_pending_bu = true;
+    }
   }
-  if (num_removed_items > 0) DEBUG_LOG("Removed %d missing items to list", num_removed_items);
+  if (num_removed_items > 0) {
+    DEBUG_LOG("Removed %d missing items to list", num_removed_items);
+  }
 }
 
 /* Searches for, and returns, the next pending SEI item. */
@@ -478,7 +497,9 @@ bu_list_get_next_sei_item(const bu_list_t *list)
 
   bu_list_item_t *item = list->first_item;
   while (item) {
-    if (item->nalu && item->nalu->is_gop_sei && item->tmp_validation_status == 'P') break;
+    if (item->nalu && item->nalu->is_gop_sei && item->tmp_validation_status == 'P') {
+      break;
+    }
     item = item->next;
   }
   return item;
@@ -490,15 +511,15 @@ bu_list_get_next_sei_item(const bu_list_t *list)
  *   - number of missing BUs
  * and return true if any valid BUs are present. */
 bool
-bu_list_get_stats(const bu_list_t *list, int *num_invalid_nalus, int *num_missing_nalus)
+bu_list_get_stats(const bu_list_t *list, int *num_invalid_bu, int *num_missing_bu)
 {
   if (!list) {
     return false;
   }
 
-  int local_num_invalid_nalus = 0;
-  int local_num_missing_nalus = 0;
-  bool has_valid_nalus = false;
+  int local_num_invalid_bu = 0;
+  int local_num_missing_bu = 0;
+  bool has_valid_bu = false;
 
   // From the list, get number of invalid NALUs and number of missing NALUs.
   bu_list_item_t *item = list->first_item;
@@ -508,28 +529,36 @@ bu_list_get_stats(const bu_list_t *list, int *num_invalid_nalus, int *num_missin
       item = item->next;
       continue;
     }
-    if (item->tmp_validation_status == 'M') local_num_missing_nalus++;
+    if (item->tmp_validation_status == 'M') {
+      local_num_missing_bu++;
+    }
     if (item->nalu && item->nalu->is_gop_sei) {
       if (item->in_validation &&
-          (item->tmp_validation_status == 'N' || item->tmp_validation_status == 'E'))
-        local_num_invalid_nalus++;
+          (item->tmp_validation_status == 'N' || item->tmp_validation_status == 'E')) {
+        local_num_invalid_bu++;
+      }
     } else {
-      if (item->tmp_validation_status == 'N' || item->tmp_validation_status == 'E')
-        local_num_invalid_nalus++;
+      if (item->tmp_validation_status == 'N' || item->tmp_validation_status == 'E') {
+        local_num_invalid_bu++;
+      }
     }
     if (item->tmp_validation_status == '.') {
       // Do not count SEIs, since they are marked valid if the signature could be verified, which
       // happens for out-of-sync SEIs for example.
-      has_valid_nalus |= !(item->nalu && item->nalu->is_gop_sei);
+      has_valid_bu |= !(item->nalu && item->nalu->is_gop_sei);
     }
 
     item = item->next;
   }
 
-  if (num_invalid_nalus) *num_invalid_nalus = local_num_invalid_nalus;
-  if (num_missing_nalus) *num_missing_nalus = local_num_missing_nalus;
+  if (num_invalid_bu) {
+    *num_invalid_bu = local_num_invalid_bu;
+  }
+  if (num_missing_bu) {
+    *num_missing_bu = local_num_missing_bu;
+  }
 
-  return has_valid_nalus;
+  return has_valid_bu;
 }
 
 /* Counts and returns number of items pending validation. */
@@ -540,14 +569,16 @@ bu_list_num_pending_items(const bu_list_t *list)
     return 0;
   }
 
-  int num_pending_nalus = 0;
+  int num_pending_bu = 0;
   bu_list_item_t *item = list->first_item;
   while (item) {
-    if (item->tmp_validation_status == 'P') num_pending_nalus++;
+    if (item->tmp_validation_status == 'P') {
+      num_pending_bu++;
+    }
     item = item->next;
   }
 
-  return num_pending_nalus;
+  return num_pending_bu;
 }
 
 svrc_t
