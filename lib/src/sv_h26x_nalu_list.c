@@ -366,29 +366,33 @@ bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
   return status;
 }
 
-/* Append or prepend the |item| of the |list| with |num_missing| NALUs. */
+/* Append or prepend the |item| of the |list| with |num_missing| BUs. */
 svrc_t
-h26x_nalu_list_add_missing(bu_list_t *list, int num_missing, bool append, bu_list_item_t *item)
+bu_list_add_missing(bu_list_t *list, int num_missing, bool append, bu_list_item_t *item)
 {
-  if (!list || !item || !is_in_list(list, item) || num_missing < 0) return SV_INVALID_PARAMETER;
-  if (num_missing == 0) return SV_OK;
+  if (!list || !item || !is_in_list(list, item) || num_missing < 0) {
+    return SV_INVALID_PARAMETER;
+  }
+  if (num_missing == 0) {
+    return SV_OK;
+  }
 
   int added_items = 0;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     for (added_items = 0; added_items < num_missing; added_items++) {
-      bu_list_item_t *missing_nalu = h26x_nalu_list_item_create(NULL);
-      SV_THROW_IF(!missing_nalu, SV_MEMORY);
+      bu_list_item_t *missing_bu = h26x_nalu_list_item_create(NULL);
+      SV_THROW_IF(!missing_bu, SV_MEMORY);
 
-      missing_nalu->validation_status = 'M';
-      missing_nalu->tmp_validation_status = 'M';
-      missing_nalu->in_validation = true;
-      missing_nalu->used_in_gop_hash = true;  // Belongs to the same GOP it is added to.
+      missing_bu->validation_status = 'M';
+      missing_bu->tmp_validation_status = 'M';
+      missing_bu->in_validation = true;
+      missing_bu->used_in_gop_hash = true;  // Belongs to the same GOP it is added to.
       if (append) {
-        h26x_nalu_list_item_append_item(item, missing_nalu);
+        h26x_nalu_list_item_append_item(item, missing_bu);
       } else {
-        h26x_nalu_list_item_prepend_item(item, missing_nalu);
+        h26x_nalu_list_item_prepend_item(item, missing_bu);
       }
       h26x_nalu_list_refresh(list);
     }
@@ -405,7 +409,7 @@ h26x_nalu_list_add_missing(bu_list_t *list, int num_missing, bool append, bu_lis
  * as 'U' since it is not associated with this recording. The screening keeps going
  * until we find the decoded SEI. */
 void
-h26x_nalu_list_remove_missing_items(bu_list_t *list)
+bu_list_remove_missing_items(bu_list_t *list)
 {
   if (!list) return;
 

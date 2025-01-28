@@ -94,31 +94,31 @@ bu_list_copy_last_item(bu_list_t* list, bool hash_algo_known);
 /**
  * @brief Appends or prepends a certain item of a list with a new item marked as missing
  *
- * Searches through the |list| for the |item| and if found appends/prepends it with a new item that
- * is marked as missing (|tmp_validation_status| = 'M'). The |nalu| of this missing item is a NULL
- * pointer.
+ * Searches through the |list| for the |item| and if found appends/prepends it with a new
+ * item that is marked as missing (|tmp_validation_status| = 'M'). The |bu| of this
+ * missing item is a NULL pointer.
  *
  * @param list The |list| including the |item|.
  * @param num_missing Number of missing items to append/prepend.
  * @param append Appends |item| if true and prepends |item| if false.
  * @param item The |item| of which the 'missing' items are append/prepend.
  *
- * @returns Signed Video Internal Return Code
+ * @return Signed Video Return Code
  */
 svrc_t
-h26x_nalu_list_add_missing(bu_list_t* list, int num_missing, bool append, bu_list_item_t* item);
+bu_list_add_missing(bu_list_t* list, int num_missing, bool append, bu_list_item_t* item);
 
 /**
  * @brief Removes 'M' items present at the beginning of a |list|
  *
- * There are scenarios when missing items are added to the front of the |list|, when the framework
- * actually could not verify the hashes. This function marks the decoded SEI as 'U',
- * even if it could be verified, because it is not associated with this recording.
+ * There are scenarios when missing items are added to the front of the |list|, when the
+ * framework actually could not verify the hashes. This function marks the decoded SEI as
+ * 'U', even if it could be verified, because it is not associated with this recording.
  *
  * @param list The |list| to remove items from.
  */
 void
-h26x_nalu_list_remove_missing_items(bu_list_t* list);
+bu_list_remove_missing_items(bu_list_t* list);
 
 /**
  * @brief Searches for, and returns, the next pending SEI item
