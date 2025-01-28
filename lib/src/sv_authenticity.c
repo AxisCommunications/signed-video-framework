@@ -26,7 +26,7 @@
 #include <string.h>  // strlen, strcpy
 
 #include "includes/signed_video_common.h"  // signed_video_compare_versions()
-#include "sv_h26x_nalu_list.h"  // h26x_nalu_list_get_validation_str()
+#include "sv_h26x_nalu_list.h"  // bu_list_get_str()
 
 /* Transfer functions. */
 static svrc_t
@@ -257,8 +257,8 @@ update_authenticity_report(signed_video_t *self)
   // Skip if validation is handled by the legacy code.
   if (self->legacy_sv) return;
 
-  char *nalu_str = h26x_nalu_list_get_str(self->nalu_list, NALU_STR);
-  char *validation_str = h26x_nalu_list_get_str(self->nalu_list, VALIDATION_STR);
+  char *nalu_str = bu_list_get_str(self->nalu_list, BU_STR);
+  char *validation_str = bu_list_get_str(self->nalu_list, VALIDATION_STR);
 
   // Transfer ownership of strings to |latest_validation| after freeing previous.
   free(self->latest_validation->nalu_str);
@@ -275,7 +275,7 @@ update_authenticity_report(signed_video_t *self)
     self->authenticity->latest_validation.authenticity = SV_AUTH_RESULT_VERSION_MISMATCH;
   }
   // Remove validated items from the list.
-  const unsigned int number_of_validated_nalus = h26x_nalu_list_clean_up(self->nalu_list);
+  const unsigned int number_of_validated_nalus = bu_list_clean_up(self->nalu_list);
   // Update the |accumulated_validation| w.r.t. the |latest_validation|.
   update_accumulated_validation(self->latest_validation, self->accumulated_validation);
   // Only update |number_of_validated_nalus| if the video is signed. Currently, unsigned videos are

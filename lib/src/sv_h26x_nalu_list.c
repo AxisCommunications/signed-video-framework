@@ -549,23 +549,28 @@ bu_list_update_status(bu_list_t *list, bool update)
   return SV_OK;
 }
 
-/* Transforms all |validation_status| characters of the items in the |list| into a char string and
- * returns that string if VALIDATION_STR is set. Transforms all |nalu_type| characters of the items
- * in the |list| into a char string and returns that string if NALU_STR is set. */
+/* Transforms all |validation_status| characters of the items in the |list| into a char
+ * string and returns that string if VALIDATION_STR is set. Transforms all |nalu_type|
+ * characters of the items in the |list| into a char string and returns that string if
+ * BU_STR is set. */
 char *
-h26x_nalu_list_get_str(const bu_list_t *list, NaluListStringType str_type)
+bu_list_get_str(const bu_list_t *list, BitstreamUnitListStringType str_type)
 {
-  if (!list) return NULL;
+  if (!list) {
+    return NULL;
+  }
   // Allocate memory for all items + a null terminated character.
   char *dst_str = calloc(1, list->num_items + 1);
-  if (!dst_str) return NULL;
+  if (!dst_str) {
+    return NULL;
+  }
 
   bu_list_item_t *item = list->first_item;
   int idx = 0;
   while (item) {
     char src = 'U';
     switch (str_type) {
-      case NALU_STR:
+      case BU_STR:
         src = nalu_type_to_char(item->nalu);
         break;
       default:
@@ -583,9 +588,11 @@ h26x_nalu_list_get_str(const bu_list_t *list, NaluListStringType str_type)
 
 /* Cleans up the list by removing the validated items. */
 unsigned int
-h26x_nalu_list_clean_up(bu_list_t *list)
+bu_list_clean_up(bu_list_t *list)
 {
-  if (!list) return 0;
+  if (!list) {
+    return 0;
+  }
 
   // Remove validated items.
   unsigned int removed_items = 0;
@@ -603,9 +610,11 @@ h26x_nalu_list_clean_up(bu_list_t *list)
 
 /* Prints all items in the list. */
 void
-h26x_nalu_list_print(const bu_list_t *list)
+bu_list_print(const bu_list_t *list)
 {
-  if (!list) return;
+  if (!list) {
+    return;
+  }
 #ifdef SIGNED_VIDEO_DEBUG
   const bu_list_item_t *item = list->first_item;
   printf("\n");

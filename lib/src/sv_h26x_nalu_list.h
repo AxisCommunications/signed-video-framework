@@ -26,8 +26,8 @@
 
 typedef enum {
   VALIDATION_STR = 0,
-  NALU_STR = 1,
-} NaluListStringType;
+  BU_STR = 1,
+} BitstreamUnitListStringType;
 
 /* Function declarations needed to handle the linked list of BUs used to validate the
  * authenticity of a Signed Video. */
@@ -175,33 +175,33 @@ bu_list_update_status(bu_list_t* list, bool update);
 /**
  * @brief Returns a string with all authentication statuses of the items
  *
- * Transforms all |validation_status| characters, or NAL Unit character, of the items in
- * the |list| into a char string.
+ * Transforms all |validation_status| characters, or Bitstream Unit character, of the
+ * items in the |list| into a char string.
  *
  * @param list The list to get string from.
- * @param str_type The type of string data to get (validation or nalu).
+ * @param str_type The type of string data to get (validation or bitstream unit).
  *
- * @returns The validation string, and a '\0' upon failure.
+ * @return The validation string, and a '\0' upon failure.
  */
 char*
-h26x_nalu_list_get_str(const bu_list_t* list, NaluListStringType str_type);
+bu_list_get_str(const bu_list_t* list, BitstreamUnitListStringType str_type);
 
 /**
  * @brief Cleans up among validated NALUs
  *
- * To avoid the list from growing uncontrolled in size outdated, already validated, NALUs are
- * removed. This is done by removing the first_item from the list one-by-one until the first
- * 'pending' one is detected.
+ * To avoid the list from growing uncontrolled in size outdated, already validated, BUs
+ * are removed. This is done by removing the first_item from the list one-by-one until the
+ * first 'pending' one is detected.
  *
- * @note that calling this function before h26x_nalu_list_get_validation_str() can remove
- *   information that was supposed to be presented to the end user.
+ * @note that calling this function before bu_list_get_str() can remove information that
+ *   was supposed to be presented to the end user.
  *
  * @param list The list to clean from validated items.
  *
- * @returns Number of removed items, excluding previously added 'missing' NALUs.
+ * @return Number of removed items, excluding previously added 'missing' BUs.
  */
 unsigned int
-h26x_nalu_list_clean_up(bu_list_t* list);
+bu_list_clean_up(bu_list_t* list);
 
 /**
  * @brief Prints all items in the list
@@ -211,6 +211,6 @@ h26x_nalu_list_clean_up(bu_list_t* list);
  * @param list The |list| to print items.
  */
 void
-h26x_nalu_list_print(const bu_list_t* list);
+bu_list_print(const bu_list_t* list);
 
 #endif  // __SIGNED_VIDEO_H26X_NALU_LIST_H__
