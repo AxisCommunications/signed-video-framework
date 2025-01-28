@@ -438,7 +438,7 @@ bu_list_remove_missing_items(bu_list_t *list)
 
 /* Searches for, and returns, the next pending SEI item. */
 bu_list_item_t *
-h26x_nalu_list_get_next_sei_item(const bu_list_t *list)
+bu_list_get_next_sei_item(const bu_list_t *list)
 {
   if (!list) return NULL;
 

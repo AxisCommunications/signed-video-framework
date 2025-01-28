@@ -125,11 +125,11 @@ bu_list_remove_missing_items(bu_list_t* list);
  *
  * @param list The |list| to search for the next SEI.
  *
- * @returns The nex bu_list_item_t that holds a SEI NALU, which also is 'pending' validation.
+ * @return The next bu_list_item_t that holds a SEI, which also is 'pending' validation.
  *   If no pending SEI item is found a NULL pointer is returned.
  */
 bu_list_item_t*
-h26x_nalu_list_get_next_sei_item(const bu_list_t* list);
+bu_list_get_next_sei_item(const bu_list_t* list);
 
 /**
  * @brief Collects statistics from a list
