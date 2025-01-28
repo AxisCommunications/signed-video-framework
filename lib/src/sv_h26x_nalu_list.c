@@ -44,11 +44,11 @@ static void
 h26x_nalu_list_item_print(const bu_list_item_t *item);
 #endif
 
-/* Declarations of static h26x_nalu_list_t functions. */
+/* Declarations of static bu_list_t functions. */
 static void
-h26x_nalu_list_remove_and_free_item(h26x_nalu_list_t *list, const bu_list_item_t *item_to_remove);
+h26x_nalu_list_remove_and_free_item(bu_list_t *list, const bu_list_item_t *item_to_remove);
 static void
-h26x_nalu_list_refresh(h26x_nalu_list_t *list);
+h26x_nalu_list_refresh(bu_list_t *list);
 
 /* Helper functions. */
 
@@ -175,12 +175,12 @@ h26x_nalu_list_item_print(const bu_list_item_t *item)
 #endif
 
 /**
- * Static h26x_nalu_list_t functions.
+ * Static bu_list_t functions.
  */
 
 /* Finds and removes |item_to_remove| from the |list|. The |item_to_remove| is then freed. */
 static void
-h26x_nalu_list_remove_and_free_item(h26x_nalu_list_t *list, const bu_list_item_t *item_to_remove)
+h26x_nalu_list_remove_and_free_item(bu_list_t *list, const bu_list_item_t *item_to_remove)
 {
   // Find the |item_to_remove|.
   bu_list_item_t *item = list->first_item;
@@ -206,7 +206,7 @@ h26x_nalu_list_remove_and_free_item(h26x_nalu_list_t *list, const bu_list_item_t
  * beginning and loops through all items to compute |num_items| and set the |last_item|. Note that
  * the |first_item| has to be represented somewhere in the |list|. */
 static void
-h26x_nalu_list_refresh(h26x_nalu_list_t *list)
+h26x_nalu_list_refresh(bu_list_t *list)
 {
   if (!list) return;
 
@@ -233,7 +233,7 @@ h26x_nalu_list_refresh(h26x_nalu_list_t *list)
 
 /* Checks if the |item_to_find| is an item in the |list|. Returns true if so, otherwise false. */
 static bool
-is_in_list(const h26x_nalu_list_t *list, const bu_list_item_t *item_to_find)
+is_in_list(const bu_list_t *list, const bu_list_item_t *item_to_find)
 {
   bool found_item = false;
   const bu_list_item_t *item = list->first_item;
@@ -248,19 +248,19 @@ is_in_list(const h26x_nalu_list_t *list, const bu_list_item_t *item_to_find)
 }
 
 /**
- * Public h26x_nalu_list_t functions.
+ * Public bu_list_t functions.
  */
 
 /* Creates and returns a nalu list. */
-h26x_nalu_list_t *
+bu_list_t *
 h26x_nalu_list_create()
 {
-  return (h26x_nalu_list_t *)calloc(1, sizeof(h26x_nalu_list_t));
+  return (bu_list_t *)calloc(1, sizeof(bu_list_t));
 }
 
 /* Frees all the items in the list and the list itself. */
 void
-h26x_nalu_list_free(h26x_nalu_list_t *list)
+h26x_nalu_list_free(bu_list_t *list)
 {
   if (!list) return;
   h26x_nalu_list_free_items(list);
@@ -269,7 +269,7 @@ h26x_nalu_list_free(h26x_nalu_list_t *list)
 
 /* Removes and frees all the items in the |list|. */
 void
-h26x_nalu_list_free_items(h26x_nalu_list_t *list)
+h26x_nalu_list_free_items(bu_list_t *list)
 {
   if (!list) return;
   // Pop all items and free them.
@@ -281,7 +281,7 @@ h26x_nalu_list_free_items(h26x_nalu_list_t *list)
 /* Appends the |last_item| of the |list| with a new item. The new item has a pointer to |nalu|, but
  * does not take ownership of it. */
 svrc_t
-h26x_nalu_list_append(h26x_nalu_list_t *list, const bu_info_t *nalu)
+h26x_nalu_list_append(bu_list_t *list, const bu_info_t *nalu)
 {
   if (!list || !nalu) return SV_INVALID_PARAMETER;
 
@@ -303,7 +303,7 @@ h26x_nalu_list_append(h26x_nalu_list_t *list, const bu_info_t *nalu)
  * released. If the |nalu| could not be copied it will be a NULL pointer. If hash algo is
  * not known the |hashable_data| is copied so the NALU can be hashed later. */
 svrc_t
-h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list, bool hash_algo_known)
+h26x_nalu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
 {
   if (!list) return SV_INVALID_PARAMETER;
 
@@ -368,10 +368,7 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t *list, bool hash_algo_known)
 
 /* Append or prepend the |item| of the |list| with |num_missing| NALUs. */
 svrc_t
-h26x_nalu_list_add_missing(h26x_nalu_list_t *list,
-    int num_missing,
-    bool append,
-    bu_list_item_t *item)
+h26x_nalu_list_add_missing(bu_list_t *list, int num_missing, bool append, bu_list_item_t *item)
 {
   if (!list || !item || !is_in_list(list, item) || num_missing < 0) return SV_INVALID_PARAMETER;
   if (num_missing == 0) return SV_OK;
@@ -408,7 +405,7 @@ h26x_nalu_list_add_missing(h26x_nalu_list_t *list,
  * as 'U' since it is not associated with this recording. The screening keeps going
  * until we find the decoded SEI. */
 void
-h26x_nalu_list_remove_missing_items(h26x_nalu_list_t *list)
+h26x_nalu_list_remove_missing_items(bu_list_t *list)
 {
   if (!list) return;
 
@@ -437,7 +434,7 @@ h26x_nalu_list_remove_missing_items(h26x_nalu_list_t *list)
 
 /* Searches for, and returns, the next pending SEI item. */
 bu_list_item_t *
-h26x_nalu_list_get_next_sei_item(const h26x_nalu_list_t *list)
+h26x_nalu_list_get_next_sei_item(const bu_list_t *list)
 {
   if (!list) return NULL;
 
@@ -455,9 +452,7 @@ h26x_nalu_list_get_next_sei_item(const h26x_nalu_list_t *list)
  *   - number of missing NALUs
  * and return true if any valid NALUs are present. */
 bool
-h26x_nalu_list_get_stats(const h26x_nalu_list_t *list,
-    int *num_invalid_nalus,
-    int *num_missing_nalus)
+h26x_nalu_list_get_stats(const bu_list_t *list, int *num_invalid_nalus, int *num_missing_nalus)
 {
   if (!list) return false;
 
@@ -499,7 +494,7 @@ h26x_nalu_list_get_stats(const h26x_nalu_list_t *list,
 
 /* Counts and returns number of items pending validation. */
 int
-h26x_nalu_list_num_pending_items(const h26x_nalu_list_t *list)
+h26x_nalu_list_num_pending_items(const bu_list_t *list)
 {
   if (!list) return 0;
 
@@ -514,7 +509,7 @@ h26x_nalu_list_num_pending_items(const h26x_nalu_list_t *list)
 }
 
 svrc_t
-h26x_nalu_list_update_status(h26x_nalu_list_t *list, bool update)
+h26x_nalu_list_update_status(bu_list_t *list, bool update)
 {
   if (!list) return SV_INVALID_PARAMETER;
 
@@ -534,7 +529,7 @@ h26x_nalu_list_update_status(h26x_nalu_list_t *list, bool update)
  * returns that string if VALIDATION_STR is set. Transforms all |nalu_type| characters of the items
  * in the |list| into a char string and returns that string if NALU_STR is set. */
 char *
-h26x_nalu_list_get_str(const h26x_nalu_list_t *list, NaluListStringType str_type)
+h26x_nalu_list_get_str(const bu_list_t *list, NaluListStringType str_type)
 {
   if (!list) return NULL;
   // Allocate memory for all items + a null terminated character.
@@ -564,7 +559,7 @@ h26x_nalu_list_get_str(const h26x_nalu_list_t *list, NaluListStringType str_type
 
 /* Cleans up the list by removing the validated items. */
 unsigned int
-h26x_nalu_list_clean_up(h26x_nalu_list_t *list)
+h26x_nalu_list_clean_up(bu_list_t *list)
 {
   if (!list) return 0;
 
@@ -584,7 +579,7 @@ h26x_nalu_list_clean_up(h26x_nalu_list_t *list)
 
 /* Prints all items in the list. */
 void
-h26x_nalu_list_print(const h26x_nalu_list_t *list)
+h26x_nalu_list_print(const bu_list_t *list)
 {
   if (!list) return;
 #ifdef SIGNED_VIDEO_DEBUG

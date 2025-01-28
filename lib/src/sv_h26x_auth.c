@@ -62,7 +62,7 @@ static bool
 validation_is_feasible(const bu_list_item_t *item);
 
 static void
-remove_used_in_gop_hash(h26x_nalu_list_t *nalu_list);
+remove_used_in_gop_hash(bu_list_t *nalu_list);
 
 #ifdef SIGNED_VIDEO_DEBUG
 static const char *kAuthResultValidStr[SV_AUTH_NUM_SIGNED_GOP_VALID_STATES] = {"SIGNATURE MISSING",
@@ -200,7 +200,7 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
   assert(self);
 
   // Initialize pointers and variables
-  h26x_nalu_list_t *nalu_list = self->nalu_list;
+  bu_list_t *nalu_list = self->nalu_list;
   const size_t hash_size = self->verify_data->hash_size;
   bu_list_item_t *item = NULL;
   int num_nalus_in_gop = 0;
@@ -287,7 +287,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
   uint8_t *expected_hashes = self->gop_info->hash_list;
   const int num_expected_hashes = (const int)(self->gop_info->list_idx / hash_size);
 
-  h26x_nalu_list_t *nalu_list = self->nalu_list;
+  bu_list_t *nalu_list = self->nalu_list;
   bu_list_item_t *last_used_item = NULL;
 
   if (!expected_hashes || !nalu_list) return false;
@@ -444,7 +444,7 @@ set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
 {
   if (!self || !sei) return -1;
 
-  h26x_nalu_list_t *nalu_list = self->nalu_list;
+  bu_list_t *nalu_list = self->nalu_list;
   int num_marked_items = 0;
 
   // Loop through the |nalu_list| and set the |tmp_validation_status| if the item is
@@ -558,7 +558,7 @@ verify_hashes_without_sei(signed_video_t *self)
 {
   assert(self);
 
-  h26x_nalu_list_t *nalu_list = self->nalu_list;
+  bu_list_t *nalu_list = self->nalu_list;
 
   if (!nalu_list) return false;
 
@@ -729,7 +729,7 @@ validate_authenticity(signed_video_t *self)
 
 /* Removes the |used_in_gop_hash| flag from all items. */
 static void
-remove_used_in_gop_hash(h26x_nalu_list_t *nalu_list)
+remove_used_in_gop_hash(bu_list_t *nalu_list)
 {
   if (!nalu_list) return;
 
@@ -817,7 +817,7 @@ prepare_for_validation(signed_video_t *self)
   assert(self);
 
   validation_flags_t *validation_flags = &(self->validation_flags);
-  h26x_nalu_list_t *nalu_list = self->nalu_list;
+  bu_list_t *nalu_list = self->nalu_list;
   sign_or_verify_data_t *verify_data = self->verify_data;
   const size_t hash_size = verify_data->hash_size;
 
@@ -886,7 +886,7 @@ prepare_for_validation(signed_video_t *self)
 static bool
 is_recurrent_data_decoded(signed_video_t *self)
 {
-  h26x_nalu_list_t *nalu_list = self->nalu_list;
+  bu_list_t *nalu_list = self->nalu_list;
 
   if (self->has_public_key || !self->validation_flags.signing_present) return true;
 
@@ -971,7 +971,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *nalu)
 
   validation_flags_t *validation_flags = &(self->validation_flags);
   signed_video_latest_validation_t *latest = self->latest_validation;
-  h26x_nalu_list_t *nalu_list = self->nalu_list;
+  bu_list_t *nalu_list = self->nalu_list;
   bool validation_feasible = true;
 
   // Skip validation if it is done with the legacy code.
@@ -1144,7 +1144,7 @@ reregister_nalus(signed_video_t *self)
   assert(self);
   assert(self->validation_flags.hash_algo_known);
 
-  h26x_nalu_list_t *nalu_list = self->nalu_list;
+  bu_list_t *nalu_list = self->nalu_list;
   bu_list_item_t *item = nalu_list->first_item;
   svrc_t status = SV_UNKNOWN_FAILURE;
   while (item) {
@@ -1191,7 +1191,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
   if (self->legacy_sv) return SV_OK;
 
   validation_flags_t *validation_flags = &(self->validation_flags);
-  h26x_nalu_list_t *nalu_list = self->nalu_list;
+  bu_list_t *nalu_list = self->nalu_list;
   bu_info_t nalu = parse_nalu_info(nalu_data, nalu_data_size, self->codec, true, true);
   DEBUG_LOG("Received a %s of size %zu B", nalu_type_to_str(&nalu), nalu.nalu_data_size);
   validation_flags->has_auth_result = false;

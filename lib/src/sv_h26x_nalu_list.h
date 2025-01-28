@@ -37,24 +37,24 @@ typedef enum {
  *
  * @returns A pointer to the created object, or NULL upon failure.
  */
-h26x_nalu_list_t*
+bu_list_t*
 h26x_nalu_list_create();
 
 /**
  * @brief Frees all the items in the list and the list itself
  *
- * @param list The h26x_nalu_list_t object to free.
+ * @param list The bu_list_t object to free.
  */
 void
-h26x_nalu_list_free(h26x_nalu_list_t* list);
+h26x_nalu_list_free(bu_list_t* list);
 
 /**
- * @brief Removes and frees all the items in a h26x_nalu_list_t
+ * @brief Removes and frees all the items in a bu_list_t
  *
  * @param list The list to empty. All items in the list are freed.
  */
 void
-h26x_nalu_list_free_items(h26x_nalu_list_t* list);
+h26x_nalu_list_free_items(bu_list_t* list);
 
 /**
  * @brief Appends a list with a new item
@@ -70,7 +70,7 @@ h26x_nalu_list_free_items(h26x_nalu_list_t* list);
  * @returns Signed Video Internal Return Code
  */
 svrc_t
-h26x_nalu_list_append(h26x_nalu_list_t* list, const bu_info_t* nalu);
+h26x_nalu_list_append(bu_list_t* list, const bu_info_t* nalu);
 
 /**
  * @brief Makes a copy of the last item in a list
@@ -85,7 +85,7 @@ h26x_nalu_list_append(h26x_nalu_list_t* list, const bu_info_t* nalu);
  * @returns Signed Video Internal Return Code
  */
 svrc_t
-h26x_nalu_list_copy_last_item(h26x_nalu_list_t* list, bool hash_algo_known);
+h26x_nalu_list_copy_last_item(bu_list_t* list, bool hash_algo_known);
 
 /**
  * @brief Appends or prepends a certain item of a list with a new item marked as missing
@@ -102,10 +102,7 @@ h26x_nalu_list_copy_last_item(h26x_nalu_list_t* list, bool hash_algo_known);
  * @returns Signed Video Internal Return Code
  */
 svrc_t
-h26x_nalu_list_add_missing(h26x_nalu_list_t* list,
-    int num_missing,
-    bool append,
-    bu_list_item_t* item);
+h26x_nalu_list_add_missing(bu_list_t* list, int num_missing, bool append, bu_list_item_t* item);
 
 /**
  * @brief Removes 'M' items present at the beginning of a |list|
@@ -117,7 +114,7 @@ h26x_nalu_list_add_missing(h26x_nalu_list_t* list,
  * @param list The |list| to remove items from.
  */
 void
-h26x_nalu_list_remove_missing_items(h26x_nalu_list_t* list);
+h26x_nalu_list_remove_missing_items(bu_list_t* list);
 
 /**
  * @brief Searches for, and returns, the next pending SEI item
@@ -128,7 +125,7 @@ h26x_nalu_list_remove_missing_items(h26x_nalu_list_t* list);
  *   If no pending SEI item is found a NULL pointer is returned.
  */
 bu_list_item_t*
-h26x_nalu_list_get_next_sei_item(const h26x_nalu_list_t* list);
+h26x_nalu_list_get_next_sei_item(const bu_list_t* list);
 
 /**
  * @brief Collects statistics from a list
@@ -147,9 +144,7 @@ h26x_nalu_list_get_next_sei_item(const h26x_nalu_list_t* list);
  * @return True if at least one item is validated as authentic.
  */
 bool
-h26x_nalu_list_get_stats(const h26x_nalu_list_t* list,
-    int* num_invalid_nalus,
-    int* num_missing_nalus);
+h26x_nalu_list_get_stats(const bu_list_t* list, int* num_invalid_nalus, int* num_missing_nalus);
 
 /**
  * @brief Counts and returns number of items pending validation
@@ -159,7 +154,7 @@ h26x_nalu_list_get_stats(const h26x_nalu_list_t* list,
  * @returns Number of items pending validation. Returns zero upon failure.
  */
 int
-h26x_nalu_list_num_pending_items(const h26x_nalu_list_t* list);
+h26x_nalu_list_num_pending_items(const bu_list_t* list);
 
 /**
  * @brief Updates or resets validation status of all items in a list
@@ -171,7 +166,7 @@ h26x_nalu_list_num_pending_items(const h26x_nalu_list_t* list);
  * @return An appropriate Signed Video Return Code.
  */
 svrc_t
-h26x_nalu_list_update_status(h26x_nalu_list_t* list, bool update);
+h26x_nalu_list_update_status(bu_list_t* list, bool update);
 
 /**
  * @brief Returns a string with all authentication statuses of the items
@@ -185,7 +180,7 @@ h26x_nalu_list_update_status(h26x_nalu_list_t* list, bool update);
  * @returns The validation string, and a '\0' upon failure.
  */
 char*
-h26x_nalu_list_get_str(const h26x_nalu_list_t* list, NaluListStringType str_type);
+h26x_nalu_list_get_str(const bu_list_t* list, NaluListStringType str_type);
 
 /**
  * @brief Cleans up among validated NALUs
@@ -202,7 +197,7 @@ h26x_nalu_list_get_str(const h26x_nalu_list_t* list, NaluListStringType str_type
  * @returns Number of removed items, excluding previously added 'missing' NALUs.
  */
 unsigned int
-h26x_nalu_list_clean_up(h26x_nalu_list_t* list);
+h26x_nalu_list_clean_up(bu_list_t* list);
 
 /**
  * @brief Prints all items in the list
@@ -212,6 +207,6 @@ h26x_nalu_list_clean_up(h26x_nalu_list_t* list);
  * @param list The |list| to print items.
  */
 void
-h26x_nalu_list_print(const h26x_nalu_list_t* list);
+h26x_nalu_list_print(const bu_list_t* list);
 
 #endif  // __SIGNED_VIDEO_H26X_NALU_LIST_H__
