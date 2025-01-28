@@ -36,8 +36,8 @@ typedef struct _gop_info_t gop_info_t;
 typedef struct _validation_flags_t validation_flags_t;
 typedef struct _sei_data_t sei_data_t;
 
-// Forward declare h26x_nalu_list_t here for signed_video_t.
-typedef struct _h26x_nalu_list_t h26x_nalu_list_t;
+// Forward declare bu_list_t here for signed_video_t.
+typedef struct _bu_list_t bu_list_t;
 typedef struct _bu_info_t bu_info_t;  // Bitstream Unit (BU); NALU or OBU
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -177,7 +177,7 @@ struct _signed_video_t {
   // Linked list to track the validation status of each added NALU. Items are appended to the list
   // when added, that is, in signed_video_add_nalu_and_authenticate(). Items are removed when
   // reported through the authenticity_report.
-  h26x_nalu_list_t *nalu_list;
+  bu_list_t *nalu_list;
   bool authentication_started;
   uint8_t received_gop_hash[MAX_HASH_SIZE];  // Received hash list after decoding SEI data while
   // authenticating. |received_gop_hash| will be compared against |computed_gop_hash|.

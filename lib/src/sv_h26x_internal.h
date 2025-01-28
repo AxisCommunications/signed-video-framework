@@ -58,15 +58,15 @@ nalu_type_to_char(const bu_info_t *nalu);
 extern const uint8_t kUuidSignedVideo[UUID_LEN];
 
 /**
- * A struct representing the stream of NALUs, added to Signed Video for validating authenticity.
- * It is a linked list of bu_list_item_t and holds the first and last items. The list is
- * linear, that is, one parent and one child only.
+ * A struct representing the stream of Bitstream Units (BUs), added to Signed Video for
+ * validating authenticity. It is a linked list of bu_list_item_t and holds the first and
+ * last items. The list is linear, that is, one parent and one child only.
  */
-struct _h26x_nalu_list_t {
-  bu_list_item_t *first_item;  // Points to the first item in the linked list, that is, the
-  // oldest NALU added for validation.
+struct _bu_list_t {
+  bu_list_item_t *first_item;  // Points to the first item in the linked list, that is,
+  // the oldest BU added for validation.
   bu_list_item_t *last_item;  // Points to the last item in the linked list, that is, the
-  // latest NALU added for validation.
+  // latest BU added for validation.
   int num_items;  // The number of items linked together in the list.
   int num_gops;  // The number of gops linked together in the list, that is, I-frames.
 };
