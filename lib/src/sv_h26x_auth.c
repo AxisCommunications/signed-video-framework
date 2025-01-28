@@ -47,7 +47,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
 static int
 set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
     char validation_status,
-    h26x_nalu_list_item_t *sei);
+    bu_list_item_t *sei);
 static bool
 verify_hashes_without_sei(signed_video_t *self);
 static void
@@ -59,7 +59,7 @@ is_recurrent_data_decoded(signed_video_t *self);
 static bool
 has_pending_gop(signed_video_t *self);
 static bool
-validation_is_feasible(const h26x_nalu_list_item_t *item);
+validation_is_feasible(const bu_list_item_t *item);
 
 static void
 remove_used_in_gop_hash(h26x_nalu_list_t *nalu_list);
@@ -161,7 +161,7 @@ static void
 update_link_hash_for_auth(signed_video_t *self)
 {
   const size_t hash_size = self->verify_data->hash_size;
-  h26x_nalu_list_item_t *item = self->nalu_list->first_item;
+  bu_list_item_t *item = self->nalu_list->first_item;
   while (item) {
     if (item->used_in_gop_hash && item->nalu->is_first_nalu_in_gop) {
       if (!item->used_for_linked_hash) {
@@ -179,7 +179,7 @@ update_link_hash_for_auth(signed_video_t *self)
 static void
 reset_linked_hash(signed_video_t *self)
 {
-  h26x_nalu_list_item_t *item = self->nalu_list->first_item;
+  bu_list_item_t *item = self->nalu_list->first_item;
   while (item) {
     item->used_for_linked_hash = false;
     item = item->next;
@@ -194,7 +194,7 @@ reset_linked_hash(signed_video_t *self)
  * each incoming NALU that belongs to the GOP.
  */
 static svrc_t
-prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_item_t *sei)
+prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t *sei)
 {
   // Ensure the `self` pointer is valid
   assert(self);
@@ -202,7 +202,7 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, h26x_nalu_list_
   // Initialize pointers and variables
   h26x_nalu_list_t *nalu_list = self->nalu_list;
   const size_t hash_size = self->verify_data->hash_size;
-  h26x_nalu_list_item_t *item = NULL;
+  bu_list_item_t *item = NULL;
   int num_nalus_in_gop = 0;
   assert(nalu_list);
 
@@ -288,14 +288,14 @@ verify_hashes_with_hash_list(signed_video_t *self,
   const int num_expected_hashes = (const int)(self->gop_info->list_idx / hash_size);
 
   h26x_nalu_list_t *nalu_list = self->nalu_list;
-  h26x_nalu_list_item_t *last_used_item = NULL;
+  bu_list_item_t *last_used_item = NULL;
 
   if (!expected_hashes || !nalu_list) return false;
 
   h26x_nalu_list_print(nalu_list);
 
   // Get the SEI associated with the oldest pending GOP.
-  h26x_nalu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(nalu_list);
+  bu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(nalu_list);
   // TODO: Investigate if we can end up without finding a SEI. If so, should we fail the validation
   // or call verify_hashes_without_sei()?
   if (!sei) return false;
@@ -331,7 +331,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
                         // against the |item->hash|
   bool found_next_gop = false;
   bool found_item_after_sei = false;
-  h26x_nalu_list_item_t *item = nalu_list->first_item;
+  bu_list_item_t *item = nalu_list->first_item;
   // This while-loop selects items from the oldest pending GOP. Each item hash is then verified
   // against the feasible hashes in the received |hash_list|.
   while (item && !(found_next_gop || found_item_after_sei)) {
@@ -440,7 +440,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
 static int
 set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
     char validation_status,
-    h26x_nalu_list_item_t *sei)
+    bu_list_item_t *sei)
 {
   if (!self || !sei) return -1;
 
@@ -449,7 +449,7 @@ set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
 
   // Loop through the |nalu_list| and set the |tmp_validation_status| if the item is
   // |used_in_gop_hash|
-  h26x_nalu_list_item_t *item = nalu_list->first_item;
+  bu_list_item_t *item = nalu_list->first_item;
   while (item) {
     if (item->used_in_gop_hash && item->tmp_validation_status == 'P') {
       if (!item->nalu->is_gop_sei) {
@@ -496,7 +496,7 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
   int num_expected_hashes = -1;
   int num_received_hashes = -1;
   char validation_status = 'P';
-  h26x_nalu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(self->nalu_list);
+  bu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(self->nalu_list);
 
   bool gop_is_ok = verify_gop_hash(self);
   bool order_ok = verify_linked_hash(self);
@@ -526,7 +526,7 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
   }
 
   // Identify the first NALU used in the GOP hash. This will be used to add missing NALUs.
-  h26x_nalu_list_item_t *first_gop_hash_item = self->nalu_list->first_item;
+  bu_list_item_t *first_gop_hash_item = self->nalu_list->first_item;
   while (first_gop_hash_item && !first_gop_hash_item->used_in_gop_hash) {
     first_gop_hash_item = first_gop_hash_item->next;
   }
@@ -567,7 +567,7 @@ verify_hashes_without_sei(signed_video_t *self)
   // Start from the oldest item and mark all pending items as NOT OK ('N') until we detect a new
   // GOP.
   int num_marked_items = 0;
-  h26x_nalu_list_item_t *item = nalu_list->first_item;
+  bu_list_item_t *item = nalu_list->first_item;
   bool found_next_gop = false;
   while (item && !found_next_gop) {
     // Skip non-pending items.
@@ -733,7 +733,7 @@ remove_used_in_gop_hash(h26x_nalu_list_t *nalu_list)
 {
   if (!nalu_list) return;
 
-  h26x_nalu_list_item_t *item = nalu_list->first_item;
+  bu_list_item_t *item = nalu_list->first_item;
   while (item) {
     item->used_in_gop_hash = false;
     item = item->next;
@@ -748,13 +748,13 @@ update_sei_in_validation(signed_video_t *self,
     char *set_validation_status)
 {
   // Search for the SEI |in_validation|.
-  const h26x_nalu_list_item_t *item = self->nalu_list->first_item;
+  const bu_list_item_t *item = self->nalu_list->first_item;
   while (item && !(item->nalu && item->nalu->is_gop_sei && item->in_validation)) {
     item = item->next;
   }
   if (item) {
     // Found SEI |in_validation|.
-    h26x_nalu_list_item_t *sei = (h26x_nalu_list_item_t *)item;
+    bu_list_item_t *sei = (bu_list_item_t *)item;
     if (reset_in_validation) {
       sei->in_validation = false;
     }
@@ -778,7 +778,7 @@ update_sei_in_validation(signed_video_t *self,
  * for authenticity.
  */
 static svrc_t
-prepare_golden_sei(signed_video_t *self, h26x_nalu_list_item_t *sei)
+prepare_golden_sei(signed_video_t *self, bu_list_item_t *sei)
 {
   assert(self);
   sign_or_verify_data_t *verify_data = self->verify_data;
@@ -823,7 +823,7 @@ prepare_for_validation(signed_video_t *self)
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    h26x_nalu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(nalu_list);
+    bu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(nalu_list);
     if (sei) {
       sei->in_validation = true;
       if (!sei->has_been_decoded) {
@@ -891,7 +891,7 @@ is_recurrent_data_decoded(signed_video_t *self)
   if (self->has_public_key || !self->validation_flags.signing_present) return true;
 
   bool recurrent_data_decoded = false;
-  h26x_nalu_list_item_t *item = nalu_list->first_item;
+  bu_list_item_t *item = nalu_list->first_item;
 
   while (item && !recurrent_data_decoded) {
     if (item->nalu && item->nalu->is_gop_sei && item->tmp_validation_status == 'P') {
@@ -910,7 +910,7 @@ static bool
 has_pending_gop(signed_video_t *self)
 {
   assert(self && self->nalu_list);
-  h26x_nalu_list_item_t *item = self->nalu_list->first_item;
+  bu_list_item_t *item = self->nalu_list->first_item;
   // Statistics collected while looping through the NALUs.
   int num_pending_gop_ends = 0;
   bool found_pending_gop_sei = false;
@@ -947,7 +947,7 @@ has_pending_gop(signed_video_t *self)
  *   - the first hashable NALU right after a pending SEI (if a SEI has not been validated, we need
  *     at most one more hashable NALU) */
 static bool
-validation_is_feasible(const h26x_nalu_list_item_t *item)
+validation_is_feasible(const bu_list_item_t *item)
 {
   if (!item->nalu) return false;
   // Validation for Golden SEIs are handled separately and therefore validation is not feasible.
@@ -1126,7 +1126,7 @@ update_hashable_data(bu_info_t *nalu)
 
 /* A valid NALU is registered by hashing and adding to the |item|. */
 static svrc_t
-register_nalu(signed_video_t *self, h26x_nalu_list_item_t *item)
+register_nalu(signed_video_t *self, bu_list_item_t *item)
 {
   bu_info_t *nalu = item->nalu;
   assert(self && nalu && nalu->is_valid >= 0);
@@ -1145,7 +1145,7 @@ reregister_nalus(signed_video_t *self)
   assert(self->validation_flags.hash_algo_known);
 
   h26x_nalu_list_t *nalu_list = self->nalu_list;
-  h26x_nalu_list_item_t *item = nalu_list->first_item;
+  bu_list_item_t *item = nalu_list->first_item;
   svrc_t status = SV_UNKNOWN_FAILURE;
   while (item) {
     if (self->legacy_sv) {

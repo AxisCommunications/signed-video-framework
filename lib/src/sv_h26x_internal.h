@@ -28,7 +28,7 @@
 
 #define METADATA_TYPE_USER_PRIVATE 25
 
-typedef struct _h26x_nalu_list_item_t h26x_nalu_list_item_t;
+typedef struct _bu_list_item_t bu_list_item_t;
 
 typedef enum {
   NALU_TYPE_UNDEFINED = 0,
@@ -59,23 +59,24 @@ extern const uint8_t kUuidSignedVideo[UUID_LEN];
 
 /**
  * A struct representing the stream of NALUs, added to Signed Video for validating authenticity.
- * It is a linked list of h26x_nalu_list_item_t and holds the first and last items. The list is
+ * It is a linked list of bu_list_item_t and holds the first and last items. The list is
  * linear, that is, one parent and one child only.
  */
 struct _h26x_nalu_list_t {
-  h26x_nalu_list_item_t *first_item;  // Points to the first item in the linked list, that is, the
+  bu_list_item_t *first_item;  // Points to the first item in the linked list, that is, the
   // oldest NALU added for validation.
-  h26x_nalu_list_item_t *last_item;  // Points to the last item in the linked list, that is, the
+  bu_list_item_t *last_item;  // Points to the last item in the linked list, that is, the
   // latest NALU added for validation.
   int num_items;  // The number of items linked together in the list.
   int num_gops;  // The number of gops linked together in the list, that is, I-frames.
 };
 
 /**
- * A struct representing a NALU in a stream. The stream being a linked list. Each item holds the
- * NALU data as well as pointers to the previous and next items in the list.
+ * A struct representing a Bitstream Unit (BU) in a stream. The stream being a linked
+ * list. Each item holds the BU data as well as pointers to the previous and next items in
+ * the list.
  */
-struct _h26x_nalu_list_item_t {
+struct _bu_list_item_t {
   bu_info_t *nalu;  // The parsed NALU information.
   char validation_status;  // The authentication status which can take on the following characters:
   // 'P' : Pending validation. This is the initial value. The NALU has been registered and waiting
@@ -108,9 +109,9 @@ struct _h26x_nalu_list_item_t {
   char tmp_validation_status;  // Temporary status used before updating the final one.
 
   // Linked list
-  h26x_nalu_list_item_t *prev;  // Points to the previously added NALU. Is NULL if this is the first
+  bu_list_item_t *prev;  // Points to the previously added NALU. Is NULL if this is the first
   // item.
-  h26x_nalu_list_item_t *next;  // Points to the next added NALU. Is NULL if this is the last item.
+  bu_list_item_t *next;  // Points to the next added NALU. Is NULL if this is the last item.
 };
 
 /**
@@ -175,7 +176,7 @@ svrc_t
 update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size);
 
 svrc_t
-hash_and_add_for_auth(signed_video_t *signed_video, h26x_nalu_list_item_t *item);
+hash_and_add_for_auth(signed_video_t *signed_video, bu_list_item_t *item);
 
 bu_info_t
 parse_nalu_info(const uint8_t *nalu_data,

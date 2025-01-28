@@ -37,7 +37,7 @@
 #include "includes/signed_video_signing_plugin.h"
 #include "sv_authenticity.h"  // latest_validation_init()
 #include "sv_defines.h"  // svrc_t
-#include "sv_h26x_internal.h"  // h26x_nalu_list_item_t, METADATA_TYPE_USER_PRIVATE
+#include "sv_h26x_internal.h"  // bu_list_item_t, METADATA_TYPE_USER_PRIVATE
 #include "sv_h26x_nalu_list.h"  // h26x_nalu_list_create()
 #include "sv_internal.h"  // gop_info_t, validation_flags_t, MAX_HASH_SIZE, DEFAULT_HASH_SIZE
 #include "sv_openssl_internal.h"
@@ -1120,7 +1120,7 @@ hash_and_add(signed_video_t *self, const bu_info_t *nalu)
 }
 
 svrc_t
-hash_and_add_for_auth(signed_video_t *self, h26x_nalu_list_item_t *item)
+hash_and_add_for_auth(signed_video_t *self, bu_list_item_t *item)
 {
   if (!self || !item) return SV_INVALID_PARAMETER;
 
