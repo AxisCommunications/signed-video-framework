@@ -61,61 +61,61 @@ h264_get_payload_size(const uint8_t *data, size_t *payload_size);
 static SignedVideoUUIDType
 h264_get_uuid_sei_type(const uint8_t *uuid);
 static void
-remove_epb_from_sei_payload(bu_info_t *nalu);
+remove_epb_from_sei_payload(bu_info_t *bu);
 
 /* Hash wrapper functions */
 typedef svrc_t (*hash_wrapper_t)(signed_video_t *, const bu_info_t *, uint8_t *, size_t);
 static hash_wrapper_t
-get_hash_wrapper(signed_video_t *self, const bu_info_t *nalu);
+get_hash_wrapper(signed_video_t *self, const bu_info_t *bu);
 static svrc_t
-update_hash(signed_video_t *self, const bu_info_t *nalu, uint8_t *hash, size_t hash_size);
+update_hash(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t hash_size);
 static svrc_t
-simply_hash(signed_video_t *self, const bu_info_t *nalu, uint8_t *hash, size_t hash_size);
+simply_hash(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t hash_size);
 static svrc_t
-hash_and_copy_to_ref(signed_video_t *self, const bu_info_t *nalu, uint8_t *hash, size_t hash_size);
+hash_and_copy_to_ref(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t hash_size);
 static svrc_t
 hash_with_reference(signed_video_t *self,
-    const bu_info_t *nalu,
+    const bu_info_t *bu,
     uint8_t *buddy_hash,
     size_t hash_size);
 
 #ifdef SIGNED_VIDEO_DEBUG
 char *
-nalu_type_to_str(const bu_info_t *nalu)
+nalu_type_to_str(const bu_info_t *bu)
 {
-  switch (nalu->nalu_type) {
+  switch (bu->nalu_type) {
     case NALU_TYPE_SEI:
-      return "SEI-nalu";
+      return "SEI";
     case NALU_TYPE_I:
-      return nalu->is_primary_slice == true ? "I-nalu" : "i-nalu";
+      return bu->is_primary_slice == true ? "I (primary)" : "I (secondary)";
     case NALU_TYPE_P:
-      return nalu->is_primary_slice == true ? "P-nalu" : "p-nalu";
+      return bu->is_primary_slice == true ? "P (primary)" : "P (secondary)";
     case NALU_TYPE_PS:
       return "PPS/SPS/VPS";
     case NALU_TYPE_AUD:
       return "AUD";
     case NALU_TYPE_OTHER:
-      return "valid other nalu";
+      return "valid other bitstream unit";
     case NALU_TYPE_UNDEFINED:
     default:
-      return "unknown nalu";
+      return "unknown bitstream unit";
   }
 }
 #endif
 
 char
-nalu_type_to_char(const bu_info_t *nalu)
+nalu_type_to_char(const bu_info_t *bu)
 {
   // If no NALU is present, mark as missing, i.e., empty ' '.
-  if (!nalu) return ' ';
+  if (!bu) return ' ';
 
-  switch (nalu->nalu_type) {
+  switch (bu->nalu_type) {
     case NALU_TYPE_SEI:
-      return nalu->is_gop_sei ? (nalu->is_golden_sei ? 'G' : 'S') : 'z';
+      return bu->is_gop_sei ? (bu->is_golden_sei ? 'G' : 'S') : 'z';
     case NALU_TYPE_I:
-      return nalu->is_primary_slice == true ? 'I' : 'i';
+      return bu->is_primary_slice == true ? 'I' : 'i';
     case NALU_TYPE_P:
-      return nalu->is_primary_slice == true ? 'P' : 'p';
+      return bu->is_primary_slice == true ? 'P' : 'p';
     case NALU_TYPE_PS:
       return 'v';
     case NALU_TYPE_AUD:
@@ -354,60 +354,60 @@ h264_get_uuid_sei_type(const uint8_t *uuid)
 }
 
 static bool
-parse_h264_nalu_header(bu_info_t *nalu)
+parse_h264_nalu_header(bu_info_t *bu)
 {
   // Parse the H264 NAL Unit Header
-  uint8_t nalu_header = *(nalu->hashable_data);
+  uint8_t nalu_header = *(bu->hashable_data);
   bool forbidden_zero_bit = (bool)(nalu_header & 0x80);  // First bit
   uint8_t nal_ref_idc = nalu_header & 0x60;  // Two bits
   uint8_t nalu_type = nalu_header & 0x1f;
   bool nalu_header_is_valid = false;
 
   // First slice in the current NALU or not
-  nalu->is_primary_slice = *(nalu->hashable_data + H264_NALU_HEADER_LEN) & 0x80;
+  bu->is_primary_slice = *(bu->hashable_data + H264_NALU_HEADER_LEN) & 0x80;
 
   // Verify that NALU type and nal_ref_idc follow standard.
   switch (nalu_type) {
     // nal_ref_idc can be zero for types 1-4.
-    case 1:  // Coded slice of a non-IDR picture, hence P-nalu or B-nalu
-      nalu->nalu_type = NALU_TYPE_P;
+    case 1:  // Coded slice of a non-IDR picture, hence P- or B-frame
+      bu->nalu_type = NALU_TYPE_P;
       nalu_header_is_valid = true;
       break;
     case 2:  // Coded slice data partition A
     case 3:  // Coded slice data partition B
     case 4:  // Coded slice data partition C
-      nalu->nalu_type = NALU_TYPE_OTHER;
+      bu->nalu_type = NALU_TYPE_OTHER;
       nalu_header_is_valid = true;
       break;
-    case 5:  // Coded slice of an IDR picture, hence I-nalu
-      nalu->nalu_type = NALU_TYPE_I;
+    case 5:  // Coded slice of an IDR picture, hence I-frame
+      bu->nalu_type = NALU_TYPE_I;
       nalu_header_is_valid = (nal_ref_idc > 0);
       break;
-    case 6:  // SEI-nalu
-      nalu->nalu_type = NALU_TYPE_SEI;
+    case 6:  // SEI
+      bu->nalu_type = NALU_TYPE_SEI;
       nalu_header_is_valid = (nal_ref_idc == 0);
       break;
     case 7:  // SPS
     case 8:  // PPS
     case 13:  // SPS extension
     case 15:  // Subset SPS
-      nalu->nalu_type = NALU_TYPE_PS;
+      bu->nalu_type = NALU_TYPE_PS;
       nalu_header_is_valid = (nal_ref_idc > 0);
       break;
     case 9:  // AU delimiter
       // Do not hash because these will be removed if you switch from bytestream to NALU stream
       // format
-      nalu->nalu_type = NALU_TYPE_AUD;
+      bu->nalu_type = NALU_TYPE_AUD;
       nalu_header_is_valid = true;
       break;
     case 10:  // End of sequence
     case 11:  // End of stream
     case 12:  // Filter data
-      nalu->nalu_type = NALU_TYPE_OTHER;
+      bu->nalu_type = NALU_TYPE_OTHER;
       nalu_header_is_valid = (nal_ref_idc == 0);
       break;
     default:
-      nalu->nalu_type = NALU_TYPE_UNDEFINED;
+      bu->nalu_type = NALU_TYPE_UNDEFINED;
       break;
   }
 
@@ -417,25 +417,25 @@ parse_h264_nalu_header(bu_info_t *nalu)
 }
 
 static bool
-parse_h265_nalu_header(bu_info_t *nalu)
+parse_h265_nalu_header(bu_info_t *bu)
 {
   // Parse the H265 NAL Unit Header
-  uint8_t nalu_header = *(nalu->hashable_data);
+  uint8_t nalu_header = *(bu->hashable_data);
   bool forbidden_zero_bit = (bool)(nalu_header & 0x80);  // First bit
   uint8_t nalu_type = (nalu_header & 0x7E) >> 1;  // Six bits
   uint8_t nuh_layer_id =
-      ((nalu_header & 0x01) << 5) | ((*(nalu->hashable_data + 1) & 0xF8) >> 3);  // Six bits
-  uint8_t nuh_temporal_id_plus1 = (*(nalu->hashable_data + 1) & 0x07);  // Three bits
+      ((nalu_header & 0x01) << 5) | ((*(bu->hashable_data + 1) & 0xF8) >> 3);  // Six bits
+  uint8_t nuh_temporal_id_plus1 = (*(bu->hashable_data + 1) & 0x07);  // Three bits
   uint8_t temporalId = nuh_temporal_id_plus1 - 1;
   bool nalu_header_is_valid = false;
 
   if ((nuh_temporal_id_plus1 == 0) || (nuh_layer_id > 63)) {
-    DEBUG_LOG("H265 NALU header %02x%02x is invalid", nalu_header, *(nalu->hashable_data + 1));
+    DEBUG_LOG("H265 NALU header %02x%02x is invalid", nalu_header, *(bu->hashable_data + 1));
     return false;
   }
 
   // First slice in the current NALU or not
-  nalu->is_primary_slice = (*(nalu->hashable_data + H265_NALU_HEADER_LEN) & 0x80);
+  bu->is_primary_slice = (*(bu->hashable_data + H265_NALU_HEADER_LEN) & 0x80);
 
   // Verify that NALU type and nal_ref_idc follow standard.
   switch (nalu_type) {
@@ -444,17 +444,17 @@ parse_h265_nalu_header(bu_info_t *nalu)
 
     case 1:  // 1 TRAIL_R Coded slice segment of a non-TSA, non-STSA trailing picture VCL
 
-      nalu->nalu_type = NALU_TYPE_P;
+      bu->nalu_type = NALU_TYPE_P;
       nalu_header_is_valid = true;
       break;
     case 2:  // 2 TSA_N Coded slice segment of a TSA picture VCL
     case 3:  // 3 TSA_R Coded slice segment of a TSA picture VCL
-      nalu->nalu_type = NALU_TYPE_OTHER;
+      bu->nalu_type = NALU_TYPE_OTHER;
       nalu_header_is_valid = (temporalId != 0);
       break;
     case 4:  // 4 STSA_N Coded slice segment of an STSA picture VCL
     case 5:  // 5 STSA_R Coded slice segment of an STSA picture VCL
-      nalu->nalu_type = NALU_TYPE_OTHER;
+      bu->nalu_type = NALU_TYPE_OTHER;
       nalu_header_is_valid = (nuh_layer_id == 0) ? (temporalId != 0) : true;
       break;
 
@@ -463,7 +463,7 @@ parse_h265_nalu_header(bu_info_t *nalu)
     case 7:  // 7 RADL_R Coded slice segment of a RADL picture VCL
     case 8:  // 8 RASL_N Coded slice segment of a RASL picture VCL
     case 9:  // 9 RASL_R Coded slice segment of a RASL picture VCL
-      nalu->nalu_type = NALU_TYPE_OTHER;
+      bu->nalu_type = NALU_TYPE_OTHER;
       nalu_header_is_valid = (temporalId != 0);
       break;
 
@@ -474,37 +474,37 @@ parse_h265_nalu_header(bu_info_t *nalu)
     case 19:  // 19 IDR_W_RADL Coded slice segment of an IDR picture VCL
     case 20:  // 20 IDR_N_LP Coded slice segment of an IDR picture VCL
     case 21:  // 21 CRA_NUTCoded slice segment of a CRA picture VCL
-      nalu->nalu_type = NALU_TYPE_I;
+      bu->nalu_type = NALU_TYPE_I;
       nalu_header_is_valid = (temporalId == 0);
       break;
 
     case 32:  // 32 VPS_NUT Video parameter non-VCL
     case 33:  // 33 SPS_NUT Sequence parameter non-VCL
-      nalu->nalu_type = NALU_TYPE_PS;
+      bu->nalu_type = NALU_TYPE_PS;
       nalu_header_is_valid = (temporalId == 0);
       break;
     case 34:  // 34 PPS_NUT Picture parameter non-VCL
-      nalu->nalu_type = NALU_TYPE_PS;
+      bu->nalu_type = NALU_TYPE_PS;
       nalu_header_is_valid = true;
       break;
     case 35:  // 35 AUD_NUT Access unit non-VCL
       // Do not hash because these will be removed if you switch
       // from bytestream to NALU stream format
-      nalu->nalu_type = NALU_TYPE_AUD;
+      bu->nalu_type = NALU_TYPE_AUD;
       nalu_header_is_valid = true;
       break;
     case 36:  // 36 EOS_NUT End non-VCL
     case 37:  // 37 EOB_NUT End of non-VCL
-      nalu->nalu_type = NALU_TYPE_OTHER;
+      bu->nalu_type = NALU_TYPE_OTHER;
       nalu_header_is_valid = (temporalId == 0) && (nuh_layer_id == 0);
       break;
     case 38:  // 38 FD_NUTFiller datafiller_data_rbsp() non-VCL
-      nalu->nalu_type = NALU_TYPE_OTHER;
+      bu->nalu_type = NALU_TYPE_OTHER;
       nalu_header_is_valid = true;
       break;
     case 39:  // 39 PREFIX_SEI_NUTSUFFIX_SEI_NUT non-VCL
     case 40:  // 40 SUFFIX_SEI_NUTSUFFIX_SEI_NUT non-VCL
-      nalu->nalu_type = NALU_TYPE_SEI;
+      bu->nalu_type = NALU_TYPE_SEI;
       nalu_header_is_valid = true;
       break;
 
@@ -521,7 +521,7 @@ parse_h265_nalu_header(bu_info_t *nalu)
       // 41..47 RSV_NVCL41..RSV_NVCL47 Reserved non-VCL
       // 24..31 RSV_VCL24.. RSV_VCL31 Reserved non-IRAP VCL NAL unit types VCL
       // 48..63 UNSPEC48..UNSPEC63Unspecified  non-VCL
-      nalu->nalu_type = NALU_TYPE_UNDEFINED;
+      bu->nalu_type = NALU_TYPE_UNDEFINED;
       break;
   }
 
@@ -606,55 +606,55 @@ parse_av1_obu_header(bu_info_t *obu)
  * If emulation prevention bytes are present, temporary memory is allocated to hold the new tlv
  * data. Once emulation prevention bytes have been removed the new tlv data can be decoded. */
 static void
-remove_epb_from_sei_payload(bu_info_t *nalu)
+remove_epb_from_sei_payload(bu_info_t *bu)
 {
-  assert(nalu);
-  if (!nalu->is_hashable || !nalu->is_gop_sei || (nalu->is_valid <= 0)) return;
+  assert(bu);
+  if (!bu->is_hashable || !bu->is_gop_sei || (bu->is_valid <= 0)) return;
 
   // The UUID (16 bytes) has by definition no emulation prevention bytes. Hence, read the
   // |reserved_byte| and point to the start of the TLV part.
-  nalu->tlv_start_in_nalu_data = nalu->payload + UUID_LEN;
-  nalu->tlv_size = nalu->payload_size - UUID_LEN;
-  nalu->reserved_byte = *nalu->tlv_start_in_nalu_data;
-  nalu->tlv_start_in_nalu_data++;  // Move past the |reserved_byte|.
-  nalu->tlv_size -= 1;  // Exclude the |reserved_byte| from TLV size.
-  nalu->tlv_data = nalu->tlv_start_in_nalu_data;
+  bu->tlv_start_in_nalu_data = bu->payload + UUID_LEN;
+  bu->tlv_size = bu->payload_size - UUID_LEN;
+  bu->reserved_byte = *bu->tlv_start_in_nalu_data;
+  bu->tlv_start_in_nalu_data++;  // Move past the |reserved_byte|.
+  bu->tlv_size -= 1;  // Exclude the |reserved_byte| from TLV size.
+  bu->tlv_data = bu->tlv_start_in_nalu_data;
   // Read flags from |reserved_byte|
-  nalu->with_epb = (nalu->reserved_byte & 0x80);  // Hash with emulation prevention bytes
-  nalu->is_golden_sei = (nalu->reserved_byte & 0x40);  // The NALU is a golden SEI.
+  bu->with_epb = (bu->reserved_byte & 0x80);  // Hash with emulation prevention bytes
+  bu->is_golden_sei = (bu->reserved_byte & 0x40);  // The NALU is a golden SEI.
 
-  if (nalu->emulation_prevention_bytes <= 0) return;
+  if (bu->emulation_prevention_bytes <= 0) return;
 
   // We need to read byte by byte to a new memory and remove any emulation prevention bytes.
   uint16_t last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
   // Complete data size including stop bit (byte). Note that |payload_size| excludes the final byte
   // with the stop bit.
-  const size_t data_size = (nalu->payload - nalu->hashable_data) + nalu->payload_size + 1;
-  assert(!nalu->nalu_data_wo_epb);
-  nalu->nalu_data_wo_epb = malloc(data_size);
-  if (!nalu->nalu_data_wo_epb) {
+  const size_t data_size = (bu->payload - bu->hashable_data) + bu->payload_size + 1;
+  assert(!bu->nalu_data_wo_epb);
+  bu->nalu_data_wo_epb = malloc(data_size);
+  if (!bu->nalu_data_wo_epb) {
     DEBUG_LOG("Failed allocating |nalu_data_wo_epb|, marking NALU with error");
-    nalu->is_valid = -1;
+    bu->is_valid = -1;
   } else {
     // Copy everything from the NALU header to stop bit (byte) inclusive, but with the emulation
     // prevention bytes removed.
-    const uint8_t *hashable_data_ptr = nalu->hashable_data;
+    const uint8_t *hashable_data_ptr = bu->hashable_data;
     for (size_t i = 0; i < data_size; i++) {
-      nalu->nalu_data_wo_epb[i] = read_byte(&last_two_bytes, &hashable_data_ptr, true);
+      bu->nalu_data_wo_epb[i] = read_byte(&last_two_bytes, &hashable_data_ptr, true);
     }
     // Point |tlv_data| to the first byte of the TLV part in |nalu_data_wo_epb|.
-    nalu->tlv_data = &nalu->nalu_data_wo_epb[data_size - nalu->payload_size + UUID_LEN];
-    if (!nalu->with_epb) {
+    bu->tlv_data = &bu->nalu_data_wo_epb[data_size - bu->payload_size + UUID_LEN];
+    if (!bu->with_epb) {
       // If the SEI was hashed before applying emulation prevention, update |hashable_data|.
-      nalu->hashable_data = nalu->nalu_data_wo_epb;
-      nalu->hashable_data_size = data_size;
-      nalu->tlv_start_in_nalu_data = nalu->tlv_data;
+      bu->hashable_data = bu->nalu_data_wo_epb;
+      bu->hashable_data_size = data_size;
+      bu->tlv_start_in_nalu_data = bu->tlv_data;
     }
   }
 }
 
 /**
- * @brief Parses a H26X NALU data
+ * @brief Parses codec specific bitstream unit data
  *
  * Tries to parse out general information about the data nalu. Checks if the NALU is valid for
  * signing, i.e. I, P, or SEI nalu. Convenient information in the NALU struct such as NALU type,
@@ -671,19 +671,19 @@ parse_nalu_info(const uint8_t *nalu_data,
     bool is_auth_side)
 {
   uint32_t nalu_header_len = 0;
-  bu_info_t nalu = {0};
+  bu_info_t bu = {0};
   // Initialize NALU
-  nalu.nalu_data = nalu_data;
-  nalu.nalu_data_size = nalu_data_size;
-  nalu.is_valid = -1;
-  nalu.is_hashable = false;
-  nalu.nalu_type = NALU_TYPE_UNDEFINED;
-  nalu.uuid_type = UUID_TYPE_UNDEFINED;
-  nalu.is_gop_sei = false;
-  nalu.is_first_nalu_part = true;
-  nalu.is_last_nalu_part = true;
+  bu.nalu_data = nalu_data;
+  bu.nalu_data_size = nalu_data_size;
+  bu.is_valid = -1;
+  bu.is_hashable = false;
+  bu.nalu_type = NALU_TYPE_UNDEFINED;
+  bu.uuid_type = UUID_TYPE_UNDEFINED;
+  bu.is_gop_sei = false;
+  bu.is_first_nalu_part = true;
+  bu.is_last_nalu_part = true;
 
-  if (!nalu_data || (nalu_data_size == 0) || codec < 0 || codec >= SV_CODEC_NUM) return nalu;
+  if (!nalu_data || (nalu_data_size == 0) || codec < 0 || codec >= SV_CODEC_NUM) return bu;
 
   // For a Bytestream the nalu_data begins with a Start Code, which is either 3 or 4 bytes. That is,
   // look for a 0x000001 or 0x00000001 pattern. For a NAL Unit stream a start code is not necessary.
@@ -707,26 +707,26 @@ parse_nalu_info(const uint8_t *nalu_data,
       }
     }
   }
-  nalu.hashable_data = &nalu_data[read_bytes];
-  nalu.start_code = start_code;
+  bu.hashable_data = &nalu_data[read_bytes];
+  bu.start_code = start_code;
 
   if (codec == SV_CODEC_H264) {
-    nalu_header_is_valid = parse_h264_nalu_header(&nalu);
+    nalu_header_is_valid = parse_h264_nalu_header(&bu);
     nalu_header_len = H264_NALU_HEADER_LEN;
   } else if (codec == SV_CODEC_H265) {
-    nalu_header_is_valid = parse_h265_nalu_header(&nalu);
+    nalu_header_is_valid = parse_h265_nalu_header(&bu);
     nalu_header_len = H265_NALU_HEADER_LEN;
   } else {
-    nalu_header_is_valid = parse_av1_obu_header(&nalu);
+    nalu_header_is_valid = parse_av1_obu_header(&bu);
     nalu_header_len = AV1_OBU_HEADER_LEN;
   }
   // If a correct NALU header could not be parsed, mark as invalid.
-  nalu.is_valid = nalu_header_is_valid;
+  bu.is_valid = nalu_header_is_valid;
 
   // Only picture NALUs are hashed.
-  if (nalu.nalu_type == NALU_TYPE_I || nalu.nalu_type == NALU_TYPE_P) nalu.is_hashable = true;
+  if (bu.nalu_type == NALU_TYPE_I || bu.nalu_type == NALU_TYPE_P) bu.is_hashable = true;
 
-  nalu.is_first_nalu_in_gop = (nalu.nalu_type == NALU_TYPE_I) && nalu.is_primary_slice;
+  bu.is_first_nalu_in_gop = (bu.nalu_type == NALU_TYPE_I) && bu.is_primary_slice;
 
   // It has been noticed that, at least, ffmpeg can add a trailing 0x00 byte at the end of a NALU
   // when exporting to an mp4 container file. This has so far only been observed for H265. The
@@ -736,15 +736,15 @@ parse_nalu_info(const uint8_t *nalu_data,
     DEBUG_LOG("Found trailing 0x00");
     nalu_data_size--;
   }
-  nalu.hashable_data_size = nalu_data_size - read_bytes;
+  bu.hashable_data_size = nalu_data_size - read_bytes;
 
   // For SEI-nalus we parse payload and uuid information.
-  if (nalu.nalu_type == NALU_TYPE_SEI) {
+  if (bu.nalu_type == NALU_TYPE_SEI) {
     // SEI NALU payload starts after the NALU header.
-    const uint8_t *payload = nalu.hashable_data + nalu_header_len;
+    const uint8_t *payload = bu.hashable_data + nalu_header_len;
     uint8_t user_data_unregistered = 0;
     size_t payload_size = 0;
-    nalu.uuid_type = UUID_TYPE_UNDEFINED;
+    bu.uuid_type = UUID_TYPE_UNDEFINED;
     if (codec != SV_CODEC_AV1) {
       // Check user_data_unregistered
       user_data_unregistered = *payload;
@@ -752,22 +752,22 @@ parse_nalu_info(const uint8_t *nalu_data,
       if (user_data_unregistered == USER_DATA_UNREGISTERED) {
         // Decode payload size and compute emulation prevention bytes
         payload += h264_get_payload_size(payload, &payload_size);
-        nalu.payload = payload;
-        nalu.payload_size = payload_size;
+        bu.payload = payload;
+        bu.payload_size = payload_size;
         // We now know the payload size, including UUID (16 bytes) and excluding stop bit. This
         // means that we can determine if we have added any emulation prevention bytes.
-        int epb = (int)nalu.hashable_data_size;
-        epb -= (int)(payload - nalu.hashable_data);  // Read bytes so far
+        int epb = (int)bu.hashable_data_size;
+        epb -= (int)(payload - bu.hashable_data);  // Read bytes so far
         epb -= (int)payload_size;  // The true encoded payload size, excluding stop byte.
         // If we have the stop bit in a byte of its own it's not included in the payload size. This
         // is actually always the case for the signed video generated SEI data.
 
         epb -= nalu_data[nalu_data_size - 1] == STOP_BYTE_VALUE ? 1 : 0;
-        nalu.emulation_prevention_bytes = epb;
-        DEBUG_LOG("Computed %d emulation prevention byte(s)", nalu.emulation_prevention_bytes);
+        bu.emulation_prevention_bytes = epb;
+        DEBUG_LOG("Computed %d emulation prevention byte(s)", bu.emulation_prevention_bytes);
 
         // Decode UUID type
-        nalu.uuid_type = h264_get_uuid_sei_type(payload);
+        bu.uuid_type = h264_get_uuid_sei_type(payload);
       }
     } else {
       // Decode payload size
@@ -778,29 +778,29 @@ parse_nalu_info(const uint8_t *nalu_data,
       payload++;
       payload_size -= 2;
       if (user_data_unregistered == METADATA_TYPE_USER_PRIVATE) {
-        nalu.payload = payload;
-        nalu.payload_size = payload_size - 1;  // Exclude ending trailing byte
+        bu.payload = payload;
+        bu.payload_size = payload_size - 1;  // Exclude ending trailing byte
         // AV1 does not have emulation prevention bytes.
-        nalu.emulation_prevention_bytes = 0;
+        bu.emulation_prevention_bytes = 0;
 
         // Decode UUID type
-        nalu.uuid_type = h264_get_uuid_sei_type(payload);
+        bu.uuid_type = h264_get_uuid_sei_type(payload);
       }
     }
-    nalu.is_gop_sei = (nalu.uuid_type == UUID_TYPE_SIGNED_VIDEO);
+    bu.is_gop_sei = (bu.uuid_type == UUID_TYPE_SIGNED_VIDEO);
 
     if (codec != SV_CODEC_AV1) {
       // Only Signed Video generated SEIs are valid and hashable.
-      nalu.is_hashable = nalu.is_gop_sei && is_auth_side;
+      bu.is_hashable = bu.is_gop_sei && is_auth_side;
     } else {
       // Hash all Metadata OBUs unless it is a Signed Video generated "SEI" and on signing side.
-      nalu.is_hashable = !(nalu.is_gop_sei && !is_auth_side);
+      bu.is_hashable = !(bu.is_gop_sei && !is_auth_side);
     }
 
-    remove_epb_from_sei_payload(&nalu);
+    remove_epb_from_sei_payload(&bu);
   }
 
-  return nalu;
+  return bu;
 }
 
 /**
@@ -869,23 +869,23 @@ validation_flags_init(validation_flags_t *validation_flags)
 }
 
 void
-update_validation_flags(validation_flags_t *validation_flags, bu_info_t *nalu)
+update_validation_flags(validation_flags_t *validation_flags, bu_info_t *bu)
 {
-  if (!validation_flags || !nalu) return;
+  if (!validation_flags || !bu) return;
 
-  validation_flags->is_first_sei = !validation_flags->signing_present && nalu->is_gop_sei;
+  validation_flags->is_first_sei = !validation_flags->signing_present && bu->is_gop_sei;
   // As soon as we receive a SEI, Signed Video is present.
-  validation_flags->signing_present |= nalu->is_gop_sei;
+  validation_flags->signing_present |= bu->is_gop_sei;
 }
 
 /* Others */
 
 void
-update_num_nalus_in_gop_hash(signed_video_t *self, const bu_info_t *nalu)
+update_num_nalus_in_gop_hash(signed_video_t *self, const bu_info_t *bu)
 {
-  if (!self || !nalu) return;
+  if (!self || !bu) return;
 
-  if (!nalu->is_gop_sei) {
+  if (!bu->is_gop_sei) {
     self->gop_info->num_nalus_in_gop_hash++;
     if (self->gop_info->num_nalus_in_gop_hash == 0) {
       DEBUG_LOG("Wraparound in |num_nalus_in_gop_hash|");
@@ -952,18 +952,18 @@ update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
 
 /* A getter that determines which hash wrapper to use and returns it. */
 static hash_wrapper_t
-get_hash_wrapper(signed_video_t *self, const bu_info_t *nalu)
+get_hash_wrapper(signed_video_t *self, const bu_info_t *bu)
 {
-  assert(self && nalu);
+  assert(self && bu);
 
-  if (!nalu->is_last_nalu_part) {
+  if (!bu->is_last_nalu_part) {
     // If this is not the last part of a NALU, update the hash.
     return update_hash;
-  } else if (nalu->is_gop_sei) {
+  } else if (bu->is_gop_sei) {
     // A SEI, i.e., the document_hash, is hashed without reference, since that one may be verified
     // separately.
     return simply_hash;
-  } else if (nalu->is_first_nalu_in_gop) {
+  } else if (bu->is_first_nalu_in_gop) {
     // If the current NALU |is_first_nalu_in_gop| and we do not already have a reference, we should
     // |simply_hash| and copy the hash to reference.
     return hash_and_copy_to_ref;
@@ -980,13 +980,13 @@ get_hash_wrapper(signed_video_t *self, const bu_info_t *nalu)
  * takes the |hashable_data| from the NALU, and updates the hash in |crypto_handle|. */
 static svrc_t
 update_hash(signed_video_t *self,
-    const bu_info_t *nalu,
+    const bu_info_t *bu,
     uint8_t ATTR_UNUSED *hash,
     size_t ATTR_UNUSED hash_size)
 {
-  assert(nalu);
-  const uint8_t *hashable_data = nalu->hashable_data;
-  size_t hashable_data_size = nalu->hashable_data_size;
+  assert(bu);
+  const uint8_t *hashable_data = bu->hashable_data;
+  size_t hashable_data_size = bu->hashable_data_size;
 
   return openssl_update_hash(self->crypto_handle, hashable_data, hashable_data_size, false);
 }
@@ -995,18 +995,18 @@ update_hash(signed_video_t *self,
  *
  * takes the |hashable_data| from the NALU, hash it and store the hash in |nalu_hash|. */
 static svrc_t
-simply_hash(signed_video_t *self, const bu_info_t *nalu, uint8_t *hash, size_t hash_size)
+simply_hash(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t hash_size)
 {
   // It should not be possible to end up here unless the NALU data includes the last part.
-  assert(nalu && nalu->is_last_nalu_part && hash);
-  const uint8_t *hashable_data = nalu->hashable_data;
-  size_t hashable_data_size = nalu->hashable_data_size;
+  assert(bu && bu->is_last_nalu_part && hash);
+  const uint8_t *hashable_data = bu->hashable_data;
+  size_t hashable_data_size = bu->hashable_data_size;
 
-  if (nalu->is_first_nalu_part) {
+  if (bu->is_first_nalu_part) {
     // Entire NALU can be hashed in one part.
     return openssl_hash_data(self->crypto_handle, hashable_data, hashable_data_size, hash);
   } else {
-    svrc_t status = update_hash(self, nalu, hash, hash_size);
+    svrc_t status = update_hash(self, bu, hash, hash_size);
     if (status == SV_OK) {
       // Finalize the ongoing hash of NALU parts.
       status = openssl_finalize_hash(self->crypto_handle, hash, false);
@@ -1022,9 +1022,9 @@ simply_hash(signed_video_t *self, const bu_info_t *nalu, uint8_t *hash, size_t h
  *
  * This is needed for the first NALU of a GOP, which serves as a reference. */
 static svrc_t
-hash_and_copy_to_ref(signed_video_t *self, const bu_info_t *nalu, uint8_t *hash, size_t hash_size)
+hash_and_copy_to_ref(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t hash_size)
 {
-  assert(self && nalu && hash);
+  assert(self && bu && hash);
 
   gop_info_t *gop_info = self->gop_info;
   // First hash in |hash_buddies| is the |reference_hash|.
@@ -1032,7 +1032,7 @@ hash_and_copy_to_ref(signed_video_t *self, const bu_info_t *nalu, uint8_t *hash,
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SV_THROW(simply_hash(self, nalu, hash, hash_size));
+    SV_THROW(simply_hash(self, bu, hash, hash_size));
     // Copy the |nalu_hash| to |reference_hash| to be used in hash_with_reference().
     memcpy(reference_hash, hash, hash_size);
   SV_CATCH()
@@ -1053,11 +1053,11 @@ hash_and_copy_to_ref(signed_video_t *self, const bu_info_t *nalu, uint8_t *hash,
  */
 static svrc_t
 hash_with_reference(signed_video_t *self,
-    const bu_info_t *nalu,
+    const bu_info_t *bu,
     uint8_t *buddy_hash,
     size_t hash_size)
 {
-  assert(self && nalu && buddy_hash);
+  assert(self && bu && buddy_hash);
 
   gop_info_t *gop_info = self->gop_info;
   // Second hash in |hash_buddies| is the |nalu_hash|.
@@ -1066,7 +1066,7 @@ hash_with_reference(signed_video_t *self,
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Hash NALU data and store as |nalu_hash|.
-    SV_THROW(simply_hash(self, nalu, nalu_hash, hash_size));
+    SV_THROW(simply_hash(self, bu, nalu_hash, hash_size));
     // Hash reference hash together with the |nalu_hash| and store in |buddy_hash|.
     SV_THROW(
         openssl_hash_data(self->crypto_handle, gop_info->hash_buddies, hash_size * 2, buddy_hash));
@@ -1077,12 +1077,12 @@ hash_with_reference(signed_video_t *self,
 }
 
 svrc_t
-hash_and_add(signed_video_t *self, const bu_info_t *nalu)
+hash_and_add(signed_video_t *self, const bu_info_t *bu)
 {
-  if (!self || !nalu) return SV_INVALID_PARAMETER;
+  if (!self || !bu) return SV_INVALID_PARAMETER;
 
-  if (!nalu->is_hashable) {
-    DEBUG_LOG("This NALU (type %d) was not hashed", nalu->nalu_type);
+  if (!bu->is_hashable) {
+    DEBUG_LOG("This NALU (type %d) was not hashed", bu->nalu_type);
     return SV_OK;
   }
 
@@ -1093,21 +1093,21 @@ hash_and_add(signed_video_t *self, const bu_info_t *nalu)
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    if (nalu->is_first_nalu_part && !nalu->is_last_nalu_part) {
+    if (bu->is_first_nalu_part && !bu->is_last_nalu_part) {
       // If this is the first part of a non-complete NALU/OBU, initialize the |crypto_handle| to
       // enable sequentially updating the hash with more parts.
       SV_THROW(openssl_init_hash(self->crypto_handle, false));
     }
     // Select hash function, hash the NALU/OBU and store as 'latest hash'
-    hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
-    SV_THROW(hash_wrapper(self, nalu, nalu_hash, hash_size));
+    hash_wrapper_t hash_wrapper = get_hash_wrapper(self, bu);
+    SV_THROW(hash_wrapper(self, bu, nalu_hash, hash_size));
 #ifdef SIGNED_VIDEO_DEBUG
-    sv_print_hex_data(nalu_hash, hash_size, "Hash of %s: ", nalu_type_to_str(nalu));
+    sv_print_hex_data(nalu_hash, hash_size, "Hash of %s: ", nalu_type_to_str(bu));
 #endif
-    if (nalu->is_last_nalu_part) {
+    if (bu->is_last_nalu_part) {
       // The end of the NALU has been reached. Update hash list and GOP hash.
       check_and_copy_hash_to_hash_list(self, nalu_hash, hash_size);
-      update_num_nalus_in_gop_hash(self, nalu);
+      update_num_nalus_in_gop_hash(self, bu);
     }
   SV_CATCH()
   {
@@ -1124,11 +1124,11 @@ hash_and_add_for_auth(signed_video_t *self, bu_list_item_t *item)
 {
   if (!self || !item) return SV_INVALID_PARAMETER;
 
-  const bu_info_t *nalu = item->nalu;
-  if (!nalu) return SV_INVALID_PARAMETER;
+  const bu_info_t *bu = item->bu;
+  if (!bu) return SV_INVALID_PARAMETER;
 
-  if (!nalu->is_hashable) {
-    DEBUG_LOG("This NALU (type %d) was not hashed.", nalu->nalu_type);
+  if (!bu->is_hashable) {
+    DEBUG_LOG("This NALU (type %d) was not hashed.", bu->nalu_type);
     return SV_OK;
   }
   if (!self->validation_flags.hash_algo_known) {
@@ -1145,10 +1145,10 @@ hash_and_add_for_auth(signed_video_t *self, bu_list_item_t *item)
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Select hash wrapper, hash the NALU and store as |nalu_hash|.
-    hash_wrapper_t hash_wrapper = get_hash_wrapper(self, nalu);
-    SV_THROW(hash_wrapper(self, nalu, nalu_hash, hash_size));
+    hash_wrapper_t hash_wrapper = get_hash_wrapper(self, bu);
+    SV_THROW(hash_wrapper(self, bu, nalu_hash, hash_size));
 #ifdef SIGNED_VIDEO_DEBUG
-    sv_print_hex_data(nalu_hash, hash_size, "Hash of %s: ", nalu_type_to_str(nalu));
+    sv_print_hex_data(nalu_hash, hash_size, "Hash of %s: ", nalu_type_to_str(bu));
 #endif
   SV_CATCH()
   SV_DONE(status)
