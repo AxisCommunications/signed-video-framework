@@ -1152,7 +1152,7 @@ reregister_nalus(signed_video_t *self)
       // without requesting an authenticity report.
       if (item != nalu_list->last_item) {
         status = legacy_sv_add_nalu_and_authenticate(
-            self->legacy_sv, item->bu->bu_data, item->bu->nalu_data_size, NULL);
+            self->legacy_sv, item->bu->bu_data, item->bu->bu_data_size, NULL);
         if (status != SV_OK) {
           break;
         }
@@ -1192,7 +1192,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
   validation_flags_t *validation_flags = &(self->validation_flags);
   bu_list_t *nalu_list = self->nalu_list;
   bu_info_t bu = parse_nalu_info(nalu_data, nalu_data_size, self->codec, true, true);
-  DEBUG_LOG("Received a %s of size %zu B", nalu_type_to_str(&bu), bu.nalu_data_size);
+  DEBUG_LOG("Received a %s of size %zu B", nalu_type_to_str(&bu), bu.bu_data_size);
   validation_flags->has_auth_result = false;
 
   self->accumulated_validation->number_of_received_nalus++;

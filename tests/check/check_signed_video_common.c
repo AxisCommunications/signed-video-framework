@@ -44,7 +44,7 @@ START_TEST(invalid_api_inputs)
 
   signed_video_t *sv = NULL;
   uint8_t bu_data[3] = {0, 1, 2};
-  size_t nalu_data_size = 3;
+  size_t bu_data_size = 3;
   // Check invalid codecs
   sv = signed_video_create(-1);
   ck_assert(!sv);
@@ -63,8 +63,8 @@ START_TEST(invalid_api_inputs)
   sv_rc = signed_video_reset(sv);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  ck_assert(!signed_video_is_golden_sei(NULL, bu_data, nalu_data_size));
-  ck_assert(!signed_video_is_golden_sei(sv, NULL, nalu_data_size));
+  ck_assert(!signed_video_is_golden_sei(NULL, bu_data, bu_data_size));
+  ck_assert(!signed_video_is_golden_sei(sv, NULL, bu_data_size));
   ck_assert(!signed_video_is_golden_sei(sv, bu_data, 0));
 
   signed_video_free(sv);
