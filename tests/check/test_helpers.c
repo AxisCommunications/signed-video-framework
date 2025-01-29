@@ -34,7 +34,7 @@
 #include "lib/src/includes/signed_video_common.h"
 #include "lib/src/includes/signed_video_openssl.h"
 #include "lib/src/includes/signed_video_sign.h"
-#include "lib/src/sv_h26x_internal.h"  // parse_nalu_info(), kUuidSignedVideo
+#include "lib/src/sv_h26x_internal.h"  // parse_bu_info(), kUuidSignedVideo
 #include "lib/src/sv_internal.h"  // _signed_video_t, UUID_LEN, ATTR_UNUSED
 #include "lib/src/sv_tlv.h"  // tlv_find_tag()
 
@@ -482,7 +482,7 @@ tag_is_present(const test_stream_item_t *item, SignedVideoCodec codec, sv_tlv_ta
   ck_assert(item);
 
   bool found_tag = false;
-  bu_info_t nalu = parse_nalu_info(item->data, item->data_size, codec, false, true);
+  bu_info_t nalu = parse_bu_info(item->data, item->data_size, codec, false, true);
   if (!nalu.is_sv_sei) return false;
 
   void *tag_ptr = (void *)tlv_find_tag(nalu.tlv_data, nalu.tlv_size, tag, false);

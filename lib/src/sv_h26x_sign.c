@@ -28,7 +28,7 @@
 #include "includes/signed_video_signing_plugin.h"
 #include "sv_authenticity.h"  // allocate_memory_and_copy_string
 #include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
-#include "sv_h26x_internal.h"  // parse_nalu_info(), METADATA_TYPE_USER_PRIVATE
+#include "sv_h26x_internal.h"  // parse_bu_info(), METADATA_TYPE_USER_PRIVATE
 #include "sv_internal.h"  // gop_info_t
 #include "sv_openssl_internal.h"
 #include "sv_tlv.h"  // tlv_list_encode_or_get_size()
@@ -374,7 +374,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
       size_t fake_payload_size = (payload_ptr - *payload);
       // Force SEI to be hashable.
       bu_info_t nalu_without_signature_data =
-          parse_nalu_info(*payload, fake_payload_size, self->codec, false, true);
+          parse_bu_info(*payload, fake_payload_size, self->codec, false, true);
       // Create a document hash.
       SV_THROW(hash_and_add(self, &nalu_without_signature_data));
       // Note that the "add" part of the hash_and_add() operation above is actually only necessary
@@ -526,16 +526,16 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
 
   bu_info_t nalu = {0};
   gop_info_t *gop_info = self->gop_info;
-  // TODO: Consider moving this into parse_nalu_info().
+  // TODO: Consider moving this into parse_bu_info().
   if (self->last_nalu->is_last_bu_part) {
     // Only check for trailing zeros if this is the last part.
-    nalu = parse_nalu_info(nalu_data, nalu_data_size, self->codec, is_last_part, false);
+    nalu = parse_bu_info(nalu_data, nalu_data_size, self->codec, is_last_part, false);
     nalu.is_last_bu_part = is_last_part;
-    copy_nalu_except_pointers(self->last_nalu, &nalu);
+    copy_bu_except_pointers(self->last_nalu, &nalu);
   } else {
     self->last_nalu->is_first_bu_part = false;
     self->last_nalu->is_last_bu_part = is_last_part;
-    copy_nalu_except_pointers(&nalu, self->last_nalu);
+    copy_bu_except_pointers(&nalu, self->last_nalu);
     nalu.bu_data = nalu_data;
     nalu.hashable_data = nalu_data;
     // Remove any trailing 0x00 bytes at the end of a NALU.
@@ -696,7 +696,7 @@ signed_video_get_sei(signed_video_t *self,
   // If the user peek this NAL Unit, a SEI can only be fetched if it can prepend the
   // peeked NAL Unit and at the same time follows the standard.
   if (peek_nalu && peek_nalu_size > 0) {
-    bu_info_t nalu_info = parse_nalu_info(peek_nalu, peek_nalu_size, self->codec, false, false);
+    bu_info_t nalu_info = parse_bu_info(peek_nalu, peek_nalu_size, self->codec, false, false);
     free(nalu_info.nalu_data_wo_epb);
     // Only display a SEI if the |peek_nalu| is a primary picture NAL Unit.
     if (!((nalu_info.bu_type == BU_TYPE_I || nalu_info.bu_type == BU_TYPE_P) &&
@@ -714,7 +714,7 @@ signed_video_get_sei(signed_video_t *self,
 
   // Get the offset to the start of the SEI payload if requested.
   if (payload_offset) {
-    bu_info_t nalu_info = parse_nalu_info(*sei, *sei_size, self->codec, false, false);
+    bu_info_t nalu_info = parse_bu_info(*sei, *sei_size, self->codec, false, false);
     free(nalu_info.nalu_data_wo_epb);
     *payload_offset = (unsigned)(nalu_info.payload - *sei);
   }
