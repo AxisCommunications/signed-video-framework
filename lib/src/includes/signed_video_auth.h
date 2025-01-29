@@ -36,24 +36,24 @@ extern "C" {
  * Status of authenticity validation since last result
  */
 typedef enum {
+  // The consumed Bitstream Units (NALUs or OBUs) so far contain no signature information.
   SV_AUTH_RESULT_NOT_SIGNED = 0,
-  // The consumed NALUs/OBUs so far contain no signature information.
-  SV_AUTH_RESULT_SIGNATURE_PRESENT = 1,
-  // Signed video has been detected present, but there is not enough information to complete a
+  // Signed Video has been detected as present, but there is not enough information to complete a
   // validation. This state is shown until validation has been performed.
+  SV_AUTH_RESULT_SIGNATURE_PRESENT = 1,
+  // At least one Bitstream Unit (NALU or OBU) failed verification.
   SV_AUTH_RESULT_NOT_OK = 2,
-  // At least one NALU/OBU failed verification.
+  // Successfully verified all Bitstream Units (NALUs or OBUs) that could be verified, but missing
+  // Bitstream Units were detected. Further actions need to be taken to judge these losses and
+  // complete the authenticity validation.
   SV_AUTH_RESULT_OK_WITH_MISSING_INFO = 3,
-  // Successfully verified all NALUs/OBUs that could be verified, but missing NALUs were detected.
-  // Further actions need to be taken to judge these losses and complete the authenticity
-  // validation.
+  // Successfully verified all Bitstream Units (NALUs or OBUs) that could be verified, and all
+  // expected Bitstream Units are present.
   SV_AUTH_RESULT_OK = 4,
-  // Successfully verified all NALUs/OBUs that could be verified, and all expected NALUs/OBUs are
-  // present.
-  SV_AUTH_RESULT_VERSION_MISMATCH = 5,
   // Video has been signed with a version newer than that used by the validation part. Correct
   // validation cannot be guaranteed. The user is encouraged to update the validation code with a
   // newer version.
+  SV_AUTH_RESULT_VERSION_MISMATCH = 5,
   SV_AUTH_NUM_SIGNED_GOP_VALID_STATES
 } SignedVideoAuthenticityResult;
 
@@ -61,15 +61,15 @@ typedef enum {
  * Status of public key validation
  */
 typedef enum {
-  SV_PUBKEY_VALIDATION_NOT_FEASIBLE = 0,
   // There are no means to verify the public key. This happens if no attestation exists or if the
   // public key was not part of the stream.
-  SV_PUBKEY_VALIDATION_NOT_OK = 1,
+  SV_PUBKEY_VALIDATION_NOT_FEASIBLE = 0,
   // The Public key in the SEI/OBU Metadata was not validated successfully. The video might be
   // correct, but its origin could not be verified.
-  SV_PUBKEY_VALIDATION_OK = 2,
+  SV_PUBKEY_VALIDATION_NOT_OK = 1,
   // The Public key in the stream was validated successfully. The origin of the key is correct and
   // trustworthy when validating the video.
+  SV_PUBKEY_VALIDATION_OK = 2,
   SV_PUBKEY_VALIDATION_NUM_STATES
 } SignedVideoPublicKeyValidation;
 
@@ -78,53 +78,55 @@ typedef enum {
  * GOP lengths an intermediate validation may be provided.
  */
 typedef struct {
-  SignedVideoAuthenticityResult authenticity;
   // The result of the latest authenticity validation.
-  bool public_key_has_changed;
+  SignedVideoAuthenticityResult authenticity;
   // A new Public key has been detected. Signing an ongoing stream with a new key is not allowed.
+  bool public_key_has_changed;
+  // Indicates how many picture Bitstream Units (NALUs or OBUs) were expected, and part of the
+  // signature, since last validation. Note that this excludes SEI, PPS/SPS/VPS, AUD. A negative
+  // value indicates that such information is lacking due to a missing, or tampered,
+  // SEI/OBU Metadata.
   int number_of_expected_picture_nalus;
-  // Indicates how many picture NALUs (i.e., excluding SEI, PPS/SPS/VPS, AUD) were expected, and
-  // part of the signature, since last validation. A negative value indicates that such information
-  // is lacking due to a missing, or tampered, SEI/OBU Metadata.
+  // Indicates how many picture Bitstream Units (NALUs or OBUs) have been received since last
+  // validation, and used to verify the signature. Note that this excludes SEI, PPS/SPS/VPS, AUD. If
+  // the signed video feature is disabled, or an error occurred during validation, a negative value
+  // is set.
   int number_of_received_picture_nalus;
-  // Indicates how many picture NALUs (i.e., excluding SEI, PPS/SPS/VPS, AUD) have been received
-  // since last validation, and used to verify the signature. If the signed video feature is
-  // disabled, or an error occurred during validation, a negative value is set.
+  // Indicates how many picture Bitstream Units (NALUs or OBUs) are pending validation. Note that
+  // this excludes SEI, PPS/SPS/VPS, AUD.
   int number_of_pending_picture_nalus;
-  // Indicates how many picture NALUs (i.e., excluding SEI, PPS/SPS/VPS, AUD) are pending
-  // validation.
-  char *validation_str;
-  // A string displaying the validation status of all the latest NALUs/OBUs. The string ends with a
-  // null terminated character. The validated NALUs/OBUs are removed after fetching the
-  // authenticity_report.
-  // This means that the user can count backwards from the latest/current NALU/OBU and verify each
-  // NALU/OBU's authenticity individually. Each NALU/OBU is marked by one of these characters:
-  // 'P' : Pending validation. This is the initial value. The NALU/OBU has been registered and
+  // A string displaying the validation status of all the latest Bitstream Units (NALUs or OBUs).
+  // The string ends with a null terminated character. The validated Bitstream Units (NALUs or OBUs)
+  // are removed after fetching the authenticity_report.
+  // This means that the user can count backwards from the latest/current Bitstream Unit and verify
+  // each Bitstream Unit's authenticity individually. Each Bitstream Unit is marked by one of these
+  // characters:
+  // 'P' : Pending validation. This is the initial value. The Bitstream Unit has been registered and
   //       waiting for authenticity validation.
-  // 'U' : The NALU/OBU has an unknown authenticity. This occurs if the NALU/OBU could not be
-  //       parsed, or if the SEI/OBU Metadata is associated with NALUs/OBUs not part of the
-  //       validating segment.
-  // '_' : The NALU/OBU is ignored and therefore not part of the signature. The NALU/OBU has no
-  //       impact on the video and is validated as authentic.
-  // '.' : The NALU/OBU has been validated as authentic.
-  // 'N' : The NALU/OBU has been validated as not authentic.
-  // 'M' : The validation has detected one or more missing NALUs/OBUs at this position.
+  // 'U' : The Bitstream Unit has an unknown authenticity. This occurs if the Bitstream Unit could
+  //       not be parsed, or if the SEI/OBU Metadata is associated with Bitstream Unit not part of
+  //       the validating segment.
+  // '_' : The Bitstream Unit is ignored and therefore not part of the signature. The Bitstream Unit
+  //       has no impact on the video and is validated as authentic.
+  // '.' : The Bitstream Unit has been validated as authentic.
+  // 'N' : The Bitstream Unit has been validated as not authentic.
+  // 'M' : The validation has detected one or more missing Bitstream Units at this position.
   // 'E' : An error occurred and validation could not be performed. This should be treated as an
-  //       invalid NALU/OBU.
+  //       invalid Bitstream Unit.
 
   // Example:
-  // Two consecutive |validation_str|. After 10 NALUs a authentication result was received
-  // generating the first string. Left for next validation are the three pending NALUs (P's) and
-  // the ignored NALU ('_'). Five new NALUs were added before the authentication result was
-  // updated. A new string has been generated (second line) and now the pending NALUs have been
-  // validated successfully (the P's have been turned into '.'). Note that the ignored NALU ('_')
-  // is still ignored.
+  // Two consecutive |validation_str|. After 10 Bitstream Units a authentication result was received
+  // generating the first string. Left for next validation are the three pending Bitstream Units
+  // (P's) and the ignored Bitstream Unit ('_'). Five new Bitstream Units were added before the
+  // authentication result was updated. A new string has been generated (second line) and now the
+  // pending Bitstream Units have been validated successfully (the P's have been turned into '.').
+  // Note that the ignored Bitstream Unit ('_') is still ignored.
   //   __....P_P.
   //         ._....PP.
-  char *nalu_str;
+  char *validation_str;
   // As a complement to the validation_str above, this string displays the type of all the latest
-  // NALUs/OBUs. The string ends with a null terminated character. Each NALU/OBU is marked by one of
-  // these characters:
+  // Bitstream Units. The string ends with a null terminated character. Each Bitstream Unit is
+  // marked by one of these characters:
   // 'I' : I-frame (primary slice)
   // 'i' : I-frame (not primary slice)
   // 'P' : P-frame (primary slice)
@@ -132,11 +134,11 @@ typedef struct {
   // 'S' : SEI/OBU Metadata, generated by Signed Video including a signature
   // 's' : SEI/OBU Metadata, generated by Signed Video not including a signature
   // 'z' : SEI/OBU Metadata, other type than Signed Video generated
-  // 'v' : Parameter Set NALU/OBU, i.e., SPS/PPS/VPS, SH
+  // 'v' : Parameter Set, i.e., SPS/PPS/VPS, SH
   // '_' : AUD/TD
-  // 'o' : Other valid type of NALU/OBU
-  // 'U' : Undefined NALU/OBU
-  // ' ' : No NALU/OBU present, e.g., when missing NALUs/OBU are detected
+  // 'o' : Other valid type of Bitstream Unit
+  // 'U' : Undefined Bitstream Unit
+  // ' ' : No Bitstream Unit present, e.g., when missing Bitstream Units are detected
 
   // Example:
   // Complementing the example above.
@@ -144,15 +146,16 @@ typedef struct {
   //   validation_str:  __....P_P.
   //                          IzPSPPIPS
   //                          ._....PP.
-  SignedVideoPublicKeyValidation public_key_validation;
+  char *nalu_str;
   // The result of the latest Public key validation. If the Public key is present in the
   // SEI/OBU Metadata, it has to be validated to associate the video with a source. If it is not
   // feasible to validate the Public key, it should be validated manually to secure proper video
   // authenticity.
-  bool has_timestamp;
+  SignedVideoPublicKeyValidation public_key_validation;
   // True if the timestamp member is valid to look at, false otherwise.
+  bool has_timestamp;
+  // Unix epoch UTC timestamp in microseconds of the latest signed Bitstream Unit.
   int64_t timestamp;
-  // Unix epoch UTC timestamp in microseconds of the latest signed NALU/OBU.
 } signed_video_latest_validation_t;
 
 /**
@@ -160,28 +163,28 @@ typedef struct {
  * information is used after screening an entire file, or when closing a session.
  */
 typedef struct {
-  SignedVideoAuthenticityResult authenticity;
   // The overall authenticity of the session.
-  bool public_key_has_changed;
+  SignedVideoAuthenticityResult authenticity;
   // A new Public key has been detected. Signing an ongoing stream with a new key is not allowed. If
   // this flag is set the |authenticity| is automatically set to SV_AUTH_RESULT_NOT_OK.
+  bool public_key_has_changed;
+  // Total number of received Bitstream Units, that is all Bitstream Units added for validation.
   unsigned int number_of_received_nalus;
-  // Total number of received NALUs/OBUs, that is all NALUs/OBUs added for validation.
+  // Total number of validated Bitstream Units, that is, how many of the received Bitstream Units
+  // that so far have been validated.
   unsigned int number_of_validated_nalus;
-  // Total number of validated NALUs/OBUs, that is, how many of the received NALUs/OBUs that so far
-  // have been validated.
+  // The number of Bitstream Units that currently are pending validation.
   unsigned int number_of_pending_nalus;
-  // The number of NALUs/OBUs that currently are pending validation.
-  SignedVideoPublicKeyValidation public_key_validation;
   // The result of the Public key validation. If the Public key is present in the SEI/OBU Metadata,
   // it has to be validated to associate the video with a source. If it is not feasible to validate
   // the Public key, it should be validated manually to secure proper video authenticity.
-  bool has_timestamp;
+  SignedVideoPublicKeyValidation public_key_validation;
   // True if the session included timestamps.
+  bool has_timestamp;
+  // Unix epoch UTC timestamp in microseconds of the first signed Bitstream Unit.
   int64_t first_timestamp;
-  // Unix epoch UTC timestamp in microseconds of the first signed NALU/OBU.
+  // Unix epoch UTC timestamp in microseconds of the last signed Bitstream Unit.
   int64_t last_timestamp;
-  // Unix epoch UTC timestamp in microseconds of the last signed NALU/OBU.
 } signed_video_accumulated_validation_t;
 
 /**
@@ -202,16 +205,16 @@ typedef struct {
  * should provide all necessary means to make a correct decision on the authenticity of the video.
  */
 typedef struct {
-  char *version_on_signing_side;
   // Code version used when signing the video.
-  char *this_version;
+  char *version_on_signing_side;
   // Code version used when validating the authenticity.
-  signed_video_product_info_t product_info;
+  char *this_version;
   // Information about the product provided in a struct.
-  signed_video_latest_validation_t latest_validation;
+  signed_video_product_info_t product_info;
   // Holds the information of the latest validation.
+  signed_video_latest_validation_t latest_validation;
+  // Holds the information of the total validation since the first added Bitstream Unit.
   signed_video_accumulated_validation_t accumulated_validation;
-  // Holds the information of the total validation since the first added NALU/OBU.
 } signed_video_authenticity_t;
 
 /**
@@ -237,7 +240,7 @@ signed_video_authenticity_report_free(signed_video_authenticity_t *authenticity_
  *
  * @param self Pointer to the current Signed Video session.
  *
- * @returns A copy of the latest authenticity report
+ * @return A copy of the latest authenticity report
  */
 signed_video_authenticity_t *
 signed_video_get_authenticity_report(signed_video_t *self);
@@ -289,11 +292,11 @@ signed_video_get_authenticity_report(signed_video_t *self);
  */
 
 /**
- * @brief Add NALU/OBU data to the session and get an authentication report
+ * @brief Add Bitstream Unit data to the session and get an authentication report
  *
  * This function should be called for each H26x NALU the user receives. It is assumed that
- * |nalu_data| consists of one single NALU/OBU including Start Code and NALU/OBU, so that NALU/OBU
- * type can be parsed. That is, the format should look like this:
+ * |nalu_data| consists of one single Bitstream Unit including Start Code and Bitstream Unit, so
+ * that Bitstream Unit type can be parsed. That is, the format for H.26x should look like this:
  *
  * |------------|------|
  * | Start Code | NALU |
@@ -305,34 +308,35 @@ signed_video_get_authenticity_report(signed_video_t *self);
  * The access unit has to be split into NALUs if so.
  * NOTE: AV1 does not have start codes.
  *
- * The input |nalu_data| is not changed by this call. Note that it is assumed that ALL H26x NALUs
- * and AV1 OBUs are passed to this function. Otherwise, they will be treated as missing/lost packets
- * which may affect the validation.
+ * The input |nalu_data| is not changed by this call. Note that it is assumed that ALL Bitstream
+ * Units (H26x NALUs and AV1 OBUs) are passed to this function. Otherwise, they will be treated as
+ * missing/lost packets which may affect the validation.
  *
  * Signatures are sent on regular basis. Currently this is done at the end of each GOP (Group Of
  * Pictures). For every input |nalu_data| with a signature, or when a signature is expected,
- * validation is performed and a copy of the |authenticity| result is provided. If a NALU does not
- * trigger a validation, |authenticity| is a NULL pointer. If one NALU is lost or tampered with
- * within a GOP, the whole GOP is marked as NOT OK, even if the other NALUs are correct.
+ * validation is performed and a copy of the |authenticity| result is provided. If a Bitstream Unit
+ * does not trigger a validation, |authenticity| is a NULL pointer. If one Bitstream Unit is lost or
+ * tampered with within a GOP, the whole GOP is marked as NOT OK, even if the other Bitstream Units
+ * are correct.
  *
  * The user should continuously check the return value for errors and upon success check
  * |authenticity| for a new report.
  * Two typical use cases are; 1) live monitoring which could be screening the video until
  * authenticity can no longer be validated OK, and 2) screening a recording and get a full report at
  * the end. In the first case further operations can simply be aborted as soon as a validation
- * fails, whereas in the latter case all the NALUs/OBUs need to be screened.
+ * fails, whereas in the latter case all the Bitstream Units need to be screened.
  * NOTE: Only the live monitoring use case is currently supported.
  *
  * Example code of usage; See example code above.
  *
  * @param self Pointer to the signed_video_t object to update
- * @param nalu_data Pointer to the H26x NALU or AV1 OBU data to be added
+ * @param nalu_data Pointer to the Bitstream Unit data (H26x NALU or AV1 OBU) to be added
  * @param nalu_data_size Size of the nalu_data
  * @param authenticity Pointer to the autenticity report. Passing in a NULL pointer will not provide
  *     latest validation results. The user is then responsible to get a report using
  *     signed_video_get_authenticity_report(...).
  *
- * @returns A Signed Video Return Code (SignedVideoReturnCode)
+ * @return A Signed Video Return Code (SignedVideoReturnCode)
  */
 SignedVideoReturnCode
 signed_video_add_nalu_and_authenticate(signed_video_t *self,
@@ -359,7 +363,7 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
  * @param public_key Pointer to the public key data
  * @param public_key_size Size of the public key
  *
- * @returns A Signed Video Return Code (SignedVideoReturnCode)
+ * @return A Signed Video Return Code (SignedVideoReturnCode)
  */
 SignedVideoReturnCode
 signed_video_set_public_key(signed_video_t *self, const char *public_key, size_t public_key_size);
