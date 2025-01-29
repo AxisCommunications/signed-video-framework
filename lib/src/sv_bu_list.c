@@ -173,7 +173,7 @@ bu_list_item_print(const bu_list_item_t *item)
 
   char *bu_type_str = !item->bu
       ? "This BU is missing"
-      : (item->bu->is_gop_sei ? "SEI" : (item->bu->is_first_nalu_in_gop ? "I" : "Other"));
+      : (item->bu->is_gop_sei ? "SEI" : (item->bu->is_first_bu_in_gop ? "I" : "Other"));
   char validation_status_str[2] = {'\0'};
   memcpy(validation_status_str, &item->tmp_validation_status, 1);
 
@@ -247,7 +247,7 @@ bu_list_refresh(bu_list_t *list)
   bu_list_item_t *item = list->first_item;
   while (item) {
     list->num_items++;
-    if (item->bu && item->bu->is_first_nalu_in_gop) {
+    if (item->bu && item->bu->is_first_bu_in_gop) {
       list->num_gops++;
     }
 

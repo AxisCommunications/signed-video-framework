@@ -561,7 +561,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     }
 
     // Finalize GOP hash and generate SEI if the NALU is I frame of a non-empty GOP.
-    if (nalu.is_first_nalu_in_gop && nalu.is_last_nalu_part) {
+    if (nalu.is_first_bu_in_gop && nalu.is_last_nalu_part) {
       if (self->sei_generation_enabled) {
         if (timestamp) {
           self->gop_info->timestamp = *timestamp;
@@ -582,7 +582,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       self->sei_generation_enabled = true;
     }
     SV_THROW(hash_and_add(self, &nalu));
-    if (nalu.is_first_nalu_in_gop && nalu.is_last_nalu_part) {
+    if (nalu.is_first_bu_in_gop && nalu.is_last_nalu_part) {
       SV_THROW(update_linked_hash(self, gop_info->nalu_hash, self->sign_data->hash_size));
     }
 
