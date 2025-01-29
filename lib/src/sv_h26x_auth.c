@@ -295,7 +295,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
   h26x_nalu_list_print(nalu_list);
 
   // Get the SEI associated with the oldest pending GOP.
-  bu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(nalu_list);
+  bu_list_item_t *sei = bu_list_get_next_sei_item(nalu_list);
   // TODO: Investigate if we can end up without finding a SEI. If so, should we fail the validation
   // or call verify_hashes_without_sei()?
   if (!sei) return false;
@@ -496,7 +496,7 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
   int num_expected_hashes = -1;
   int num_received_hashes = -1;
   char validation_status = 'P';
-  bu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(self->nalu_list);
+  bu_list_item_t *sei = bu_list_get_next_sei_item(self->nalu_list);
 
   bool gop_is_ok = verify_gop_hash(self);
   bool order_ok = verify_linked_hash(self);
@@ -823,7 +823,7 @@ prepare_for_validation(signed_video_t *self)
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    bu_list_item_t *sei = h26x_nalu_list_get_next_sei_item(nalu_list);
+    bu_list_item_t *sei = bu_list_get_next_sei_item(nalu_list);
     if (sei) {
       sei->in_validation = true;
       if (!sei->has_been_decoded) {
