@@ -36,9 +36,9 @@ bu_list_item_create(const bu_info_t *bu);
 static void
 bu_list_item_free(bu_list_item_t *item);
 static void
-h26x_nalu_list_item_append_item(bu_list_item_t *list_item, bu_list_item_t *new_item);
+bu_list_item_append_item(bu_list_item_t *list_item, bu_list_item_t *new_item);
 static void
-h26x_nalu_list_item_prepend_item(bu_list_item_t *list_item, bu_list_item_t *new_item);
+bu_list_item_prepend_item(bu_list_item_t *list_item, bu_list_item_t *new_item);
 #ifdef SIGNED_VIDEO_DEBUG
 static void
 h26x_nalu_list_item_print(const bu_list_item_t *item);
@@ -119,7 +119,7 @@ bu_list_item_free(bu_list_item_t *item)
 
 /* Appends a |list_item| with a |new_item|. Assumes |list_item| and |new_item| exists. */
 static void
-h26x_nalu_list_item_append_item(bu_list_item_t *list_item, bu_list_item_t *new_item)
+bu_list_item_append_item(bu_list_item_t *list_item, bu_list_item_t *new_item)
 {
   assert(list_item && new_item);
 
@@ -135,7 +135,7 @@ h26x_nalu_list_item_append_item(bu_list_item_t *list_item, bu_list_item_t *new_i
 
 /* Prepends a |list_item| with a |new_item|. Assumes |list_item| and |new_item| exists. */
 static void
-h26x_nalu_list_item_prepend_item(bu_list_item_t *list_item, bu_list_item_t *new_item)
+bu_list_item_prepend_item(bu_list_item_t *list_item, bu_list_item_t *new_item)
 {
   assert(list_item && new_item);
 
@@ -303,7 +303,7 @@ bu_list_append(bu_list_t *list, const bu_info_t *bu)
   // List is empty. Set |new_item| as first_item. The h26x_nalu_list_refresh() call will fix the
   // rest of the list.
   if (!list->first_item) list->first_item = new_item;
-  if (list->last_item) h26x_nalu_list_item_append_item(list->last_item, new_item);
+  if (list->last_item) bu_list_item_append_item(list->last_item, new_item);
 
   h26x_nalu_list_refresh(list);
 
@@ -404,9 +404,9 @@ bu_list_add_missing(bu_list_t *list, int num_missing, bool append, bu_list_item_
       missing_bu->in_validation = true;
       missing_bu->used_in_gop_hash = true;  // Belongs to the same GOP it is added to.
       if (append) {
-        h26x_nalu_list_item_append_item(item, missing_bu);
+        bu_list_item_append_item(item, missing_bu);
       } else {
-        h26x_nalu_list_item_prepend_item(item, missing_bu);
+        bu_list_item_prepend_item(item, missing_bu);
       }
       h26x_nalu_list_refresh(list);
     }
