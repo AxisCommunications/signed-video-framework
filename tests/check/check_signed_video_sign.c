@@ -63,7 +63,7 @@ verify_seis(test_stream_t *list, struct sv_setting setting)
   size_t sei_size = 0;
   test_stream_item_t *item = list->first_item;
   while (item) {
-    bu_info_t nalu_info = parse_nalu_info(item->data, item->data_size, list->codec, false, true);
+    bu_info_t nalu_info = parse_bu_info(item->data, item->data_size, list->codec, false, true);
     if (nalu_info.is_sv_sei) {
       if (num_seis == 0) {
         // Set the SEI size for the first detected SEI.
@@ -903,8 +903,8 @@ START_TEST(correct_timestamp)
   ck_assert(sei_size == sei_size_ts);
 
   // Get the hashable data (includes the signature)
-  bu_info_t nalu = parse_nalu_info(sei, sei_size, codec, false, true);
-  bu_info_t nalu_ts = parse_nalu_info(sei_ts, sei_size, codec, false, true);
+  bu_info_t nalu = parse_bu_info(sei, sei_size, codec, false, true);
+  bu_info_t nalu_ts = parse_bu_info(sei_ts, sei_size, codec, false, true);
 
   // Remove the signature
   update_hashable_data(&nalu);
@@ -992,7 +992,7 @@ START_TEST(w_wo_emulation_prevention_bytes)
     ck_assert(sei_size > 0);
     ck_assert(seis[ii]);
     sei_sizes[ii] = sei_size;
-    nalus[ii] = parse_nalu_info(seis[ii], sei_sizes[ii], codec, false, true);
+    nalus[ii] = parse_bu_info(seis[ii], sei_sizes[ii], codec, false, true);
     update_hashable_data(&nalus[ii]);
     signed_video_free(sv);
     sv = NULL;

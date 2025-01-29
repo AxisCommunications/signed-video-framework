@@ -81,7 +81,7 @@ hash_with_reference(signed_video_t *self,
 
 #ifdef SIGNED_VIDEO_DEBUG
 char *
-nalu_type_to_str(const bu_info_t *bu)
+bu_type_to_str(const bu_info_t *bu)
 {
   switch (bu->bu_type) {
     case BU_TYPE_SEI:
@@ -104,7 +104,7 @@ nalu_type_to_str(const bu_info_t *bu)
 #endif
 
 char
-nalu_type_to_char(const bu_info_t *bu)
+bu_type_to_char(const bu_info_t *bu)
 {
   // If no NALU is present, mark as missing, i.e., empty ' '.
   if (!bu) return ' ';
@@ -664,7 +664,7 @@ remove_epb_from_sei_payload(bu_info_t *bu)
  * is responsible for freeing |nalu_data_wo_epb|.
  */
 bu_info_t
-parse_nalu_info(const uint8_t *bu_data,
+parse_bu_info(const uint8_t *bu_data,
     size_t bu_data_size,
     SignedVideoCodec codec,
     bool check_trailing_bytes,
@@ -809,7 +809,7 @@ parse_nalu_info(const uint8_t *bu_data,
  * Copies all members, but the pointers from |src_nalu| to |dst_nalu|. All pointers and set to NULL.
  */
 void
-copy_nalu_except_pointers(bu_info_t *dst_nalu, const bu_info_t *src_nalu)
+copy_bu_except_pointers(bu_info_t *dst_nalu, const bu_info_t *src_nalu)
 {
   if (!dst_nalu || !src_nalu) return;
 
@@ -881,7 +881,7 @@ update_validation_flags(validation_flags_t *validation_flags, bu_info_t *bu)
 /* Others */
 
 void
-update_num_nalus_in_gop_hash(signed_video_t *self, const bu_info_t *bu)
+update_num_bu_in_gop_hash(signed_video_t *self, const bu_info_t *bu)
 {
   if (!self || !bu) return;
 
@@ -1102,12 +1102,12 @@ hash_and_add(signed_video_t *self, const bu_info_t *bu)
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, bu);
     SV_THROW(hash_wrapper(self, bu, nalu_hash, hash_size));
 #ifdef SIGNED_VIDEO_DEBUG
-    sv_print_hex_data(nalu_hash, hash_size, "Hash of %s: ", nalu_type_to_str(bu));
+    sv_print_hex_data(nalu_hash, hash_size, "Hash of %s: ", bu_type_to_str(bu));
 #endif
     if (bu->is_last_bu_part) {
       // The end of the NALU has been reached. Update hash list and GOP hash.
       check_and_copy_hash_to_hash_list(self, nalu_hash, hash_size);
-      update_num_nalus_in_gop_hash(self, bu);
+      update_num_bu_in_gop_hash(self, bu);
     }
   SV_CATCH()
   {
@@ -1148,7 +1148,7 @@ hash_and_add_for_auth(signed_video_t *self, bu_list_item_t *item)
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, bu);
     SV_THROW(hash_wrapper(self, bu, nalu_hash, hash_size));
 #ifdef SIGNED_VIDEO_DEBUG
-    sv_print_hex_data(nalu_hash, hash_size, "Hash of %s: ", nalu_type_to_str(bu));
+    sv_print_hex_data(nalu_hash, hash_size, "Hash of %s: ", bu_type_to_str(bu));
 #endif
   SV_CATCH()
   SV_DONE(status)
@@ -1337,7 +1337,7 @@ signed_video_is_golden_sei(signed_video_t *self, const uint8_t *nalu, size_t nal
 {
   if (!self || !nalu || (nalu_size == 0)) return false;
 
-  bu_info_t parsed_nalu = parse_nalu_info(nalu, nalu_size, self->codec, false, true);
+  bu_info_t parsed_nalu = parse_bu_info(nalu, nalu_size, self->codec, false, true);
   free(parsed_nalu.nalu_data_wo_epb);
   return parsed_nalu.is_golden_sei;
 };
@@ -1350,7 +1350,7 @@ signed_video_parse_sei(uint8_t *nalu, size_t nalu_size, SignedVideoCodec codec)
   }
 
 #ifdef PRINT_DECODED_SEI
-  bu_info_t nalu_info = parse_nalu_info(nalu, nalu_size, codec, true, true);
+  bu_info_t nalu_info = parse_bu_info(nalu, nalu_size, codec, true, true);
   if (nalu_info.is_sv_sei) {
     printf("\nSEI (%zu bytes):\n", nalu_size);
     for (size_t i = 0; i < nalu_size; ++i) {

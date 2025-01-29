@@ -18,13 +18,13 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#ifndef __SIGNED_VIDEO_H26X_INTERNAL__
-#define __SIGNED_VIDEO_H26X_INTERNAL__
+#ifndef __SV_H26X_INTERNAL__
+#define __SV_H26X_INTERNAL__
 
 #include <stdbool.h>  // bool
 
 #include "sv_defines.h"  // svrc_t
-#include "sv_internal.h"  // gop_info_t, gop_state_t, MAX_HASH_SIZE
+#include "sv_internal.h"  // MAX_HASH_SIZE, validation_flags_t
 
 #define METADATA_TYPE_USER_PRIVATE 25
 
@@ -35,7 +35,7 @@ typedef enum {
   BU_TYPE_SEI = 1,
   BU_TYPE_I = 2,
   BU_TYPE_P = 3,
-  BU_TYPE_PS = 4,  // Parameter Set: PPS/SPS/VPS
+  BU_TYPE_PS = 4,  // Parameter Set: PPS/SPS/VPS and similar for AV1
   BU_TYPE_AUD = 5,
   BU_TYPE_OTHER = 6,
 } SignedVideoFrameType;
@@ -48,11 +48,11 @@ typedef enum {
 /* Semicolon needed after, ex. DEBUG_LOG("my debug: %d", 42); */
 #ifdef SIGNED_VIDEO_DEBUG
 char *
-nalu_type_to_str(const bu_info_t *nalu);
+bu_type_to_str(const bu_info_t *bu);
 #endif
 
 char
-nalu_type_to_char(const bu_info_t *nalu);
+bu_type_to_char(const bu_info_t *bu);
 
 /* SEI UUID types */
 extern const uint8_t kUuidSignedVideo[UUID_LEN];
@@ -157,13 +157,13 @@ validation_flags_print(const validation_flags_t *validation_flags);
 void
 validation_flags_init(validation_flags_t *validation_flags);
 
-/* Updates the |validation_flags| w.r.t. a |nalu|. */
+/* Updates the |validation_flags| w.r.t. a |bu|. */
 void
-update_validation_flags(validation_flags_t *validation_flags, bu_info_t *nalu);
+update_validation_flags(validation_flags_t *validation_flags, bu_info_t *bu);
 
 /* Others */
 void
-update_num_nalus_in_gop_hash(signed_video_t *signed_video, const bu_info_t *nalu);
+update_num_bu_in_gop_hash(signed_video_t *signed_video, const bu_info_t *bu);
 
 void
 check_and_copy_hash_to_hash_list(signed_video_t *signed_video,
@@ -171,7 +171,7 @@ check_and_copy_hash_to_hash_list(signed_video_t *signed_video,
     size_t hash_size);
 
 svrc_t
-hash_and_add(signed_video_t *self, const bu_info_t *nalu);
+hash_and_add(signed_video_t *self, const bu_info_t *bu);
 
 svrc_t
 update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size);
@@ -180,16 +180,16 @@ svrc_t
 hash_and_add_for_auth(signed_video_t *signed_video, bu_list_item_t *item);
 
 bu_info_t
-parse_nalu_info(const uint8_t *bu_data,
+parse_bu_info(const uint8_t *bu_data,
     size_t bu_data_size,
     SignedVideoCodec codec,
     bool check_trailing_bytes,
     bool is_auth_side);
 
 void
-copy_nalu_except_pointers(bu_info_t *dst_nalu, const bu_info_t *src_nalu);
+copy_bu_except_pointers(bu_info_t *dst_bu, const bu_info_t *src_bu);
 
 void
-update_hashable_data(bu_info_t *nalu);
+update_hashable_data(bu_info_t *bu);
 
-#endif  // __SIGNED_VIDEO_H26X_INTERNAL__
+#endif  // __SV_H26X_INTERNAL__

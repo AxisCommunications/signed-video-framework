@@ -382,7 +382,7 @@ bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
         hashable_data = bu_data + hashable_data_offset;
       }
     }
-    copy_nalu_except_pointers(copied_bu, item->bu);
+    copy_bu_except_pointers(copied_bu, item->bu);
     copied_bu->nalu_data_wo_epb = bu_data_wo_epb;
     copied_bu->tlv_data = copied_bu->nalu_data_wo_epb;
     copied_bu->pending_bu_data = bu_data;
@@ -622,7 +622,7 @@ bu_list_get_str(const bu_list_t *list, BitstreamUnitListStringType str_type)
     char src = 'U';
     switch (str_type) {
       case BU_STR:
-        src = nalu_type_to_char(item->bu);
+        src = bu_type_to_char(item->bu);
         break;
       default:
       case VALIDATION_STR:

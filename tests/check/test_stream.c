@@ -25,7 +25,7 @@
 #include <stdlib.h>  // calloc, free
 #include <string.h>  // memcpy, memset, strcmp
 
-#include "lib/src/sv_h26x_internal.h"  // parse_nalu_info()
+#include "lib/src/sv_h26x_internal.h"  // parse_bu_info()
 
 #define START_CODE_SIZE 4
 #define DUMMY_NALU_SIZE 5
@@ -99,7 +99,7 @@ const uint8_t invalid_av1[DUMMY_NALU_SIZE] = {0x02, 0x03, 0xff, 0x00, 0xff};
 static char
 get_type_char(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
 {
-  bu_info_t nalu = parse_nalu_info(data, data_size, codec, false, true);
+  bu_info_t nalu = parse_bu_info(data, data_size, codec, false, true);
 
   char type;
   switch (nalu.bu_type) {
