@@ -140,15 +140,15 @@ bu_list_get_next_sei_item(const bu_list_t* list);
  *   - number of missing BUs
  *
  * @param list The |list| to collect statistics from.
- * @param num_invalid_nalus A pointer to which the number of BUs, that could not be
+ * @param num_invalid_bu A pointer to which the number of BUs, that could not be
  *   validated as authentic, is written.
- * @param num_missing_nalus A pointer to which the number of missing BUs, detected by the
+ * @param num_missing_bu A pointer to which the number of missing BUs, detected by the
  *   validation, is written.
  *
  * @return True if at least one item is validated as authentic.
  */
 bool
-bu_list_get_stats(const bu_list_t* list, int* num_invalid_nalus, int* num_missing_nalus);
+bu_list_get_stats(const bu_list_t* list, int* num_invalid_bu, int* num_missing_bu);
 
 /**
  * @brief Counts and returns number of items pending validation
