@@ -116,7 +116,7 @@ bu_list_item_free(bu_list_item_t *item)
   if (item->taken_ownership_of_bu) {
     if (item->bu) {
       free(item->bu->nalu_data_wo_epb);
-      free(item->bu->pending_nalu_data);
+      free(item->bu->pending_bu_data);
     }
     free(item->bu);
   }
@@ -385,8 +385,8 @@ bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
     copy_nalu_except_pointers(copied_bu, item->bu);
     copied_bu->nalu_data_wo_epb = bu_data_wo_epb;
     copied_bu->tlv_data = copied_bu->nalu_data_wo_epb;
-    copied_bu->pending_nalu_data = bu_data;
-    copied_bu->bu_data = copied_bu->pending_nalu_data;
+    copied_bu->pending_bu_data = bu_data;
+    copied_bu->bu_data = copied_bu->pending_bu_data;
     copied_bu->hashable_data = hashable_data;
   SV_CATCH()
   {
