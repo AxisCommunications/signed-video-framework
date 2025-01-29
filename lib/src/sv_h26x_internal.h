@@ -78,29 +78,30 @@ struct _bu_list_t {
  */
 struct _bu_list_item_t {
   bu_info_t *bu;  // The parsed BU information.
-  char validation_status;  // The authentication status which can take on the following characters:
-  // 'P' : Pending validation. This is the initial value. The NALU has been registered and waiting
-  //       for validating the authenticity.
-  // 'U' : The NALU has an unknown authenticity. This occurs if the NALU could not be parsed, or if
-  //     : the SEI is associated with NALUs not part of the validating segment.
-  // '_' : The NALU is ignored and therefore not part of the signature. The NALU has no impact on
-  //       the video and can be considered authentic.
-  // '.' : The NALU has been validated authentic.
-  // 'N' : The NALU has been validated not authentic.
-  // 'M' : The validation has detected one or more missing NALUs at this position. Note that
-  //       changing the order of NALUs will detect a missing NALU and an invalid NALU.
-  // 'E' : An error occurred and validation could not be performed. This should be treated as an
-  //       invalid NALU.
-  uint8_t hash[MAX_HASH_SIZE];  // The hash of the NALU is stored in this memory slot, if it is
-  // hashable that is.
+  char validation_status;  // The authentication status which can take on the following
+  // characters:
+  // 'P' : Pending validation. This is the initial value. The BU has been registered and
+  //       waiting for validating the authenticity.
+  // 'U' : The BU has an unknown authenticity. This occurs if the BU could not be parsed,
+  //       or if the SEI is associated with BUs not part of the validating segment.
+  // '_' : The BU is ignored and therefore not part of the signature. The BU has no impact
+  //       on the video and can be considered authentic.
+  // '.' : The BU has been validated authentic.
+  // 'N' : The BU has been validated not authentic.
+  // 'M' : The validation has detected one or more missing BUs at this position. Note that
+  //       changing the order of BUs will detect a missing BU and an invalid BU.
+  // 'E' : An error occurred and validation could not be performed. This should be treated
+  //       as an invalid BU.
+  uint8_t hash[MAX_HASH_SIZE];  // The hash of the BU is stored in this memory slot, if it
+  // is hashable that is.
   size_t hash_size;
   // Flags
-  bool taken_ownership_of_nalu;  // Flag to indicate if the item has taken ownership of the |nalu|
-  // memory, hence need to free the memory if the item is released.
+  bool taken_ownership_of_bu;  // Flag to indicate if the item has taken ownership of the
+  // |bu| memory, hence need to free the memory if the item is released.
 
-  bool has_been_decoded;  // Marks a SEI as decoded. Decoding it twice might overwrite vital
-  // information.
-  bool used_in_gop_hash;  // Marks the NALU as being part of a computed |gop_hash|.
+  bool has_been_decoded;  // Marks a SEI as decoded. Decoding it twice might overwrite
+  // vital information.
+  bool used_in_gop_hash;  // Marks the BU as being part of a computed |gop_hash|.
 
   bool used_for_linked_hash;
 
@@ -109,9 +110,9 @@ struct _bu_list_item_t {
   char tmp_validation_status;  // Temporary status used before updating the final one.
 
   // Linked list
-  bu_list_item_t *prev;  // Points to the previously added NALU. Is NULL if this is the first
-  // item.
-  bu_list_item_t *next;  // Points to the next added NALU. Is NULL if this is the last item.
+  bu_list_item_t *prev;  // Points to the previously added BU. Is NULL if this is the
+  // first item.
+  bu_list_item_t *next;  // Points to the next added BU. Is NULL if this is the last item.
 };
 
 /**
