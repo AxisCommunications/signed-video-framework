@@ -369,7 +369,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
             (compare_idx - latest_match_idx) - 1 - num_invalid_nalus_since_latest_match;
         // No need to check the return value. A failure only affects the statistics. In the worst
         // case we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
-        h26x_nalu_list_add_missing(nalu_list, num_detected_missing_nalus, false, item);
+        bu_list_add_missing(nalu_list, num_detected_missing_nalus, false, item);
         // Reset counters and latest_match_idx.
         latest_match_idx = compare_idx;
         num_invalid_nalus_since_latest_match = 0;
@@ -405,7 +405,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
     // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
     // TODO: Investigate whether adding missing items to the start of the list could cause problems
     // during the validation of multiple GOPs in one go.
-    h26x_nalu_list_add_missing(nalu_list, num_missing_nalus, true, nalu_list->first_item);
+    bu_list_add_missing(nalu_list, num_missing_nalus, true, nalu_list->first_item);
   }
 
   // If the last invalid NALU is the first NALU in a GOP or the NALU after the SEI, keep it
@@ -420,7 +420,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
     int num_unused_expected_hashes = num_expected_hashes - 1 - latest_match_idx;
     // No need to check the return value. A failure only affects the statistics. In the worst case
     // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
-    h26x_nalu_list_add_missing(nalu_list, num_unused_expected_hashes, true, last_used_item);
+    bu_list_add_missing(nalu_list, num_unused_expected_hashes, true, last_used_item);
   }
 
   // Done with the SEI. Mark as valid, because if we failed verifying the |document_hash| we would
@@ -538,7 +538,7 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
     const bool append = first_gop_hash_item->nalu->is_first_nalu_in_gop;
     // No need to check the return value. A failure only affects the statistics. In the worst case
     // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
-    h26x_nalu_list_add_missing(self->nalu_list, num_missing_nalus, append, first_gop_hash_item);
+    bu_list_add_missing(self->nalu_list, num_missing_nalus, append, first_gop_hash_item);
   }
 
   if (num_expected_nalus) *num_expected_nalus = num_expected_hashes;
@@ -696,8 +696,8 @@ validate_authenticity(signed_video_t *self)
       DEBUG_LOG("This first validation cannot be performed");
       // Empty items marked 'M', may have been added at the beginning. These have no
       // meaning and may only confuse the user. These should be removed. This is handled in
-      // h26x_nalu_list_remove_missing_items().
-      h26x_nalu_list_remove_missing_items(self->nalu_list);
+      // bu_list_remove_missing_items().
+      bu_list_remove_missing_items(self->nalu_list);
       valid = SV_AUTH_RESULT_SIGNATURE_PRESENT;
       num_expected_nalus = -1;
       num_received_nalus = -1;
