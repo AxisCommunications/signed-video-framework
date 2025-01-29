@@ -133,7 +133,7 @@ int
 signed_video_compare_versions(const char* version1, const char* version2);
 
 /**
- * @brief Checks if a NALU/OBU is a golden SEI/OBU Metadata
+ * @brief Checks if a Bitstream Unit is a golden SEI/OBU Metadata
  *
  * A golden SEI/OBU Metadata is a self-signed SEI/OBU Metadata that includes all information only
  * needed once such as the Public key. Usually a golden SEI/OBU Metadata is sent only once in the
@@ -143,7 +143,7 @@ signed_video_compare_versions(const char* version1, const char* version2);
  * For the signing side it can help out to verify that a pre-generated golden SEI/OBU Metadata
  * actually is a golden SEI/OBU Metadata before adding it to the stream.
  *
- * @param nalu A pointer to the NALU/OBU data
+ * @param nalu A pointer to the Bitstream Unit data
  * @param nalu_size Size of the |nalu|
  *
  * @returns True if |nalu| is a golden SEI/OBU Metadata

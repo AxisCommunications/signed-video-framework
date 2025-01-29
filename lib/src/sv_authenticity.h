@@ -18,8 +18,8 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#ifndef __SIGNED_VIDEO_AUTHENTICITY_H__
-#define __SIGNED_VIDEO_AUTHENTICITY_H__
+#ifndef __SV_AUTHENTICITY_H__
+#define __SV_AUTHENTICITY_H__
 
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
 #include "sv_defines.h"  // svrc_t
@@ -31,7 +31,7 @@
  * @param dst The signed_video_product_info_t struct of which to write to
  * @param src The signed_video_product_info_t struct of which to read from
  *
- * @returns A Signed Video Return Code
+ * @return A Signed Video Return Code
  */
 svrc_t
 transfer_product_info(signed_video_product_info_t *dst, const signed_video_product_info_t *src);
@@ -64,7 +64,7 @@ accumulated_validation_init(signed_video_accumulated_validation_t *self);
  *
  * @param self The current Signed Video session
  *
- * @returns A Signed Video Return Code
+ * @return A Signed Video Return Code
  */
 svrc_t
 create_local_authenticity_report_if_needed(signed_video_t *self);
@@ -78,7 +78,7 @@ create_local_authenticity_report_if_needed(signed_video_t *self);
  * @param dst_str A pointer holding a pointer to the copied string. Memory is allocated if needed.
  * @param src_str The null-terminated string to copy. A NULL pointer copies "".
  *
- * @returns A Signed Video Return Code
+ * @return A Signed Video Return Code
  */
 svrc_t
 allocate_memory_and_copy_string(char **dst_str, const char *src_str);
@@ -98,4 +98,4 @@ void
 update_accumulated_validation(const signed_video_latest_validation_t *latest,
     signed_video_accumulated_validation_t *accumulated);
 
-#endif  // __SIGNED_VIDEO_AUTHENTICITY_H__
+#endif  // __SV_AUTHENTICITY_H__

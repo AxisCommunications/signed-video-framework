@@ -18,8 +18,8 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#ifndef __SIGNED_VIDEO_INTERNAL_H__
-#define __SIGNED_VIDEO_INTERNAL_H__
+#ifndef __SV_INTERNAL_H__
+#define __SV_INTERNAL_H__
 
 #include <stdbool.h>  // bool
 #include <stdint.h>  // uint8_t
@@ -274,4 +274,4 @@ void
 sv_print_hex_data(const uint8_t *data, size_t data_size, const char *fmt, ...);
 #endif
 
-#endif  // __SIGNED_VIDEO_INTERNAL_H__
+#endif  // __SV_INTERNAL_H__

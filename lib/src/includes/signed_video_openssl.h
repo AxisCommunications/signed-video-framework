@@ -93,11 +93,11 @@ typedef struct _pem_pkey_t {
  *
  * @param sign_data A pointer to the struct that holds all necessary information for signing.
  *
- * @returns SV_OK Successfully generated |signature|,
- *          SV_INVALID_PARAMETER Errors in |sign_data|,
- *          SV_NOT_SUPPORTED No private key present,
- *          SV_MEMORY Not enough memory allocated for the |signature|,
- *          SV_EXTERNAL_ERROR Failure in OpenSSL.
+ * @return SV_OK Successfully generated |signature|,
+ *         SV_INVALID_PARAMETER Errors in |sign_data|,
+ *         SV_NOT_SUPPORTED No private key present,
+ *         SV_MEMORY Not enough memory allocated for the |signature|,
+ *         SV_EXTERNAL_ERROR Failure in OpenSSL.
  */
 SignedVideoReturnCode
 openssl_sign_hash(sign_or_verify_data_t *sign_data);
@@ -114,10 +114,10 @@ openssl_sign_hash(sign_or_verify_data_t *sign_data);
  * @param private_key The content of the private key PEM file.
  * @param private_key_size The size of the |private_key|.
  *
- * @returns SV_OK Successfully generated |signature|,
- *          SV_INVALID_PARAMETER Missing inputs,
- *          SV_MEMORY Failed allocating memory for the |signature|,
- *          SV_EXTERNAL_ERROR Failure in OpenSSL.
+ * @return SV_OK Successfully generated |signature|,
+ *         SV_INVALID_PARAMETER Missing inputs,
+ *         SV_MEMORY Failed allocating memory for the |signature|,
+ *         SV_EXTERNAL_ERROR Failure in OpenSSL.
  */
 SignedVideoReturnCode
 openssl_private_key_malloc(sign_or_verify_data_t *sign_data,
@@ -152,10 +152,10 @@ openssl_free_key(void *key);
  *   Ownership is transferred.
  * @param private_key_size If not NULL outputs the size of the |private_key|.
  *
- * @returns SV_OK Valid algorithm and successfully written PEM-file,
- *          SV_NOT_SUPPORTED Algorithm is not supported,
- *          SV_INVALID_PARAMETER Invalid input parameter,
- *          SV_EXTERNAL_ERROR PEM-file could not be written.
+ * @return SV_OK Valid algorithm and successfully written PEM-file,
+ *         SV_NOT_SUPPORTED Algorithm is not supported,
+ *         SV_INVALID_PARAMETER Invalid input parameter,
+ *         SV_EXTERNAL_ERROR PEM-file could not be written.
  */
 SignedVideoReturnCode
 signed_video_generate_ecdsa_private_key(const char *dir_to_key,
@@ -185,10 +185,10 @@ signed_video_generate_rsa_private_key(const char *dir_to_key,
  *   Ownership is transferred.
  * @param private_key_size If not NULL outputs the size of the |private_key|.
  *
- * @returns SV_OK Valid algorithm and successfully written PEM-file,
- *          SV_NOT_SUPPORTED Algorithm is not supported,
- *          SV_INVALID_PARAMETER Invalid input parameter,
- *          SV_EXTERNAL_ERROR PEM-file could not be written.
+ * @return SV_OK Valid algorithm and successfully written PEM-file,
+ *         SV_NOT_SUPPORTED Algorithm is not supported,
+ *         SV_INVALID_PARAMETER Invalid input parameter,
+ *         SV_EXTERNAL_ERROR PEM-file could not be written.
  */
 SignedVideoReturnCode
 signed_video_generate_private_key(sign_algo_t algo,

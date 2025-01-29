@@ -18,8 +18,8 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#ifndef __SIGNED_VIDEO_DEFINES__
-#define __SIGNED_VIDEO_DEFINES__
+#ifndef __SV_DEFINES__
+#define __SV_DEFINES__
 
 #include <stdbool.h>  // bool
 
@@ -148,12 +148,12 @@ typedef SignedVideoReturnCode svrc_t;
 /**
  * Definition of available TLV tags.
  *
- * Vendor specific TLV tags start from UNDEFINED_VENDOR_TAG. Both sub-lists begin and end with
- * invalid tags (UNDEFINED_TAG and NUMBER_OF_TLV_TAGS) resp. (UNDEFINED_VENDOR_TAG and
- * NUMBER_OF_VENDOR_TLV_TAGS).
+ * Vendor specific TLV tags start from UNDEFINED_VENDOR_TAG. Both sub-lists begin and end
+ * with invalid tags (UNDEFINED_TAG and NUMBER_OF_TLV_TAGS) resp. (UNDEFINED_VENDOR_TAG
+ * and NUMBER_OF_VENDOR_TLV_TAGS).
  *
- * NOTE: When a new tag is added simply append the sub-list of valid tags. Changing the number of
- * existing tags will break backwards compatibility!
+ * @note: When a new tag is added simply append the sub-list of valid tags. Changing the
+ * number of existing tags will break backwards compatibility!
  */
 typedef enum {
   UNDEFINED_TAG = 0,  // Should always be zero
