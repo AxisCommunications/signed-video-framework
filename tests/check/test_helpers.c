@@ -483,7 +483,7 @@ tag_is_present(const test_stream_item_t *item, SignedVideoCodec codec, sv_tlv_ta
 
   bool found_tag = false;
   bu_info_t nalu = parse_nalu_info(item->data, item->data_size, codec, false, true);
-  if (!nalu.is_gop_sei) return false;
+  if (!nalu.is_sv_sei) return false;
 
   void *tag_ptr = (void *)tlv_find_tag(nalu.tlv_data, nalu.tlv_size, tag, false);
   found_tag = (tag_ptr != NULL);

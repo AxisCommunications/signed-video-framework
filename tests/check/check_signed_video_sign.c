@@ -64,7 +64,7 @@ verify_seis(test_stream_t *list, struct sv_setting setting)
   test_stream_item_t *item = list->first_item;
   while (item) {
     bu_info_t nalu_info = parse_nalu_info(item->data, item->data_size, list->codec, false, true);
-    if (nalu_info.is_gop_sei) {
+    if (nalu_info.is_sv_sei) {
       if (num_seis == 0) {
         // Set the SEI size for the first detected SEI.
         sei_size = item->data_size;
