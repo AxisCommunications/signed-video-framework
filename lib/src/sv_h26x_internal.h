@@ -77,7 +77,7 @@ struct _bu_list_t {
  * the list.
  */
 struct _bu_list_item_t {
-  bu_info_t *nalu;  // The parsed NALU information.
+  bu_info_t *bu;  // The parsed BU information.
   char validation_status;  // The authentication status which can take on the following characters:
   // 'P' : Pending validation. This is the initial value. The NALU has been registered and waiting
   //       for validating the authenticity.

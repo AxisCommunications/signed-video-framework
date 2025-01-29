@@ -95,7 +95,7 @@ bu_list_item_create(const bu_info_t *bu)
     return NULL;
   }
 
-  item->nalu = (bu_info_t *)bu;
+  item->bu = (bu_info_t *)bu;
   item->taken_ownership_of_nalu = false;
   item->validation_status = get_validation_status_from_bu(bu);
   item->tmp_validation_status = item->validation_status;
@@ -103,7 +103,7 @@ bu_list_item_create(const bu_info_t *bu)
   return item;
 }
 
-/* Frees the |item|. Also frees the |nalu| data, hence this operation should be used with care if it
+/* Frees the |item|. Also frees the |bu| data, hence this operation should be used with care if it
  * is used by others. */
 static void
 bu_list_item_free(bu_list_item_t *item)
@@ -112,13 +112,13 @@ bu_list_item_free(bu_list_item_t *item)
     return;
   }
 
-  // If we have |nalu| data we free the temporarily used TLV memory slot.
+  // If we have |bu| data we free the temporarily used TLV memory slot.
   if (item->taken_ownership_of_nalu) {
-    if (item->nalu) {
-      free(item->nalu->nalu_data_wo_epb);
-      free(item->nalu->pending_nalu_data);
+    if (item->bu) {
+      free(item->bu->nalu_data_wo_epb);
+      free(item->bu->pending_nalu_data);
     }
-    free(item->nalu);
+    free(item->bu);
   }
   free(item);
 }
@@ -160,7 +160,7 @@ bu_list_item_prepend_item(bu_list_item_t *list_item, bu_list_item_t *new_item)
 static void
 bu_list_item_print(const bu_list_item_t *item)
 {
-  // bu_info_t *nalu;
+  // bu_info_t *bu;
   // char validation_status;
   // uint8_t hash[MAX_HASH_SIZE];
   // bool taken_ownership_of_nalu;
@@ -171,9 +171,9 @@ bu_list_item_print(const bu_list_item_t *item)
     return;
   }
 
-  char *bu_type_str = !item->nalu
+  char *bu_type_str = !item->bu
       ? "This BU is missing"
-      : (item->nalu->is_gop_sei ? "SEI" : (item->nalu->is_first_nalu_in_gop ? "I" : "Other"));
+      : (item->bu->is_gop_sei ? "SEI" : (item->bu->is_first_nalu_in_gop ? "I" : "Other"));
   char validation_status_str[2] = {'\0'};
   memcpy(validation_status_str, &item->tmp_validation_status, 1);
 
@@ -247,7 +247,7 @@ bu_list_refresh(bu_list_t *list)
   bu_list_item_t *item = list->first_item;
   while (item) {
     list->num_items++;
-    if (item->nalu && item->nalu->is_first_nalu_in_gop) {
+    if (item->bu && item->bu->is_first_nalu_in_gop) {
       list->num_gops++;
     }
 
@@ -338,9 +338,9 @@ bu_list_append(bu_list_t *list, const bu_info_t *bu)
   return SV_OK;
 }
 
-/* Replaces the |nalu| of the |last_item| in the list with a copy of itself. All pointers that are
- * not needed are set to NULL, since no ownership is transferred. The ownership of |nalu| is
- * released. If the |nalu| could not be copied it will be a NULL pointer. If hash algo is
+/* Replaces the |bu| of the |last_item| in the list with a copy of itself. All pointers that are
+ * not needed are set to NULL, since no ownership is transferred. The ownership of |bu| is
+ * released. If the |bu| could not be copied it will be a NULL pointer. If hash algo is
  * not known the |hashable_data| is copied so the NALU can be hashed later. */
 svrc_t
 bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
@@ -358,31 +358,31 @@ bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
    * a valid NALU. If a NALU is missing, it cannot be copied, as there is nothing to copy.
    * The previous NALUs are checked until a valid one is found. This ensures that a NALU
    * that actually exists is used before attempting to make a copy. */
-  while (!(item->nalu)) {
+  while (!(item->bu)) {
     item = item->prev;
   }
-  int hashable_data_offset = (int)(item->nalu->hashable_data - item->nalu->nalu_data);
+  int hashable_data_offset = (int)(item->bu->hashable_data - item->bu->nalu_data);
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SV_THROW_IF(!item->nalu, SV_UNKNOWN_FAILURE);
+    SV_THROW_IF(!item->bu, SV_UNKNOWN_FAILURE);
     copied_bu = (bu_info_t *)malloc(sizeof(bu_info_t));
     SV_THROW_IF(!copied_bu, SV_MEMORY);
-    if (item->nalu->tlv_data) {
-      bu_data_wo_epb = malloc(item->nalu->tlv_size);
+    if (item->bu->tlv_data) {
+      bu_data_wo_epb = malloc(item->bu->tlv_size);
       SV_THROW_IF(!bu_data_wo_epb, SV_MEMORY);
-      memcpy(bu_data_wo_epb, item->nalu->tlv_data, item->nalu->tlv_size);
+      memcpy(bu_data_wo_epb, item->bu->tlv_data, item->bu->tlv_size);
     }
     // If the library does not know which hash algo to use, store the |hashable_data| for later.
     if (!hash_algo_known) {
-      bu_data = malloc(item->nalu->nalu_data_size);
+      bu_data = malloc(item->bu->nalu_data_size);
       SV_THROW_IF(!bu_data, SV_MEMORY);
-      memcpy(bu_data, item->nalu->nalu_data, item->nalu->nalu_data_size);
-      if (item->nalu->is_hashable) {
+      memcpy(bu_data, item->bu->nalu_data, item->bu->nalu_data_size);
+      if (item->bu->is_hashable) {
         hashable_data = bu_data + hashable_data_offset;
       }
     }
-    copy_nalu_except_pointers(copied_bu, item->nalu);
+    copy_nalu_except_pointers(copied_bu, item->bu);
     copied_bu->nalu_data_wo_epb = bu_data_wo_epb;
     copied_bu->tlv_data = copied_bu->nalu_data_wo_epb;
     copied_bu->pending_nalu_data = bu_data;
@@ -397,14 +397,14 @@ bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
   SV_DONE(status)
 
   if (item->taken_ownership_of_nalu) {
-    // We have taken ownership of the existing |nalu|, hence we need to free it when releasing it.
+    // We have taken ownership of the existing |bu|, hence we need to free it when releasing it.
     // NOTE: This should not happen if the list is used properly.
-    if (item->nalu) {
-      free(item->nalu->nalu_data_wo_epb);
+    if (item->bu) {
+      free(item->bu->nalu_data_wo_epb);
     }
-    free(item->nalu);
+    free(item->bu);
   }
-  item->nalu = copied_bu;
+  item->bu = copied_bu;
   item->taken_ownership_of_nalu = true;
 
   return status;
@@ -497,7 +497,7 @@ bu_list_get_next_sei_item(const bu_list_t *list)
 
   bu_list_item_t *item = list->first_item;
   while (item) {
-    if (item->nalu && item->nalu->is_gop_sei && item->tmp_validation_status == 'P') {
+    if (item->bu && item->bu->is_gop_sei && item->tmp_validation_status == 'P') {
       break;
     }
     item = item->next;
@@ -532,7 +532,7 @@ bu_list_get_stats(const bu_list_t *list, int *num_invalid_bu, int *num_missing_b
     if (item->tmp_validation_status == 'M') {
       local_num_missing_bu++;
     }
-    if (item->nalu && item->nalu->is_gop_sei) {
+    if (item->bu && item->bu->is_gop_sei) {
       if (item->in_validation &&
           (item->tmp_validation_status == 'N' || item->tmp_validation_status == 'E')) {
         local_num_invalid_bu++;
@@ -545,7 +545,7 @@ bu_list_get_stats(const bu_list_t *list, int *num_invalid_bu, int *num_missing_b
     if (item->tmp_validation_status == '.') {
       // Do not count SEIs, since they are marked valid if the signature could be verified, which
       // happens for out-of-sync SEIs for example.
-      has_valid_bu |= !(item->nalu && item->nalu->is_gop_sei);
+      has_valid_bu |= !(item->bu && item->bu->is_gop_sei);
     }
 
     item = item->next;
@@ -622,7 +622,7 @@ bu_list_get_str(const bu_list_t *list, BitstreamUnitListStringType str_type)
     char src = 'U';
     switch (str_type) {
       case BU_STR:
-        src = nalu_type_to_char(item->nalu);
+        src = nalu_type_to_char(item->bu);
         break;
       default:
       case VALIDATION_STR:
