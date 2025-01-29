@@ -30,7 +30,7 @@
 #include "sv_authenticity.h"  // create_local_authenticity_report_if_needed()
 #include "sv_defines.h"  // svrc_t
 #include "sv_h26x_internal.h"  // update_validation_flags()
-#include "sv_h26x_nalu_list.h"  // h26x_nalu_list_append()
+#include "sv_h26x_nalu_list.h"  // bu_list_append()
 #include "sv_internal.h"  // gop_info_t, validation_flags_t
 #include "sv_openssl_internal.h"  // openssl_{verify_hash, public_key_malloc}()
 #include "sv_tlv.h"  // tlv_find_tag()
@@ -1205,7 +1205,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
         !nalu_list, SV_MEMORY, "No existing nalu_list. Cannot validate authenticity");
     // Append the |nalu_list| with a new item holding a pointer to |nalu|. The |validation_status|
     // is set accordingly.
-    SV_THROW(h26x_nalu_list_append(nalu_list, &nalu));
+    SV_THROW(bu_list_append(nalu_list, &nalu));
     SV_THROW_IF(nalu.is_valid < 0, SV_UNKNOWN_FAILURE);
     update_validation_flags(validation_flags, &nalu);
     SV_THROW(register_nalu(self, nalu_list->last_item));
@@ -1236,8 +1236,7 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
   SV_DONE(status)
 
   // Need to make a copy of the |nalu| independently of failure.
-  svrc_t copy_nalu_status =
-      h26x_nalu_list_copy_last_item(nalu_list, validation_flags->hash_algo_known);
+  svrc_t copy_nalu_status = bu_list_copy_last_item(nalu_list, validation_flags->hash_algo_known);
   // Make sure to return the first failure if both operations failed.
   status = (status == SV_OK) ? copy_nalu_status : status;
   if (status != SV_OK) {
