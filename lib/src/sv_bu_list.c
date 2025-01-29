@@ -601,7 +601,7 @@ bu_list_update_status(bu_list_t *list, bool update)
 }
 
 /* Transforms all |validation_status| characters of the items in the |list| into a char
- * string and returns that string if VALIDATION_STR is set. Transforms all |nalu_type|
+ * string and returns that string if VALIDATION_STR is set. Transforms all |bu_type|
  * characters of the items in the |list| into a char string and returns that string if
  * BU_STR is set. */
 char *

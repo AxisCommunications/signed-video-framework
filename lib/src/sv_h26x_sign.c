@@ -699,7 +699,7 @@ signed_video_get_sei(signed_video_t *self,
     bu_info_t nalu_info = parse_nalu_info(peek_nalu, peek_nalu_size, self->codec, false, false);
     free(nalu_info.nalu_data_wo_epb);
     // Only display a SEI if the |peek_nalu| is a primary picture NAL Unit.
-    if (!((nalu_info.nalu_type == NALU_TYPE_I || nalu_info.nalu_type == NALU_TYPE_P) &&
+    if (!((nalu_info.bu_type == BU_TYPE_I || nalu_info.bu_type == BU_TYPE_P) &&
             nalu_info.is_primary_slice)) {
       // Flip the sanity check flag since there are pending SEIs, which could not be fetched without
       // breaking the H.26x standard.

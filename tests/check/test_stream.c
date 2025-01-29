@@ -102,20 +102,20 @@ get_type_char(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
   bu_info_t nalu = parse_nalu_info(data, data_size, codec, false, true);
 
   char type;
-  switch (nalu.nalu_type) {
-    case NALU_TYPE_UNDEFINED:
+  switch (nalu.bu_type) {
+    case BU_TYPE_UNDEFINED:
       type = nalu.is_valid == 0 ? 'X' : '\0';
       break;
-    case NALU_TYPE_I:
+    case BU_TYPE_I:
       type = nalu.is_primary_slice == true ? 'I' : 'i';
       break;
-    case NALU_TYPE_P:
+    case BU_TYPE_P:
       type = nalu.is_primary_slice == true ? 'P' : 'p';
       break;
-    case NALU_TYPE_PS:
+    case BU_TYPE_PS:
       type = 'V';
       break;
-    case NALU_TYPE_SEI: {
+    case BU_TYPE_SEI: {
       if (!nalu.is_gop_sei)
         type = 'Z';
       else if (nalu.is_golden_sei)

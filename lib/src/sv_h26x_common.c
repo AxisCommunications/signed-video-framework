@@ -83,20 +83,20 @@ hash_with_reference(signed_video_t *self,
 char *
 nalu_type_to_str(const bu_info_t *bu)
 {
-  switch (bu->nalu_type) {
-    case NALU_TYPE_SEI:
+  switch (bu->bu_type) {
+    case BU_TYPE_SEI:
       return "SEI";
-    case NALU_TYPE_I:
+    case BU_TYPE_I:
       return bu->is_primary_slice == true ? "I (primary)" : "I (secondary)";
-    case NALU_TYPE_P:
+    case BU_TYPE_P:
       return bu->is_primary_slice == true ? "P (primary)" : "P (secondary)";
-    case NALU_TYPE_PS:
+    case BU_TYPE_PS:
       return "PPS/SPS/VPS";
-    case NALU_TYPE_AUD:
+    case BU_TYPE_AUD:
       return "AUD";
-    case NALU_TYPE_OTHER:
+    case BU_TYPE_OTHER:
       return "valid other bitstream unit";
-    case NALU_TYPE_UNDEFINED:
+    case BU_TYPE_UNDEFINED:
     default:
       return "unknown bitstream unit";
   }
@@ -109,20 +109,20 @@ nalu_type_to_char(const bu_info_t *bu)
   // If no NALU is present, mark as missing, i.e., empty ' '.
   if (!bu) return ' ';
 
-  switch (bu->nalu_type) {
-    case NALU_TYPE_SEI:
+  switch (bu->bu_type) {
+    case BU_TYPE_SEI:
       return bu->is_gop_sei ? (bu->is_golden_sei ? 'G' : 'S') : 'z';
-    case NALU_TYPE_I:
+    case BU_TYPE_I:
       return bu->is_primary_slice == true ? 'I' : 'i';
-    case NALU_TYPE_P:
+    case BU_TYPE_P:
       return bu->is_primary_slice == true ? 'P' : 'p';
-    case NALU_TYPE_PS:
+    case BU_TYPE_PS:
       return 'v';
-    case NALU_TYPE_AUD:
+    case BU_TYPE_AUD:
       return '_';
-    case NALU_TYPE_OTHER:
+    case BU_TYPE_OTHER:
       return 'o';
-    case NALU_TYPE_UNDEFINED:
+    case BU_TYPE_UNDEFINED:
     default:
       return 'U';
   }
@@ -370,44 +370,44 @@ parse_h264_nalu_header(bu_info_t *bu)
   switch (nalu_type) {
     // nal_ref_idc can be zero for types 1-4.
     case 1:  // Coded slice of a non-IDR picture, hence P- or B-frame
-      bu->nalu_type = NALU_TYPE_P;
+      bu->bu_type = BU_TYPE_P;
       nalu_header_is_valid = true;
       break;
     case 2:  // Coded slice data partition A
     case 3:  // Coded slice data partition B
     case 4:  // Coded slice data partition C
-      bu->nalu_type = NALU_TYPE_OTHER;
+      bu->bu_type = BU_TYPE_OTHER;
       nalu_header_is_valid = true;
       break;
     case 5:  // Coded slice of an IDR picture, hence I-frame
-      bu->nalu_type = NALU_TYPE_I;
+      bu->bu_type = BU_TYPE_I;
       nalu_header_is_valid = (nal_ref_idc > 0);
       break;
     case 6:  // SEI
-      bu->nalu_type = NALU_TYPE_SEI;
+      bu->bu_type = BU_TYPE_SEI;
       nalu_header_is_valid = (nal_ref_idc == 0);
       break;
     case 7:  // SPS
     case 8:  // PPS
     case 13:  // SPS extension
     case 15:  // Subset SPS
-      bu->nalu_type = NALU_TYPE_PS;
+      bu->bu_type = BU_TYPE_PS;
       nalu_header_is_valid = (nal_ref_idc > 0);
       break;
     case 9:  // AU delimiter
       // Do not hash because these will be removed if you switch from bytestream to NALU stream
       // format
-      bu->nalu_type = NALU_TYPE_AUD;
+      bu->bu_type = BU_TYPE_AUD;
       nalu_header_is_valid = true;
       break;
     case 10:  // End of sequence
     case 11:  // End of stream
     case 12:  // Filter data
-      bu->nalu_type = NALU_TYPE_OTHER;
+      bu->bu_type = BU_TYPE_OTHER;
       nalu_header_is_valid = (nal_ref_idc == 0);
       break;
     default:
-      bu->nalu_type = NALU_TYPE_UNDEFINED;
+      bu->bu_type = BU_TYPE_UNDEFINED;
       break;
   }
 
@@ -444,17 +444,17 @@ parse_h265_nalu_header(bu_info_t *bu)
 
     case 1:  // 1 TRAIL_R Coded slice segment of a non-TSA, non-STSA trailing picture VCL
 
-      bu->nalu_type = NALU_TYPE_P;
+      bu->bu_type = BU_TYPE_P;
       nalu_header_is_valid = true;
       break;
     case 2:  // 2 TSA_N Coded slice segment of a TSA picture VCL
     case 3:  // 3 TSA_R Coded slice segment of a TSA picture VCL
-      bu->nalu_type = NALU_TYPE_OTHER;
+      bu->bu_type = BU_TYPE_OTHER;
       nalu_header_is_valid = (temporalId != 0);
       break;
     case 4:  // 4 STSA_N Coded slice segment of an STSA picture VCL
     case 5:  // 5 STSA_R Coded slice segment of an STSA picture VCL
-      bu->nalu_type = NALU_TYPE_OTHER;
+      bu->bu_type = BU_TYPE_OTHER;
       nalu_header_is_valid = (nuh_layer_id == 0) ? (temporalId != 0) : true;
       break;
 
@@ -463,7 +463,7 @@ parse_h265_nalu_header(bu_info_t *bu)
     case 7:  // 7 RADL_R Coded slice segment of a RADL picture VCL
     case 8:  // 8 RASL_N Coded slice segment of a RASL picture VCL
     case 9:  // 9 RASL_R Coded slice segment of a RASL picture VCL
-      bu->nalu_type = NALU_TYPE_OTHER;
+      bu->bu_type = BU_TYPE_OTHER;
       nalu_header_is_valid = (temporalId != 0);
       break;
 
@@ -474,37 +474,37 @@ parse_h265_nalu_header(bu_info_t *bu)
     case 19:  // 19 IDR_W_RADL Coded slice segment of an IDR picture VCL
     case 20:  // 20 IDR_N_LP Coded slice segment of an IDR picture VCL
     case 21:  // 21 CRA_NUTCoded slice segment of a CRA picture VCL
-      bu->nalu_type = NALU_TYPE_I;
+      bu->bu_type = BU_TYPE_I;
       nalu_header_is_valid = (temporalId == 0);
       break;
 
     case 32:  // 32 VPS_NUT Video parameter non-VCL
     case 33:  // 33 SPS_NUT Sequence parameter non-VCL
-      bu->nalu_type = NALU_TYPE_PS;
+      bu->bu_type = BU_TYPE_PS;
       nalu_header_is_valid = (temporalId == 0);
       break;
     case 34:  // 34 PPS_NUT Picture parameter non-VCL
-      bu->nalu_type = NALU_TYPE_PS;
+      bu->bu_type = BU_TYPE_PS;
       nalu_header_is_valid = true;
       break;
     case 35:  // 35 AUD_NUT Access unit non-VCL
       // Do not hash because these will be removed if you switch
       // from bytestream to NALU stream format
-      bu->nalu_type = NALU_TYPE_AUD;
+      bu->bu_type = BU_TYPE_AUD;
       nalu_header_is_valid = true;
       break;
     case 36:  // 36 EOS_NUT End non-VCL
     case 37:  // 37 EOB_NUT End of non-VCL
-      bu->nalu_type = NALU_TYPE_OTHER;
+      bu->bu_type = BU_TYPE_OTHER;
       nalu_header_is_valid = (temporalId == 0) && (nuh_layer_id == 0);
       break;
     case 38:  // 38 FD_NUTFiller datafiller_data_rbsp() non-VCL
-      bu->nalu_type = NALU_TYPE_OTHER;
+      bu->bu_type = BU_TYPE_OTHER;
       nalu_header_is_valid = true;
       break;
     case 39:  // 39 PREFIX_SEI_NUTSUFFIX_SEI_NUT non-VCL
     case 40:  // 40 SUFFIX_SEI_NUTSUFFIX_SEI_NUT non-VCL
-      bu->nalu_type = NALU_TYPE_SEI;
+      bu->bu_type = BU_TYPE_SEI;
       nalu_header_is_valid = true;
       break;
 
@@ -521,7 +521,7 @@ parse_h265_nalu_header(bu_info_t *bu)
       // 41..47 RSV_NVCL41..RSV_NVCL47 Reserved non-VCL
       // 24..31 RSV_VCL24.. RSV_VCL31 Reserved non-IRAP VCL NAL unit types VCL
       // 48..63 UNSPEC48..UNSPEC63Unspecified  non-VCL
-      bu->nalu_type = NALU_TYPE_UNDEFINED;
+      bu->bu_type = BU_TYPE_UNDEFINED;
       break;
   }
 
@@ -553,44 +553,44 @@ parse_av1_obu_header(bu_info_t *obu)
   obu->is_primary_slice = false;
   switch (obu_type) {
     case 1:  // 1 OBU_SEQUENCE_HEADER
-      obu->nalu_type = NALU_TYPE_PS;
+      obu->bu_type = BU_TYPE_PS;
       break;
     case 2:  // 2 OBU_TEMPORAL_DELIMITER
-      obu->nalu_type = NALU_TYPE_AUD;
+      obu->bu_type = BU_TYPE_AUD;
       nalu_header_is_valid &= (obu_size == 0);
       break;
     case 3:  // 3 OBU_FRAME_HEADER
-      obu->nalu_type = NALU_TYPE_OTHER;
+      obu->bu_type = BU_TYPE_OTHER;
       nalu_header_is_valid = false;  // Not yet supported
       break;
     case 4:  // 4 OBU_TILE_GROUP
-      obu->nalu_type = NALU_TYPE_OTHER;
+      obu->bu_type = BU_TYPE_OTHER;
       nalu_header_is_valid = false;  // Not yet supported
       break;
     case 5:  // 5 OBU_METADATA
-      obu->nalu_type = NALU_TYPE_SEI;
+      obu->bu_type = BU_TYPE_SEI;
       break;
     case 6:  // 6 OBU_FRAME
       // Read frame_type (2 bits)
-      obu->nalu_type = ((*obu_ptr & 0x60) >> 5) == 0 ? NALU_TYPE_I : NALU_TYPE_P;
+      obu->bu_type = ((*obu_ptr & 0x60) >> 5) == 0 ? BU_TYPE_I : BU_TYPE_P;
       obu->is_primary_slice = true;
       break;
     case 7:  // 7 OBU_REDUNDANT_FRAME_HEADER
-      obu->nalu_type = NALU_TYPE_OTHER;
+      obu->bu_type = BU_TYPE_OTHER;
       nalu_header_is_valid = false;  // Not yet supported
       break;
     case 8:  // 8 OBU_TILE_LIST
-      obu->nalu_type = NALU_TYPE_OTHER;
+      obu->bu_type = BU_TYPE_OTHER;
       nalu_header_is_valid = false;  // Not yet supported
       break;
     case 15:  // 15 OBU_PADDING
-      obu->nalu_type = NALU_TYPE_OTHER;
+      obu->bu_type = BU_TYPE_OTHER;
       nalu_header_is_valid = false;  // Not yet supported
       break;
     default:
       // Reserved and invalid
       // 0, 9-14, 16-
-      obu->nalu_type = NALU_TYPE_UNDEFINED;
+      obu->bu_type = BU_TYPE_UNDEFINED;
       nalu_header_is_valid = false;
       break;
   }
@@ -677,7 +677,7 @@ parse_nalu_info(const uint8_t *bu_data,
   bu.bu_data_size = bu_data_size;
   bu.is_valid = -1;
   bu.is_hashable = false;
-  bu.nalu_type = NALU_TYPE_UNDEFINED;
+  bu.bu_type = BU_TYPE_UNDEFINED;
   bu.uuid_type = UUID_TYPE_UNDEFINED;
   bu.is_gop_sei = false;
   bu.is_first_nalu_part = true;
@@ -724,9 +724,9 @@ parse_nalu_info(const uint8_t *bu_data,
   bu.is_valid = nalu_header_is_valid;
 
   // Only picture NALUs are hashed.
-  if (bu.nalu_type == NALU_TYPE_I || bu.nalu_type == NALU_TYPE_P) bu.is_hashable = true;
+  if (bu.bu_type == BU_TYPE_I || bu.bu_type == BU_TYPE_P) bu.is_hashable = true;
 
-  bu.is_first_nalu_in_gop = (bu.nalu_type == NALU_TYPE_I) && bu.is_primary_slice;
+  bu.is_first_nalu_in_gop = (bu.bu_type == BU_TYPE_I) && bu.is_primary_slice;
 
   // It has been noticed that, at least, ffmpeg can add a trailing 0x00 byte at the end of a NALU
   // when exporting to an mp4 container file. This has so far only been observed for H265. The
@@ -739,7 +739,7 @@ parse_nalu_info(const uint8_t *bu_data,
   bu.hashable_data_size = bu_data_size - read_bytes;
 
   // For SEI-nalus we parse payload and uuid information.
-  if (bu.nalu_type == NALU_TYPE_SEI) {
+  if (bu.bu_type == BU_TYPE_SEI) {
     // SEI NALU payload starts after the NALU header.
     const uint8_t *payload = bu.hashable_data + nalu_header_len;
     uint8_t user_data_unregistered = 0;
@@ -1082,7 +1082,7 @@ hash_and_add(signed_video_t *self, const bu_info_t *bu)
   if (!self || !bu) return SV_INVALID_PARAMETER;
 
   if (!bu->is_hashable) {
-    DEBUG_LOG("This NALU (type %d) was not hashed", bu->nalu_type);
+    DEBUG_LOG("This NALU (type %d) was not hashed", bu->bu_type);
     return SV_OK;
   }
 
@@ -1128,7 +1128,7 @@ hash_and_add_for_auth(signed_video_t *self, bu_list_item_t *item)
   if (!bu) return SV_INVALID_PARAMETER;
 
   if (!bu->is_hashable) {
-    DEBUG_LOG("This NALU (type %d) was not hashed.", bu->nalu_type);
+    DEBUG_LOG("This NALU (type %d) was not hashed.", bu->bu_type);
     return SV_OK;
   }
   if (!self->validation_flags.hash_algo_known) {
