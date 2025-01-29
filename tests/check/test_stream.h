@@ -26,30 +26,30 @@
 
 #include "lib/src/includes/signed_video_common.h"  // SignedVideoCodec
 
-/* A struct representing a NAL Unit in a test stream, the test stream being represented as
- * a linked list. Each object holds the data as well as pointers to the previous and next
- * item in the list.
+/* A struct representing a Bitstream Unit in a test stream, the test stream being
+ * represented as a linked list. Each object holds the data as well as pointers to the
+ * previous and next item in the list.
  */
 typedef struct _test_stream_item_st {
-  uint8_t *data;  // Pointer to NAL Unit data
-  size_t data_size;  // Size of NAL Unit data
-  char type;  // One character representation of NAL Unit
+  uint8_t *data;  // Pointer to Bitstream Unit data
+  size_t data_size;  // Size of Bitstream Unit data
+  char type;  // One character representation of Bitstream Unit
   struct _test_stream_item_st *prev;  // Previous item
   struct _test_stream_item_st *next;  // Next item
 } test_stream_item_t;
 
 #define MAX_NUM_ITEMS (100)
 
-/* A struct representing the test stream of nal units. It holds the first and last item in
- * the linked list. In addition, it stores the number of items and a string representation
- * of all the NAL Unit types for easy identification.
+/* A struct representing the test stream of bitstream units. It holds the first and last
+ * item in the linked list. In addition, it stores the number of items and a string
+ * representation of all the Bitstream Unit types for easy identification.
  */
 typedef struct _test_stream_st {
-  test_stream_item_t *first_item;  // First NAL Unit in the stream
-  test_stream_item_t *last_item;  // Last NAL Unit in the stream
-  int num_items;  // Number of NAL Units in the stream
+  test_stream_item_t *first_item;  // First Bitstream Unit in the stream
+  test_stream_item_t *last_item;  // Last Bitstream Unit in the stream
+  int num_items;  // Number of Bitstream Units in the stream
   char types[MAX_NUM_ITEMS + 1];  // One extra for null termination.
-  SignedVideoCodec codec;  // H264 or H265
+  SignedVideoCodec codec;  // H.264, H.265 or AV1
 } test_stream_t;
 
 /**
@@ -111,10 +111,10 @@ test_stream_print(test_stream_t *list);
 test_stream_item_t *
 test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec);
 
-/* Creates a new test stream item. Takes pointers to the NAL Unit data, the nalu data
+/* Creates a new test stream item. Takes pointers to the Bitstream Unit data, the bu data
  * size. Memory ownership is transferred. */
 test_stream_item_t *
-test_stream_item_create(const uint8_t *nalu, size_t nalu_size, SignedVideoCodec codec);
+test_stream_item_create(const uint8_t *bu, size_t bu_size, SignedVideoCodec codec);
 
 /* Frees the item. */
 void

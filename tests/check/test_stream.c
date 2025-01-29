@@ -94,31 +94,31 @@ const uint8_t sh_av1[DUMMY_NALU_SIZE] = {0x0a, 0x03, 0x00, 0x00, 0x80};
 const uint8_t sei_av1[DUMMY_NALU_SIZE] = {0x2a, 0x03, 0x18, 0x00, 0x80};
 const uint8_t invalid_av1[DUMMY_NALU_SIZE] = {0x02, 0x03, 0xff, 0x00, 0xff};
 
-/* Helper that parses information from the NAL Unit |data| and returns a character
- * representing the NAL Unit type. */
+/* Helper that parses information from the Bitstream Unit |data| and returns a character
+ * representing the Bitstream Unit type. */
 static char
 get_type_char(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
 {
-  bu_info_t nalu = parse_bu_info(data, data_size, codec, false, true);
+  bu_info_t bu = parse_bu_info(data, data_size, codec, false, true);
 
   char type;
-  switch (nalu.bu_type) {
+  switch (bu.bu_type) {
     case BU_TYPE_UNDEFINED:
-      type = nalu.is_valid == 0 ? 'X' : '\0';
+      type = bu.is_valid == 0 ? 'X' : '\0';
       break;
     case BU_TYPE_I:
-      type = nalu.is_primary_slice == true ? 'I' : 'i';
+      type = bu.is_primary_slice == true ? 'I' : 'i';
       break;
     case BU_TYPE_P:
-      type = nalu.is_primary_slice == true ? 'P' : 'p';
+      type = bu.is_primary_slice == true ? 'P' : 'p';
       break;
     case BU_TYPE_PS:
       type = 'V';
       break;
     case BU_TYPE_SEI: {
-      if (!nalu.is_sv_sei)
+      if (!bu.is_sv_sei)
         type = 'Z';
-      else if (nalu.is_golden_sei)
+      else if (bu.is_golden_sei)
         type = 'G';
       else
         type = 'S';
@@ -129,7 +129,7 @@ get_type_char(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
       break;
   }
 
-  free(nalu.nalu_data_wo_epb);
+  free(bu.nalu_data_wo_epb);
 
   return type;
 }
@@ -167,9 +167,9 @@ generate_nalu(bool valid_start_code,
 test_stream_item_t *
 test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec)
 {
-  uint8_t *nalu = NULL;  // Final NAL Unit (or OBU) with id and with/without start code.
+  uint8_t *bu = NULL;  // Final Bitstream Unit with id and with/without start code.
   const uint8_t *bu_data = NULL;
-  size_t nalu_data_size = DUMMY_NALU_SIZE;  // Change if it is a H.26x SEI.
+  size_t bu_data_size = DUMMY_NALU_SIZE;  // Change if it is a H.26x SEI.
   bool start_code = true;  // Use a valid start code by default unless AV1.
 
   // Find out which type of NAL Unit the character is and point |bu_data| to it.
@@ -195,7 +195,7 @@ test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec)
     case 'Z':
       bu_data = codec == SV_CODEC_H264 ? sei_nalu_h264
                                        : (codec == SV_CODEC_H265 ? sei_nalu_h265 : sei_av1);
-      nalu_data_size = (codec != SV_CODEC_AV1) ? DUMMY_SEI_SIZE : DUMMY_NALU_SIZE;
+      bu_data_size = (codec != SV_CODEC_AV1) ? DUMMY_SEI_SIZE : DUMMY_NALU_SIZE;
       break;
     case 'V':
       bu_data = codec == SV_CODEC_H264 ? pps_nalu_h264
@@ -208,23 +208,23 @@ test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec)
       break;
   }
 
-  size_t nalu_size = 0;
+  size_t bu_size = 0;
   if (codec != SV_CODEC_AV1) {
-    nalu = generate_nalu(start_code, bu_data, nalu_data_size, id, &nalu_size);
+    bu = generate_nalu(start_code, bu_data, bu_data_size, id, &bu_size);
   } else {
     // For AV1 all OBUs are of same size and have no start code. No need for a function.
-    nalu = (uint8_t *)malloc(DUMMY_NALU_SIZE);
-    memcpy(nalu, bu_data, nalu_data_size);
-    nalu[DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
-    nalu_size = DUMMY_NALU_SIZE;
+    bu = (uint8_t *)malloc(DUMMY_NALU_SIZE);
+    memcpy(bu, bu_data, bu_data_size);
+    bu[DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
+    bu_size = DUMMY_NALU_SIZE;
   }
-  ck_assert(nalu);
-  ck_assert(nalu_size > 0);
-  ck_assert_int_eq(nalu[nalu_size - 2], id);  // Check id.
-  return test_stream_item_create(nalu, nalu_size, codec);
+  ck_assert(bu);
+  ck_assert(bu_size > 0);
+  ck_assert_int_eq(bu[bu_size - 2], id);  // Check id.
+  return test_stream_item_create(bu, bu_size, codec);
 }
 
-/* Creates a new test stream item. Takes pointer to the NAL Unit |data| and the nalu
+/* Creates a new test stream item. Takes pointer to the Bitstream Unit |data| and the
  * |data_size|. The ownership of |data| is transferred to the item. */
 test_stream_item_t *
 test_stream_item_create(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
@@ -253,7 +253,7 @@ test_stream_item_free(test_stream_item_t *item)
 
 /* This function detaches an |item|, that is, removes the links to all neighboring items. */
 static void
-nalu_list_detach_item(test_stream_item_t *item)
+detach_item(test_stream_item_t *item)
 {
   if (!item) return;
   item->prev = NULL;
@@ -301,7 +301,7 @@ test_stream_item_remove(test_stream_t *list, int item_number)
   if (list->last_item == item_to_remove) list->last_item = item_to_remove->prev;
   test_stream_refresh(list);
 
-  nalu_list_detach_item(item_to_remove);
+  detach_item(item_to_remove);
   return item_to_remove;
 }
 
