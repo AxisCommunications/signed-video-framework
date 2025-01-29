@@ -173,7 +173,7 @@ bu_list_item_print(const bu_list_item_t *item)
 
   char *bu_type_str = !item->bu
       ? "This BU is missing"
-      : (item->bu->is_gop_sei ? "SEI" : (item->bu->is_first_bu_in_gop ? "I" : "Other"));
+      : (item->bu->is_sv_sei ? "SEI" : (item->bu->is_first_bu_in_gop ? "I" : "Other"));
   char validation_status_str[2] = {'\0'};
   memcpy(validation_status_str, &item->tmp_validation_status, 1);
 
@@ -497,7 +497,7 @@ bu_list_get_next_sei_item(const bu_list_t *list)
 
   bu_list_item_t *item = list->first_item;
   while (item) {
-    if (item->bu && item->bu->is_gop_sei && item->tmp_validation_status == 'P') {
+    if (item->bu && item->bu->is_sv_sei && item->tmp_validation_status == 'P') {
       break;
     }
     item = item->next;
@@ -532,7 +532,7 @@ bu_list_get_stats(const bu_list_t *list, int *num_invalid_bu, int *num_missing_b
     if (item->tmp_validation_status == 'M') {
       local_num_missing_bu++;
     }
-    if (item->bu && item->bu->is_gop_sei) {
+    if (item->bu && item->bu->is_sv_sei) {
       if (item->in_validation &&
           (item->tmp_validation_status == 'N' || item->tmp_validation_status == 'E')) {
         local_num_invalid_bu++;
@@ -545,7 +545,7 @@ bu_list_get_stats(const bu_list_t *list, int *num_invalid_bu, int *num_missing_b
     if (item->tmp_validation_status == '.') {
       // Do not count SEIs, since they are marked valid if the signature could be verified, which
       // happens for out-of-sync SEIs for example.
-      has_valid_bu |= !(item->bu && item->bu->is_gop_sei);
+      has_valid_bu |= !(item->bu && item->bu->is_sv_sei);
     }
 
     item = item->next;

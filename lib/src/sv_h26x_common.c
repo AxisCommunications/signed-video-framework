@@ -111,7 +111,7 @@ nalu_type_to_char(const bu_info_t *bu)
 
   switch (bu->bu_type) {
     case BU_TYPE_SEI:
-      return bu->is_gop_sei ? (bu->is_golden_sei ? 'G' : 'S') : 'z';
+      return bu->is_sv_sei ? (bu->is_golden_sei ? 'G' : 'S') : 'z';
     case BU_TYPE_I:
       return bu->is_primary_slice == true ? 'I' : 'i';
     case BU_TYPE_P:
@@ -609,7 +609,7 @@ static void
 remove_epb_from_sei_payload(bu_info_t *bu)
 {
   assert(bu);
-  if (!bu->is_hashable || !bu->is_gop_sei || (bu->is_valid <= 0)) return;
+  if (!bu->is_hashable || !bu->is_sv_sei || (bu->is_valid <= 0)) return;
 
   // The UUID (16 bytes) has by definition no emulation prevention bytes. Hence, read the
   // |reserved_byte| and point to the start of the TLV part.
@@ -679,7 +679,7 @@ parse_nalu_info(const uint8_t *bu_data,
   bu.is_hashable = false;
   bu.bu_type = BU_TYPE_UNDEFINED;
   bu.uuid_type = UUID_TYPE_UNDEFINED;
-  bu.is_gop_sei = false;
+  bu.is_sv_sei = false;
   bu.is_first_nalu_part = true;
   bu.is_last_nalu_part = true;
 
@@ -787,14 +787,14 @@ parse_nalu_info(const uint8_t *bu_data,
         bu.uuid_type = h264_get_uuid_sei_type(payload);
       }
     }
-    bu.is_gop_sei = (bu.uuid_type == UUID_TYPE_SIGNED_VIDEO);
+    bu.is_sv_sei = (bu.uuid_type == UUID_TYPE_SIGNED_VIDEO);
 
     if (codec != SV_CODEC_AV1) {
       // Only Signed Video generated SEIs are valid and hashable.
-      bu.is_hashable = bu.is_gop_sei && is_auth_side;
+      bu.is_hashable = bu.is_sv_sei && is_auth_side;
     } else {
       // Hash all Metadata OBUs unless it is a Signed Video generated "SEI" and on signing side.
-      bu.is_hashable = !(bu.is_gop_sei && !is_auth_side);
+      bu.is_hashable = !(bu.is_sv_sei && !is_auth_side);
     }
 
     remove_epb_from_sei_payload(&bu);
@@ -873,9 +873,9 @@ update_validation_flags(validation_flags_t *validation_flags, bu_info_t *bu)
 {
   if (!validation_flags || !bu) return;
 
-  validation_flags->is_first_sei = !validation_flags->signing_present && bu->is_gop_sei;
+  validation_flags->is_first_sei = !validation_flags->signing_present && bu->is_sv_sei;
   // As soon as we receive a SEI, Signed Video is present.
-  validation_flags->signing_present |= bu->is_gop_sei;
+  validation_flags->signing_present |= bu->is_sv_sei;
 }
 
 /* Others */
@@ -885,7 +885,7 @@ update_num_nalus_in_gop_hash(signed_video_t *self, const bu_info_t *bu)
 {
   if (!self || !bu) return;
 
-  if (!bu->is_gop_sei) {
+  if (!bu->is_sv_sei) {
     self->gop_info->num_nalus_in_gop_hash++;
     if (self->gop_info->num_nalus_in_gop_hash == 0) {
       DEBUG_LOG("Wraparound in |num_nalus_in_gop_hash|");
@@ -959,7 +959,7 @@ get_hash_wrapper(signed_video_t *self, const bu_info_t *bu)
   if (!bu->is_last_nalu_part) {
     // If this is not the last part of a NALU, update the hash.
     return update_hash;
-  } else if (bu->is_gop_sei) {
+  } else if (bu->is_sv_sei) {
     // A SEI, i.e., the document_hash, is hashed without reference, since that one may be verified
     // separately.
     return simply_hash;
@@ -1351,7 +1351,7 @@ signed_video_parse_sei(uint8_t *nalu, size_t nalu_size, SignedVideoCodec codec)
 
 #ifdef PRINT_DECODED_SEI
   bu_info_t nalu_info = parse_nalu_info(nalu, nalu_size, codec, true, true);
-  if (nalu_info.is_gop_sei) {
+  if (nalu_info.is_sv_sei) {
     printf("\nSEI (%zu bytes):\n", nalu_size);
     for (size_t i = 0; i < nalu_size; ++i) {
       printf(" %02x", nalu[i]);

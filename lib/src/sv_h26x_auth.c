@@ -349,7 +349,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
     found_next_gop = (item->bu->is_first_bu_in_gop && !item->used_for_linked_hash);
     last_used_item = item;
     // Validation should be stopped if item is a SEI or if the item is the I-frame of the next GOP.
-    if (item->bu->is_gop_sei || found_next_gop) {
+    if (item->bu->is_sv_sei || found_next_gop) {
       break;
     }
     num_verified_hashes++;
@@ -452,7 +452,7 @@ set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
   bu_list_item_t *item = nalu_list->first_item;
   while (item) {
     if (item->used_in_gop_hash && item->tmp_validation_status == 'P') {
-      if (!item->bu->is_gop_sei) {
+      if (!item->bu->is_sv_sei) {
         num_marked_items++;
       }
       item->tmp_validation_status = validation_status;
@@ -577,7 +577,7 @@ verify_hashes_without_sei(signed_video_t *self)
     }
     // Stop verifying when SEI NALU is encountered. There can't be another NALU after SEI in the
     // GOP.
-    if (item->bu->is_gop_sei) {
+    if (item->bu->is_sv_sei) {
       break;
     }
     item->tmp_validation_status = 'N';
@@ -748,7 +748,7 @@ update_sei_in_validation(signed_video_t *self,
 {
   // Search for the SEI |in_validation|.
   const bu_list_item_t *item = self->nalu_list->first_item;
-  while (item && !(item->bu && item->bu->is_gop_sei && item->in_validation)) {
+  while (item && !(item->bu && item->bu->is_sv_sei && item->in_validation)) {
     item = item->next;
   }
   if (item) {
@@ -893,7 +893,7 @@ is_recurrent_data_decoded(signed_video_t *self)
   bu_list_item_t *item = nalu_list->first_item;
 
   while (item && !recurrent_data_decoded) {
-    if (item->bu && item->bu->is_gop_sei && item->tmp_validation_status == 'P') {
+    if (item->bu && item->bu->is_sv_sei && item->tmp_validation_status == 'P') {
       const uint8_t *tlv_data = item->bu->tlv_data;
       size_t tlv_size = item->bu->tlv_size;
       recurrent_data_decoded = tlv_find_and_decode_optional_tags(self, tlv_data, tlv_size);
@@ -923,7 +923,7 @@ has_pending_gop(signed_video_t *self)
     // not part of the validation.
     if (item->tmp_validation_status == 'P' && item->bu && item->bu->is_hashable) {
       num_pending_gop_ends += item->bu->is_first_bu_in_gop;
-      found_pending_gop_sei |= item->bu->is_gop_sei;
+      found_pending_gop_sei |= item->bu->is_sv_sei;
     }
     if (!self->validation_flags.signing_present) {
       // If the video is not signed we need at least 2 I-frames to have a complete GOP.
@@ -954,7 +954,7 @@ validation_is_feasible(const bu_list_item_t *item)
   if (!item->bu->is_hashable) return false;
   if (item->tmp_validation_status != 'P') return false;
   // Validation may be done upon a SEI.
-  if (item->bu->is_gop_sei) return true;
+  if (item->bu->is_sv_sei) return true;
   // Validation may be done upon the end of a GOP.
   if (item->bu->is_first_bu_in_gop) return true;
 
@@ -1110,7 +1110,7 @@ void
 update_hashable_data(bu_info_t *bu)
 {
   assert(bu && (bu->is_valid > 0));
-  if (!bu->is_hashable || !bu->is_gop_sei) return;
+  if (!bu->is_hashable || !bu->is_sv_sei) return;
 
   // This is a Signed Video generated NALU of type SEI. As payload it holds TLV data where the last
   // chunk is supposed to be the signature. That part should not be hashed, hence we need to
