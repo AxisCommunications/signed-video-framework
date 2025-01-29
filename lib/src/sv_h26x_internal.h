@@ -128,13 +128,13 @@ struct _bu_info_t {
   size_t hashable_data_size;  // Size of the data to hash, excluding stop bit
   uint8_t *pending_bu_data;  // The BU data for potential hashing
   SignedVideoFrameType bu_type;  // Frame type: I, P, SPS, PPS, VPS or SEI
-  SignedVideoUUIDType uuid_type;  // UUID type if a SEI nalu
-  int is_valid;  // Is a valid H26x NALU (1), invalid (0) or has errors (-1)
+  SignedVideoUUIDType uuid_type;  // UUID type if a SEI
+  int is_valid;  // Is a valid codec specific BU (1), invalid (0) or has errors (-1)
   bool is_hashable;  // Should be hashed
-  const uint8_t *payload;  // Points to the payload (including UUID for SEI-nalus)
+  const uint8_t *payload;  // Points to the payload (including UUID for SEIs)
   size_t payload_size;  // Parsed payload size
   uint8_t reserved_byte;  // First byte of SEI payload
-  const uint8_t *tlv_start_in_nalu_data;  // Points to beginning of the TLV data in the |bu_data|
+  const uint8_t *tlv_start_in_bu_data;  // Points to beginning of the TLV data in the |bu_data|
   const uint8_t *tlv_data;  // Points to the TLV data after removing emulation prevention bytes
   size_t tlv_size;  // Total size of the |tlv_data|
   uint8_t *nalu_data_wo_epb;  // Temporary memory used if there are emulation prevention bytes
