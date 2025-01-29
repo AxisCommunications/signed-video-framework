@@ -361,7 +361,7 @@ bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
   while (!(item->bu)) {
     item = item->prev;
   }
-  int hashable_data_offset = (int)(item->bu->hashable_data - item->bu->nalu_data);
+  int hashable_data_offset = (int)(item->bu->hashable_data - item->bu->bu_data);
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
@@ -377,7 +377,7 @@ bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
     if (!hash_algo_known) {
       bu_data = malloc(item->bu->nalu_data_size);
       SV_THROW_IF(!bu_data, SV_MEMORY);
-      memcpy(bu_data, item->bu->nalu_data, item->bu->nalu_data_size);
+      memcpy(bu_data, item->bu->bu_data, item->bu->nalu_data_size);
       if (item->bu->is_hashable) {
         hashable_data = bu_data + hashable_data_offset;
       }
@@ -386,7 +386,7 @@ bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
     copied_bu->nalu_data_wo_epb = bu_data_wo_epb;
     copied_bu->tlv_data = copied_bu->nalu_data_wo_epb;
     copied_bu->pending_nalu_data = bu_data;
-    copied_bu->nalu_data = copied_bu->pending_nalu_data;
+    copied_bu->bu_data = copied_bu->pending_nalu_data;
     copied_bu->hashable_data = hashable_data;
   SV_CATCH()
   {
