@@ -527,14 +527,14 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
   bu_info_t nalu = {0};
   gop_info_t *gop_info = self->gop_info;
   // TODO: Consider moving this into parse_nalu_info().
-  if (self->last_nalu->is_last_nalu_part) {
+  if (self->last_nalu->is_last_bu_part) {
     // Only check for trailing zeros if this is the last part.
     nalu = parse_nalu_info(nalu_data, nalu_data_size, self->codec, is_last_part, false);
-    nalu.is_last_nalu_part = is_last_part;
+    nalu.is_last_bu_part = is_last_part;
     copy_nalu_except_pointers(self->last_nalu, &nalu);
   } else {
-    self->last_nalu->is_first_nalu_part = false;
-    self->last_nalu->is_last_nalu_part = is_last_part;
+    self->last_nalu->is_first_bu_part = false;
+    self->last_nalu->is_last_bu_part = is_last_part;
     copy_nalu_except_pointers(&nalu, self->last_nalu);
     nalu.bu_data = nalu_data;
     nalu.hashable_data = nalu_data;
@@ -553,7 +553,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
 
     // Note that |recurrence| is counted in frames and not in NALUs, hence we only increment the
     // counter for primary slices.
-    if (nalu.is_primary_slice && nalu.is_last_nalu_part) {
+    if (nalu.is_primary_slice && nalu.is_last_bu_part) {
       if ((self->frame_count % self->recurrence) == 0) {
         self->has_recurrent_data = true;
       }
@@ -561,7 +561,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     }
 
     // Finalize GOP hash and generate SEI if the NALU is I frame of a non-empty GOP.
-    if (nalu.is_first_bu_in_gop && nalu.is_last_nalu_part) {
+    if (nalu.is_first_bu_in_gop && nalu.is_last_bu_part) {
       if (self->sei_generation_enabled) {
         if (timestamp) {
           self->gop_info->timestamp = *timestamp;
@@ -582,7 +582,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       self->sei_generation_enabled = true;
     }
     SV_THROW(hash_and_add(self, &nalu));
-    if (nalu.is_first_bu_in_gop && nalu.is_last_nalu_part) {
+    if (nalu.is_first_bu_in_gop && nalu.is_last_bu_part) {
       SV_THROW(update_linked_hash(self, gop_info->nalu_hash, self->sign_data->hash_size));
     }
 
