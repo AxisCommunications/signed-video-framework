@@ -452,11 +452,11 @@ bu_list_get_next_sei_item(const bu_list_t *list)
 
 /* Loops through the |list| and collects statistics from items used in GOP hash.
  * The stats collected are
- *   - number of invalid NALUs
- *   - number of missing NALUs
- * and return true if any valid NALUs are present. */
+ *   - number of invalid BUs
+ *   - number of missing BUs
+ * and return true if any valid BUs are present. */
 bool
-h26x_nalu_list_get_stats(const bu_list_t *list, int *num_invalid_nalus, int *num_missing_nalus)
+bu_list_get_stats(const bu_list_t *list, int *num_invalid_nalus, int *num_missing_nalus)
 {
   if (!list) return false;
 
@@ -498,7 +498,7 @@ h26x_nalu_list_get_stats(const bu_list_t *list, int *num_invalid_nalus, int *num
 
 /* Counts and returns number of items pending validation. */
 int
-h26x_nalu_list_num_pending_items(const bu_list_t *list)
+bu_list_num_pending_items(const bu_list_t *list)
 {
   if (!list) return 0;
 

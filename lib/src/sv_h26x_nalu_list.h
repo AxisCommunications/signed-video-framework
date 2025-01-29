@@ -136,29 +136,29 @@ bu_list_get_next_sei_item(const bu_list_t* list);
  *
  * Loops through the |list| and collects statistics from items used in GOP hash.
  * The stats collected are
- *   - number of invalid NALUs
- *   - number of missing NALUs
+ *   - number of invalid BUs
+ *   - number of missing BUs
  *
  * @param list The |list| to collect statistics from.
- * @param num_invalid_nalus A pointer to which the number of NALUs, that could not be validated as
- *   authentic, is written.
- * @param num_missing_nalus A pointer to which the number of missing NALUs, detected by the
+ * @param num_invalid_nalus A pointer to which the number of BUs, that could not be
+ *   validated as authentic, is written.
+ * @param num_missing_nalus A pointer to which the number of missing BUs, detected by the
  *   validation, is written.
  *
  * @return True if at least one item is validated as authentic.
  */
 bool
-h26x_nalu_list_get_stats(const bu_list_t* list, int* num_invalid_nalus, int* num_missing_nalus);
+bu_list_get_stats(const bu_list_t* list, int* num_invalid_nalus, int* num_missing_nalus);
 
 /**
  * @brief Counts and returns number of items pending validation
  *
  * @param list The |list| to count pending items.
  *
- * @returns Number of items pending validation. Returns zero upon failure.
+ * @return Number of items pending validation. Returns zero upon failure.
  */
 int
-h26x_nalu_list_num_pending_items(const bu_list_t* list);
+bu_list_num_pending_items(const bu_list_t* list);
 
 /**
  * @brief Updates or resets validation status of all items in a list
