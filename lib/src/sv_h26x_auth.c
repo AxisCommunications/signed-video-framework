@@ -206,7 +206,7 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
   int num_nalus_in_gop = 0;
   assert(nalu_list);
 
-  h26x_nalu_list_print(nalu_list);
+  bu_list_print(nalu_list);
 
   // Start with the first item in the NALU list.
   item = nalu_list->first_item;
@@ -292,7 +292,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
 
   if (!expected_hashes || !nalu_list) return false;
 
-  h26x_nalu_list_print(nalu_list);
+  bu_list_print(nalu_list);
 
   // Get the SEI associated with the oldest pending GOP.
   bu_list_item_t *sei = bu_list_get_next_sei_item(nalu_list);
@@ -562,7 +562,7 @@ verify_hashes_without_sei(signed_video_t *self)
 
   if (!nalu_list) return false;
 
-  h26x_nalu_list_print(nalu_list);
+  bu_list_print(nalu_list);
 
   // Start from the oldest item and mark all pending items as NOT OK ('N') until we detect a new
   // GOP.
