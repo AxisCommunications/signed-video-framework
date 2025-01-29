@@ -122,8 +122,8 @@ struct _bu_list_item_t {
  * information on BU type, uuid type (if any) and if the BU is valid for use/hashing.
  */
 struct _bu_info_t {
-  const uint8_t *bu_data;  // The actual NALU data
-  size_t nalu_data_size;  // The total size of the NALU data
+  const uint8_t *bu_data;  // The actual BU data
+  size_t bu_data_size;  // The total size of the BU data
   const uint8_t *hashable_data;  // The NALU data for potential hashing
   size_t hashable_data_size;  // Size of the data to hash, excluding stop bit
   uint8_t *pending_nalu_data;  // The NALU data for potential hashing
@@ -181,7 +181,7 @@ hash_and_add_for_auth(signed_video_t *signed_video, bu_list_item_t *item);
 
 bu_info_t
 parse_nalu_info(const uint8_t *bu_data,
-    size_t nalu_data_size,
+    size_t bu_data_size,
     SignedVideoCodec codec,
     bool check_trailing_bytes,
     bool is_auth_side);

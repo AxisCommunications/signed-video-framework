@@ -375,9 +375,9 @@ bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
     }
     // If the library does not know which hash algo to use, store the |hashable_data| for later.
     if (!hash_algo_known) {
-      bu_data = malloc(item->bu->nalu_data_size);
+      bu_data = malloc(item->bu->bu_data_size);
       SV_THROW_IF(!bu_data, SV_MEMORY);
-      memcpy(bu_data, item->bu->bu_data, item->bu->nalu_data_size);
+      memcpy(bu_data, item->bu->bu_data, item->bu->bu_data_size);
       if (item->bu->is_hashable) {
         hashable_data = bu_data + hashable_data_offset;
       }

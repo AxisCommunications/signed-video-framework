@@ -665,7 +665,7 @@ remove_epb_from_sei_payload(bu_info_t *bu)
  */
 bu_info_t
 parse_nalu_info(const uint8_t *bu_data,
-    size_t nalu_data_size,
+    size_t bu_data_size,
     SignedVideoCodec codec,
     bool check_trailing_bytes,
     bool is_auth_side)
@@ -674,7 +674,7 @@ parse_nalu_info(const uint8_t *bu_data,
   bu_info_t bu = {0};
   // Initialize NALU
   bu.bu_data = bu_data;
-  bu.nalu_data_size = nalu_data_size;
+  bu.bu_data_size = bu_data_size;
   bu.is_valid = -1;
   bu.is_hashable = false;
   bu.nalu_type = NALU_TYPE_UNDEFINED;
@@ -683,7 +683,7 @@ parse_nalu_info(const uint8_t *bu_data,
   bu.is_first_nalu_part = true;
   bu.is_last_nalu_part = true;
 
-  if (!bu_data || (nalu_data_size == 0) || codec < 0 || codec >= SV_CODEC_NUM) return bu;
+  if (!bu_data || (bu_data_size == 0) || codec < 0 || codec >= SV_CODEC_NUM) return bu;
 
   // For a Bytestream the bu_data begins with a Start Code, which is either 3 or 4 bytes. That is,
   // look for a 0x000001 or 0x00000001 pattern. For a NAL Unit stream a start code is not necessary.
@@ -732,11 +732,11 @@ parse_nalu_info(const uint8_t *bu_data,
   // when exporting to an mp4 container file. This has so far only been observed for H265. The
   // reason for this is still unknown. Therefore we end the hashable part at the byte including the
   // stop bit.
-  while (check_trailing_bytes && (bu_data[nalu_data_size - 1] == 0x00)) {
+  while (check_trailing_bytes && (bu_data[bu_data_size - 1] == 0x00)) {
     DEBUG_LOG("Found trailing 0x00");
-    nalu_data_size--;
+    bu_data_size--;
   }
-  bu.hashable_data_size = nalu_data_size - read_bytes;
+  bu.hashable_data_size = bu_data_size - read_bytes;
 
   // For SEI-nalus we parse payload and uuid information.
   if (bu.nalu_type == NALU_TYPE_SEI) {
@@ -762,7 +762,7 @@ parse_nalu_info(const uint8_t *bu_data,
         // If we have the stop bit in a byte of its own it's not included in the payload size. This
         // is actually always the case for the signed video generated SEI data.
 
-        epb -= bu_data[nalu_data_size - 1] == STOP_BYTE_VALUE ? 1 : 0;
+        epb -= bu_data[bu_data_size - 1] == STOP_BYTE_VALUE ? 1 : 0;
         bu.emulation_prevention_bytes = epb;
         DEBUG_LOG("Computed %d emulation prevention byte(s)", bu.emulation_prevention_bytes);
 
