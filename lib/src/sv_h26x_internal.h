@@ -124,9 +124,9 @@ struct _bu_list_item_t {
 struct _bu_info_t {
   const uint8_t *bu_data;  // The actual BU data
   size_t bu_data_size;  // The total size of the BU data
-  const uint8_t *hashable_data;  // The NALU data for potential hashing
+  const uint8_t *hashable_data;  // The NBU data for potential hashing
   size_t hashable_data_size;  // Size of the data to hash, excluding stop bit
-  uint8_t *pending_nalu_data;  // The NALU data for potential hashing
+  uint8_t *pending_bu_data;  // The BU data for potential hashing
   SignedVideoFrameType nalu_type;  // Frame type: I, P, SPS, PPS, VPS or SEI
   SignedVideoUUIDType uuid_type;  // UUID type if a SEI nalu
   int is_valid;  // Is a valid H26x NALU (1), invalid (0) or has errors (-1)
