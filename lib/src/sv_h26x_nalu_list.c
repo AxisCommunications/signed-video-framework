@@ -262,7 +262,9 @@ bu_list_create()
 void
 bu_list_free(bu_list_t *list)
 {
-  if (!list) return;
+  if (!list) {
+    return;
+  }
   bu_list_free_items(list);
   free(list);
 }
@@ -271,7 +273,9 @@ bu_list_free(bu_list_t *list)
 void
 bu_list_free_items(bu_list_t *list)
 {
-  if (!list) return;
+  if (!list) {
+    return;
+  }
   // Pop all items and free them.
   while (list->first_item) {
     h26x_nalu_list_remove_and_free_item(list, list->first_item);
@@ -283,10 +287,14 @@ bu_list_free_items(bu_list_t *list)
 svrc_t
 bu_list_append(bu_list_t *list, const bu_info_t *bu)
 {
-  if (!list || !bu) return SV_INVALID_PARAMETER;
+  if (!list || !bu) {
+    return SV_INVALID_PARAMETER;
+  }
 
   bu_list_item_t *new_item = h26x_nalu_list_item_create(bu);
-  if (!new_item) return SV_MEMORY;
+  if (!new_item) {
+    return SV_MEMORY;
+  }
 
   // List is empty. Set |new_item| as first_item. The h26x_nalu_list_refresh() call will fix the
   // rest of the list.
@@ -305,7 +313,9 @@ bu_list_append(bu_list_t *list, const bu_info_t *bu)
 svrc_t
 bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
 {
-  if (!list) return SV_INVALID_PARAMETER;
+  if (!list) {
+    return SV_INVALID_PARAMETER;
+  }
 
   bu_info_t *copied_nalu = NULL;
   uint8_t *nalu_data = NULL;
@@ -411,7 +421,9 @@ bu_list_add_missing(bu_list_t *list, int num_missing, bool append, bu_list_item_
 void
 bu_list_remove_missing_items(bu_list_t *list)
 {
-  if (!list) return;
+  if (!list) {
+    return;
+  }
 
   bool found_first_pending_nalu = false;
   bool found_decoded_sei = false;
@@ -440,7 +452,9 @@ bu_list_remove_missing_items(bu_list_t *list)
 bu_list_item_t *
 bu_list_get_next_sei_item(const bu_list_t *list)
 {
-  if (!list) return NULL;
+  if (!list) {
+    return NULL;
+  }
 
   bu_list_item_t *item = list->first_item;
   while (item) {
@@ -458,7 +472,9 @@ bu_list_get_next_sei_item(const bu_list_t *list)
 bool
 bu_list_get_stats(const bu_list_t *list, int *num_invalid_nalus, int *num_missing_nalus)
 {
-  if (!list) return false;
+  if (!list) {
+    return false;
+  }
 
   int local_num_invalid_nalus = 0;
   int local_num_missing_nalus = 0;
@@ -500,7 +516,9 @@ bu_list_get_stats(const bu_list_t *list, int *num_invalid_nalus, int *num_missin
 int
 bu_list_num_pending_items(const bu_list_t *list)
 {
-  if (!list) return 0;
+  if (!list) {
+    return 0;
+  }
 
   int num_pending_nalus = 0;
   bu_list_item_t *item = list->first_item;
@@ -513,9 +531,11 @@ bu_list_num_pending_items(const bu_list_t *list)
 }
 
 svrc_t
-h26x_nalu_list_update_status(bu_list_t *list, bool update)
+bu_list_update_status(bu_list_t *list, bool update)
 {
-  if (!list) return SV_INVALID_PARAMETER;
+  if (!list) {
+    return SV_INVALID_PARAMETER;
+  }
 
   bu_list_item_t *item = list->first_item;
   while (item) {
