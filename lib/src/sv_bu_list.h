@@ -18,8 +18,8 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#ifndef __SIGNED_VIDEO_H26X_NALU_LIST_H__
-#define __SIGNED_VIDEO_H26X_NALU_LIST_H__
+#ifndef __SV_BU_LIST_H__
+#define __SV_BU_LIST_H__
 
 #include "sv_defines.h"
 #include "sv_h26x_internal.h"
@@ -213,4 +213,4 @@ bu_list_clean_up(bu_list_t* list);
 void
 bu_list_print(const bu_list_t* list);
 
-#endif  // __SIGNED_VIDEO_H26X_NALU_LIST_H__
+#endif  // __SV_BU_LIST_H__

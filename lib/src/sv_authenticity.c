@@ -26,7 +26,7 @@
 #include <string.h>  // strlen, strcpy
 
 #include "includes/signed_video_common.h"  // signed_video_compare_versions()
-#include "sv_h26x_nalu_list.h"  // bu_list_get_str()
+#include "sv_bu_list.h"  // bu_list_get_str()
 
 /* Transfer functions. */
 static svrc_t
