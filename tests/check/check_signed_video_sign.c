@@ -63,8 +63,8 @@ verify_seis(test_stream_t *list, struct sv_setting setting)
   size_t sei_size = 0;
   test_stream_item_t *item = list->first_item;
   while (item) {
-    bu_info_t nalu_info = parse_bu_info(item->data, item->data_size, list->codec, false, true);
-    if (nalu_info.is_sv_sei) {
+    bu_info_t bu = parse_bu_info(item->data, item->data_size, list->codec, false, true);
+    if (bu.is_sv_sei) {
       if (num_seis == 0) {
         // Set the SEI size for the first detected SEI.
         sei_size = item->data_size;
@@ -74,11 +74,10 @@ verify_seis(test_stream_t *list, struct sv_setting setting)
       const bool has_hash_list = tag_is_present(item, list->codec, HASH_LIST_TAG);
       const bool has_axis_tag = tag_is_present(item, list->codec, VENDOR_AXIS_COMMUNICATIONS_TAG);
       const bool has_public_key_tag = tag_is_present(item, list->codec, PUBLIC_KEY_TAG);
-      const bool has_optional_tags = tlv_has_optional_tags(nalu_info.tlv_data, nalu_info.tlv_size);
-      const bool has_mandatory_tags =
-          tlv_has_mandatory_tags(nalu_info.tlv_data, nalu_info.tlv_size);
+      const bool has_optional_tags = tlv_has_optional_tags(bu.tlv_data, bu.tlv_size);
+      const bool has_mandatory_tags = tlv_has_mandatory_tags(bu.tlv_data, bu.tlv_size);
 
-      ck_assert_int_eq(nalu_info.with_epb, setting.ep_before_signing);
+      ck_assert_int_eq(bu.with_epb, setting.ep_before_signing);
       // Verify SEI sizes if emulation prevention is turned off.
       if (setting.auth_level == SV_AUTHENTICITY_LEVEL_GOP && !setting.ep_before_signing) {
         // For GOP level authenticity, all SEIs should have the same size
@@ -91,24 +90,24 @@ verify_seis(test_stream_t *list, struct sv_setting setting)
       }
       if (setting.max_sei_payload_size > 0) {
         // Verify the SEI size. This overrides the authenticity level.
-        ck_assert_uint_le(nalu_info.payload_size, setting.max_sei_payload_size);
-      } else if (!nalu_info.is_golden_sei) {
+        ck_assert_uint_le(bu.payload_size, setting.max_sei_payload_size);
+      } else if (!bu.is_golden_sei) {
         // Check that there is no hash list in GOP authenticity level.
         setting.auth_level == SV_AUTHENTICITY_LEVEL_GOP ? ck_assert(!has_hash_list)
                                                         : ck_assert(has_hash_list);
       }
       // Verify that a golden SEI can only occur as a first SEI (in tests).
       if (num_seis == 1) {
-        ck_assert_int_eq(nalu_info.is_golden_sei, setting.with_golden_sei);
+        ck_assert_int_eq(bu.is_golden_sei, setting.with_golden_sei);
       } else {
-        ck_assert_int_eq(nalu_info.is_golden_sei, false);
+        ck_assert_int_eq(bu.is_golden_sei, false);
       }
       // Verify that a golden SEI does not have mandatory tags, but all others do.
-      ck_assert(nalu_info.is_golden_sei ^ has_mandatory_tags);
+      ck_assert(bu.is_golden_sei ^ has_mandatory_tags);
       // When a stream is set up to use golden SEIs only the golden SEI should include the
       // partial tags.
       if (setting.with_golden_sei) {
-        ck_assert(!(nalu_info.is_golden_sei ^ has_optional_tags));
+        ck_assert(!(bu.is_golden_sei ^ has_optional_tags));
       } else {
         ck_assert(has_optional_tags);
         // Verify that signatures follow the signing_frequency.
@@ -119,7 +118,7 @@ verify_seis(test_stream_t *list, struct sv_setting setting)
         }
       }
       // Verify that a golden SEI has a signature.
-      if (nalu_info.is_golden_sei) {
+      if (bu.is_golden_sei) {
         ck_assert(has_signature);
       }
       // Verify that Axis vendor tag is present.
@@ -130,7 +129,7 @@ verify_seis(test_stream_t *list, struct sv_setting setting)
       signed_video_parse_sei(item->data, item->data_size, list->codec);
 #endif
     }
-    free(nalu_info.nalu_data_wo_epb);
+    free(bu.nalu_data_wo_epb);
     item = item->next;
   }
 }
@@ -143,7 +142,7 @@ static SignedVideoReturnCode
 get_seis(signed_video_t *sv, int num_seis_to_get, int *num_seis_gotten)
 {
   SignedVideoReturnCode sv_rc = SV_OK;
-  int num_pulled_nalus = 0;
+  int num_pulled_bu = 0;
 
   uint8_t *sei = NULL;
   size_t sei_size = 0;
@@ -155,12 +154,12 @@ get_seis(signed_video_t *sv, int num_seis_to_get, int *num_seis_gotten)
     ck_assert_int_eq(memcmp(sei + payload_offset, kUuidSignedVideo, UUID_LEN), 0);
     // Sizes can vary between SEIs, so it is better to free and allocate new memory for each SEI
     free(sei);
-    num_pulled_nalus++;
+    num_pulled_bu++;
     num_seis_to_get--;
     sv_rc = signed_video_get_sei(sv, &sei, &sei_size, &payload_offset, NULL, 0, NULL);
   }
 
-  if (num_seis_gotten) *num_seis_gotten = num_pulled_nalus;
+  if (num_seis_gotten) *num_seis_gotten = num_pulled_bu;
   return sv_rc;
 }
 
@@ -173,7 +172,7 @@ START_TEST(api_inputs)
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
   sign_algo_t algo = SIGN_ALGO_ECDSA;
-  test_stream_item_t *p_nalu = test_stream_item_create_from_type('P', 0, codec);
+  test_stream_item_t *p_frame = test_stream_item_create_from_type('P', 0, codec);
   test_stream_item_t *invalid = test_stream_item_create_from_type('X', 0, codec);
   char *private_key = NULL;
   size_t private_key_size = 0;
@@ -208,8 +207,8 @@ START_TEST(api_inputs)
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   sv_rc = signed_video_set_private_key_new(sv, private_key, 0);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  // Adding nalu for signing without setting private key is invalid.
-  sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
+  // Adding bitstream unit for signing without setting private key is invalid.
+  sv_rc = signed_video_add_nalu_for_signing(sv, p_frame->data, p_frame->data_size);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
   // Will set keys.
   sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
@@ -267,38 +266,38 @@ START_TEST(api_inputs)
   sv_rc = signed_video_set_product_info(sv, HW_ID, FW_VER, SER_NO, MANUFACT, ADDR);
   ck_assert_int_eq(sv_rc, SV_OK);
   // signed_video_add_nalu_for_signing()
-  // NULL pointers are invalid, as well as zero sized nalus.
-  sv_rc = signed_video_add_nalu_for_signing(NULL, p_nalu->data, p_nalu->data_size);
+  // NULL pointers are invalid, as well as zero sized bitstream units.
+  sv_rc = signed_video_add_nalu_for_signing(NULL, p_frame->data, p_frame->data_size);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_add_nalu_for_signing(sv, NULL, p_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, NULL, p_frame->data_size);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, 0);
+  sv_rc = signed_video_add_nalu_for_signing(sv, p_frame->data, 0);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  // An invalid NAL Unit should return silently.
+  // An invalid Bitstream Unit should return silently.
   sv_rc = signed_video_add_nalu_for_signing(sv, invalid->data, invalid->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Timestamp version of the API.
-  // Zero sized nalus are invalid, as well as NULL pointers except for the timestamp
+  // Zero sized bitstream units are invalid, as well as NULL pointers except for the timestamp
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
-      NULL, p_nalu->data, p_nalu->data_size, &g_testTimestamp);
+      NULL, p_frame->data, p_frame->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
-      sv, NULL, p_nalu->data_size, &g_testTimestamp);
+      sv, NULL, p_frame->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(sv, p_nalu->data, 0, &g_testTimestamp);
+  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(sv, p_frame->data, 0, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  // An invalid NAL Unit should return silently.
+  // An invalid Bitstream Unit should return silently.
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
       sv, invalid->data, invalid->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Timestamp can be null
   sv_rc =
-      signed_video_add_nalu_for_signing_with_timestamp(sv, p_nalu->data, p_nalu->data_size, NULL);
+      signed_video_add_nalu_for_signing_with_timestamp(sv, p_frame->data, p_frame->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Valid call
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
-      sv, p_nalu->data, p_nalu->data_size, &g_testTimestamp);
+      sv, p_frame->data, p_frame->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // TODO: Add check on |sv| to make sure nothing has changed.
@@ -337,11 +336,11 @@ START_TEST(api_inputs)
   sv_rc = signed_video_set_product_info(
       sv, LONG_STRING, LONG_STRING, LONG_STRING, LONG_STRING, LONG_STRING);
   ck_assert_int_eq(sv_rc, SV_OK);
-  // Trying to use signed_video_set_hash_algo() after first NAL Unit.
+  // Trying to use signed_video_set_hash_algo() after first Bitstream Unit.
   sv_rc = signed_video_set_hash_algo(sv, "sha512");
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
-  // Free nalu_list_item and session.
-  test_stream_item_free(p_nalu);
+  // Free bu_list_item and session.
+  test_stream_item_free(p_frame);
   test_stream_item_free(invalid);
   signed_video_free(sv);
   free(private_key);
@@ -355,7 +354,7 @@ END_TEST
  * 1. Create a signed_video_t session
  * 2. Set the private key
  * 3. Repeat
- *   i) Add NAL Unit for signing
+ *   i) Add Bitstream Unit for signing
  *  ii) Get all SEIs
  * 4. Repeat for both H.264 and H.265
  */
@@ -367,34 +366,34 @@ START_TEST(incorrect_operation)
   ck_assert(sv);
   char *private_key = NULL;
   size_t private_key_size = 0;
-  test_stream_item_t *p_nalu = test_stream_item_create_from_type('P', 0, codec);
-  test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *p_frame = test_stream_item_create_from_type('P', 0, codec);
+  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec);
   // The path to openssl keys has to be set before start of signing.
   SignedVideoReturnCode sv_rc =
-      signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
+      signed_video_add_nalu_for_signing(sv, i_frame->data, i_frame->data_size);
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
   ck_assert(read_test_private_key(settings[_i].ec_key, &private_key, &private_key_size, false));
   sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_frame->data, i_frame->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   // signed_video_get_sei(...) should be called after each signed_video_add_nalu_for_signing(...).
-  // After a P-nalu it is in principle OK, but there might be SEIs to get if the SEIs that are
+  // After a P-frame it is in principle OK, but there might be SEIs to get if the SEIs that are
   // created didn't get fetched.
 
-  sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, p_frame->data, p_frame->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  // This is the first NAL Unit of the stream. We should have 1 NAL Unit to prepend. Pulling only
-  // one should not be enough.
+  // This is the first Bitstream Unit of the stream. We should have 1 Bitstream Unit to prepend.
+  // Pulling only one should not be enough.
 
   sv_rc = get_seis(sv, 1, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, p_frame->data, p_frame->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  // Adding another P-nalu without getting SEIs is fine.
-  sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
+  // Adding another P-frame without getting SEIs is fine.
+  sv_rc = signed_video_add_nalu_for_signing(sv, p_frame->data, p_frame->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   // Pull all SEIs.
   sv_rc = get_seis(sv, -1, NULL);
@@ -406,8 +405,8 @@ START_TEST(incorrect_operation)
   ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
 
   // Free test stream items, session and private key.
-  test_stream_item_free(p_nalu);
-  test_stream_item_free(i_nalu);
+  test_stream_item_free(p_frame);
+  test_stream_item_free(i_frame);
   signed_video_free(sv);
   free(private_key);
 }
@@ -454,7 +453,7 @@ START_TEST(vendor_axis_communications_operation)
   // Signal that Axis vendor specifics has been added.
   setting.vendor_axis_mode = 1;
 
-  // Add 2 P-NAL Units between 2 I-NAL Units to mimic a GOP structure in the stream to trigger a
+  // Add 2 P-frames between 2 I-frames to mimic a GOP structure in the stream to trigger a
   // SEI.
   test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIP", false);
   test_stream_check_types(list, "IPPISP");
@@ -502,18 +501,9 @@ START_TEST(factory_provisioned_key)
 END_TEST
 #endif
 
-/* Test description
- * In this test we check for number of NAL Units to prepend during two GOPs.
- * Add
- *   IPPIPP
- * followed by signed_video_set_end_of_stream(...)
- * Then we should get
- *   SIPPSIPP(S)
- * where S = SEI, I = I-NALU and P = P-NALU.
- */
 // TODO: Enabled when we have better support and knowledge about EOS.
 #if 0
-START_TEST(correct_nalu_sequence_with_eos)
+START_TEST(correct_signed_stream_with_eos)
 {
   /* This test runs in a loop with loop index _i, corresponding to struct sv_setting _i
    * in |settings|; See signed_video_helpers.h. */
@@ -525,7 +515,7 @@ START_TEST(correct_nalu_sequence_with_eos)
 END_TEST
 #endif
 
-START_TEST(correct_nalu_sequence_without_eos)
+START_TEST(correct_signed_stream_without_eos)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings|; See signed_video_helpers.h.
@@ -545,15 +535,15 @@ END_TEST
  * Then we should get
  *   SIiPpPpSIiPpPp(S)
  * where
- * S = SEI-NALU,
- * I = I-NALU (Primary I slice or first slice in the current NAL Unit),
- * i = i-NALU (Non-primary I slices)
- * P = P-NALU (Primary P slice)
- * p = p-NALU (Non-primary P slice)
+ * S = SEI,
+ * I = I-frame (Primary I slice or first slice in the current Bitstream Unit),
+ * i = i-frame (Non-primary I slices)
+ * P = P-frame (Primary P slice)
+ * p = p-frame (Non-primary P slice)
  */
 // TODO: Enabled when we have better support and knowledge about EOS.
 #if 0
-START_TEST(correct_multislice_sequence_with_eos)
+START_TEST(correct_signed_multislice_stream_with_eos)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i
   // in |settings|; See signed_video_helpers.h.
@@ -566,7 +556,7 @@ START_TEST(correct_multislice_sequence_with_eos)
 END_TEST
 #endif
 
-START_TEST(correct_multislice_nalu_sequence_without_eos)
+START_TEST(correct_signed_multislice_stream_without_eos)
 {
   // For AV1, multi-slices are covered in one single OBU (OBU Frame).
   if (settings[_i].codec == SV_CODEC_AV1) return;
@@ -590,7 +580,7 @@ END_TEST
  * In this test we generate a test stream with three SEIs, each corresponding to an
  * increased gop length. Then the SEIs (S's) are fetched and their sizes are compared.
  */
-START_TEST(sei_increase_with_gop_length)
+START_TEST(sei_size_increase_with_gop_length)
 {
   struct sv_setting setting = settings[_i];
   // Turn off emulation prevention
@@ -606,7 +596,7 @@ START_TEST(sei_increase_with_gop_length)
 END_TEST
 
 /* Test description
- * Add some NAL Units to a test stream, where the last one is super long. Too long for
+ * Add some Bitstream Units to a test stream, where the last one is super long. Too long for
  * SV_AUTHENTICITY_LEVEL_FRAME to handle it. Note that in tests we run with a shorter max hash list
  * size, namely 10; See meson file.
  *
@@ -648,13 +638,13 @@ START_TEST(fallback_to_gop_level)
 END_TEST
 
 /* Test description
- * In this test we check if an undefined NAL Unit is passed through silently.
+ * In this test we check if an undefined Bitstream Unit is passed through silently.
  * Add
  *   IPXPIPP
  * Then we should get
  *   SIPXPSIPPS
  */
-START_TEST(undefined_nalu_in_sequence)
+START_TEST(undefined_bitstream_unit_in_stream)
 {
   test_stream_t *list = create_signed_stream("IPXPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPXPISPPISP");
@@ -667,7 +657,7 @@ END_TEST
  * Verify that after 2 completed SEIs have been created, they are emitted in correct order.
  * The operation is as follows:
  * 1. Setup a signed_video_t session
- * 2. Add 2 I NAL Units for signing that will trigger 2 SEIs
+ * 2. Add two I frame for signing that will trigger 2 SEIs
  * 3. Get the SEIs
  * 4. Check that the SEIs were emitted in correct order
  */
@@ -689,33 +679,33 @@ START_TEST(two_completed_seis_pending)
   signed_video_t *sv = get_initialized_signed_video(settings[_i], false);
   ck_assert(sv);
 
-  test_stream_item_t *i_nalu_1 = test_stream_item_create_from_type('I', 0, codec);
-  test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 1, codec);
-  test_stream_item_t *p_nalu = test_stream_item_create_from_type('P', 2, codec);
-  test_stream_item_t *i_nalu_3 = test_stream_item_create_from_type('I', 3, codec);
-  test_stream_item_t *i_nalu_4 = test_stream_item_create_from_type('i', 4, codec);
+  test_stream_item_t *i_frame_1 = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 1, codec);
+  test_stream_item_t *p_frame = test_stream_item_create_from_type('P', 2, codec);
+  test_stream_item_t *i_frame_3 = test_stream_item_create_from_type('I', 3, codec);
+  test_stream_item_t *i_frame_4 = test_stream_item_create_from_type('i', 4, codec);
 
-  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_1->data, i_nalu_1->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_frame_1->data, i_frame_1->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_2->data, i_nalu_2->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_frame_2->data, i_frame_2->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, p_frame->data, p_frame->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_3->data, i_nalu_3->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_frame_3->data, i_frame_3->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Now 2 SEIs should be available. Get the first one.
   unsigned num_pending_seis = 0;
-  // First, peek with a secondary slice NAL Unit which should not provide a SEI.
+  // First, peek with a secondary slice Bitstream Unit which should not provide a SEI.
   sv_rc = signed_video_get_sei(
-      sv, &sei, &sei_size_1, NULL, i_nalu_4->data, i_nalu_4->data_size, &num_pending_seis);
+      sv, &sei, &sei_size_1, NULL, i_frame_4->data, i_frame_4->data_size, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 2);
   ck_assert_int_eq(sei_size_1, 0);
   ck_assert(!sei);
-  // Secondly, peek with a primary slice NAL Unit should reveil the SEI.
+  // Secondly, peek with a primary slice Bitstream Unit should reveil the SEI.
   sv_rc = signed_video_get_sei(
-      sv, &sei, &sei_size_1, NULL, p_nalu->data, p_nalu->data_size, &num_pending_seis);
+      sv, &sei, &sei_size_1, NULL, p_frame->data, p_frame->data_size, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(num_pending_seis, 1);
   ck_assert(sei_size_1 != 0);
@@ -735,16 +725,16 @@ START_TEST(two_completed_seis_pending)
   ck_assert_int_eq(sei_size_3, 0);
   ck_assert(!sei);
 
-  // Verify the transfer order of NAL Units
+  // Verify the transfer order of Bitstream Units
   // Expect |sei_size_1| to be less than |sei_size_2| because the second SEI includes one
   // additional hash compared to the first, affecting their respective sizes.
   ck_assert(sei_size_1 < sei_size_2);
 
-  test_stream_item_free(i_nalu_1);
-  test_stream_item_free(i_nalu_2);
-  test_stream_item_free(p_nalu);
-  test_stream_item_free(i_nalu_3);
-  test_stream_item_free(i_nalu_4);
+  test_stream_item_free(i_frame_1);
+  test_stream_item_free(i_frame_2);
+  test_stream_item_free(p_frame);
+  test_stream_item_free(i_frame_3);
+  test_stream_item_free(i_frame_4);
   signed_video_free(sv);
 }
 END_TEST
@@ -783,7 +773,7 @@ END_TEST
  * Verify that after 2 completed SEIs created ,they will be emitted in correct order
  * The operation is as follows:
  * 1. Setup a signed_video_t session
- * 2. Add 2 I NAL Units for signing that will trigger 2 SEIs
+ * 2. Add two I frames for signing that will trigger 2 SEIs
  * 3. Get the SEIs using the legacy API
  * 4. Check that the SEIs were emitted in correct order
  */
@@ -807,8 +797,8 @@ START_TEST(two_completed_seis_pending_legacy)
 
   char *private_key = NULL;
   size_t private_key_size = 0;
-  test_stream_item_t *i_nalu_1 = test_stream_item_create_from_type('I', 0, codec);
-  test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 1, codec);
+  test_stream_item_t *i_frame_1 = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 1, codec);
   // Setup the key
   ck_assert(read_test_private_key(settings[_i].ec_key, &private_key, &private_key_size, false));
 
@@ -816,9 +806,9 @@ START_TEST(two_completed_seis_pending_legacy)
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_set_authenticity_level(sv, settings[_i].auth_level);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_1->data, i_nalu_1->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_frame_1->data, i_frame_1->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_2->data, i_nalu_2->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_frame_2->data, i_frame_2->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // After 2 seis are created, SEIs can be copied
@@ -829,14 +819,14 @@ START_TEST(two_completed_seis_pending_legacy)
   sv_rc = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend_3);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert_int_eq(nalu_to_prepend_3.prepend_instruction, SIGNED_VIDEO_PREPEND_NOTHING);
-  // Verify the transfer order of NAL Units
+  // Verify the transfer order of Bitstream Units
   // Expect |nalu_to_prepend_2.nalu_data_size| to be less than |nalu_to_prepend_1.nalu_data_size|
   // because the first SEI includes one additional hash compared to the second, affecting their
   // respective sizes.
   ck_assert(nalu_to_prepend_1.nalu_data_size > nalu_to_prepend_2.nalu_data_size);
 
-  test_stream_item_free(i_nalu_1);
-  test_stream_item_free(i_nalu_2);
+  test_stream_item_free(i_frame_1);
+  test_stream_item_free(i_frame_2);
   signed_video_free(sv);
   free(private_key);
   free(nalu_to_prepend_1.nalu_data);
@@ -845,11 +835,11 @@ START_TEST(two_completed_seis_pending_legacy)
 END_TEST
 
 /* Test description
- * Verify that the new API for adding a timestamp with the NAL Unit for signing does not
+ * Verify that the new API for adding a timestamp with the Bitstream Unit for signing does not
  * change the result when the timestamp is not present (NULL) compared to the old API.
  * The operation is as follows:
  * 1. Setup two signed_video_t sessions
- * 2. Add a NAL Unit for signing with the new and old API supporting timestamp
+ * 2. Add a Bitstream Unit for signing with the new and old API supporting timestamp
  * 3. Get the SEI
  * 4. Check that the sizes and contents of hashable data are identical
  */
@@ -866,17 +856,17 @@ START_TEST(correct_timestamp)
   signed_video_t *sv_ts = get_initialized_signed_video(setting, false);
   ck_assert(sv);
   ck_assert(sv_ts);
-  test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
-  test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 1, codec);
+  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 1, codec);
   uint8_t *sei = NULL;
   uint8_t *sei_ts = NULL;
   size_t sei_size = 0;
   size_t sei_size_ts = 0;
 
   // Test old API without timestamp
-  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_frame->data, i_frame->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_2->data, i_nalu_2->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_frame_2->data, i_frame_2->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   unsigned num_pending_seis = 0;
   sv_rc = signed_video_get_sei(sv, &sei, &sei_size, NULL, NULL, 0, &num_pending_seis);
@@ -887,9 +877,9 @@ START_TEST(correct_timestamp)
 
   // Test new API with timestamp as NULL. It should give the same result as the old API
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
-      sv_ts, i_nalu->data, i_nalu->data_size, NULL);
+      sv_ts, i_frame->data, i_frame->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_add_nalu_for_signing(sv_ts, i_nalu_2->data, i_nalu_2->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv_ts, i_frame_2->data, i_frame_2->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_get_sei(sv_ts, &sei_ts, &sei_size_ts, NULL, NULL, 0, &num_pending_seis);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -897,30 +887,30 @@ START_TEST(correct_timestamp)
   ck_assert(sei_size_ts > 0);
   ck_assert(sei_ts);
 
-  // Verify the sizes of the nalus
+  // Verify the sizes of the bitstream units
   ck_assert(sei_size > 0);
   ck_assert(sei_size_ts > 0);
   ck_assert(sei_size == sei_size_ts);
 
   // Get the hashable data (includes the signature)
-  bu_info_t nalu = parse_bu_info(sei, sei_size, codec, false, true);
-  bu_info_t nalu_ts = parse_bu_info(sei_ts, sei_size, codec, false, true);
+  bu_info_t bu = parse_bu_info(sei, sei_size, codec, false, true);
+  bu_info_t bu_ts = parse_bu_info(sei_ts, sei_size, codec, false, true);
 
   // Remove the signature
-  update_hashable_data(&nalu);
-  update_hashable_data(&nalu_ts);
+  update_hashable_data(&bu);
+  update_hashable_data(&bu_ts);
 
   // Verify that hashable data sizes and data contents are identical
-  ck_assert(nalu.hashable_data_size == nalu_ts.hashable_data_size);
-  ck_assert(nalu.hashable_data_size > 0);
+  ck_assert(bu.hashable_data_size == bu_ts.hashable_data_size);
+  ck_assert(bu.hashable_data_size > 0);
   // The Public key PEM files do no longer match. TODO: Investigate, but most likely due
   // to timestamp information when extracting the public key from the private key.
-  // ck_assert(!memcmp(nalu.hashable_data, nalu_ts.hashable_data, nalu.hashable_data_size));
+  // ck_assert(!memcmp(bu.hashable_data, bu_ts.hashable_data, bu.hashable_data_size));
 
-  free(nalu.nalu_data_wo_epb);
-  free(nalu_ts.nalu_data_wo_epb);
-  test_stream_item_free(i_nalu);
-  test_stream_item_free(i_nalu_2);
+  free(bu.nalu_data_wo_epb);
+  free(bu_ts.nalu_data_wo_epb);
+  test_stream_item_free(i_frame);
+  test_stream_item_free(i_frame_2);
   signed_video_free(sv);
   signed_video_free(sv_ts);
   free(sei);
@@ -929,9 +919,9 @@ START_TEST(correct_timestamp)
 END_TEST
 
 /* Test description
- * Same as correct_nalu_sequence_without_eos, but with splitted NAL Unit data.
+ * Same as correct_signed_stream_without_eos, but with splitted Bitstream Unit data.
  */
-START_TEST(correct_signing_nalus_in_parts)
+START_TEST(correct_signed_stream_bu_in_parts)
 {
   test_stream_t *list = create_signed_stream_splitted_bu("IPPIPP", settings[_i]);
   test_stream_check_types(list, "IPPISPP");
@@ -953,12 +943,12 @@ START_TEST(w_wo_emulation_prevention_bytes)
   SignedVideoCodec codec = settings[_i].codec;
   SignedVideoReturnCode sv_rc;
 
-  bu_info_t nalus[NUM_EPB_CASES] = {0};
+  bu_info_t bu[NUM_EPB_CASES] = {0};
   uint8_t *seis[NUM_EPB_CASES] = {NULL, NULL};
   size_t sei_sizes[NUM_EPB_CASES] = {0, 0};
   bool with_emulation_prevention[NUM_EPB_CASES] = {true, false};
-  test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
-  test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 1, codec);
+  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 1, codec);
 
   size_t sei_size = 0;
   unsigned num_pending_seis = 0;
@@ -982,9 +972,9 @@ START_TEST(w_wo_emulation_prevention_bytes)
 
     // Add I-frame for signing and get SEI frame
     sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
-        sv, i_nalu->data, i_nalu->data_size, &g_testTimestamp);
+        sv, i_frame->data, i_frame->data_size, &g_testTimestamp);
     sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
-        sv, i_nalu_2->data, i_nalu_2->data_size, &g_testTimestamp);
+        sv, i_frame_2->data, i_frame_2->data_size, &g_testTimestamp);
     ck_assert_int_eq(sv_rc, SV_OK);
     sv_rc = signed_video_get_sei(sv, &seis[ii], &sei_size, NULL, NULL, 0, &num_pending_seis);
     ck_assert_int_eq(sv_rc, SV_OK);
@@ -992,23 +982,23 @@ START_TEST(w_wo_emulation_prevention_bytes)
     ck_assert(sei_size > 0);
     ck_assert(seis[ii]);
     sei_sizes[ii] = sei_size;
-    nalus[ii] = parse_bu_info(seis[ii], sei_sizes[ii], codec, false, true);
-    update_hashable_data(&nalus[ii]);
+    bu[ii] = parse_bu_info(seis[ii], sei_sizes[ii], codec, false, true);
+    update_hashable_data(&bu[ii]);
     signed_video_free(sv);
     sv = NULL;
   }
 
   // Verify that hashable data sizes and data contents are not identical
-  ck_assert(nalus[0].hashable_data_size > nalus[1].hashable_data_size);
-  ck_assert(nalus[1].hashable_data_size > 0);
-  ck_assert(memcmp(nalus[0].hashable_data, nalus[1].hashable_data, nalus[1].hashable_data_size));
+  ck_assert(bu[0].hashable_data_size > bu[1].hashable_data_size);
+  ck_assert(bu[1].hashable_data_size > 0);
+  ck_assert(memcmp(bu[0].hashable_data, bu[1].hashable_data, bu[1].hashable_data_size));
 
   for (size_t ii = 0; ii < NUM_EPB_CASES; ii++) {
-    free(nalus[ii].nalu_data_wo_epb);
+    free(bu[ii].nalu_data_wo_epb);
     free(seis[ii]);
   }
-  test_stream_item_free(i_nalu);
-  test_stream_item_free(i_nalu_2);
+  test_stream_item_free(i_frame);
+  test_stream_item_free(i_frame_2);
 }
 END_TEST
 
@@ -1065,17 +1055,17 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
   tcase_add_loop_test(tc, factory_provisioned_key, s, e);
 #endif
-  // tcase_add_loop_test(tc, correct_nalu_sequence_with_eos, s, e);
-  // tcase_add_loop_test(tc, correct_multislice_sequence_with_eos, s, e);
-  tcase_add_loop_test(tc, correct_nalu_sequence_without_eos, s, e);
-  tcase_add_loop_test(tc, correct_multislice_nalu_sequence_without_eos, s, e);
-  tcase_add_loop_test(tc, sei_increase_with_gop_length, s, e);
+  // tcase_add_loop_test(tc, correct_signed_stream_with_eos, s, e);
+  // tcase_add_loop_test(tc, correct_signed_multislice_stream_with_eos, s, e);
+  tcase_add_loop_test(tc, correct_signed_stream_without_eos, s, e);
+  tcase_add_loop_test(tc, correct_signed_multislice_stream_without_eos, s, e);
+  tcase_add_loop_test(tc, sei_size_increase_with_gop_length, s, e);
   tcase_add_loop_test(tc, fallback_to_gop_level, s, e);
   tcase_add_loop_test(tc, two_completed_seis_pending, s, e);
   tcase_add_loop_test(tc, two_completed_seis_pending_legacy, s, e);
-  tcase_add_loop_test(tc, undefined_nalu_in_sequence, s, e);
+  tcase_add_loop_test(tc, undefined_bitstream_unit_in_stream, s, e);
   tcase_add_loop_test(tc, correct_timestamp, s, e);
-  tcase_add_loop_test(tc, correct_signing_nalus_in_parts, s, e);
+  tcase_add_loop_test(tc, correct_signed_stream_bu_in_parts, s, e);
   tcase_add_loop_test(tc, golden_sei_created, s, e);
   tcase_add_loop_test(tc, w_wo_emulation_prevention_bytes, s, e);
   tcase_add_loop_test(tc, limited_sei_payload_size, s, e);
