@@ -726,7 +726,7 @@ parse_nalu_info(const uint8_t *bu_data,
   // Only picture NALUs are hashed.
   if (bu.bu_type == BU_TYPE_I || bu.bu_type == BU_TYPE_P) bu.is_hashable = true;
 
-  bu.is_first_nalu_in_gop = (bu.bu_type == BU_TYPE_I) && bu.is_primary_slice;
+  bu.is_first_bu_in_gop = (bu.bu_type == BU_TYPE_I) && bu.is_primary_slice;
 
   // It has been noticed that, at least, ffmpeg can add a trailing 0x00 byte at the end of a NALU
   // when exporting to an mp4 container file. This has so far only been observed for H265. The
@@ -963,8 +963,8 @@ get_hash_wrapper(signed_video_t *self, const bu_info_t *bu)
     // A SEI, i.e., the document_hash, is hashed without reference, since that one may be verified
     // separately.
     return simply_hash;
-  } else if (bu->is_first_nalu_in_gop) {
-    // If the current NALU |is_first_nalu_in_gop| and we do not already have a reference, we should
+  } else if (bu->is_first_bu_in_gop) {
+    // If the current NALU |is_first_bu_in_gop| and we do not already have a reference, we should
     // |simply_hash| and copy the hash to reference.
     return hash_and_copy_to_ref;
   } else {

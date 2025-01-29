@@ -163,7 +163,7 @@ update_link_hash_for_auth(signed_video_t *self)
   const size_t hash_size = self->verify_data->hash_size;
   bu_list_item_t *item = self->nalu_list->first_item;
   while (item) {
-    if (item->used_in_gop_hash && item->bu->is_first_nalu_in_gop) {
+    if (item->used_in_gop_hash && item->bu->is_first_bu_in_gop) {
       if (!item->used_for_linked_hash) {
         update_linked_hash(self, item->hash, hash_size);
         item->used_for_linked_hash = true;
@@ -225,11 +225,11 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
       }
       // Ensure that only non-missing BUs (which have non-null pointers) are processed.
       assert(item->bu);
-      num_i_frames += item->bu->is_first_nalu_in_gop;
+      num_i_frames += item->bu->is_first_bu_in_gop;
       if (num_i_frames > 1) break;  // Break if encountered second I frame.
       // Break at I-frame if NAL Units have been added to GOP hash, since a GOP hash cannot span
       // across multiple GOPs.
-      if (item->bu->is_first_nalu_in_gop && (num_nalus_in_gop > 0)) {
+      if (item->bu->is_first_bu_in_gop && (num_nalus_in_gop > 0)) {
         break;
       }
 
@@ -345,8 +345,8 @@ verify_hashes_with_hash_list(signed_video_t *self,
     assert(item->bu);
     // Check if this is the item right after the |sei|.
     found_item_after_sei = (item->prev == sei);
-    // Check if this |is_first_nalu_in_gop|, but not used before.
-    found_next_gop = (item->bu->is_first_nalu_in_gop && !item->used_for_linked_hash);
+    // Check if this |is_first_bu_in_gop|, but not used before.
+    found_next_gop = (item->bu->is_first_bu_in_gop && !item->used_for_linked_hash);
     last_used_item = item;
     // Validation should be stopped if item is a SEI or if the item is the I-frame of the next GOP.
     if (item->bu->is_gop_sei || found_next_gop) {
@@ -535,7 +535,7 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
 
   if (!self->validation_flags.is_first_validation && first_gop_hash_item) {
     int num_missing_nalus = num_expected_hashes - num_received_hashes;
-    const bool append = first_gop_hash_item->bu->is_first_nalu_in_gop;
+    const bool append = first_gop_hash_item->bu->is_first_bu_in_gop;
     // No need to check the return value. A failure only affects the statistics. In the worst case
     // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
     bu_list_add_missing(self->nalu_list, num_missing_nalus, append, first_gop_hash_item);
@@ -585,7 +585,7 @@ verify_hashes_without_sei(signed_video_t *self)
 
     item = item->next;
     if (item) {
-      found_next_gop = item->bu->is_first_nalu_in_gop && !item->used_for_linked_hash;
+      found_next_gop = item->bu->is_first_bu_in_gop && !item->used_for_linked_hash;
     }
   }
   // If we have verified a GOP without a SEI, we should increment the |global_gop_counter|.
@@ -922,7 +922,7 @@ has_pending_gop(signed_video_t *self)
     // Collect statistics from pending and hashable NALUs only. The others are either out of date or
     // not part of the validation.
     if (item->tmp_validation_status == 'P' && item->bu && item->bu->is_hashable) {
-      num_pending_gop_ends += item->bu->is_first_nalu_in_gop;
+      num_pending_gop_ends += item->bu->is_first_bu_in_gop;
       found_pending_gop_sei |= item->bu->is_gop_sei;
     }
     if (!self->validation_flags.signing_present) {
@@ -956,7 +956,7 @@ validation_is_feasible(const bu_list_item_t *item)
   // Validation may be done upon a SEI.
   if (item->bu->is_gop_sei) return true;
   // Validation may be done upon the end of a GOP.
-  if (item->bu->is_first_nalu_in_gop) return true;
+  if (item->bu->is_first_bu_in_gop) return true;
 
   return false;
 }
