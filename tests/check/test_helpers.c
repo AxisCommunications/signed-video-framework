@@ -118,11 +118,11 @@ pull_seis(signed_video_t *sv, test_stream_item_t **item)
   unsigned payload_offset = 0;
   uint8_t *sei = NULL;
   size_t sei_size = 0;
-  uint8_t *peek_nalu = (*item)->data;
-  size_t peek_nalu_size = (*item)->data_size;
-  // Only prepend the SEI if it follows the standard, by peeking the current NAL Unit.
+  uint8_t *peek_bu = (*item)->data;
+  size_t peek_bu_size = (*item)->data_size;
+  // Only prepend the SEI if it follows the standard, by peeking the current Bitstream Unit.
   SignedVideoReturnCode sv_rc =
-      signed_video_get_sei(sv, &sei, &sei_size, &payload_offset, peek_nalu, peek_nalu_size, NULL);
+      signed_video_get_sei(sv, &sei, &sei_size, &payload_offset, peek_bu, peek_bu_size, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   while (sv_rc == SV_OK && (sei_size != 0) && sei) {
@@ -138,8 +138,7 @@ pull_seis(signed_video_t *sv, test_stream_item_t **item)
     test_stream_item_prepend(*item, new_item);
     num_seis++;
     // Ask for next completed SEI.
-    sv_rc =
-        signed_video_get_sei(sv, &sei, &sei_size, &payload_offset, peek_nalu, peek_nalu_size, NULL);
+    sv_rc = signed_video_get_sei(sv, &sei, &sei_size, &payload_offset, peek_bu, peek_bu_size, NULL);
     ck_assert_int_eq(sv_rc, SV_OK);
     is_first_sei = false;
   }
@@ -310,11 +309,11 @@ done:
 
 /* Generates a signed video test stream for a user-owned signed_video_t session.
  *
- * Takes a string of NAL Unit characters ('I', 'i', 'P', 'p', 'S', 'X') as input and
- * generates NAL Unit data for these. Then adds these NAL Units to the input session. The
- * generated SEIs are added to the stream. */
+ * Takes a string of Bitstream Unit characters ('I', 'i', 'P', 'p', 'S', 'X') as input and
+ * generates Bitstream Unit data for these. Then adds these Bitstream Units to the input session.
+ * The generated SEIs are added to the stream. */
 test_stream_t *
-create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalus)
+create_signed_stream_with_sv(signed_video_t *sv, const char *str, bool split_bu)
 {
   SignedVideoReturnCode rc = SV_UNKNOWN_FAILURE;
   ck_assert(sv);
@@ -324,7 +323,7 @@ create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalu
   test_stream_item_t *item = list->first_item;
   int pulled_seis = 0;
 
-  // Loop through the NAL Units and add for signing.
+  // Loop through the Bitstream Units and add for signing.
   while (item) {
     // Pull all SEIs and add them into the test stream.
     pulled_seis += pull_seis(sv, &item);
@@ -332,9 +331,10 @@ create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalu
     if (!(!item->prev && sv->using_golden_sei)) {
       ck_assert(!signed_video_is_golden_sei(sv, item->data, item->data_size));
     }
-    // Only split NAL Units that are not generated SEIs.
-    if (split_nalus && pulled_seis == 0) {
-      // Split the NAL Unit into 2 parts, where the last part inlcudes the ID and the stop bit.
+    // Only split Bitstream Units that are not generated SEIs.
+    if (split_bu && pulled_seis == 0) {
+      // Split the Bitstream Unit into 2 parts, where the last part inlcudes the ID and the stop
+      // bit.
       rc = signed_video_add_nalu_part_for_signing_with_timestamp(
           sv, item->data, item->data_size - 2, &g_testTimestamp, false);
       ck_assert_int_eq(rc, SV_OK);
@@ -359,50 +359,50 @@ create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalu
   return list;
 }
 
-/* See function create_signed_nalus_int() */
+/* See function create_signed_stream_int() */
 test_stream_t *
-create_signed_nalus(const char *str, struct sv_setting settings)
+create_signed_stream(const char *str, struct sv_setting settings)
 {
-  return create_signed_nalus_int(str, settings, false);
+  return create_signed_stream_int(str, settings, false);
 }
 
 /* Generates a signed video test stream for the selected setting. The stream is returned
  * as a test_stream_t.
  *
- * Takes a string of NAL Unit characters ('I', 'i', 'P', 'p', 'S', 'X') as input and
- * generates NAL Unit data for these. Then a signed_video_t session is created given the
- * input |settings|. The generated NAL Units are then passed through the signing process
+ * Takes a string of Bitstream Unit characters ('I', 'i', 'P', 'p', 'S', 'X') as input and
+ * generates Bitstream Unit data for these. Then a signed_video_t session is created given the
+ * input |settings|. The generated Bitstream Units are then passed through the signing process
  * and corresponding generated SEIs are added to the test stream. If |new_private_key| is
  * 'true' then a new private key is generated else an already generated private key is
- * used. If the NAL Unit data should be split into parts, mark the |split_nalu| flag. */
+ * used. If the Bitstream Unit data should be split into parts, mark the |split_bu| flag. */
 static test_stream_t *
-create_signed_splitted_nalus_int(const char *str,
+create_signed_stream_splitted_bu_int(const char *str,
     struct sv_setting settings,
     bool new_private_key,
-    bool split_nalus)
+    bool split_bu)
 {
   if (!str) return NULL;
 
   signed_video_t *sv = get_initialized_signed_video(settings, new_private_key);
   ck_assert(sv);
 
-  // Create a test stream of NAL Units given the input string.
-  test_stream_t *list = create_signed_nalus_with_sv(sv, str, split_nalus);
+  // Create a test stream of Bitstream Units given the input string.
+  test_stream_t *list = create_signed_stream_with_sv(sv, str, split_bu);
   signed_video_free(sv);
 
   return list;
 }
 
 test_stream_t *
-create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_private_key)
+create_signed_stream_int(const char *str, struct sv_setting settings, bool new_private_key)
 {
-  return create_signed_splitted_nalus_int(str, settings, new_private_key, false);
+  return create_signed_stream_splitted_bu_int(str, settings, new_private_key, false);
 }
 
 test_stream_t *
-create_signed_splitted_nalus(const char *str, struct sv_setting settings)
+create_signed_stream_splitted_bu(const char *str, struct sv_setting settings)
 {
-  return create_signed_splitted_nalus_int(str, settings, false, true);
+  return create_signed_stream_splitted_bu_int(str, settings, false, true);
 }
 
 /* Creates and initializes a signed video session. */
@@ -475,20 +475,20 @@ modify_list_item(test_stream_t *list, int item_number, char type)
   item->data[item->data_size - 2] += 1;  // Modify id byte
 }
 
-/* Checks if a particular TLV tag is present in the NAL Unit. */
+/* Checks if a particular TLV tag is present in the Bitstream Unit. */
 bool
 tag_is_present(const test_stream_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t tag)
 {
   ck_assert(item);
 
   bool found_tag = false;
-  bu_info_t nalu = parse_bu_info(item->data, item->data_size, codec, false, true);
-  if (!nalu.is_sv_sei) return false;
+  bu_info_t bu = parse_bu_info(item->data, item->data_size, codec, false, true);
+  if (!bu.is_sv_sei) return false;
 
-  void *tag_ptr = (void *)tlv_find_tag(nalu.tlv_data, nalu.tlv_size, tag, false);
+  void *tag_ptr = (void *)tlv_find_tag(bu.tlv_data, bu.tlv_size, tag, false);
   found_tag = (tag_ptr != NULL);
   // Free temporary data slot used if emulation prevention bytes are present.
-  free(nalu.nalu_data_wo_epb);
+  free(bu.nalu_data_wo_epb);
 
   return found_tag;
 }

@@ -33,7 +33,7 @@
 #include "lib/src/sv_internal.h"  // set_hash_list_size()
 #include "lib/src/sv_openssl_internal.h"  // openssl_read_pubkey_from_private_key()
 #include "lib/src/sv_tlv.h"  // write_byte_many()
-#include "test_helpers.h"  // sv_setting, create_signed_nalus()
+#include "test_helpers.h"  // sv_setting, create_signed_stream()
 #include "test_stream.h"  // test_stream_create()
 
 #define TMP_FIX_TO_ALLOW_TWO_INVALID_SEIS_AT_STARTUP true
@@ -278,7 +278,7 @@ END_TEST
 START_TEST(intact_stream)
 {
   // Create a list of NAL Units given the input string.
-  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISPPISP");
 
   signed_video_accumulated_validation_t final_validation = {
@@ -295,7 +295,7 @@ START_TEST(intact_multislice_stream)
 {
   // For AV1, multi-slices are covered in one single OBU (OBU Frame).
   if (settings[_i].codec == SV_CODEC_AV1) return;
-  test_stream_t *list = create_signed_nalus("IiPpPpIiPpPpIiPp", settings[_i]);
+  test_stream_t *list = create_signed_stream("IiPpPpIiPpPpIiPp", settings[_i]);
   test_stream_check_types(list, "IiPpPpIiSPpPpIiSPp");
 
   signed_video_accumulated_validation_t final_validation = {
@@ -311,7 +311,7 @@ END_TEST
 START_TEST(intact_stream_with_splitted_nalus)
 {
   // Create a list of NAL Units given the input string.
-  test_stream_t *list = create_signed_splitted_nalus("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream_splitted_bu("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISPPISP");
 
   signed_video_accumulated_validation_t final_validation = {
@@ -330,7 +330,7 @@ END_TEST
  * SEI(s) before the PPS. */
 START_TEST(intact_stream_with_pps_nalu_stream)
 {
-  test_stream_t *list = create_signed_nalus("VIPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("VIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "VIPPISPPISP");
 
   // The 'V' is counted as being validated.
@@ -348,7 +348,7 @@ START_TEST(intact_ms_stream_with_pps_nalu_stream)
 {
   // For AV1, multi-slices are covered in one single OBU (OBU Frame).
   if (settings[_i].codec == SV_CODEC_AV1) return;
-  test_stream_t *list = create_signed_nalus("VIiPpPpIiPpPpIiPp", settings[_i]);
+  test_stream_t *list = create_signed_stream("VIiPpPpIiPpPpIiPp", settings[_i]);
   test_stream_check_types(list, "VIiPpPpIiSPpPpIiSPp");
 
   // The 'V' is counted as being validated.
@@ -372,7 +372,7 @@ END_TEST
  */
 START_TEST(intact_with_undefined_nalu_in_stream)
 {
-  test_stream_t *list = create_signed_nalus("IPXPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPXPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPXPISPPISP");
 
   signed_video_accumulated_validation_t final_validation = {
@@ -389,7 +389,7 @@ START_TEST(intact_with_undefined_multislice_nalu_in_stream)
 {
   // For AV1, multi-slices are covered in one single OBU (OBU Frame).
   if (settings[_i].codec == SV_CODEC_AV1) return;
-  test_stream_t *list = create_signed_nalus("IiPpXPpIiPpPpIiPp", settings[_i]);
+  test_stream_t *list = create_signed_stream("IiPpXPpIiPpPpIiPp", settings[_i]);
   test_stream_check_types(list, "IiPpXPpIiSPpPpIiSPp");
 
   signed_video_accumulated_validation_t final_validation = {
@@ -410,7 +410,7 @@ END_TEST
  */
 START_TEST(remove_one_p_nalu)
 {
-  test_stream_t *list = create_signed_nalus("IPPIPPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPPIPPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPPISPPISP");
 
   // Remove last 'P' in second GOP: IPPISPP P ISPPISP
@@ -452,7 +452,7 @@ END_TEST
  */
 START_TEST(interchange_two_p_nalus)
 {
-  test_stream_t *list = create_signed_nalus("IPPIPPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPPIPPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPPISPPISP");
 
   // Remove the middle 'P' in second GOP: IPPISP P PISPPISP
@@ -488,7 +488,7 @@ END_TEST
  */
 START_TEST(modify_one_p_nalu)
 {
-  test_stream_t *list = create_signed_nalus("IPPIPPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPPIPPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPPISPPISP");
 
   // Modify first 'P' in second GOP: IPPIS P PPISPPISP
@@ -514,7 +514,7 @@ END_TEST
 
 START_TEST(modify_one_i_nalu)
 {
-  test_stream_t *list = create_signed_nalus("IPPIPPPIPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPPIPPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPPISPPISPPISP");
 
   // Modify the 'I' of the second GOP: IPP I SPPPISPPISPPISP
@@ -547,7 +547,7 @@ END_TEST
 
 START_TEST(modify_one_sei)
 {
-  test_stream_t *list = create_signed_nalus("IPPIPPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPPIPPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPPISPPISP");
 
   // Modify the second 'S': IPPISPPPI S PPISP
@@ -584,7 +584,7 @@ END_TEST
  * 3. Check the authentication result */
 START_TEST(remove_the_g_nalu)
 {
-  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISP");
 
   // Remove the second SEI: IPPISPPI S PPISPPISP
@@ -612,7 +612,7 @@ END_TEST
 
 START_TEST(remove_the_i_nalu)
 {
-  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISPPISP");
 
   // Remove the third 'I': IPPISPP I SPPISPPISPPISPPISP
@@ -643,7 +643,7 @@ END_TEST
 
 START_TEST(remove_the_gi_nalus)
 {
-  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISP");
 
   // Remove the third 'I': IPPISPP I SPPISPPISP
@@ -683,7 +683,7 @@ END_TEST
 
 START_TEST(two_lost_seis)
 {
-  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISPPISP");
 
   // Remove the second and third 'S': IPPISPPI S PPI S PPISPPISPPISP
@@ -718,7 +718,7 @@ END_TEST
  */
 START_TEST(sei_arrives_late)
 {
-  test_stream_t *list = create_signed_nalus("IPPPIPPPIPPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPPPIPPPIPPPIP", settings[_i]);
   test_stream_check_types(list, "IPPPISPPPISPPPISP");
 
   // Move the second SEI to the next GOP: IPPPISPPPI S PPPI (S) SP
@@ -749,7 +749,7 @@ END_TEST
 static test_stream_t *
 generate_delayed_sei_list(struct sv_setting setting, bool extra_delay)
 {
-  test_stream_t *list = create_signed_nalus("IPPPPIPPPIPPPIPPPIPPPIPIP", setting);
+  test_stream_t *list = create_signed_stream("IPPPPIPPPIPPPIPPPIPPPIPIP", setting);
   test_stream_check_types(list, "IPPPPISPPPISPPPISPPPISPPPISPISP");
 
   // Remove each SEI in the list and append it 2 items later (which in practice becomes 1 item later
@@ -867,7 +867,7 @@ END_TEST
  */
 START_TEST(lost_g_before_late_sei_arrival)
 {
-  test_stream_t *list = create_signed_nalus("IPPPIPPPIPPPIPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPPPIPPPIPPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPPISPPPISPPPISPPISPPISP");
 
   // Delay the third SEI by three frames: IPPPISPPPISPPPI S PPI (S) SPPISP
@@ -909,7 +909,7 @@ START_TEST(lost_g_and_gop_with_late_sei_arrival)
   if (TMP_FIX_TO_ALLOW_TWO_INVALID_SEIS_AT_STARTUP) return;
 
   // TODO: This test is not up-to-date, since it is currently not used.
-  test_stream_t *list = create_signed_nalus("IPIPPPIPPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPIPPPIPPPIP", settings[_i]);
   test_stream_check_types(list, "IPSIPPPSIPPPSIP");
 
   // Get the first SEI, to be added back later.
@@ -962,7 +962,7 @@ END_TEST
  * Verify that we can validate authenticity correctly if we lose all NAL Units between two SEIs. */
 START_TEST(lost_all_nalus_between_two_seis)
 {
-  test_stream_t *list = create_signed_nalus("IPPPIPPPIPPPIPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPPPIPPPIPPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPPISPPPISPPPISPPISPPISP");
 
   // Remove all frames between the first and second S.
@@ -1004,7 +1004,7 @@ END_TEST
 START_TEST(add_one_sei_nalu_after_signing)
 {
   SignedVideoCodec codec = settings[_i].codec;
-  test_stream_t *list = create_signed_nalus("IPPIPPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPPIPPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPPISPPISP");
 
   const uint8_t id = 0;
@@ -1038,7 +1038,7 @@ END_TEST
 START_TEST(remove_two_gop_in_start_of_stream)
 {
   // Create a list of NAL Units given the input string.
-  test_stream_t *list = create_signed_nalus("IPIPIPPPIPPPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPIPIPPPIPPPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPISPISPPPISPPPPISPPISP");
 
   // Delay the first SEI by removing it from position 4 and appending it at position 5.
@@ -1091,7 +1091,7 @@ END_TEST
 START_TEST(camera_reset_on_signing_side)
 {
   // Generate 2 GOPs
-  test_stream_t *list = create_signed_nalus("IPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISP");
 
   // Remove unsigned frames.
@@ -1104,7 +1104,7 @@ START_TEST(camera_reset_on_signing_side)
   test_stream_check_types(list, "IPPISPPS");
 
   // Generate another GOP from scratch using the same signing key.
-  test_stream_t *list_after_reset = create_signed_nalus_int("IPPPIPIPIP", settings[_i], false);
+  test_stream_t *list_after_reset = create_signed_stream_int("IPPPIPIPIP", settings[_i], false);
   test_stream_check_types(list_after_reset, "IPPPISPISPISP");
 
   test_stream_append(list, list_after_reset);
@@ -1139,7 +1139,7 @@ END_TEST
 START_TEST(detect_change_of_public_key)
 {
   // Generate 2 GOPs
-  test_stream_t *list = create_signed_nalus("IPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISP");
   // Remove unsigned frames.
   test_stream_item_t *item = test_stream_item_remove(list, 8);
@@ -1152,7 +1152,7 @@ START_TEST(detect_change_of_public_key)
 
   // Generate another GOP from scratch, using a new signing key.
   test_stream_t *list_with_new_public_key =
-      create_signed_nalus_int("IPIPIPIPIP", settings[_i], true);
+      create_signed_stream_int("IPIPIPIPIP", settings[_i], true);
   test_stream_check_types(list_with_new_public_key, "IPISPISPISPISP");
 
   // To maintain a coherent stream after concatenating with the old public key stream,
@@ -1214,7 +1214,7 @@ END_TEST
 static test_stream_t *
 mimic_au_fast_forward_and_get_list(signed_video_t *sv, struct sv_setting setting)
 {
-  test_stream_t *list = create_signed_nalus("IPPPIPPPPIPPPIPPPIPPPIP", setting);
+  test_stream_t *list = create_signed_stream("IPPPIPPPPIPPPIPPPIPPPIP", setting);
   test_stream_check_types(list, "IPPPISPPPPISPPPISPPPISPPPISP");
 
   // Remove 1.5 GOPs: IPPPISPP PPISPPPISPPPISPPPISP
@@ -1378,7 +1378,7 @@ static test_stream_t *
 mimic_file_export(struct sv_setting setting, bool delayed_seis)
 {
   test_stream_t *pre_export = NULL;
-  test_stream_t *list = create_signed_nalus("VIPPIPPIPPIPPIPPIPP", setting);
+  test_stream_t *list = create_signed_stream("VIPPIPPIPPIPPIPPIPP", setting);
   test_stream_check_types(list, "VIPPISPPISPPISPPISPPISPP");
 
   // Remove the initial PPS/SPS/VPS NAL Unit to add back later.
@@ -1540,7 +1540,8 @@ START_TEST(fallback_to_gop_level)
   ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * MAX_HASH_SIZE), SV_OK);
 
   // Create a list of NAL Units given the input string.
-  test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPIP", false);
+  test_stream_t *list =
+      create_signed_stream_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPIP", false);
   test_stream_check_types(list, "IPPISPPPPPPPPPPPPPPPPPPPPPPPPISPPISP");
 
   signed_video_accumulated_validation_t final_validation = {
@@ -2145,7 +2146,7 @@ END_TEST
  */
 START_TEST(with_blocked_signing)
 {
-  test_stream_t *list = create_signed_nalus("IPPIPPIPPIPPIPPIP", settings[_i]);
+  test_stream_t *list = create_signed_stream("IPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISP");
   test_stream_item_t *sei = test_stream_item_remove(list, 17);
   test_stream_item_check_type(sei, 'S');
@@ -2193,7 +2194,7 @@ START_TEST(golden_sei_principle)
   signed_video_t *sv = get_initialized_signed_video(setting, false);
   ck_assert(sv);
 
-  test_stream_t *list = create_signed_nalus_with_sv(sv, "IPPIPPIPPIP", false);
+  test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIPPIPPIP", false);
   test_stream_check_types(list, "GIPPISPPISPPISP");
 
   // GIPPISPPISPPISP
