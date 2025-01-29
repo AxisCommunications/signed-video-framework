@@ -143,8 +143,8 @@ struct _bu_info_t {
   bool is_primary_slice;  // The first slice in the BU or not
   bool is_first_bu_in_gop;  // True for the first slice of an I-frame
   bool is_sv_sei;  // True if this is a Signed Video generated SEI
-  bool is_first_nalu_part;  // True if the |bu_data| includes the first part
-  bool is_last_nalu_part;  // True if the |bu_data| includes the last part
+  bool is_first_bu_part;  // True if the |bu_data| includes the first part
+  bool is_last_bu_part;  // True if the |bu_data| includes the last part
   bool with_epb;  // Hashable data may include emulation prevention bytes
   bool is_golden_sei;
 };

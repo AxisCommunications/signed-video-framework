@@ -680,8 +680,8 @@ parse_nalu_info(const uint8_t *bu_data,
   bu.bu_type = BU_TYPE_UNDEFINED;
   bu.uuid_type = UUID_TYPE_UNDEFINED;
   bu.is_sv_sei = false;
-  bu.is_first_nalu_part = true;
-  bu.is_last_nalu_part = true;
+  bu.is_first_bu_part = true;
+  bu.is_last_bu_part = true;
 
   if (!bu_data || (bu_data_size == 0) || codec < 0 || codec >= SV_CODEC_NUM) return bu;
 
@@ -956,7 +956,7 @@ get_hash_wrapper(signed_video_t *self, const bu_info_t *bu)
 {
   assert(self && bu);
 
-  if (!bu->is_last_nalu_part) {
+  if (!bu->is_last_bu_part) {
     // If this is not the last part of a NALU, update the hash.
     return update_hash;
   } else if (bu->is_sv_sei) {
@@ -998,11 +998,11 @@ static svrc_t
 simply_hash(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t hash_size)
 {
   // It should not be possible to end up here unless the NALU data includes the last part.
-  assert(bu && bu->is_last_nalu_part && hash);
+  assert(bu && bu->is_last_bu_part && hash);
   const uint8_t *hashable_data = bu->hashable_data;
   size_t hashable_data_size = bu->hashable_data_size;
 
-  if (bu->is_first_nalu_part) {
+  if (bu->is_first_bu_part) {
     // Entire NALU can be hashed in one part.
     return openssl_hash_data(self->crypto_handle, hashable_data, hashable_data_size, hash);
   } else {
@@ -1093,7 +1093,7 @@ hash_and_add(signed_video_t *self, const bu_info_t *bu)
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    if (bu->is_first_nalu_part && !bu->is_last_nalu_part) {
+    if (bu->is_first_bu_part && !bu->is_last_bu_part) {
       // If this is the first part of a non-complete NALU/OBU, initialize the |crypto_handle| to
       // enable sequentially updating the hash with more parts.
       SV_THROW(openssl_init_hash(self->crypto_handle, false));
@@ -1104,7 +1104,7 @@ hash_and_add(signed_video_t *self, const bu_info_t *bu)
 #ifdef SIGNED_VIDEO_DEBUG
     sv_print_hex_data(nalu_hash, hash_size, "Hash of %s: ", nalu_type_to_str(bu));
 #endif
-    if (bu->is_last_nalu_part) {
+    if (bu->is_last_bu_part) {
       // The end of the NALU has been reached. Update hash list and GOP hash.
       check_and_copy_hash_to_hash_list(self, nalu_hash, hash_size);
       update_num_nalus_in_gop_hash(self, bu);
@@ -1209,7 +1209,7 @@ signed_video_create(SignedVideoCodec codec)
     self->last_nalu = (bu_info_t *)calloc(1, sizeof(bu_info_t));
     SV_THROW_IF(!self->last_nalu, SV_MEMORY);
     // Mark the last NALU as complete, hence, no ongoing hashing is present.
-    self->last_nalu->is_last_nalu_part = true;
+    self->last_nalu->is_last_bu_part = true;
 
     self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
 
@@ -1257,7 +1257,7 @@ signed_video_reset(signed_video_t *self)
 
     memset(self->gop_info->linked_hashes, 0, sizeof(self->gop_info->linked_hashes));
     memset(self->last_nalu, 0, sizeof(bu_info_t));
-    self->last_nalu->is_last_nalu_part = true;
+    self->last_nalu->is_last_bu_part = true;
     SV_THROW(openssl_init_hash(self->crypto_handle, false));
 
     self->gop_info->num_nalus_in_gop_hash = 0;
