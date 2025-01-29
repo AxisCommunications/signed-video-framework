@@ -613,12 +613,12 @@ remove_epb_from_sei_payload(bu_info_t *bu)
 
   // The UUID (16 bytes) has by definition no emulation prevention bytes. Hence, read the
   // |reserved_byte| and point to the start of the TLV part.
-  bu->tlv_start_in_nalu_data = bu->payload + UUID_LEN;
+  bu->tlv_start_in_bu_data = bu->payload + UUID_LEN;
   bu->tlv_size = bu->payload_size - UUID_LEN;
-  bu->reserved_byte = *bu->tlv_start_in_nalu_data;
-  bu->tlv_start_in_nalu_data++;  // Move past the |reserved_byte|.
+  bu->reserved_byte = *bu->tlv_start_in_bu_data;
+  bu->tlv_start_in_bu_data++;  // Move past the |reserved_byte|.
   bu->tlv_size -= 1;  // Exclude the |reserved_byte| from TLV size.
-  bu->tlv_data = bu->tlv_start_in_nalu_data;
+  bu->tlv_data = bu->tlv_start_in_bu_data;
   // Read flags from |reserved_byte|
   bu->with_epb = (bu->reserved_byte & 0x80);  // Hash with emulation prevention bytes
   bu->is_golden_sei = (bu->reserved_byte & 0x40);  // The NALU is a golden SEI.
@@ -648,7 +648,7 @@ remove_epb_from_sei_payload(bu_info_t *bu)
       // If the SEI was hashed before applying emulation prevention, update |hashable_data|.
       bu->hashable_data = bu->nalu_data_wo_epb;
       bu->hashable_data_size = data_size;
-      bu->tlv_start_in_nalu_data = bu->tlv_data;
+      bu->tlv_start_in_bu_data = bu->tlv_data;
     }
   }
 }
@@ -818,7 +818,7 @@ copy_nalu_except_pointers(bu_info_t *dst_nalu, const bu_info_t *src_nalu)
   dst_nalu->bu_data = NULL;
   dst_nalu->hashable_data = NULL;
   dst_nalu->payload = NULL;
-  dst_nalu->tlv_start_in_nalu_data = NULL;
+  dst_nalu->tlv_start_in_bu_data = NULL;
   dst_nalu->tlv_data = NULL;
   dst_nalu->nalu_data_wo_epb = NULL;
 }

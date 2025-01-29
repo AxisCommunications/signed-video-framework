@@ -1118,7 +1118,7 @@ update_hashable_data(bu_info_t *bu)
   // emulation prevention bytes) coresponding to that tag. This is done by scanning the TLV for that
   // tag.
   const uint8_t *signature_tag_ptr =
-      tlv_find_tag(bu->tlv_start_in_nalu_data, bu->tlv_size, SIGNATURE_TAG, bu->with_epb);
+      tlv_find_tag(bu->tlv_start_in_bu_data, bu->tlv_size, SIGNATURE_TAG, bu->with_epb);
 
   if (signature_tag_ptr) bu->hashable_data_size = signature_tag_ptr - bu->hashable_data;
 }
