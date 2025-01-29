@@ -1152,7 +1152,7 @@ reregister_nalus(signed_video_t *self)
       // without requesting an authenticity report.
       if (item != nalu_list->last_item) {
         status = legacy_sv_add_nalu_and_authenticate(
-            self->legacy_sv, item->bu->nalu_data, item->bu->nalu_data_size, NULL);
+            self->legacy_sv, item->bu->bu_data, item->bu->nalu_data_size, NULL);
         if (status != SV_OK) {
           break;
         }

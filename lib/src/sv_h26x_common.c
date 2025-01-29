@@ -664,7 +664,7 @@ remove_epb_from_sei_payload(bu_info_t *bu)
  * is responsible for freeing |nalu_data_wo_epb|.
  */
 bu_info_t
-parse_nalu_info(const uint8_t *nalu_data,
+parse_nalu_info(const uint8_t *bu_data,
     size_t nalu_data_size,
     SignedVideoCodec codec,
     bool check_trailing_bytes,
@@ -673,7 +673,7 @@ parse_nalu_info(const uint8_t *nalu_data,
   uint32_t nalu_header_len = 0;
   bu_info_t bu = {0};
   // Initialize NALU
-  bu.nalu_data = nalu_data;
+  bu.bu_data = bu_data;
   bu.nalu_data_size = nalu_data_size;
   bu.is_valid = -1;
   bu.is_hashable = false;
@@ -683,9 +683,9 @@ parse_nalu_info(const uint8_t *nalu_data,
   bu.is_first_nalu_part = true;
   bu.is_last_nalu_part = true;
 
-  if (!nalu_data || (nalu_data_size == 0) || codec < 0 || codec >= SV_CODEC_NUM) return bu;
+  if (!bu_data || (nalu_data_size == 0) || codec < 0 || codec >= SV_CODEC_NUM) return bu;
 
-  // For a Bytestream the nalu_data begins with a Start Code, which is either 3 or 4 bytes. That is,
+  // For a Bytestream the bu_data begins with a Start Code, which is either 3 or 4 bytes. That is,
   // look for a 0x000001 or 0x00000001 pattern. For a NAL Unit stream a start code is not necessary.
   // We need to support all three cases.
   const uint32_t kStartCode = 0x00000001;
@@ -695,7 +695,7 @@ parse_nalu_info(const uint8_t *nalu_data,
 
   if (codec != SV_CODEC_AV1) {
     // There is no start code for AV1.
-    read_bytes = read_32bits(nalu_data, &start_code);
+    read_bytes = read_32bits(bu_data, &start_code);
     if (start_code != kStartCode) {
       // Check if this is a 3 byte Start Code.
       read_bytes = 3;
@@ -707,7 +707,7 @@ parse_nalu_info(const uint8_t *nalu_data,
       }
     }
   }
-  bu.hashable_data = &nalu_data[read_bytes];
+  bu.hashable_data = &bu_data[read_bytes];
   bu.start_code = start_code;
 
   if (codec == SV_CODEC_H264) {
@@ -732,7 +732,7 @@ parse_nalu_info(const uint8_t *nalu_data,
   // when exporting to an mp4 container file. This has so far only been observed for H265. The
   // reason for this is still unknown. Therefore we end the hashable part at the byte including the
   // stop bit.
-  while (check_trailing_bytes && (nalu_data[nalu_data_size - 1] == 0x00)) {
+  while (check_trailing_bytes && (bu_data[nalu_data_size - 1] == 0x00)) {
     DEBUG_LOG("Found trailing 0x00");
     nalu_data_size--;
   }
@@ -762,7 +762,7 @@ parse_nalu_info(const uint8_t *nalu_data,
         // If we have the stop bit in a byte of its own it's not included in the payload size. This
         // is actually always the case for the signed video generated SEI data.
 
-        epb -= nalu_data[nalu_data_size - 1] == STOP_BYTE_VALUE ? 1 : 0;
+        epb -= bu_data[nalu_data_size - 1] == STOP_BYTE_VALUE ? 1 : 0;
         bu.emulation_prevention_bytes = epb;
         DEBUG_LOG("Computed %d emulation prevention byte(s)", bu.emulation_prevention_bytes);
 
@@ -815,7 +815,7 @@ copy_nalu_except_pointers(bu_info_t *dst_nalu, const bu_info_t *src_nalu)
 
   memcpy(dst_nalu, src_nalu, sizeof(bu_info_t));
   // Set pointers to NULL, since memory is not transfered to next NALU.
-  dst_nalu->nalu_data = NULL;
+  dst_nalu->bu_data = NULL;
   dst_nalu->hashable_data = NULL;
   dst_nalu->payload = NULL;
   dst_nalu->tlv_start_in_nalu_data = NULL;

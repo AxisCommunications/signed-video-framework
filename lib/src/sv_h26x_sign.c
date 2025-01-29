@@ -536,7 +536,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     self->last_nalu->is_first_nalu_part = false;
     self->last_nalu->is_last_nalu_part = is_last_part;
     copy_nalu_except_pointers(&nalu, self->last_nalu);
-    nalu.nalu_data = nalu_data;
+    nalu.bu_data = nalu_data;
     nalu.hashable_data = nalu_data;
     // Remove any trailing 0x00 bytes at the end of a NALU.
     while (is_last_part && (nalu_data[nalu_data_size - 1] == 0x00)) {

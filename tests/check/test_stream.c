@@ -168,53 +168,53 @@ test_stream_item_t *
 test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec)
 {
   uint8_t *nalu = NULL;  // Final NAL Unit (or OBU) with id and with/without start code.
-  const uint8_t *nalu_data = NULL;
+  const uint8_t *bu_data = NULL;
   size_t nalu_data_size = DUMMY_NALU_SIZE;  // Change if it is a H.26x SEI.
   bool start_code = true;  // Use a valid start code by default unless AV1.
 
-  // Find out which type of NAL Unit the character is and point |nalu_data| to it.
+  // Find out which type of NAL Unit the character is and point |bu_data| to it.
   switch (type) {
     case 'I':
-      nalu_data =
+      bu_data =
           codec == SV_CODEC_H264 ? I_nalu_h264 : (codec == SV_CODEC_H265 ? I_nalu_h265 : I_av1);
       break;
     case 'i':
       // Not yet valid for AV1.
-      nalu_data = codec == SV_CODEC_H264 ? i_nalu_h264
-                                         : (codec == SV_CODEC_H265 ? i_nalu_h265 : invalid_av1);
+      bu_data = codec == SV_CODEC_H264 ? i_nalu_h264
+                                       : (codec == SV_CODEC_H265 ? i_nalu_h265 : invalid_av1);
       break;
     case 'P':
-      nalu_data =
+      bu_data =
           codec == SV_CODEC_H264 ? P_nalu_h264 : (codec == SV_CODEC_H265 ? P_nalu_h265 : P_av1);
       break;
     case 'p':
       // Not yet valid for AV1.
-      nalu_data = codec == SV_CODEC_H264 ? p_nalu_h264
-                                         : (codec == SV_CODEC_H265 ? p_nalu_h265 : invalid_av1);
+      bu_data = codec == SV_CODEC_H264 ? p_nalu_h264
+                                       : (codec == SV_CODEC_H265 ? p_nalu_h265 : invalid_av1);
       break;
     case 'Z':
-      nalu_data = codec == SV_CODEC_H264 ? sei_nalu_h264
-                                         : (codec == SV_CODEC_H265 ? sei_nalu_h265 : sei_av1);
+      bu_data = codec == SV_CODEC_H264 ? sei_nalu_h264
+                                       : (codec == SV_CODEC_H265 ? sei_nalu_h265 : sei_av1);
       nalu_data_size = (codec != SV_CODEC_AV1) ? DUMMY_SEI_SIZE : DUMMY_NALU_SIZE;
       break;
     case 'V':
-      nalu_data = codec == SV_CODEC_H264 ? pps_nalu_h264
-                                         : (codec == SV_CODEC_H265 ? pps_nalu_h265 : sh_av1);
+      bu_data = codec == SV_CODEC_H264 ? pps_nalu_h264
+                                       : (codec == SV_CODEC_H265 ? pps_nalu_h265 : sh_av1);
       break;
     case 'X':
     default:
-      nalu_data = (codec != SV_CODEC_AV1) ? invalid_nalu : invalid_av1;
+      bu_data = (codec != SV_CODEC_AV1) ? invalid_nalu : invalid_av1;
       start_code = false;
       break;
   }
 
   size_t nalu_size = 0;
   if (codec != SV_CODEC_AV1) {
-    nalu = generate_nalu(start_code, nalu_data, nalu_data_size, id, &nalu_size);
+    nalu = generate_nalu(start_code, bu_data, nalu_data_size, id, &nalu_size);
   } else {
     // For AV1 all OBUs are of same size and have no start code. No need for a function.
     nalu = (uint8_t *)malloc(DUMMY_NALU_SIZE);
-    memcpy(nalu, nalu_data, nalu_data_size);
+    memcpy(nalu, bu_data, nalu_data_size);
     nalu[DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
     nalu_size = DUMMY_NALU_SIZE;
   }

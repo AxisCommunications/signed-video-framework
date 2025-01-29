@@ -122,7 +122,7 @@ struct _bu_list_item_t {
  * information on BU type, uuid type (if any) and if the BU is valid for use/hashing.
  */
 struct _bu_info_t {
-  const uint8_t *nalu_data;  // The actual NALU data
+  const uint8_t *bu_data;  // The actual NALU data
   size_t nalu_data_size;  // The total size of the NALU data
   const uint8_t *hashable_data;  // The NALU data for potential hashing
   size_t hashable_data_size;  // Size of the data to hash, excluding stop bit
@@ -134,7 +134,7 @@ struct _bu_info_t {
   const uint8_t *payload;  // Points to the payload (including UUID for SEI-nalus)
   size_t payload_size;  // Parsed payload size
   uint8_t reserved_byte;  // First byte of SEI payload
-  const uint8_t *tlv_start_in_nalu_data;  // Points to beginning of the TLV data in the |nalu_data|
+  const uint8_t *tlv_start_in_nalu_data;  // Points to beginning of the TLV data in the |bu_data|
   const uint8_t *tlv_data;  // Points to the TLV data after removing emulation prevention bytes
   size_t tlv_size;  // Total size of the |tlv_data|
   uint8_t *nalu_data_wo_epb;  // Temporary memory used if there are emulation prevention bytes
@@ -143,8 +143,8 @@ struct _bu_info_t {
   bool is_primary_slice;  // The first slice in the NALU or not
   bool is_first_nalu_in_gop;  // True for the first slice of an I-frame
   bool is_gop_sei;  // True if this is a Signed Video generated SEI NALU
-  bool is_first_nalu_part;  // True if the |nalu_data| includes the first part
-  bool is_last_nalu_part;  // True if the |nalu_data| includes the last part
+  bool is_first_nalu_part;  // True if the |bu_data| includes the first part
+  bool is_last_nalu_part;  // True if the |bu_data| includes the last part
   bool with_epb;  // Hashable data may include emulation prevention bytes
   bool is_golden_sei;
 };
@@ -180,7 +180,7 @@ svrc_t
 hash_and_add_for_auth(signed_video_t *signed_video, bu_list_item_t *item);
 
 bu_info_t
-parse_nalu_info(const uint8_t *nalu_data,
+parse_nalu_info(const uint8_t *bu_data,
     size_t nalu_data_size,
     SignedVideoCodec codec,
     bool check_trailing_bytes,
