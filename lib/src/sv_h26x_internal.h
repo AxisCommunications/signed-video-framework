@@ -31,13 +31,13 @@
 typedef struct _bu_list_item_t bu_list_item_t;
 
 typedef enum {
-  NALU_TYPE_UNDEFINED = 0,
-  NALU_TYPE_SEI = 1,
-  NALU_TYPE_I = 2,
-  NALU_TYPE_P = 3,
-  NALU_TYPE_PS = 4,  // Parameter Set: PPS/SPS/VPS
-  NALU_TYPE_AUD = 5,
-  NALU_TYPE_OTHER = 6,
+  BU_TYPE_UNDEFINED = 0,
+  BU_TYPE_SEI = 1,
+  BU_TYPE_I = 2,
+  BU_TYPE_P = 3,
+  BU_TYPE_PS = 4,  // Parameter Set: PPS/SPS/VPS
+  BU_TYPE_AUD = 5,
+  BU_TYPE_OTHER = 6,
 } SignedVideoFrameType;
 
 typedef enum {
@@ -127,7 +127,7 @@ struct _bu_info_t {
   const uint8_t *hashable_data;  // The BU data for potential hashing
   size_t hashable_data_size;  // Size of the data to hash, excluding stop bit
   uint8_t *pending_bu_data;  // The BU data for potential hashing
-  SignedVideoFrameType nalu_type;  // Frame type: I, P, SPS, PPS, VPS or SEI
+  SignedVideoFrameType bu_type;  // Frame type: I, P, SPS, PPS, VPS or SEI
   SignedVideoUUIDType uuid_type;  // UUID type if a SEI nalu
   int is_valid;  // Is a valid H26x NALU (1), invalid (0) or has errors (-1)
   bool is_hashable;  // Should be hashed
