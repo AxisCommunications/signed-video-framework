@@ -18,8 +18,8 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#ifndef __LEGACY_H26X_INTERNAL__
-#define __LEGACY_H26X_INTERNAL__
+#ifndef __LEGACY_CODEC_INTERNAL__
+#define __LEGACY_CODEC_INTERNAL__
 
 #include <stdbool.h>  // bool
 #include <stdint.h>  // uint8_t, uint32_t
@@ -165,4 +165,4 @@ legacy_hash_and_add_for_auth(legacy_sv_t *self, legacy_bu_list_item_t *item);
 svrc_t
 legacy_update_gop_hash(void *crypto_handle, legacy_gop_info_t *gop_info);
 
-#endif  // __LEGACY_H26X_INTERNAL__
+#endif  // __LEGACY_CODEC_INTERNAL__
