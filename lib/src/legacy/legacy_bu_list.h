@@ -18,12 +18,12 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#ifndef __LEGACY_H26X_NALU_LIST_H__
-#define __LEGACY_H26X_NALU_LIST_H__
+#ifndef __LEGACY_BU_LIST_H__
+#define __LEGACY_BU_LIST_H__
 
 #include <stdbool.h>
 
-#include "legacy/legacy_h26x_internal.h"
+#include "legacy/legacy_codec_internal.h"
 #include "sv_defines.h"  // svrc_t
 
 typedef enum {
@@ -198,4 +198,4 @@ legacy_bu_list_clean_up(legacy_bu_list_t* list);
 svrc_t
 legacy_bu_list_update_status(legacy_bu_list_t* bu_list, bool update);
 
-#endif  // __LEGACY_H26X_NALU_LIST_H__
+#endif  // __LEGACY_BU_LIST_H__

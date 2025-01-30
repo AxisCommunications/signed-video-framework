@@ -18,7 +18,7 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#include "legacy/legacy_h26x_nalu_list.h"
+#include "legacy/legacy_bu_list.h"
 
 #include <assert.h>
 #include <stdlib.h>  // calloc, malloc, free, size_t

@@ -27,8 +27,8 @@
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "axis-communications/sv_vendor_axis_communications_internal.h"
 #endif
-#include "legacy/legacy_h26x_internal.h"
-#include "legacy/legacy_h26x_nalu_list.h"
+#include "legacy/legacy_bu_list.h"
+#include "legacy/legacy_codec_internal.h"
 #include "legacy/legacy_internal.h"
 #include "legacy/legacy_tlv.h"  // legacy_tlv_decode()
 #include "sv_authenticity.h"  // update_accumulated_validation()

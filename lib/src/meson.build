@@ -26,11 +26,11 @@ signedvideoframework_sources = files(
 )
 
 legacy_sources = files(
-  'legacy/legacy_h26x_auth.c',
-  'legacy/legacy_h26x_common.c',
-  'legacy/legacy_h26x_internal.h',
-  'legacy/legacy_h26x_nalu_list.c',
-  'legacy/legacy_h26x_nalu_list.h',
+  'legacy/legacy_auth.c',
+  'legacy/legacy_bu_list.c',
+  'legacy/legacy_bu_list.h',
+  'legacy/legacy_codec_internal.h',
+  'legacy/legacy_common.c',
   'legacy/legacy_internal.h',
   'legacy/legacy_tlv.c',
   'legacy/legacy_tlv.h',
