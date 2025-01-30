@@ -341,7 +341,7 @@ bu_list_append(bu_list_t *list, const bu_info_t *bu)
 /* Replaces the |bu| of the |last_item| in the list with a copy of itself. All pointers that are
  * not needed are set to NULL, since no ownership is transferred. The ownership of |bu| is
  * released. If the |bu| could not be copied it will be a NULL pointer. If hash algo is
- * not known the |hashable_data| is copied so the NALU can be hashed later. */
+ * not known the |hashable_data| is copied so the Bitstream Unit can be hashed later. */
 svrc_t
 bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
 {
@@ -354,10 +354,11 @@ bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
   uint8_t *hashable_data = NULL;
   uint8_t *bu_data_wo_epb = NULL;
   bu_list_item_t *item = list->last_item;
-  /* Iteration is performed backwards through the list to find the previous item that contains
-   * a valid NALU. If a NALU is missing, it cannot be copied, as there is nothing to copy.
-   * The previous NALUs are checked until a valid one is found. This ensures that a NALU
-   * that actually exists is used before attempting to make a copy. */
+  /* Iteration is performed backwards through the list to find the previous item that
+   * contains a valid Bitstream Unit. If a Bitstream Unit is missing, it cannot be copied,
+   * as there is nothing to copy. The previous Bitstream Units are checked until a valid
+   * one is found. This ensures that a Bitstream Unit that actually exists is used before
+   * attempting to make a copy. */
   while (!(item->bu)) {
     item = item->prev;
   }
@@ -445,7 +446,8 @@ bu_list_add_missing(bu_list_t *list, int num_missing, bool append, bu_list_item_
   SV_DONE(status)
 
   if (added_items > 0) {
-    DEBUG_LOG("Added %d missing NALU items to list", added_items);
+    DEBUG_LOG("Added %d missing Bitstream Unit%s items to list", added_items,
+        added_items == 1 ? "" : "s");
   }
 
   return status;
@@ -521,7 +523,8 @@ bu_list_get_stats(const bu_list_t *list, int *num_invalid_bu, int *num_missing_b
   int local_num_missing_bu = 0;
   bool has_valid_bu = false;
 
-  // From the list, get number of invalid NALUs and number of missing NALUs.
+  // From the list, get number of invalid Bitstream Units and number of missing Bitstream
+  // Units.
   bu_list_item_t *item = list->first_item;
   while (item) {
     // Only collect statistics from the NAL Units |used_in_gop_hash|.

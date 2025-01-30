@@ -1105,7 +1105,7 @@ legacy_sv_add_h26x_nalu(legacy_sv_t *self, const uint8_t *nalu_data, size_t nalu
 }
 
 svrc_t
-legacy_sv_add_nalu_and_authenticate(legacy_sv_t *self,
+legacy_sv_add_and_authenticate(legacy_sv_t *self,
     const uint8_t *nalu_data,
     size_t nalu_data_size,
     signed_video_authenticity_t **authenticity)

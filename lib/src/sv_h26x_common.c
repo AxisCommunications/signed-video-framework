@@ -106,7 +106,7 @@ bu_type_to_str(const bu_info_t *bu)
 char
 bu_type_to_char(const bu_info_t *bu)
 {
-  // If no NALU is present, mark as missing, i.e., empty ' '.
+  // If no BU is present, mark as missing, i.e., empty ' '.
   if (!bu) return ' ';
 
   switch (bu->bu_type) {
@@ -227,7 +227,7 @@ gop_info_create(void)
   // Initialize |verified_signature_hash| as 'error', since we lack data.
   gop_info->verified_signature_hash = -1;
 
-  // Set shortcut pointers to the gop_hash and NALU hash parts of the memory.
+  // Set shortcut pointers to the gop_hash and BU hash parts of the memory.
   gop_info->gop_hash = gop_info->hashes;
   gop_info->nalu_hash = gop_info->hashes + DEFAULT_HASH_SIZE;
 
@@ -430,7 +430,6 @@ parse_h265_nalu_header(bu_info_t *bu)
   bool nalu_header_is_valid = false;
 
   if ((nuh_temporal_id_plus1 == 0) || (nuh_layer_id > 63)) {
-    DEBUG_LOG("H265 NALU header %02x%02x is invalid", nalu_header, *(bu->hashable_data + 1));
     return false;
   }
 
@@ -542,7 +541,7 @@ parse_av1_obu_header(bu_info_t *obu)
   bool obu_has_size_field = (bool)(obu_header & 0x02);  // One bit
   bool obu_reserved_bit = (bool)(obu_header & 0x01);  // One bit
   // Only support AV1 with size field.
-  bool nalu_header_is_valid = !obu_extension_flag && obu_has_size_field && !obu_reserved_bit;
+  bool obu_header_is_valid = !obu_extension_flag && obu_has_size_field && !obu_reserved_bit;
 
   obu_ptr++;
   // Read size. Only supports AV1 which has size field.
@@ -557,15 +556,15 @@ parse_av1_obu_header(bu_info_t *obu)
       break;
     case 2:  // 2 OBU_TEMPORAL_DELIMITER
       obu->bu_type = BU_TYPE_AUD;
-      nalu_header_is_valid &= (obu_size == 0);
+      obu_header_is_valid &= (obu_size == 0);
       break;
     case 3:  // 3 OBU_FRAME_HEADER
       obu->bu_type = BU_TYPE_OTHER;
-      nalu_header_is_valid = false;  // Not yet supported
+      obu_header_is_valid = false;  // Not yet supported
       break;
     case 4:  // 4 OBU_TILE_GROUP
       obu->bu_type = BU_TYPE_OTHER;
-      nalu_header_is_valid = false;  // Not yet supported
+      obu_header_is_valid = false;  // Not yet supported
       break;
     case 5:  // 5 OBU_METADATA
       obu->bu_type = BU_TYPE_SEI;
@@ -577,31 +576,31 @@ parse_av1_obu_header(bu_info_t *obu)
       break;
     case 7:  // 7 OBU_REDUNDANT_FRAME_HEADER
       obu->bu_type = BU_TYPE_OTHER;
-      nalu_header_is_valid = false;  // Not yet supported
+      obu_header_is_valid = false;  // Not yet supported
       break;
     case 8:  // 8 OBU_TILE_LIST
       obu->bu_type = BU_TYPE_OTHER;
-      nalu_header_is_valid = false;  // Not yet supported
+      obu_header_is_valid = false;  // Not yet supported
       break;
     case 15:  // 15 OBU_PADDING
       obu->bu_type = BU_TYPE_OTHER;
-      nalu_header_is_valid = false;  // Not yet supported
+      obu_header_is_valid = false;  // Not yet supported
       break;
     default:
       // Reserved and invalid
       // 0, 9-14, 16-
       obu->bu_type = BU_TYPE_UNDEFINED;
-      nalu_header_is_valid = false;
+      obu_header_is_valid = false;
       break;
   }
 
   // If the forbidden_zero_bit is set this is not a correct OBU header.
-  nalu_header_is_valid &= !forbidden_zero_bit;
-  return nalu_header_is_valid;
+  obu_header_is_valid &= !forbidden_zero_bit;
+  return obu_header_is_valid;
 }
 
 /**
- * @brief Removes emulation prevention bytes from a Signed Video generated SEI NALU
+ * @brief Removes emulation prevention bytes from a Signed Video generated SEI
  *
  * If emulation prevention bytes are present, temporary memory is allocated to hold the new tlv
  * data. Once emulation prevention bytes have been removed the new tlv data can be decoded. */
@@ -633,7 +632,7 @@ remove_epb_from_sei_payload(bu_info_t *bu)
   assert(!bu->nalu_data_wo_epb);
   bu->nalu_data_wo_epb = malloc(data_size);
   if (!bu->nalu_data_wo_epb) {
-    DEBUG_LOG("Failed allocating |nalu_data_wo_epb|, marking NALU with error");
+    DEBUG_LOG("Failed allocating |nalu_data_wo_epb|");
     bu->is_valid = -1;
   } else {
     // Copy everything from the NALU header to stop bit (byte) inclusive, but with the emulation
@@ -656,12 +655,12 @@ remove_epb_from_sei_payload(bu_info_t *bu)
 /**
  * @brief Parses codec specific bitstream unit data
  *
- * Tries to parse out general information about the data nalu. Checks if the NALU is valid for
- * signing, i.e. I, P, or SEI nalu. Convenient information in the NALU struct such as NALU type,
- * payload size, UUID in case of SEI nalu.
+ * Tries to parse general information from the Bitstrem Unit (BU). Checks if the BU is
+ * valid for signing, i.e. I, P, or SEI. Convenient information in the BU struct such as
+ * BU type, payload size, UUID in case of SEI.
  *
- * Emulation prevention bytes may have been removed and if so, memory has been allocated. The user
- * is responsible for freeing |nalu_data_wo_epb|.
+ * Emulation prevention bytes may have been removed and if so, memory has been allocated.
+ * The user is responsible for freeing |nalu_data_wo_epb|.
  */
 bu_info_t
 parse_bu_info(const uint8_t *bu_data,
@@ -670,9 +669,9 @@ parse_bu_info(const uint8_t *bu_data,
     bool check_trailing_bytes,
     bool is_auth_side)
 {
-  uint32_t nalu_header_len = 0;
+  uint32_t bu_header_len = 0;
   bu_info_t bu = {0};
-  // Initialize NALU
+  // Initialize BU
   bu.bu_data = bu_data;
   bu.bu_data_size = bu_data_size;
   bu.is_valid = -1;
@@ -691,7 +690,7 @@ parse_bu_info(const uint8_t *bu_data,
   const uint32_t kStartCode = 0x00000001;
   uint32_t start_code = 0;
   size_t read_bytes = 0;
-  bool nalu_header_is_valid = false;
+  bool bu_header_is_valid = false;
 
   if (codec != SV_CODEC_AV1) {
     // There is no start code for AV1.
@@ -711,37 +710,37 @@ parse_bu_info(const uint8_t *bu_data,
   bu.start_code = start_code;
 
   if (codec == SV_CODEC_H264) {
-    nalu_header_is_valid = parse_h264_nalu_header(&bu);
-    nalu_header_len = H264_NALU_HEADER_LEN;
+    bu_header_is_valid = parse_h264_nalu_header(&bu);
+    bu_header_len = H264_NALU_HEADER_LEN;
   } else if (codec == SV_CODEC_H265) {
-    nalu_header_is_valid = parse_h265_nalu_header(&bu);
-    nalu_header_len = H265_NALU_HEADER_LEN;
+    bu_header_is_valid = parse_h265_nalu_header(&bu);
+    bu_header_len = H265_NALU_HEADER_LEN;
   } else {
-    nalu_header_is_valid = parse_av1_obu_header(&bu);
-    nalu_header_len = AV1_OBU_HEADER_LEN;
+    bu_header_is_valid = parse_av1_obu_header(&bu);
+    bu_header_len = AV1_OBU_HEADER_LEN;
   }
-  // If a correct NALU header could not be parsed, mark as invalid.
-  bu.is_valid = nalu_header_is_valid;
+  // If a correct BU header could not be parsed, mark as invalid.
+  bu.is_valid = bu_header_is_valid;
 
-  // Only picture NALUs are hashed.
+  // Only picture BUs are hashed.
   if (bu.bu_type == BU_TYPE_I || bu.bu_type == BU_TYPE_P) bu.is_hashable = true;
 
   bu.is_first_bu_in_gop = (bu.bu_type == BU_TYPE_I) && bu.is_primary_slice;
 
-  // It has been noticed that, at least, ffmpeg can add a trailing 0x00 byte at the end of a NALU
-  // when exporting to an mp4 container file. This has so far only been observed for H265. The
-  // reason for this is still unknown. Therefore we end the hashable part at the byte including the
-  // stop bit.
+  // It has been noticed that, at least, ffmpeg can add a trailing 0x00 byte at the end of
+  // a BU when exporting to an mp4 container file. This has so far only been observed for
+  // H.265. The reason for this is still unknown. Therefore we end the hashable part at
+  // the byte including the stop bit.
   while (check_trailing_bytes && (bu_data[bu_data_size - 1] == 0x00)) {
     DEBUG_LOG("Found trailing 0x00");
     bu_data_size--;
   }
   bu.hashable_data_size = bu_data_size - read_bytes;
 
-  // For SEI-nalus we parse payload and uuid information.
+  // For SEIs we parse payload and uuid information.
   if (bu.bu_type == BU_TYPE_SEI) {
-    // SEI NALU payload starts after the NALU header.
-    const uint8_t *payload = bu.hashable_data + nalu_header_len;
+    // SEI payload starts after the BU header.
+    const uint8_t *payload = bu.hashable_data + bu_header_len;
     uint8_t user_data_unregistered = 0;
     size_t payload_size = 0;
     bu.uuid_type = UUID_TYPE_UNDEFINED;
@@ -804,23 +803,23 @@ parse_bu_info(const uint8_t *bu_data,
 }
 
 /**
- * @brief Copy a H26X NALU struct
+ * @brief Copy a Bitstream Unit Information struct (bu_info_t)
  *
- * Copies all members, but the pointers from |src_nalu| to |dst_nalu|. All pointers and set to NULL.
+ * Copies all members, but the pointers from |src_bu| to |dst_bu|. All pointers and set to NULL.
  */
 void
-copy_bu_except_pointers(bu_info_t *dst_nalu, const bu_info_t *src_nalu)
+copy_bu_except_pointers(bu_info_t *dst_bu, const bu_info_t *src_bu)
 {
-  if (!dst_nalu || !src_nalu) return;
+  if (!dst_bu || !src_bu) return;
 
-  memcpy(dst_nalu, src_nalu, sizeof(bu_info_t));
-  // Set pointers to NULL, since memory is not transfered to next NALU.
-  dst_nalu->bu_data = NULL;
-  dst_nalu->hashable_data = NULL;
-  dst_nalu->payload = NULL;
-  dst_nalu->tlv_start_in_bu_data = NULL;
-  dst_nalu->tlv_data = NULL;
-  dst_nalu->nalu_data_wo_epb = NULL;
+  memcpy(dst_bu, src_bu, sizeof(bu_info_t));
+  // Set pointers to NULL, since memory is not transfered to next BU.
+  dst_bu->bu_data = NULL;
+  dst_bu->hashable_data = NULL;
+  dst_bu->payload = NULL;
+  dst_bu->tlv_start_in_bu_data = NULL;
+  dst_bu->tlv_data = NULL;
+  dst_bu->nalu_data_wo_epb = NULL;
 }
 
 /* Helper function to public APIs */
@@ -906,7 +905,7 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
   int *list_idx = &self->gop_info->list_idx;
 
   // If this is the start of the GOP, initialize |crypto_handle| to enable
-  // updating the hash with each received NALU.
+  // updating the hash with each received BU.
   if (*list_idx == 0) {
     openssl_init_hash(self->crypto_handle, true);
   }
@@ -915,7 +914,7 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
   if (*list_idx + hash_size > self->gop_info->hash_list_size) {
     *list_idx = -1;
   }
-  // Since the upcoming NALU fits in the buffer (as determined by prior checks),
+  // Since the upcoming BU fits in the buffer (as determined by prior checks),
   // a valid |hash_list| exists, and the |hash| can be copied to it.
   if (*list_idx >= 0) {
     memcpy(&hash_list[*list_idx], hash, hash_size);
@@ -957,18 +956,18 @@ get_hash_wrapper(signed_video_t *self, const bu_info_t *bu)
   assert(self && bu);
 
   if (!bu->is_last_bu_part) {
-    // If this is not the last part of a NALU, update the hash.
+    // If this is not the last part of a BU, update the hash.
     return update_hash;
   } else if (bu->is_sv_sei) {
     // A SEI, i.e., the document_hash, is hashed without reference, since that one may be verified
     // separately.
     return simply_hash;
   } else if (bu->is_first_bu_in_gop) {
-    // If the current NALU |is_first_bu_in_gop| and we do not already have a reference, we should
+    // If the current BU |is_first_bu_in_gop| and we do not already have a reference, we should
     // |simply_hash| and copy the hash to reference.
     return hash_and_copy_to_ref;
   } else {
-    // All other NALUs should be hashed together with the reference.
+    // All other BUs should be hashed together with the reference.
     return hash_with_reference;
   }
 }
@@ -977,7 +976,7 @@ get_hash_wrapper(signed_video_t *self, const bu_info_t *bu)
 
 /* update_hash()
  *
- * takes the |hashable_data| from the NALU, and updates the hash in |crypto_handle|. */
+ * takes the |hashable_data| from the Bitstream Unit, and updates the hash in |crypto_handle|. */
 static svrc_t
 update_hash(signed_video_t *self,
     const bu_info_t *bu,
@@ -993,22 +992,23 @@ update_hash(signed_video_t *self,
 
 /* simply_hash()
  *
- * takes the |hashable_data| from the NALU, hash it and store the hash in |nalu_hash|. */
+ * takes the |hashable_data| from the Bitstream Unit (BU), hash it and store the hash in
+ * |nalu_hash|. */
 static svrc_t
 simply_hash(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t hash_size)
 {
-  // It should not be possible to end up here unless the NALU data includes the last part.
+  // It should not be possible to end up here unless the BU data includes the last part.
   assert(bu && bu->is_last_bu_part && hash);
   const uint8_t *hashable_data = bu->hashable_data;
   size_t hashable_data_size = bu->hashable_data_size;
 
   if (bu->is_first_bu_part) {
-    // Entire NALU can be hashed in one part.
+    // Entire BU can be hashed in one part.
     return openssl_hash_data(self->crypto_handle, hashable_data, hashable_data_size, hash);
   } else {
     svrc_t status = update_hash(self, bu, hash, hash_size);
     if (status == SV_OK) {
-      // Finalize the ongoing hash of NALU parts.
+      // Finalize the ongoing hash of BU parts.
       status = openssl_finalize_hash(self->crypto_handle, hash, false);
     }
     return status;
@@ -1020,7 +1020,7 @@ simply_hash(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t has
  * extends simply_hash() by also copying the |hash| to the reference hash used to
  * hash_with_reference().
  *
- * This is needed for the first NALU of a GOP, which serves as a reference. */
+ * This is needed for the first Bitstream Unit of a GOP, which serves as a reference. */
 static svrc_t
 hash_and_copy_to_ref(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t hash_size)
 {
@@ -1043,13 +1043,13 @@ hash_and_copy_to_ref(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, s
 
 /* hash_with_reference()
  *
- * Hashes a NALU together with a reference hash. The |hash_buddies| memory is organized to have room
- * for two hashes:
+ * Hashes a Bitstream Unit (BU) together with a reference hash. The |hash_buddies| memory
+ * is organized to have room for two hashes:
  *   hash_buddies = [reference_hash, nalu_hash]
  * The output |buddy_hash| is then the hash of this memory
  *   buddy_hash = hash(hash_buddies)
  *
- * This hash wrapper should be used for all NALUs except the initial one (the reference).
+ * This hash wrapper should be used for all BUs except the initial one (the reference).
  */
 static svrc_t
 hash_with_reference(signed_video_t *self,
@@ -1061,13 +1061,13 @@ hash_with_reference(signed_video_t *self,
 
   gop_info_t *gop_info = self->gop_info;
   // Second hash in |hash_buddies| is the |nalu_hash|.
-  uint8_t *nalu_hash = &gop_info->hash_buddies[hash_size];
+  uint8_t *bu_hash = &gop_info->hash_buddies[hash_size];
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    // Hash NALU data and store as |nalu_hash|.
-    SV_THROW(simply_hash(self, bu, nalu_hash, hash_size));
-    // Hash reference hash together with the |nalu_hash| and store in |buddy_hash|.
+    // Hash BU data and store as |bu_hash|.
+    SV_THROW(simply_hash(self, bu, bu_hash, hash_size));
+    // Hash reference hash together with the |bu_hash| and store in |buddy_hash|.
     SV_THROW(
         openssl_hash_data(self->crypto_handle, gop_info->hash_buddies, hash_size * 2, buddy_hash));
   SV_CATCH()
@@ -1082,31 +1082,31 @@ hash_and_add(signed_video_t *self, const bu_info_t *bu)
   if (!self || !bu) return SV_INVALID_PARAMETER;
 
   if (!bu->is_hashable) {
-    DEBUG_LOG("This NALU (type %d) was not hashed", bu->bu_type);
+    DEBUG_LOG("This Bitstream Unit (type %d) was not hashed", bu->bu_type);
     return SV_OK;
   }
 
   gop_info_t *gop_info = self->gop_info;
-  uint8_t *nalu_hash = gop_info->nalu_hash;
-  assert(nalu_hash);
+  uint8_t *bu_hash = gop_info->nalu_hash;
+  assert(bu_hash);
   size_t hash_size = self->sign_data->hash_size;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     if (bu->is_first_bu_part && !bu->is_last_bu_part) {
-      // If this is the first part of a non-complete NALU/OBU, initialize the |crypto_handle| to
+      // If this is the first part of a non-complete BU, initialize the |crypto_handle| to
       // enable sequentially updating the hash with more parts.
       SV_THROW(openssl_init_hash(self->crypto_handle, false));
     }
-    // Select hash function, hash the NALU/OBU and store as 'latest hash'
+    // Select hash function, hash the BU and store as 'latest hash'
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, bu);
-    SV_THROW(hash_wrapper(self, bu, nalu_hash, hash_size));
+    SV_THROW(hash_wrapper(self, bu, bu_hash, hash_size));
 #ifdef SIGNED_VIDEO_DEBUG
-    sv_print_hex_data(nalu_hash, hash_size, "Hash of %s: ", bu_type_to_str(bu));
+    sv_print_hex_data(bu_hash, hash_size, "Hash of %s: ", bu_type_to_str(bu));
 #endif
     if (bu->is_last_bu_part) {
-      // The end of the NALU has been reached. Update hash list and GOP hash.
-      check_and_copy_hash_to_hash_list(self, nalu_hash, hash_size);
+      // The end of the BU has been reached. Update hash list and GOP hash.
+      check_and_copy_hash_to_hash_list(self, bu_hash, hash_size);
       update_num_bu_in_gop_hash(self, bu);
     }
   SV_CATCH()
@@ -1128,27 +1128,27 @@ hash_and_add_for_auth(signed_video_t *self, bu_list_item_t *item)
   if (!bu) return SV_INVALID_PARAMETER;
 
   if (!bu->is_hashable) {
-    DEBUG_LOG("This NALU (type %d) was not hashed.", bu->bu_type);
+    DEBUG_LOG("This Bitstream Unit (type %d) was not hashed.", bu->bu_type);
     return SV_OK;
   }
   if (!self->validation_flags.hash_algo_known) {
-    DEBUG_LOG("NALU will be hashed when hash algo is known.");
+    DEBUG_LOG("Bitstream Unit will be hashed when hash algo is known.");
     return SV_OK;
   }
 
-  uint8_t *nalu_hash = NULL;
-  nalu_hash = item->hash;
-  assert(nalu_hash);
+  uint8_t *bu_hash = NULL;
+  bu_hash = item->hash;
+  assert(bu_hash);
   size_t hash_size = self->verify_data->hash_size;
   item->hash_size = hash_size;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    // Select hash wrapper, hash the NALU and store as |nalu_hash|.
+    // Select hash wrapper, hash the BU and store as |bu_hash|.
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, bu);
-    SV_THROW(hash_wrapper(self, bu, nalu_hash, hash_size));
+    SV_THROW(hash_wrapper(self, bu, bu_hash, hash_size));
 #ifdef SIGNED_VIDEO_DEBUG
-    sv_print_hex_data(nalu_hash, hash_size, "Hash of %s: ", bu_type_to_str(bu));
+    sv_print_hex_data(bu_hash, hash_size, "Hash of %s: ", bu_type_to_str(bu));
 #endif
   SV_CATCH()
   SV_DONE(status)
@@ -1208,7 +1208,7 @@ signed_video_create(SignedVideoCodec codec)
 
     self->last_nalu = (bu_info_t *)calloc(1, sizeof(bu_info_t));
     SV_THROW_IF(!self->last_nalu, SV_MEMORY);
-    // Mark the last NALU as complete, hence, no ongoing hashing is present.
+    // Mark the last BU as complete, hence, no ongoing hashing is present.
     self->last_nalu->is_last_bu_part = true;
 
     self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
@@ -1333,40 +1333,40 @@ error:
 }
 
 bool
-signed_video_is_golden_sei(signed_video_t *self, const uint8_t *nalu, size_t nalu_size)
+signed_video_is_golden_sei(signed_video_t *self, const uint8_t *bu, size_t bu_size)
 {
-  if (!self || !nalu || (nalu_size == 0)) return false;
+  if (!self || !bu || (bu_size == 0)) return false;
 
-  bu_info_t parsed_nalu = parse_bu_info(nalu, nalu_size, self->codec, false, true);
-  free(parsed_nalu.nalu_data_wo_epb);
-  return parsed_nalu.is_golden_sei;
+  bu_info_t bu_info = parse_bu_info(bu, bu_size, self->codec, false, true);
+  free(bu_info.nalu_data_wo_epb);
+  return bu_info.is_golden_sei;
 };
 
 void
-signed_video_parse_sei(uint8_t *nalu, size_t nalu_size, SignedVideoCodec codec)
+signed_video_parse_sei(uint8_t *bu, size_t bu_size, SignedVideoCodec codec)
 {
-  if (!nalu || nalu_size == 0 || codec < SV_CODEC_H264 || codec >= SV_CODEC_NUM) {
+  if (!bu || bu_size == 0 || codec < SV_CODEC_H264 || codec >= SV_CODEC_NUM) {
     return;
   }
 
 #ifdef PRINT_DECODED_SEI
-  bu_info_t nalu_info = parse_bu_info(nalu, nalu_size, codec, true, true);
-  if (nalu_info.is_sv_sei) {
-    printf("\nSEI (%zu bytes):\n", nalu_size);
-    for (size_t i = 0; i < nalu_size; ++i) {
-      printf(" %02x", nalu[i]);
+  bu_info_t bu_info = parse_bu_info(bu, bu_size, codec, true, true);
+  if (bu_info.is_sv_sei) {
+    printf("\nSEI (%zu bytes):\n", bu_size);
+    for (size_t i = 0; i < bu_size; ++i) {
+      printf(" %02x", bu[i]);
     }
     printf("\n");
     printf("Reserved byte: ");
     for (int i = 7; i >= 0; i--) {
-      printf("%u", (nalu_info.reserved_byte & (1 << i)) ? 1 : 0);
+      printf("%u", (bu_info.reserved_byte & (1 << i)) ? 1 : 0);
     }
     printf("\n");
     signed_video_t *self = signed_video_create(codec);
-    tlv_decode(self, nalu_info.tlv_data, nalu_info.tlv_size);
+    tlv_decode(self, bu_info.tlv_data, bu_info.tlv_size);
     signed_video_free(self);
   }
 
-  free(nalu_info.nalu_data_wo_epb);
+  free(bu_info.nalu_data_wo_epb);
 #endif
 }

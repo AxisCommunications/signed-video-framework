@@ -218,7 +218,7 @@ encode_general(signed_video_t *self, uint8_t *data)
   gop_info_t *gop_info = self->gop_info;
   size_t data_size = 0;
   uint32_t gop_counter = gop_info->global_gop_counter + 1;
-  uint16_t num_nalus_in_gop_hash = gop_info->num_nalus_in_gop_hash;
+  uint16_t num_in_gop_hash = gop_info->num_nalus_in_gop_hash;
   const uint8_t version = 3;
   int64_t timestamp = self->gop_info->timestamp;
   uint8_t flags = 0;
@@ -226,7 +226,7 @@ encode_general(signed_video_t *self, uint8_t *data)
   // Value fields:
   //  - version (1 byte)
   //  - gop_counter (4 bytes)
-  //  - num_nalus_in_gop_hash (2 bytes)
+  //  - num_in_gop_hash (2 bytes)
   //  - signed video version (SV_VERSION_BYTES bytes)
   //  - flags (1 byte)
   //  - timestamp (8 bytes) requires version 2+
@@ -236,7 +236,7 @@ encode_general(signed_video_t *self, uint8_t *data)
   // Get size of data
   data_size += sizeof(version);
   data_size += sizeof(gop_counter);
-  data_size += sizeof(num_nalus_in_gop_hash);
+  data_size += sizeof(num_in_gop_hash);
   data_size += SV_VERSION_BYTES;
   data_size += sizeof(flags);
   if (gop_info->has_timestamp) {
@@ -262,9 +262,9 @@ encode_general(signed_video_t *self, uint8_t *data)
   write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter >> 16) & 0x000000ff), epb);
   write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter >> 8) & 0x000000ff), epb);
   write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter)&0x000000ff), epb);
-  // Write num_nalus_in_gop_hash; 2 bytes
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)((num_nalus_in_gop_hash >> 8) & 0x00ff), epb);
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)((num_nalus_in_gop_hash)&0x00ff), epb);
+  // Write num_in_gop_hash; 2 bytes
+  write_byte(last_two_bytes, &data_ptr, (uint8_t)((num_in_gop_hash >> 8) & 0x00ff), epb);
+  write_byte(last_two_bytes, &data_ptr, (uint8_t)((num_in_gop_hash)&0x00ff), epb);
 
   for (int i = 0; i < SV_VERSION_BYTES; i++) {
     write_byte(last_two_bytes, &data_ptr, (uint8_t)self->code_version[i], epb);
@@ -322,7 +322,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
     data_ptr += read_32bits(data_ptr, &gop_info->global_gop_counter);
     DEBUG_LOG("Found GOP counter = %u", gop_info->global_gop_counter);
     data_ptr += read_16bits(data_ptr, &gop_info->num_sent_nalus);
-    DEBUG_LOG("Number of sent NAL Units = %u", gop_info->num_sent_nalus);
+    DEBUG_LOG("Number of sent Bitstream Units = %u", gop_info->num_sent_nalus);
 
     for (int i = 0; i < SV_VERSION_BYTES; i++) {
       self->code_version[i] = *data_ptr++;
@@ -361,7 +361,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
     printf("\nGeneral Information Tag\n");
     printf("             tag version: %u\n", version);
     printf("                   GOP #: %u\n", gop_info->global_gop_counter);
-    printf("      # hashed NAL Units: %u\n", gop_info->num_sent_nalus);
+    printf("# hashed Bitstream Units: %u\n", gop_info->num_sent_nalus);
     printf("              SW version: %s\n", code_version_str);
     if (version >= 2) {
       if (gop_info->has_timestamp) {
@@ -656,7 +656,7 @@ encode_public_key(signed_video_t *self, uint8_t *data)
   // Value fields:
   //  - version (1 byte)
   //  - public_key (key_size bytes)
-  //  - num_nalus_in_gop_hash (2 bytes)
+  //  - num_in_gop_hash (2 bytes)
   //  - signed video version (SV_VERSION_BYTES bytes)
   //  - flags (1 byte)
   //  - timestamp (8 bytes) requires version 2+
