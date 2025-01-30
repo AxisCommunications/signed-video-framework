@@ -62,7 +62,7 @@ typedef struct {
  */
 typedef struct {
   EVP_MD_CTX *primary_ctx;  // Hashing context for computing the GOP hash.
-  EVP_MD_CTX *secondary_ctx;  // Hashing context for NALUs split in parts.
+  EVP_MD_CTX *secondary_ctx;  // Hashing context for Bitstream Units split in parts.
   message_digest_t hash_algo;
 } openssl_crypto_t;
 

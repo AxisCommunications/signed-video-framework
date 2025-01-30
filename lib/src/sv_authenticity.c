@@ -257,16 +257,16 @@ update_authenticity_report(signed_video_t *self)
   // Skip if validation is handled by the legacy code.
   if (self->legacy_sv) return;
 
-  char *nalu_str = bu_list_get_str(self->nalu_list, BU_STR);
+  char *bu_str = bu_list_get_str(self->nalu_list, BU_STR);
   char *validation_str = bu_list_get_str(self->nalu_list, VALIDATION_STR);
 
   // Transfer ownership of strings to |latest_validation| after freeing previous.
   free(self->latest_validation->nalu_str);
-  self->latest_validation->nalu_str = nalu_str;
-  DEBUG_LOG("NALU types 'oldest -> latest' = %s", nalu_str);
+  self->latest_validation->nalu_str = bu_str;
+  DEBUG_LOG("Bitstream Unit types = %s", bu_str);
   free(self->latest_validation->validation_str);
   self->latest_validation->validation_str = validation_str;
-  DEBUG_LOG("Validation statuses           = %s", validation_str);
+  DEBUG_LOG("Validation statuses  = %s", validation_str);
 
   // Check for version mismatch. If |version_on_signing_side| is newer than |this_version| the
   // authenticity result may not be reliable, hence change status.
@@ -275,14 +275,14 @@ update_authenticity_report(signed_video_t *self)
     self->authenticity->latest_validation.authenticity = SV_AUTH_RESULT_VERSION_MISMATCH;
   }
   // Remove validated items from the list.
-  const unsigned int number_of_validated_nalus = bu_list_clean_up(self->nalu_list);
+  const unsigned int number_of_validated_bu = bu_list_clean_up(self->nalu_list);
   // Update the |accumulated_validation| w.r.t. the |latest_validation|.
   update_accumulated_validation(self->latest_validation, self->accumulated_validation);
-  // Only update |number_of_validated_nalus| if the video is signed. Currently, unsigned videos are
-  // validated (as not OK) since SEIs are assumed to arrive within a GOP. From a statistics point of
-  // view, that is not strictly not correct.
+  // Only update |number_of_validated_bu| if the video is signed. Currently, unsigned
+  // videos are validated (as not OK) since SEIs are assumed to arrive within a GOP. From
+  // a statistics point of view, that is not strictly not correct.
   if (self->accumulated_validation->authenticity != SV_AUTH_RESULT_NOT_SIGNED) {
-    self->accumulated_validation->number_of_validated_nalus += number_of_validated_nalus;
+    self->accumulated_validation->number_of_validated_nalus += number_of_validated_bu;
   }
 }
 
@@ -316,12 +316,13 @@ signed_video_get_authenticity_report(signed_video_t *self)
     // Update |number_of_pending_nalus| since that may have changed since |latest_validation|.
     signed_video_accumulated_validation_t *accumulated = self->accumulated_validation;
     if (accumulated->authenticity == SV_AUTH_RESULT_NOT_SIGNED) {
-      // If the video is (so far) not signed, number of pending NALUs equals the number of added
-      // NALUs for validation.
+      // If the video is (so far) not signed, number of pending Bitstream Units equals the
+      // number of added Bitstream Units for validation.
       accumulated->number_of_pending_nalus = accumulated->number_of_received_nalus;
     } else {
-      // At this point, all validated NALUs up to the first pending NALU have been removed from the
-      // |nalu_list|, hence number of pending NALUs equals number of items in the |nalu_list|.
+      // At this point, all validated Bitstream Units up to the first pending Bitstream
+      // Unit have been removed from the |nalu_list|, hence number of pending Bitstream
+      // Units equals number of items in the |nalu_list|.
       accumulated->number_of_pending_nalus = self->legacy_sv
           ? legacy_get_nalu_list_items(self->legacy_sv)
           : self->nalu_list->num_items;

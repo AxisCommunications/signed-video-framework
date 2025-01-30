@@ -41,8 +41,8 @@ static void
 detect_lost_sei(signed_video_t *self);
 static bool
 verify_hashes_with_hash_list(signed_video_t *self,
-    int *num_expected_nalus,
-    int *num_received_nalus,
+    int *num_expected,
+    int *num_received,
     bool order_ok);
 static int
 set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
@@ -62,23 +62,24 @@ static bool
 validation_is_feasible(const bu_list_item_t *item);
 
 static void
-remove_used_in_gop_hash(bu_list_t *nalu_list);
+remove_used_in_gop_hash(bu_list_t *bu_list);
 
 #ifdef SIGNED_VIDEO_DEBUG
 static const char *kAuthResultValidStr[SV_AUTH_NUM_SIGNED_GOP_VALID_STATES] = {"SIGNATURE MISSING",
     "SIGNATURE PRESENT", "NOT OK", "OK WITH MISSING INFO", "OK", "VERSION MISMATCH"};
 #endif
 
-/* Before the first SEI/OBU Metadata arrives the hashing algorithm is unknown. While waiting, the
- * complete NALU/OBU data is stored. As a result, the memory increases dramatically in particular
- * if the stream is not signed. If no SEI/OBU Metadata has arrived after 20 GOPs, the default hash
- * is used. This limits the size to a minimum and the operations can proceed. */
+/* Before the first SEI/OBU Metadata arrives the hashing algorithm is unknown. While
+ * waiting, the complete Bitstream Unit data is stored. As a result, the memory increases
+ * dramatically in particular if the stream is not signed. If no SEI/OBU Metadata has
+ * arrived after 20 GOPs, the default hash is used. This limits the size to a minimum and
+ * the operations can proceed. */
 #define MAX_UNHASHED_GOPS 20
 
 /**
- * The function is called when we receive a SEI NALU holding all the GOP information such as a
- * signed hash. The payload is decoded and the signature hash is verified against the gop_hash in
- * |signed_video|.
+ * The function is called when we receive a SEI holding all the GOP information such as a
+ * signed hash. The payload is decoded and the signature hash is verified against the
+ * gop_hash in |signed_video|.
  */
 static svrc_t
 decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_size)
@@ -153,9 +154,9 @@ verify_gop_hash(signed_video_t *self)
 }
 
 /*
- * Iterates through the NALU list to find the first NALU used in the GOP hash.
- * If the linked hash has not yet been updated with this NALU's hash, it updates the
- * linked hash with the first NALU hash and marks it as used.
+ * Iterates through the Bitstream Unit (BU) list to find the first BU used in the GOP
+ * hash. If the linked hash has not yet been updated with this BU's hash, it updates the
+ * linked hash with the first BU hash and marks it as used.
  */
 static void
 update_link_hash_for_auth(signed_video_t *self)
@@ -175,7 +176,7 @@ update_link_hash_for_auth(signed_video_t *self)
 }
 
 /* Resets the buffer of linked hashes and removes |used_for_linked_hash| flag from the
- * items int the |nalu_list|. */
+ * items in the |nalu_list|. */
 static void
 reset_linked_hash(signed_video_t *self)
 {
@@ -187,11 +188,11 @@ reset_linked_hash(signed_video_t *self)
   memset(self->gop_info->linked_hashes, 0, 2 * MAX_HASH_SIZE);
 }
 
-/* Marks the NALUs that are used in GOP hash and computes the GOP hash.
+/* Marks the Bitstream Units (BU) that are used in GOP hash and computes the GOP hash.
  *
- * This function iterates through the NALU list, identifies the NALUs that belong to the current
- * GOP, and marks them as used in the GOP hash. It initializes the GOP hash and updates it with
- * each incoming NALU that belongs to the GOP.
+ * This function iterates through the BU list, identifies the BUs that belong to the
+ * current GOP, and marks them as used in the GOP hash. It initializes the GOP hash and
+ * updates it with each incoming BU that belongs to the GOP.
  */
 static svrc_t
 prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t *sei)
@@ -200,23 +201,23 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
   assert(self);
 
   // Initialize pointers and variables
-  bu_list_t *nalu_list = self->nalu_list;
+  bu_list_t *bu_list = self->nalu_list;
   const size_t hash_size = self->verify_data->hash_size;
   bu_list_item_t *item = NULL;
-  int num_nalus_in_gop = 0;
-  assert(nalu_list);
+  int num_in_gop = 0;
+  assert(bu_list);
 
-  bu_list_print(nalu_list);
+  bu_list_print(bu_list);
 
-  // Start with the first item in the NALU list.
-  item = nalu_list->first_item;
+  // Start with the first item in the BU list.
+  item = bu_list->first_item;
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // At the start of the GOP, initialize the |crypto_handle| to enable
-    // sequentially updating the hash with more NALUs.
+    // sequentially updating the hash with more BUs.
     SV_THROW(openssl_init_hash(self->crypto_handle, true));
     int num_i_frames = 0;
-    // Iterate through the NALU list until the end of the current GOP or SEI item is found.
+    // Iterate through the BU list until the end of the current GOP or SEI item is found.
     while (item) {
       // Skip non-pending items
       if (item->tmp_validation_status != 'P') {
@@ -229,7 +230,7 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
       if (num_i_frames > 1) break;  // Break if encountered second I frame.
       // Break at I-frame if NAL Units have been added to GOP hash, since a GOP hash cannot span
       // across multiple GOPs.
-      if (item->bu->is_first_bu_in_gop && (num_nalus_in_gop > 0)) {
+      if (item->bu->is_first_bu_in_gop && (num_in_gop > 0)) {
         break;
       }
 
@@ -237,10 +238,10 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
       if (item == sei) {
         break;  // Break if encountered SEI frame.
       }
-      // Since the GOP hash is initialized, it can be updated with each incoming NALU hash.
+      // Since the GOP hash is initialized, it can be updated with each incoming BU hash.
       SV_THROW(openssl_update_hash(self->crypto_handle, item->hash, hash_size, true));
       item->used_in_gop_hash = true;  // Mark the item as used in the GOP hash
-      num_nalus_in_gop++;
+      num_in_gop++;
 
       item = item->next;
     }
@@ -253,7 +254,7 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
   SV_CATCH()
   {
     // Failed computing the gop_hash. Remove all used_in_gop_hash markers.
-    remove_used_in_gop_hash(nalu_list);
+    remove_used_in_gop_hash(bu_list);
   }
   SV_DONE(status)
 
@@ -262,21 +263,22 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
 
 /* Verifies the hashes of the oldest pending GOP from a hash list.
  *
- * If the |document_hash| in the SEI is verified successfully with the signature and the Public key,
- * the hash list is valid. By looping through the NALUs in the |nalu_list| we compare individual
- * hashes with the ones in the hash list. Items are marked as OK ('.') if we can find its twin in
- * correct order. Otherwise, they become NOT OK ('N').
+ * If the |document_hash| in the SEI is verified successfully with the signature and the
+ * Public key, the hash list is valid. By looping through the Bitstream Units (BU) in the
+ * |nalu_list| we compare individual hashes with the ones in the hash list. Items are
+ * marked as OK ('.') if we can find its twin in correct order. Otherwise, they become
+ * NOT OK ('N').
  *
- * If we detect missing/lost NALUs, empty items marked 'M' are added.
+ * If we detect missing/lost BUs, empty items marked 'M' are added.
  *
- * While verifying hashes the number of expected and received NALUs are computed. These can be
- * output.
+ * While verifying hashes the number of expected and received BUs are computed. These can
+ * be output.
  *
  * Returns false if we failed verifying hashes. Otherwise, returns true. */
 static bool
 verify_hashes_with_hash_list(signed_video_t *self,
-    int *num_expected_nalus,
-    int *num_received_nalus,
+    int *num_expected,
+    int *num_received,
     bool order_ok)
 {
   assert(self);
@@ -287,22 +289,22 @@ verify_hashes_with_hash_list(signed_video_t *self,
   uint8_t *expected_hashes = self->gop_info->hash_list;
   const int num_expected_hashes = (const int)(self->gop_info->list_idx / hash_size);
 
-  bu_list_t *nalu_list = self->nalu_list;
+  bu_list_t *bu_list = self->nalu_list;
   bu_list_item_t *last_used_item = NULL;
 
-  if (!expected_hashes || !nalu_list) return false;
+  if (!expected_hashes || !bu_list) return false;
 
-  bu_list_print(nalu_list);
+  bu_list_print(bu_list);
 
   // Get the SEI associated with the oldest pending GOP.
-  bu_list_item_t *sei = bu_list_get_next_sei_item(nalu_list);
+  bu_list_item_t *sei = bu_list_get_next_sei_item(bu_list);
   // TODO: Investigate if we can end up without finding a SEI. If so, should we fail the validation
   // or call verify_hashes_without_sei()?
   if (!sei) return false;
 
   // First of all we need to know if the SEI itself is authentic, that is, the SEI |document_hash|
   // has successfully been verified (= 1). If the document could not be verified sucessfully, that
-  // is, the SEI NALU is invalid, all NALUs become invalid. Hence, verify_hashes_without_sei().
+  // is, the SEI is invalid, all BUs become invalid. Hence, verify_hashes_without_sei().
   switch (self->gop_info->verified_signature_hash) {
     case -1:
       sei->tmp_validation_status = 'E';
@@ -319,11 +321,11 @@ verify_hashes_with_hash_list(signed_video_t *self,
       return false;
   }
 
-  // The next step is to verify the hashes of the NALUs in the |nalu_list| until we hit a transition
+  // The next step is to verify the hashes of the BUs in the |bu_list| until we hit a transition
   // to the next GOP, but no further than to the item after the |sei|.
 
   // Statistics tracked while verifying hashes.
-  int num_invalid_nalus_since_latest_match = 0;
+  int num_invalid_since_latest_match = 0;
   int num_verified_hashes = 0;
   // Initialization
   int latest_match_idx = -1;  // The latest matching hash in |hash_list|
@@ -331,17 +333,17 @@ verify_hashes_with_hash_list(signed_video_t *self,
                         // against the |item->hash|
   bool found_next_gop = false;
   bool found_item_after_sei = false;
-  bu_list_item_t *item = nalu_list->first_item;
+  bu_list_item_t *item = bu_list->first_item;
   // This while-loop selects items from the oldest pending GOP. Each item hash is then verified
   // against the feasible hashes in the received |hash_list|.
   while (item && !(found_next_gop || found_item_after_sei)) {
     // If this item is not Pending or not part of the GOP hash, move to the next one.
     if (item->tmp_validation_status != 'P' || !item->used_in_gop_hash) {
-      DEBUG_LOG("Skipping non-pending NALU");
+      DEBUG_LOG("Skipping non-pending Bitstream Unit");
       item = item->next;
       continue;
     }
-    // Only a missing item has a null pointer NALU, but they are skipped.
+    // Only a missing item has a null pointer BU, but they are skipped.
     assert(item->bu);
     // Check if this is the item right after the |sei|.
     found_item_after_sei = (item->prev == sei);
@@ -362,19 +364,20 @@ verify_hashes_with_hash_list(signed_video_t *self,
       uint8_t *expected_hash = &expected_hashes[compare_idx * hash_size];
 
       if (memcmp(item->hash, expected_hash, hash_size) == 0) {
-        // We have a match. Set tmp_validation_status and add missing nalus if we have detected any.
+        // There is a match. Set tmp_validation_status and add missing bitstream units if
+        // it has been detected.
         item->tmp_validation_status = order_ok ? '.' : 'N';
-        // Add missing items to |nalu_list|.
-        int num_detected_missing_nalus =
-            (compare_idx - latest_match_idx) - 1 - num_invalid_nalus_since_latest_match;
+        // Add missing items to |bu_list|.
+        int num_detected_missing =
+            (compare_idx - latest_match_idx) - 1 - num_invalid_since_latest_match;
         // No need to check the return value. A failure only affects the statistics. In the worst
         // case we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
-        bu_list_add_missing(nalu_list, num_detected_missing_nalus, false, item);
+        bu_list_add_missing(bu_list, num_detected_missing, false, item);
         // Reset counters and latest_match_idx.
         latest_match_idx = compare_idx;
-        num_invalid_nalus_since_latest_match = 0;
-        // If the order is not correct, the validation status of the first NALU in the GOP should be
-        // 'N'. If that is the case, set |order_ok| to true for the next NALUs, so they are not
+        num_invalid_since_latest_match = 0;
+        // If the order is not correct, the validation status of the first BU in the GOP should be
+        // 'N'. If that is the case, set |order_ok| to true for the next BUs, so they are not
         // affected by this issue.
         if (!order_ok) {
           order_ok = true;
@@ -391,44 +394,44 @@ verify_hashes_with_hash_list(signed_video_t *self,
 
       item->tmp_validation_status = 'N';
       // Update counters.
-      num_invalid_nalus_since_latest_match++;
+      num_invalid_since_latest_match++;
     }
     item = item->next;
   }  // Done looping through pending GOP.
 
-  // Check if we had no matches at all. See if we should fill in with missing NALUs. This is of less
+  // Check if we had no matches at all. See if we should fill in with missing BUs. This is of less
   // importance since the GOP is not authentic, but if we can we should provide proper statistics.
   if (latest_match_idx == -1) {
     DEBUG_LOG("Never found a matching hash at all");
-    int num_missing_nalus = num_expected_hashes - num_invalid_nalus_since_latest_match;
+    int num_missing = num_expected_hashes - num_invalid_since_latest_match;
     // No need to check the return value. A failure only affects the statistics. In the worst case
     // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
     // TODO: Investigate whether adding missing items to the start of the list could cause problems
     // during the validation of multiple GOPs in one go.
-    bu_list_add_missing(nalu_list, num_missing_nalus, true, nalu_list->first_item);
+    bu_list_add_missing(bu_list, num_missing, true, bu_list->first_item);
   }
 
-  // If the last invalid NALU is the first NALU in a GOP or the NALU after the SEI, keep it
-  // pending. If the last NALU is valid and there are more expected hashes we either never
-  // verified any hashes or we have missing NALUs.
+  // If the last invalid BU is the first BU in a GOP or the BU after the SEI, keep it
+  // pending. If the last BU is valid and there are more expected hashes we either never
+  // verified any hashes or we have missing BUs.
   if (latest_match_idx != compare_idx) {
     // Last verified hash is invalid.
   } else {
     // Last received hash is valid. Check if there are unused hashes in |hash_list|. Note that the
     // index of the hashes span from 0 to |num_expected_hashes| - 1, so if |latest_match_idx| =
-    // |num_expected_hashes| - 1, there are no pending nalus.
+    // |num_expected_hashes| - 1, there are no pending bitstream units.
     int num_unused_expected_hashes = num_expected_hashes - 1 - latest_match_idx;
     // No need to check the return value. A failure only affects the statistics. In the worst case
     // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
-    bu_list_add_missing(nalu_list, num_unused_expected_hashes, true, last_used_item);
+    bu_list_add_missing(bu_list, num_unused_expected_hashes, true, last_used_item);
   }
 
   // Done with the SEI. Mark as valid, because if we failed verifying the |document_hash| we would
   // not be here.
   sei->tmp_validation_status = '.';
 
-  if (num_expected_nalus) *num_expected_nalus = num_expected_hashes;
-  if (num_received_nalus) *num_received_nalus = num_verified_hashes;
+  if (num_expected) *num_expected = num_expected_hashes;
+  if (num_received) *num_received = num_verified_hashes;
 
   return true;
 }
@@ -444,12 +447,12 @@ set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
 {
   if (!self || !sei) return -1;
 
-  bu_list_t *nalu_list = self->nalu_list;
+  bu_list_t *bu_list = self->nalu_list;
   int num_marked_items = 0;
 
-  // Loop through the |nalu_list| and set the |tmp_validation_status| if the item is
+  // Loop through the |bu_list| and set the |tmp_validation_status| if the item is
   // |used_in_gop_hash|
-  bu_list_item_t *item = nalu_list->first_item;
+  bu_list_item_t *item = bu_list->first_item;
   while (item) {
     if (item->used_in_gop_hash && item->tmp_validation_status == 'P') {
       if (!item->bu->is_sv_sei) {
@@ -472,7 +475,7 @@ set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
 /**
  * Verifies the integrity of the GOP hash in the video, ensuring that the data
  * within the GOP is authentic and complete. Updates the expected and received
- * NALU counts, and returns true if the verification is successful.
+ * Bitstream Unit (BU) counts, and returns true if the verification is successful.
  *
  * The function performs the following steps:
  * 1. Determines the validation status based on the verified signature hash. If this signature
@@ -489,7 +492,7 @@ set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
  *    statistics are updated to reflect the total number of expected and received NAL Units.
  */
 static bool
-verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_received_nalus)
+verify_hashes_with_sei(signed_video_t *self, int *num_expected, int *num_received)
 {
   assert(self);
 
@@ -511,7 +514,7 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
     // If the signature is verified but GOP hash or the linked hash is not, continue validation with
     // the hash list if it is present.
     if (validation_status != '.' && self->gop_info->list_idx > 0) {
-      return verify_hashes_with_hash_list(self, num_expected_nalus, num_received_nalus, order_ok);
+      return verify_hashes_with_hash_list(self, num_expected, num_received, order_ok);
     }
   } else if (self->gop_info->verified_signature_hash == 0) {
     validation_status = 'N';
@@ -520,12 +523,12 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
     // An error occurred when verifying the GOP hash. Verify without a SEI.
     validation_status = 'E';
     sei->tmp_validation_status = validation_status;
-    // Remove |used_in_gop_hash| from marked NALUs.
+    // Remove |used_in_gop_hash| from marked BUs.
     remove_used_in_gop_hash(self->nalu_list);
     return verify_hashes_without_sei(self);
   }
 
-  // Identify the first NALU used in the GOP hash. This will be used to add missing NALUs.
+  // Identify the first BU used in the GOP hash. This will be used to add missing BUs.
   bu_list_item_t *first_gop_hash_item = self->nalu_list->first_item;
   while (first_gop_hash_item && !first_gop_hash_item->used_in_gop_hash) {
     first_gop_hash_item = first_gop_hash_item->next;
@@ -534,40 +537,40 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected_nalus, int *num_r
       set_validation_status_of_pending_items_used_in_gop_hash(self, validation_status, sei);
 
   if (!self->validation_flags.is_first_validation && first_gop_hash_item) {
-    int num_missing_nalus = num_expected_hashes - num_received_hashes;
+    int num_missing = num_expected_hashes - num_received_hashes;
     const bool append = first_gop_hash_item->bu->is_first_bu_in_gop;
     // No need to check the return value. A failure only affects the statistics. In the worst case
     // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
-    bu_list_add_missing(self->nalu_list, num_missing_nalus, append, first_gop_hash_item);
+    bu_list_add_missing(self->nalu_list, num_missing, append, first_gop_hash_item);
   }
 
-  if (num_expected_nalus) *num_expected_nalus = num_expected_hashes;
-  if (num_received_nalus) *num_received_nalus = num_received_hashes;
+  if (num_expected) *num_expected = num_expected_hashes;
+  if (num_received) *num_received = num_received_hashes;
 
   return true;
 }
 
 /* Verifying hashes without the SEI means that we have nothing to verify against. Therefore, we mark
- * all NALUs of the oldest pending GOP with |tmp_validation_status| = 'N'. This function is used
- * both for unsigned videos as well as when the SEI has been modified or lost.
+ * all Bitstream Units (BU) of the oldest pending GOP with |tmp_validation_status| = 'N'. This
+ * function is used both for unsigned videos as well as when the SEI has been modified or lost.
  *
  * Returns false if we failed verifying hashes, which happens if there is no list or if there are no
- * pending NALUs. Otherwise, returns true. */
+ * pending BUs. Otherwise, returns true. */
 static bool
 verify_hashes_without_sei(signed_video_t *self)
 {
   assert(self);
 
-  bu_list_t *nalu_list = self->nalu_list;
+  bu_list_t *bu_list = self->nalu_list;
 
-  if (!nalu_list) return false;
+  if (!bu_list) return false;
 
-  bu_list_print(nalu_list);
+  bu_list_print(bu_list);
 
   // Start from the oldest item and mark all pending items as NOT OK ('N') until we detect a new
   // GOP.
   int num_marked_items = 0;
-  bu_list_item_t *item = nalu_list->first_item;
+  bu_list_item_t *item = bu_list->first_item;
   bool found_next_gop = false;
   while (item && !found_next_gop) {
     // Skip non-pending items.
@@ -575,7 +578,7 @@ verify_hashes_without_sei(signed_video_t *self)
       item = item->next;
       continue;
     }
-    // Stop verifying when SEI NALU is encountered. There can't be another NALU after SEI in the
+    // Stop verifying when SEI is encountered. There can't be another BU after SEI in the
     // GOP.
     if (item->bu->is_sv_sei) {
       break;
@@ -610,8 +613,8 @@ verify_hashes_without_sei(signed_video_t *self)
  * 3) verify_hashes_from_hash_list(): We have access to all transmitted hashes and can verify each
  *    and one of them against the received ones, and further, mark them correspondingly.
  *
- * If we during verification detect missing NALUs, we add empty items (marked 'M') to the
- * |nalu_list|.
+ * If we during verification detect missing Bitstream Units (BU), we add empty items (marked 'M') to
+ * the |nalu_list|.
  *
  * - After verification, hence the |tmp_validation_status| of each item in the list has been
  * updated, statistics are collected from the list, using bu_list_get_stats().
@@ -628,10 +631,10 @@ validate_authenticity(signed_video_t *self)
 
   SignedVideoAuthenticityResult valid = SV_AUTH_RESULT_NOT_OK;
   // Initialize to "Unknown"
-  int num_expected_nalus = -1;
-  int num_received_nalus = -1;
-  int num_invalid_nalus = -1;
-  int num_missed_nalus = -1;
+  int num_expected = -1;
+  int num_received = -1;
+  int num_invalid = -1;
+  int num_missed = -1;
   bool verify_success = false;
 
   if (validation_flags->has_lost_sei) {
@@ -640,19 +643,19 @@ validate_authenticity(signed_video_t *self)
     // verify this GOP. Marking this GOP as not OK by verify_hashes_without_sei().
     verify_success = verify_hashes_without_sei(self);
   } else {
-    verify_success = verify_hashes_with_sei(self, &num_expected_nalus, &num_received_nalus);
+    verify_success = verify_hashes_with_sei(self, &num_expected, &num_received);
     // Set |latest_validated_gop| to recived gop counter for the next validation.
     self->gop_info->latest_validated_gop = self->gop_info->global_gop_counter;
   }
 
   // Collect statistics from the nalu_list. This is used to validate the GOP and provide additional
   // information to the user.
-  bool has_valid_nalus = bu_list_get_stats(self->nalu_list, &num_invalid_nalus, &num_missed_nalus);
-  DEBUG_LOG("Number of invalid NALUs = %d.", num_invalid_nalus);
-  DEBUG_LOG("Number of missed NALUs = %d.", num_missed_nalus);
+  bool has_valid_bu = bu_list_get_stats(self->nalu_list, &num_invalid, &num_missed);
+  DEBUG_LOG("Number of invalid Bitstream Units = %d.", num_invalid);
+  DEBUG_LOG("Number of missed Bitstream Units  = %d.", num_missed);
   remove_used_in_gop_hash(self->nalu_list);
 
-  valid = (num_invalid_nalus > 0) ? SV_AUTH_RESULT_NOT_OK : SV_AUTH_RESULT_OK;
+  valid = (num_invalid > 0) ? SV_AUTH_RESULT_NOT_OK : SV_AUTH_RESULT_OK;
 
   // Post-validation actions.
 
@@ -661,17 +664,16 @@ validate_authenticity(signed_video_t *self)
   // TODO: Move this inside the verify_hashes_ functions. We should not need to perform any special
   // actions on the output.
   if (!validation_flags->is_first_validation) {
-    if ((valid == SV_AUTH_RESULT_OK) && (num_expected_nalus > 1) &&
-        (num_missed_nalus >= num_expected_nalus)) {
+    if ((valid == SV_AUTH_RESULT_OK) && (num_expected > 1) && (num_missed >= num_expected)) {
       valid = SV_AUTH_RESULT_NOT_OK;
     }
     self->gop_info->global_gop_counter_is_synced = true;
   }
   // Determine if this GOP is valid, but has missing information. This happens if we have detected
-  // missed NALUs or if the GOP is incomplete.
-  if (valid == SV_AUTH_RESULT_OK && (num_missed_nalus > 0 && verify_success)) {
+  // missed BUs or if the GOP is incomplete.
+  if (valid == SV_AUTH_RESULT_OK && (num_missed > 0 && verify_success)) {
     valid = SV_AUTH_RESULT_OK_WITH_MISSING_INFO;
-    DEBUG_LOG("Successful validation, but detected missing NALUs");
+    DEBUG_LOG("Successful validation, but detected missing Bitstream Units");
   }
   // The very first validation needs to be handled separately. If this is truly the start of a
   // stream we have all necessary information to successfully validate the authenticity. It can be
@@ -679,15 +681,15 @@ validate_authenticity(signed_video_t *self)
   // authenticity of a segment of a stream, e.g., an exported file, we start out of sync. The first
   // SEI may be associated with a GOP prior to this segment.
   if (validation_flags->is_first_validation) {
-    // Change status from SV_AUTH_RESULT_OK to SV_AUTH_RESULT_SIGNATURE_PRESENT if no valid NALUs
+    // Change status from SV_AUTH_RESULT_OK to SV_AUTH_RESULT_SIGNATURE_PRESENT if no valid BUs
     // were found when collecting stats.
-    if ((valid == SV_AUTH_RESULT_OK) && !has_valid_nalus) {
+    if ((valid == SV_AUTH_RESULT_OK) && !has_valid_bu) {
       valid = SV_AUTH_RESULT_SIGNATURE_PRESENT;
     }
     // If validation was successful, the |global_gop_counter| is in sync.
     self->gop_info->global_gop_counter_is_synced = (valid == SV_AUTH_RESULT_OK);
     if (valid != SV_AUTH_RESULT_OK) {
-      // We have validated the authenticity based on one single NALU, but failed. A success can only
+      // We have validated the authenticity based on one single BU, but failed. A success can only
       // happen if we are at the beginning of the original stream. For all other cases, for example,
       // if we validate the authenticity of an exported file, the first SEI may be associated with a
       // part of the original stream not present in the file. Hence, mark as
@@ -698,11 +700,11 @@ validate_authenticity(signed_video_t *self)
       // bu_list_remove_missing_items().
       bu_list_remove_missing_items(self->nalu_list);
       valid = SV_AUTH_RESULT_SIGNATURE_PRESENT;
-      num_expected_nalus = -1;
-      num_received_nalus = -1;
+      num_expected = -1;
+      num_received = -1;
       // If no valid NAL Units were found, reset validation to be able to make more attepts to
       // synchronize the SEIs.
-      self->validation_flags.reset_first_validation = !has_valid_nalus;
+      self->validation_flags.reset_first_validation = !has_valid_bu;
     }
   }
   if (latest->public_key_has_changed) valid = SV_AUTH_RESULT_NOT_OK;
@@ -718,21 +720,21 @@ validate_authenticity(signed_video_t *self)
     // validation.
     latest->authenticity = valid;
   }
-  latest->number_of_received_picture_nalus += num_received_nalus;
+  latest->number_of_received_picture_nalus += num_received;
   if (self->validation_flags.has_lost_sei) {
     latest->number_of_expected_picture_nalus = -1;
   } else if (latest->number_of_expected_picture_nalus != -1) {
-    latest->number_of_expected_picture_nalus += num_expected_nalus;
+    latest->number_of_expected_picture_nalus += num_expected;
   }
 }
 
 /* Removes the |used_in_gop_hash| flag from all items. */
 static void
-remove_used_in_gop_hash(bu_list_t *nalu_list)
+remove_used_in_gop_hash(bu_list_t *bu_list)
 {
-  if (!nalu_list) return;
+  if (!bu_list) return;
 
-  bu_list_item_t *item = nalu_list->first_item;
+  bu_list_item_t *item = bu_list->first_item;
   while (item) {
     item->used_in_gop_hash = false;
     item = item->next;
@@ -783,7 +785,7 @@ prepare_golden_sei(signed_video_t *self, bu_list_item_t *sei)
   sign_or_verify_data_t *verify_data = self->verify_data;
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    // Extract the TLV data and size from the NALU.
+    // Extract the TLV data and size from the BU.
     const uint8_t *tlv_data = sei->bu->tlv_data;
     size_t tlv_size = sei->bu->tlv_size;
 
@@ -816,13 +818,13 @@ prepare_for_validation(signed_video_t *self)
   assert(self);
 
   validation_flags_t *validation_flags = &(self->validation_flags);
-  bu_list_t *nalu_list = self->nalu_list;
+  bu_list_t *bu_list = self->nalu_list;
   sign_or_verify_data_t *verify_data = self->verify_data;
   const size_t hash_size = verify_data->hash_size;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    bu_list_item_t *sei = bu_list_get_next_sei_item(nalu_list);
+    bu_list_item_t *sei = bu_list_get_next_sei_item(bu_list);
     if (sei) {
       sei->in_validation = true;
       if (!sei->has_been_decoded) {
@@ -885,12 +887,12 @@ prepare_for_validation(signed_video_t *self)
 static bool
 is_recurrent_data_decoded(signed_video_t *self)
 {
-  bu_list_t *nalu_list = self->nalu_list;
+  bu_list_t *bu_list = self->nalu_list;
 
   if (self->has_public_key || !self->validation_flags.signing_present) return true;
 
   bool recurrent_data_decoded = false;
-  bu_list_item_t *item = nalu_list->first_item;
+  bu_list_item_t *item = bu_list->first_item;
 
   while (item && !recurrent_data_decoded) {
     if (item->bu && item->bu->is_sv_sei && item->tmp_validation_status == 'P') {
@@ -910,16 +912,16 @@ has_pending_gop(signed_video_t *self)
 {
   assert(self && self->nalu_list);
   bu_list_item_t *item = self->nalu_list->first_item;
-  // Statistics collected while looping through the NALUs.
+  // Statistics collected while looping through the BUs.
   int num_pending_gop_ends = 0;
   bool found_pending_gop_sei = false;
   bool found_pending_gop = false;
 
-  // Reset the GOP-related |has_lost_sei| member before running through the NALUs in |nalu_list|.
+  // Reset the GOP-related |has_lost_sei| member before running through the BUs in |nalu_list|.
   self->validation_flags.has_lost_sei = false;
 
   while (item && !found_pending_gop) {
-    // Collect statistics from pending and hashable NALUs only. The others are either out of date or
+    // Collect statistics from pending and hashable BUs only. The others are either out of date or
     // not part of the validation.
     if (item->tmp_validation_status == 'P' && item->bu && item->bu->is_hashable) {
       num_pending_gop_ends += item->bu->is_first_bu_in_gop;
@@ -939,12 +941,12 @@ has_pending_gop(signed_video_t *self)
 }
 
 /* Determines if the |item| is up for a validation.
- * The NALU should be hashable and pending validation.
+ * The Bitstream Unit (BU) should be hashable and pending validation.
  * If so, validation is triggered on any of the below
  *   - a SEI (since if the SEI arrives late, the SEI is the final piece for validation)
  *   - a new I-frame (since this marks the end of a GOP)
- *   - the first hashable NALU right after a pending SEI (if a SEI has not been validated, we need
- *     at most one more hashable NALU) */
+ *   - the first hashable BU right after a pending SEI (if a SEI has not been validated, we need
+ *     at most one more hashable BU) */
 static bool
 validation_is_feasible(const bu_list_item_t *item)
 {
@@ -970,14 +972,14 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
 
   validation_flags_t *validation_flags = &(self->validation_flags);
   signed_video_latest_validation_t *latest = self->latest_validation;
-  bu_list_t *nalu_list = self->nalu_list;
+  bu_list_t *bu_list = self->nalu_list;
   bool validation_feasible = true;
 
   // Skip validation if it is done with the legacy code.
   if (self->legacy_sv) return SV_OK;
 
-  // Make sure the current NALU can trigger a validation.
-  validation_feasible &= validation_is_feasible(nalu_list->last_item);
+  // Make sure the current BU can trigger a validation.
+  validation_feasible &= validation_is_feasible(bu_list->last_item);
   // Make sure there is enough information to perform validation.
   validation_feasible &= is_recurrent_data_decoded(self);
 
@@ -992,19 +994,19 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
         switch (self->gop_info->verified_signature_hash) {
           case 1:
             // Signature verified successfully.
-            nalu_list->last_item->tmp_validation_status = '.';
+            bu_list->last_item->tmp_validation_status = '.';
             latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
             break;
           case 0:
             // Signature verification failed.
-            nalu_list->last_item->tmp_validation_status = 'N';
+            bu_list->last_item->tmp_validation_status = 'N';
             latest->authenticity = SV_AUTH_RESULT_NOT_OK;
             self->has_public_key = false;
             break;
           case -1:
           default:
             // Error occurred during verification; handle as an error.
-            nalu_list->last_item->tmp_validation_status = 'E';
+            bu_list->last_item->tmp_validation_status = 'E';
             latest->authenticity = SV_AUTH_RESULT_NOT_OK;
             self->has_public_key = false;
         }
@@ -1014,8 +1016,8 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
       }
       latest->number_of_expected_picture_nalus = -1;
       latest->number_of_received_picture_nalus = -1;
-      latest->number_of_pending_picture_nalus = bu_list_num_pending_items(nalu_list);
-      status = bu_list_update_status(nalu_list, true);
+      latest->number_of_pending_picture_nalus = bu_list_num_pending_items(bu_list);
+      status = bu_list_update_status(bu_list, true);
       self->validation_flags.has_auth_result = true;
     }
     return status;
@@ -1081,28 +1083,28 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
       public_key_has_changed |= latest->public_key_has_changed;  // Pass on public key failure.
     }
 
-    SV_THROW(bu_list_update_status(nalu_list, update_validation_status));
+    SV_THROW(bu_list_update_status(bu_list, update_validation_status));
     if (validation_flags->is_first_validation) {
       update_sei_in_validation(self, false, NULL, &sei_validation_status);
       // Reset any set linked hashes if the session is still waiting for a first validation.
       reset_linked_hash(self);
     }
 
-    // All statistics but pending NALUs have already been collected.
-    latest->number_of_pending_picture_nalus = bu_list_num_pending_items(nalu_list);
+    // All statistics but pending BUs have already been collected.
+    latest->number_of_pending_picture_nalus = bu_list_num_pending_items(bu_list);
     DEBUG_LOG("Validated GOP as %s", kAuthResultValidStr[latest->authenticity]);
-    DEBUG_LOG("Expected number of NALUs = %d", latest->number_of_expected_picture_nalus);
-    DEBUG_LOG("Received number of NALUs = %d", latest->number_of_received_picture_nalus);
-    DEBUG_LOG("Number of pending NALUs = %d", latest->number_of_pending_picture_nalus);
+    DEBUG_LOG("Expected number of Bitstream Units = %d", latest->number_of_expected_picture_nalus);
+    DEBUG_LOG("Received number of Bitstream Units = %d", latest->number_of_received_picture_nalus);
+    DEBUG_LOG("Number of pending Bitstream Units  = %d", latest->number_of_pending_picture_nalus);
   SV_CATCH()
   SV_DONE(status)
 
   return status;
 }
 
-/* This function updates the hashable part of the NALU data. The default assumption is that all
- * bytes from NALU header to stop bit are hashed. This holds for all NALU types but the Signed Video
- * generated SEI NALUs. For these, the last X bytes storing the signature are not hashed.
+/* This function updates the hashable part of the Bitstream Unit (BU) data. The default assumption
+ * is that all bytes from BU header to stop bit are hashed. This holds for all BU types but the
+ * Signed Video generated SEIs. For these, the last X bytes storing the signature are not hashed.
  *
  * In this function we update the bu_info_t member |hashable_data_size| w.r.t. that. The pointer
  * to the start is still the same. */
@@ -1112,7 +1114,7 @@ update_hashable_data(bu_info_t *bu)
   assert(bu && (bu->is_valid > 0));
   if (!bu->is_hashable || !bu->is_sv_sei) return;
 
-  // This is a Signed Video generated NALU of type SEI. As payload it holds TLV data where the last
+  // This is a Signed Video generated BU of type SEI. As payload it holds TLV data where the last
   // chunk is supposed to be the signature. That part should not be hashed, hence we need to
   // re-calculate hashable_data_size by subtracting the number of bytes (including potential
   // emulation prevention bytes) coresponding to that tag. This is done by scanning the TLV for that
@@ -1123,9 +1125,9 @@ update_hashable_data(bu_info_t *bu)
   if (signature_tag_ptr) bu->hashable_data_size = signature_tag_ptr - bu->hashable_data;
 }
 
-/* A valid NALU is registered by hashing and adding to the |item|. */
+/* A valid BU is registered by hashing and adding to the |item|. */
 static svrc_t
-register_nalu(signed_video_t *self, bu_list_item_t *item)
+register_bu(signed_video_t *self, bu_list_item_t *item)
 {
   bu_info_t *bu = item->bu;
   assert(self && bu && bu->is_valid >= 0);
@@ -1136,22 +1138,22 @@ register_nalu(signed_video_t *self, bu_list_item_t *item)
   return hash_and_add_for_auth(self, item);
 }
 
-/* All NALUs in the |nalu_list| are re-registered by hashing them. */
+/* All Bitstream Units in the |nalu_list| are re-registered by hashing them. */
 static svrc_t
-reregister_nalus(signed_video_t *self)
+reregister_bu(signed_video_t *self)
 {
   assert(self);
   assert(self->validation_flags.hash_algo_known);
 
-  bu_list_t *nalu_list = self->nalu_list;
-  bu_list_item_t *item = nalu_list->first_item;
+  bu_list_t *bu_list = self->nalu_list;
+  bu_list_item_t *item = bu_list->first_item;
   svrc_t status = SV_UNKNOWN_FAILURE;
   while (item) {
     if (self->legacy_sv) {
       // Pass in all, but the last one (the SEI), to the created legacy session. Do this
       // without requesting an authenticity report.
-      if (item != nalu_list->last_item) {
-        status = legacy_sv_add_nalu_and_authenticate(
+      if (item != bu_list->last_item) {
+        status = legacy_sv_add_and_authenticate(
             self->legacy_sv, item->bu->bu_data, item->bu->bu_data_size, NULL);
         if (status != SV_OK) {
           break;
@@ -1177,21 +1179,21 @@ reregister_nalus(signed_video_t *self)
 }
 
 /* The basic order of actions are:
- * 1. Every NALU should be parsed and added to the h26x_nalu_list (|nalu_list|).
- * 2. Update validation flags given the added NALU.
- * 3. Register NALU, in general that means hash the NALU if it is hashable and store it.
+ * 1. Every Bitstream Unit (BU) should be parsed and added to the |nalu_list|.
+ * 2. Update validation flags given the added BU.
+ * 3. Register BU, in general that means hash the BU if it is hashable and store it.
  * 4. Validate a pending GOP if possible. */
 static svrc_t
-signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_t nalu_data_size)
+add_bitstream_unit(signed_video_t *self, const uint8_t *bu_data, size_t bu_data_size)
 {
-  if (!self || !nalu_data || (nalu_data_size == 0)) return SV_INVALID_PARAMETER;
+  if (!self || !bu_data || (bu_data_size == 0)) return SV_INVALID_PARAMETER;
 
   // Skip validation if it is done with the legacy code.
   if (self->legacy_sv) return SV_OK;
 
   validation_flags_t *validation_flags = &(self->validation_flags);
-  bu_list_t *nalu_list = self->nalu_list;
-  bu_info_t bu = parse_bu_info(nalu_data, nalu_data_size, self->codec, true, true);
+  bu_list_t *bu_list = self->nalu_list;
+  bu_info_t bu = parse_bu_info(bu_data, bu_data_size, self->codec, true, true);
   DEBUG_LOG("Received a %s of size %zu B", bu_type_to_str(&bu), bu.bu_data_size);
   validation_flags->has_auth_result = false;
 
@@ -1199,26 +1201,25 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    // If there is no |nalu_list| we failed allocating memory for it.
-    SV_THROW_IF_WITH_MSG(
-        !nalu_list, SV_MEMORY, "No existing nalu_list. Cannot validate authenticity");
-    // Append the |nalu_list| with a new item holding a pointer to |bu|. The |validation_status|
+    // If there is no |bu_list| we failed allocating memory for it.
+    SV_THROW_IF(!bu_list, SV_MEMORY);
+    // Append the |bu_list| with a new item holding a pointer to |bu|. The |validation_status|
     // is set accordingly.
-    SV_THROW(bu_list_append(nalu_list, &bu));
+    SV_THROW(bu_list_append(bu_list, &bu));
     SV_THROW_IF(bu.is_valid < 0, SV_UNKNOWN_FAILURE);
     update_validation_flags(validation_flags, &bu);
-    SV_THROW(register_nalu(self, nalu_list->last_item));
+    SV_THROW(register_bu(self, bu_list->last_item));
     // As soon as the first Signed Video SEI arrives (|signing_present| is true) and the
     // crypto TLV tag has been decoded it is feasible to hash the temporarily stored NAL
     // Units.
     if (!validation_flags->hash_algo_known &&
         ((validation_flags->signing_present && is_recurrent_data_decoded(self)) ||
-            (nalu_list->num_gops > MAX_UNHASHED_GOPS))) {
+            (bu_list->num_gops > MAX_UNHASHED_GOPS))) {
       if (!validation_flags->hash_algo_known) {
         DEBUG_LOG("No cryptographic information found in SEI. Using default hash algo");
         validation_flags->hash_algo_known = true;
       }
-      if (bu.is_golden_sei) SV_THROW(prepare_golden_sei(self, nalu_list->last_item));
+      if (bu.is_golden_sei) SV_THROW(prepare_golden_sei(self, bu_list->last_item));
 
       // Determine if legacy validation should be applied, that is, if the legacy way of
       // using linked hashes and recursive GOP hash is detected.
@@ -1227,19 +1228,19 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
         SV_THROW_IF(!self->legacy_sv, SV_MEMORY);
         accumulated_validation_init(self->accumulated_validation);
       }
-      SV_THROW(reregister_nalus(self));
+      SV_THROW(reregister_bu(self));
     }
     SV_THROW(maybe_validate_gop(self, &bu));
   SV_CATCH()
   SV_DONE(status)
 
   // Need to make a copy of the |bu| independently of failure.
-  svrc_t copy_nalu_status = bu_list_copy_last_item(nalu_list, validation_flags->hash_algo_known);
+  svrc_t copy_bu_status = bu_list_copy_last_item(bu_list, validation_flags->hash_algo_known);
   // Make sure to return the first failure if both operations failed.
-  status = (status == SV_OK) ? copy_nalu_status : status;
+  status = (status == SV_OK) ? copy_bu_status : status;
   if (status != SV_OK) {
-    nalu_list->last_item->validation_status = 'E';
-    nalu_list->last_item->tmp_validation_status = 'E';
+    bu_list->last_item->validation_status = 'E';
+    bu_list->last_item->tmp_validation_status = 'E';
   }
   free(bu.nalu_data_wo_epb);
 
@@ -1248,11 +1249,11 @@ signed_video_add_h26x_nalu(signed_video_t *self, const uint8_t *nalu_data, size_
 
 SignedVideoReturnCode
 signed_video_add_nalu_and_authenticate(signed_video_t *self,
-    const uint8_t *nalu_data,
-    size_t nalu_data_size,
+    const uint8_t *bu_data,
+    size_t bu_data_size,
     signed_video_authenticity_t **authenticity)
 {
-  if (!self || !nalu_data || nalu_data_size == 0) return SV_INVALID_PARAMETER;
+  if (!self || !bu_data || bu_data_size == 0) return SV_INVALID_PARAMETER;
 
   self->authentication_started = true;
 
@@ -1262,15 +1263,14 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW(create_local_authenticity_report_if_needed(self));
-    SV_THROW(signed_video_add_h26x_nalu(self, nalu_data, nalu_data_size));
+    SV_THROW(add_bitstream_unit(self, bu_data, bu_data_size));
     if (self->validation_flags.has_auth_result) {
       update_authenticity_report(self);
       if (authenticity) *authenticity = signed_video_get_authenticity_report(self);
       // Reset the timestamp for the next report.
       self->latest_validation->has_timestamp = false;
     }
-    SV_THROW(legacy_sv_add_nalu_and_authenticate(
-        self->legacy_sv, nalu_data, nalu_data_size, authenticity));
+    SV_THROW(legacy_sv_add_and_authenticate(self->legacy_sv, bu_data, bu_data_size, authenticity));
   SV_CATCH()
   SV_DONE(status)
 

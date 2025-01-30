@@ -122,7 +122,7 @@ legacy_sv_reset(legacy_sv_t *self);
  * @return A svrc_t
  */
 svrc_t
-legacy_sv_add_nalu_and_authenticate(legacy_sv_t *self,
+legacy_sv_add_and_authenticate(legacy_sv_t *self,
     const uint8_t *nalu_data,
     size_t nalu_data_size,
     signed_video_authenticity_t **authenticity);

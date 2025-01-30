@@ -36,21 +36,19 @@
 static void
 h26x_set_nal_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDType uuid_type);
 static size_t
-get_sign_and_complete_sei_nalu(signed_video_t *self,
-    uint8_t **payload,
-    uint8_t *payload_signature_ptr);
+get_sign_and_complete_sei(signed_video_t *self, uint8_t **payload, uint8_t *payload_signature_ptr);
 
 /* Functions for payload_buffer. */
 static void
 add_payload_to_buffer(signed_video_t *self, uint8_t *payload_ptr, uint8_t *payload_signature_ptr);
 static svrc_t
-complete_sei_nalu_and_add_to_prepend(signed_video_t *self);
+complete_sei_and_add_to_prepend(signed_video_t *self);
 
-/* Functions related to the list of NALUs to prepend. */
+/* Functions related to the list of BUs to prepend. */
 static svrc_t
-generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_signature_ptr);
+generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signature_ptr);
 static svrc_t
-prepare_for_nalus_to_prepend(signed_video_t *self);
+prepare_for_signing(signed_video_t *self);
 static void
 shift_sei_buffer_at_index(signed_video_t *self, int index);
 
@@ -106,7 +104,7 @@ add_payload_to_buffer(signed_video_t *self, uint8_t *payload, uint8_t *payload_s
  * and the stop byte. If we have no signature the SEI payload is freed and not added to the
  * video session. */
 static svrc_t
-complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
+complete_sei_and_add_to_prepend(signed_video_t *self)
 {
   assert(self);
   if (self->sei_data_buffer_idx < 1) return SV_NOT_SUPPORTED;
@@ -134,8 +132,7 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   }
 
   // Add the signature to the SEI payload.
-  sei_data->completed_sei_size =
-      get_sign_and_complete_sei_nalu(self, &payload, payload_signature_ptr);
+  sei_data->completed_sei_size = get_sign_and_complete_sei(self, &payload, payload_signature_ptr);
   if (!sei_data->completed_sei_size) {
     status = SV_UNKNOWN_FAILURE;
     goto done;
@@ -143,7 +140,7 @@ complete_sei_nalu_and_add_to_prepend(signed_video_t *self)
   self->num_of_completed_seis++;
 
   // Unset flag when SEI is completed and prepended.
-  // Note: If signature could not be generated then nalu data is freed. See
+  // Note: If signature could not be generated then |nalu_data| is freed. See
   // |signed_video_nalu_data_free| above in this function. In this case the flag is still set and
   // a SEI with all metatdata is created next time.
   self->has_recurrent_data = false;
@@ -171,16 +168,16 @@ shift_sei_buffer_at_index(signed_video_t *self, int index)
   self->sei_data_buffer_idx -= 1;
 }
 
-/* This function generates a SEI NALU of type "user data unregistered". The payload encoded in this
+/* This function generates a SEI of type "user data unregistered". The payload encoded in this
  * SEI is constructed using a set of TLVs. The TLVs are organized as follows;
  *  | metadata | maybe hash_list | signature |
  *
  * The hash_list is only present if we use SV_AUTHENTICITY_LEVEL_FRAME. The metadata + the hash_list
  * form a document. This document is hashed. For SV_AUTHENTICITY_LEVEL_GOP, this hash is treated as
- * any NALU hash and added to the gop_hash. For SV_AUTHENTICITY_LEVEL_FRAME we sign this hash
- * instead of the gop_hash, which is the traditional principle of signing. */
+ * any Bitstream Unit (BU) hash and added to the gop_hash. For SV_AUTHENTICITY_LEVEL_FRAME we sign
+ * this hash instead of the gop_hash, which is the traditional principle of signing. */
 static svrc_t
-generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_signature_ptr)
+generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signature_ptr)
 {
   sign_or_verify_data_t *sign_data = self->sign_data;
   const size_t hash_size = sign_data->hash_size;
@@ -218,7 +215,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    // Get the total payload size of all TLVs. Then compute the total size of the SEI NALU to be
+    // Get the total payload size of all TLVs. Then compute the total size of the SEI to be
     // generated. Add extra space for potential emulation prevention bytes.
     optional_tags_size = tlv_list_encode_or_get_size(self, optional_tags, num_optional_tags, NULL);
     if (self->using_golden_sei && !self->is_golden_sei) optional_tags_size = 0;
@@ -243,13 +240,13 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
           tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, NULL);
       payload_size += mandatory_tags_size;
     }
-    // Compute total SEI NALU data size.
-    sei_buffer_size += self->codec == SV_CODEC_H264 ? 6 : 7;  // NALU header
+    // Compute total SEI data size.
+    sei_buffer_size += self->codec == SV_CODEC_H264 ? 6 : 7;  // BU header
     sei_buffer_size += payload_size / 256 + 1;  // Size field
     sei_buffer_size += payload_size;
     sei_buffer_size += 1;  // Stop bit in a separate byte
     if (self->codec != SV_CODEC_AV1) {
-      sei_buffer_size += self->codec == SV_CODEC_H264 ? 6 : 7;  // NALU header
+      sei_buffer_size += self->codec == SV_CODEC_H264 ? 6 : 7;  // BU header
       sei_buffer_size += payload_size / 256 + 1;  // Size field
       sei_buffer_size += payload_size;
       sei_buffer_size += 1;  // Stop bit in a separate byte
@@ -367,28 +364,28 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
     }
 
     // Up till now we have all the hashable data available. Before writing the signature TLV to the
-    // payload we need to hash the NALU as it is so far and update the |gop_hash|. Parse a fake NALU
+    // payload we need to hash the BU as it is so far and update the |gop_hash|. Parse a fake BU
     // with the data so far and we will automatically get the pointers to the |hashable_data| and
     // the size of it. Then we can use the hash_and_add() function.
     {
       size_t fake_payload_size = (payload_ptr - *payload);
       // Force SEI to be hashable.
-      bu_info_t nalu_without_signature_data =
+      bu_info_t bu_without_signature_data =
           parse_bu_info(*payload, fake_payload_size, self->codec, false, true);
       // Create a document hash.
-      SV_THROW(hash_and_add(self, &nalu_without_signature_data));
+      SV_THROW(hash_and_add(self, &bu_without_signature_data));
       // Note that the "add" part of the hash_and_add() operation above is actually only necessary
       // for SV_AUTHENTICITY_LEVEL_GOP where we need to update the |gop_hash|. For
       // SV_AUTHENTICITY_LEVEL_FRAME adding this hash to the |hash_list| is pointless, since we have
       // already encoded the |hash_list|. There is no harm done though, since the list will be reset
-      // after generating the SEI NALU. So, for simplicity, we use the same function for both
+      // after generating the SEI. So, for simplicity, we use the same function for both
       // authenticity levels.
 
       // The current |nalu_hash| is the document hash. Copy to |document_hash|. In principle we only
       // need to do this for SV_AUTHENTICITY_LEVEL_FRAME, but for simplicity we always copy it.
       memcpy(self->gop_info->document_hash, self->gop_info->nalu_hash, hash_size);
-      // Free the memory allocated when parsing the NALU.
-      free(nalu_without_signature_data.nalu_data_wo_epb);
+      // Free the memory allocated when parsing the BU.
+      free(bu_without_signature_data.nalu_data_wo_epb);
     }
 
     gop_info_t *gop_info = self->gop_info;
@@ -423,9 +420,7 @@ generate_sei_nalu(signed_video_t *self, uint8_t **payload, uint8_t **payload_sig
 }
 
 static size_t
-get_sign_and_complete_sei_nalu(signed_video_t *self,
-    uint8_t **payload,
-    uint8_t *payload_signature_ptr)
+get_sign_and_complete_sei(signed_video_t *self, uint8_t **payload, uint8_t *payload_signature_ptr)
 {
   const sv_tlv_tag_t gop_info_encoders[] = {
       SIGNATURE_TAG,
@@ -462,7 +457,7 @@ get_sign_and_complete_sei_nalu(signed_video_t *self,
 }
 
 static svrc_t
-prepare_for_nalus_to_prepend(signed_video_t *self)
+prepare_for_signing(signed_video_t *self)
 {
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
@@ -475,9 +470,9 @@ prepare_for_nalus_to_prepend(signed_video_t *self)
     // Mark the start of signing when the first NAL Unit is passed in and a signing key
     // has been set.
     self->signing_started = true;
-    // Check if we have NALUs to prepend waiting to be pulled. If we have one item only, this is an
+    // Check if we have BUs to prepend waiting to be pulled. If we have one item only, this is an
     // empty list item, the pull action has no impact. We can therefore silently remove it and
-    // proceed. But if there are vital SEI-nalus waiting to be pulled we return an error message
+    // proceed. But if there are vital SEIs waiting to be pulled we return an error message
     // (SV_NOT_SUPPORTED).
 
     if (!self->avoid_checking_available_seis) {
@@ -495,73 +490,71 @@ prepare_for_nalus_to_prepend(signed_video_t *self)
  */
 
 SignedVideoReturnCode
-signed_video_add_nalu_for_signing(signed_video_t *self,
-    const uint8_t *nalu_data,
-    size_t nalu_data_size)
+signed_video_add_nalu_for_signing(signed_video_t *self, const uint8_t *bu_data, size_t bu_data_size)
 {
-  return signed_video_add_nalu_for_signing_with_timestamp(self, nalu_data, nalu_data_size, NULL);
+  return signed_video_add_nalu_for_signing_with_timestamp(self, bu_data, bu_data_size, NULL);
 }
 
 SignedVideoReturnCode
 signed_video_add_nalu_for_signing_with_timestamp(signed_video_t *self,
-    const uint8_t *nalu_data,
-    size_t nalu_data_size,
+    const uint8_t *bu_data,
+    size_t bu_data_size,
     const int64_t *timestamp)
 {
   return signed_video_add_nalu_part_for_signing_with_timestamp(
-      self, nalu_data, nalu_data_size, timestamp, true);
+      self, bu_data, bu_data_size, timestamp, true);
 }
 
 SignedVideoReturnCode
 signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
-    const uint8_t *nalu_data,
-    size_t nalu_data_size,
+    const uint8_t *bu_data,
+    size_t bu_data_size,
     const int64_t *timestamp,
     bool is_last_part)
 {
-  if (!self || !nalu_data || !nalu_data_size) {
-    DEBUG_LOG("Invalid input parameters: (%p, %p, %zu)", self, nalu_data, nalu_data_size);
+  if (!self || !bu_data || !bu_data_size) {
+    DEBUG_LOG("Invalid input parameters: (%p, %p, %zu)", self, bu_data, bu_data_size);
     return SV_INVALID_PARAMETER;
   }
 
-  bu_info_t nalu = {0};
+  bu_info_t bu_info = {0};
   gop_info_t *gop_info = self->gop_info;
   // TODO: Consider moving this into parse_bu_info().
   if (self->last_nalu->is_last_bu_part) {
     // Only check for trailing zeros if this is the last part.
-    nalu = parse_bu_info(nalu_data, nalu_data_size, self->codec, is_last_part, false);
-    nalu.is_last_bu_part = is_last_part;
-    copy_bu_except_pointers(self->last_nalu, &nalu);
+    bu_info = parse_bu_info(bu_data, bu_data_size, self->codec, is_last_part, false);
+    bu_info.is_last_bu_part = is_last_part;
+    copy_bu_except_pointers(self->last_nalu, &bu_info);
   } else {
     self->last_nalu->is_first_bu_part = false;
     self->last_nalu->is_last_bu_part = is_last_part;
-    copy_bu_except_pointers(&nalu, self->last_nalu);
-    nalu.bu_data = nalu_data;
-    nalu.hashable_data = nalu_data;
-    // Remove any trailing 0x00 bytes at the end of a NALU.
-    while (is_last_part && (nalu_data[nalu_data_size - 1] == 0x00)) {
-      nalu_data_size--;
+    copy_bu_except_pointers(&bu_info, self->last_nalu);
+    bu_info.bu_data = bu_data;
+    bu_info.hashable_data = bu_data;
+    // Remove any trailing 0x00 bytes at the end of a BU.
+    while (is_last_part && (bu_data[bu_data_size - 1] == 0x00)) {
+      bu_data_size--;
     }
-    nalu.hashable_data_size = nalu_data_size;
+    bu_info.hashable_data_size = bu_data_size;
   }
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SV_THROW(prepare_for_nalus_to_prepend(self));
+    SV_THROW(prepare_for_signing(self));
 
-    SV_THROW_IF(nalu.is_valid < 0, SV_INVALID_PARAMETER);
+    SV_THROW_IF(bu_info.is_valid < 0, SV_INVALID_PARAMETER);
 
-    // Note that |recurrence| is counted in frames and not in NALUs, hence we only increment the
+    // Note that |recurrence| is counted in frames and not in BUs, hence we only increment the
     // counter for primary slices.
-    if (nalu.is_primary_slice && nalu.is_last_bu_part) {
+    if (bu_info.is_primary_slice && bu_info.is_last_bu_part) {
       if ((self->frame_count % self->recurrence) == 0) {
         self->has_recurrent_data = true;
       }
       self->frame_count++;  // It is ok for this variable to wrap around
     }
 
-    // Finalize GOP hash and generate SEI if the NALU is I frame of a non-empty GOP.
-    if (nalu.is_first_bu_in_gop && nalu.is_last_bu_part) {
+    // Finalize GOP hash and generate SEI if the BU is I frame of a non-empty GOP.
+    if (bu_info.is_first_bu_in_gop && bu_info.is_last_bu_part) {
       if (self->sei_generation_enabled) {
         if (timestamp) {
           self->gop_info->timestamp = *timestamp;
@@ -573,7 +566,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
 
         // If there are hashes added to the hash list, the |computed_gop_hash| can be finalized.
         SV_THROW(openssl_finalize_hash(self->crypto_handle, gop_info->computed_gop_hash, true));
-        SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
+        SV_THROW(generate_sei(self, &payload, &payload_signature_ptr));
         // Add |payload| to buffer. Will be picked up again when the signature has been generated.
         add_payload_to_buffer(self, payload, payload_signature_ptr);
         // The previous GOP is now completed. The gop_hash was reset right after signing and
@@ -581,15 +574,15 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       }
       self->sei_generation_enabled = true;
     }
-    SV_THROW(hash_and_add(self, &nalu));
-    if (nalu.is_first_bu_in_gop && nalu.is_last_bu_part) {
+    SV_THROW(hash_and_add(self, &bu_info));
+    if (bu_info.is_first_bu_in_gop && bu_info.is_last_bu_part) {
       SV_THROW(update_linked_hash(self, gop_info->nalu_hash, self->sign_data->hash_size));
     }
 
   SV_CATCH()
   SV_DONE(status)
 
-  free(nalu.nalu_data_wo_epb);
+  free(bu_info.nalu_data_wo_epb);
 
   return status;
 }
@@ -633,7 +626,7 @@ get_signature_complete_sei_and_add_to_prepend(signed_video_t *self)
         SV_THROW_IF_WITH_MSG(verified != 1, SV_EXTERNAL_ERROR, "Verification test failed");
       }
 #endif
-      SV_THROW(complete_sei_nalu_and_add_to_prepend(self));
+      SV_THROW(complete_sei_and_add_to_prepend(self));
     }
 
   SV_CATCH()
@@ -671,8 +664,8 @@ signed_video_get_sei(signed_video_t *self,
     uint8_t **sei,
     size_t *sei_size,
     unsigned *payload_offset,
-    const uint8_t *peek_nalu,
-    size_t peek_nalu_size,
+    const uint8_t *peek_bu,
+    size_t peek_bu_size,
     unsigned *num_pending_seis)
 {
 
@@ -695,12 +688,12 @@ signed_video_get_sei(signed_video_t *self,
 
   // If the user peek this NAL Unit, a SEI can only be fetched if it can prepend the
   // peeked NAL Unit and at the same time follows the standard.
-  if (peek_nalu && peek_nalu_size > 0) {
-    bu_info_t nalu_info = parse_bu_info(peek_nalu, peek_nalu_size, self->codec, false, false);
-    free(nalu_info.nalu_data_wo_epb);
-    // Only display a SEI if the |peek_nalu| is a primary picture NAL Unit.
-    if (!((nalu_info.bu_type == BU_TYPE_I || nalu_info.bu_type == BU_TYPE_P) &&
-            nalu_info.is_primary_slice)) {
+  if (peek_bu && peek_bu_size > 0) {
+    bu_info_t bu_info = parse_bu_info(peek_bu, peek_bu_size, self->codec, false, false);
+    free(bu_info.nalu_data_wo_epb);
+    // Only display a SEI if the |peek_bu| is a primary picture NAL Unit.
+    if (!((bu_info.bu_type == BU_TYPE_I || bu_info.bu_type == BU_TYPE_P) &&
+            bu_info.is_primary_slice)) {
       // Flip the sanity check flag since there are pending SEIs, which could not be fetched without
       // breaking the H.26x standard.
       self->avoid_checking_available_seis = true;
@@ -714,9 +707,9 @@ signed_video_get_sei(signed_video_t *self,
 
   // Get the offset to the start of the SEI payload if requested.
   if (payload_offset) {
-    bu_info_t nalu_info = parse_bu_info(*sei, *sei_size, self->codec, false, false);
-    free(nalu_info.nalu_data_wo_epb);
-    *payload_offset = (unsigned)(nalu_info.payload - *sei);
+    bu_info_t bu_info = parse_bu_info(*sei, *sei_size, self->codec, false, false);
+    free(bu_info.nalu_data_wo_epb);
+    *payload_offset = (unsigned)(bu_info.payload - *sei);
   }
 
   // Reset the fetched SEI information from the sei buffer.
@@ -753,9 +746,9 @@ signed_video_get_nalu_to_prepend(signed_video_t *self,
 }
 
 void
-signed_video_nalu_data_free(uint8_t *nalu_data)
+signed_video_nalu_data_free(uint8_t *bu_data)
 {
-  if (nalu_data) free(nalu_data);
+  if (bu_data) free(bu_data);
 }
 
 // Note that this API only works for a plugin that blocks the worker thread.
@@ -768,8 +761,8 @@ signed_video_set_end_of_stream(signed_video_t *self)
   uint8_t *payload_signature_ptr = NULL;
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SV_THROW(prepare_for_nalus_to_prepend(self));
-    SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
+    SV_THROW(prepare_for_signing(self));
+    SV_THROW(generate_sei(self, &payload, &payload_signature_ptr));
     add_payload_to_buffer(self, payload, payload_signature_ptr);
     // Fetch the signature. If it is not ready we exit without generating the SEI.
     sign_or_verify_data_t *sign_data = self->sign_data;
@@ -777,7 +770,7 @@ signed_video_set_end_of_stream(signed_video_t *self)
     while (sv_signing_plugin_get_signature(self->plugin_handle, sign_data->signature,
         sign_data->max_signature_size, &sign_data->signature_size, &signature_error)) {
       SV_THROW(signature_error);
-      SV_THROW(complete_sei_nalu_and_add_to_prepend(self));
+      SV_THROW(complete_sei_and_add_to_prepend(self));
     }
 
   SV_CATCH()
@@ -801,8 +794,8 @@ signed_video_generate_golden_sei(signed_video_t *self)
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SV_THROW(prepare_for_nalus_to_prepend(self));
-    SV_THROW(generate_sei_nalu(self, &payload, &payload_signature_ptr));
+    SV_THROW(prepare_for_signing(self));
+    SV_THROW(generate_sei(self, &payload, &payload_signature_ptr));
     add_payload_to_buffer(self, payload, payload_signature_ptr);
 
   SV_CATCH()
