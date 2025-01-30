@@ -38,7 +38,7 @@
  * @param data Pointer to the data to read from.
  * @param data_size Size of the data.
  *
- * @returns SV_OK if decoding was successful, otherwise an error code.
+ * @return SV_OK if decoding was successful, otherwise an error code.
  */
 svrc_t
 legacy_tlv_decode(legacy_sv_t *self, const uint8_t *data, size_t data_size);
@@ -55,7 +55,7 @@ legacy_tlv_decode(legacy_sv_t *self, const uint8_t *data, size_t data_size);
  * @param tag The tag to search for and when detected returns its location.
  * @param with_ep Flag to indicate if emulation prevention bytes is on.
  *
- * @returns A pointer to the location of the tag to scan for. Returns NULL if the tag was not found.
+ * @return A pointer to the location of the tag to scan for. Returns NULL if the tag was not found.
  */
 const uint8_t *
 legacy_tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bool with_ep);
@@ -70,7 +70,7 @@ legacy_tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t 
  * @param tlv_data Pointer to the TLV data to scan.
  * @param tlv_data_size Size of the TLV data.
  *
- * @returns True if find and decoding tag was successful.
+ * @return True if find and decoding tag was successful.
  */
 bool
 legacy_tlv_find_and_decode_optional_tags(legacy_sv_t *self,

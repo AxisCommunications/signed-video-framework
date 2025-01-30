@@ -324,7 +324,7 @@ signed_video_get_authenticity_report(signed_video_t *self)
       // Unit have been removed from the |bu_list|, hence number of pending Bitstream
       // Units equals number of items in the |bu_list|.
       accumulated->number_of_pending_nalus =
-          self->legacy_sv ? legacy_get_nalu_list_items(self->legacy_sv) : self->bu_list->num_items;
+          self->legacy_sv ? legacy_get_num_bu_items(self->legacy_sv) : self->bu_list->num_items;
     }
 
     SV_THROW(transfer_authenticity(authenticity_report, self->authenticity));

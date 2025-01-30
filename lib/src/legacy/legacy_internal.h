@@ -31,7 +31,7 @@
 #include "sv_internal.h"  // MAX_HASH_SIZE, HASH_LIST_SIZE
 
 // Forward declarations for legacy_sv_t.
-typedef struct _legacy_h26x_nalu_list_st legacy_h26x_nalu_list_t;
+typedef struct _legacy_bu_list_st legacy_bu_list_t;
 
 typedef struct _legacy_validation_flags_st {
   bool has_auth_result;  // Indicates that an authenticity result is available for the user.
@@ -52,10 +52,11 @@ typedef struct _legacy_gop_state_st {
   bool has_lost_sei;  // Has detected a lost SEI since last validation.
   bool no_gop_end_before_sei;  // No GOP end (I-frame) has been found before the SEI.
   bool gop_transition_is_lost;  // The transition between GOPs has been lost.
-  // This can be detected if a lost SEI is detected, and at the same time waiting for an I NALU. An
-  // example when this happens is if an entire AU is lost including both the SEI and the I NALU.
-  bool validate_after_next_nalu;  // State to inform the algorithm to perform validation up the next
-  // hashable NALU.
+  // This can be detected if a lost SEI is detected, and at the same time waiting for an
+  // I-frame. An example when this happens is if an entire AU is lost including both the
+  // SEI and the I-frame.
+  bool validate_after_next_bu;  // State to inform the algorithm to perform validation up
+  // the next hashable BU.
 } legacy_gop_state_t;
 
 typedef enum {
@@ -68,11 +69,11 @@ typedef enum {
  * Information related to the GOP signature.
  * The |gop_hash| is a recursive hash. It is the hash of the memory [gop_hash, latest hash] and then
  * replaces the gop_hash location. This is used for signing, as it incorporates all information of
- * the nalus that has been added.
+ * the bitstream units that has been added.
  */
 typedef struct _legacy_gop_info_st {
   uint8_t hash_buddies[2 * MAX_HASH_SIZE];  // Memory for two hashes organized as
-  // [reference_hash, nalu_hash].
+  // [reference_hash, bu_hash].
   bool has_reference_hash;  // Flags if the reference hash in |hash_buddies| is valid.
   uint8_t hashes[2 * MAX_HASH_SIZE];  // Memory for storing, in order, the gop_hash and
   // 'latest hash'.
@@ -83,17 +84,17 @@ typedef struct _legacy_gop_info_st {
   int list_idx;  // Pointing to next available slot in the |hash_list|. If something has gone wrong,
   // like exceeding available memory, |list_idx| = -1.
   uint8_t gop_hash_init;  // The initialization value for the |gop_hash|.
-  uint8_t *nalu_hash;  // Pointing to the memory slot of the NALU hash in |hashes|.
+  uint8_t *bu_hash;  // Pointing to the memory slot of the BU hash in |hashes|.
   uint8_t document_hash[MAX_HASH_SIZE];  // Memory for storing the document hash to be signed
   // when SV_AUTHENTICITY_LEVEL_FRAME.
-  uint8_t tmp_hash[MAX_HASH_SIZE];  // Memory for storing a temporary hash needed when a NALU is
-  // split in parts.
+  uint8_t tmp_hash[MAX_HASH_SIZE];  // Memory for storing a temporary hash needed when a
+  // BU is split in parts.
   uint8_t *tmp_hash_ptr;
   uint8_t encoding_status;  // Stores potential errors when encoding, to transmit to the client
   // (authentication part).
-  uint16_t num_sent_nalus;  // The number of NALUs used to generate the gop_hash on the signing
+  uint16_t num_sent;  // The number of BUs used to generate the gop_hash on the signing
   // side.
-  uint16_t num_nalus_in_gop_hash;  // Counted number of NALUs in the currently recursively updated
+  uint16_t num_in_gop_hash;  // Counted number of BUs in the currently recursively updated
   // |gop_hash|.
   legacy_hash_type_t
       signature_hash_type;  // The type of hash signed, either gop_hash or document hash.
@@ -104,7 +105,7 @@ typedef struct _legacy_gop_info_st {
   int verified_signature_hash;  // Status of last hash-signature-pair verification. Has 1 for
   // success, 0 for fail, and -1 for error.
   bool has_timestamp;  // True if timestamp exists and has not yet been written to SEI.
-  int64_t timestamp;  // Unix epoch UTC timestamp of the first nalu in GOP
+  int64_t timestamp;  // Unix epoch UTC timestamp of the first BU in GOP
 } legacy_gop_info_t;
 
 struct _legacy_sv_t {
@@ -128,10 +129,10 @@ struct _legacy_sv_t {
   size_t arbitrary_data_size;  // Size of |arbitrary_data|.
 
   // Status and authentication
-  // Linked list to track the validation status of each added NALU. Items are appended to the list
+  // Linked list to track the validation status of each added BU. Items are appended to the list
   // when added, that is, in signed_video_add_nalu_and_authenticate(). Items are removed when
   // reported through the authenticity_report.
-  legacy_h26x_nalu_list_t *nalu_list;
+  legacy_bu_list_t *bu_list;
 
   legacy_validation_flags_t validation_flags;
   legacy_gop_state_t gop_state;

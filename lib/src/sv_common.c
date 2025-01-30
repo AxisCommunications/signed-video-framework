@@ -620,7 +620,7 @@ remove_epb_from_sei_payload(bu_info_t *bu)
   bu->tlv_data = bu->tlv_start_in_bu_data;
   // Read flags from |reserved_byte|
   bu->with_epb = (bu->reserved_byte & 0x80);  // Hash with emulation prevention bytes
-  bu->is_golden_sei = (bu->reserved_byte & 0x40);  // The NALU is a golden SEI.
+  bu->is_golden_sei = (bu->reserved_byte & 0x40);  // The BU is a golden SEI.
 
   if (bu->emulation_prevention_bytes <= 0) return;
 
@@ -635,7 +635,7 @@ remove_epb_from_sei_payload(bu_info_t *bu)
     DEBUG_LOG("Failed allocating |nalu_data_wo_epb|");
     bu->is_valid = -1;
   } else {
-    // Copy everything from the NALU header to stop bit (byte) inclusive, but with the emulation
+    // Copy everything from the BU header to stop bit (byte) inclusive, but with the emulation
     // prevention bytes removed.
     const uint8_t *hashable_data_ptr = bu->hashable_data;
     for (size_t i = 0; i < data_size; i++) {

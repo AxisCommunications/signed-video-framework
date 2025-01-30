@@ -187,8 +187,8 @@ legacy_decode_general(legacy_sv_t *self, const uint8_t *data, size_t data_size)
 
     data_ptr += read_32bits(data_ptr, &gop_info->global_gop_counter);
     DEBUG_LOG("Found GOP counter = %u", gop_info->global_gop_counter);
-    data_ptr += read_16bits(data_ptr, &gop_info->num_sent_nalus);
-    DEBUG_LOG("Number of sent NAL Units = %u", gop_info->num_sent_nalus);
+    data_ptr += read_16bits(data_ptr, &gop_info->num_sent);
+    DEBUG_LOG("Number of sent Bitstream Units = %u", gop_info->num_sent);
 
     for (int i = 0; i < SV_VERSION_BYTES; i++) {
       self->code_version[i] = *data_ptr++;
@@ -219,7 +219,7 @@ legacy_decode_general(legacy_sv_t *self, const uint8_t *data, size_t data_size)
     printf("\nGeneral Information Tag\n");
     printf("             tag version: %u\n", version);
     printf("                   GOP #: %u\n", gop_info->global_gop_counter);
-    printf("      # hashed NAL Units: %u\n", gop_info->num_sent_nalus);
+    printf("# hashed Bitstream Units: %u\n", gop_info->num_sent);
     printf("              SW version: %s\n", code_version_str);
     if (version >= 2) {
       if (gop_info->has_timestamp) {
