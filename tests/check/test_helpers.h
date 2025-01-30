@@ -100,51 +100,52 @@ read_test_certificate_chain(char **certificate_chain);
 /* Creates a signed_video_t session and initialize it from settings
  *
  * new_private_key = Generate a new private key, otherwise read from an existing file.
- * This is useful for testing the signing part and generating a signed stream of nalus. */
+ * This is useful for testing the signing part and generating a signed stream of bitstream
+ * units. */
 signed_video_t *
 get_initialized_signed_video(struct sv_setting settings, bool new_private_key);
 
-/* See function create_signed_nalus_int */
+/* See function create_signed_stream_int */
 test_stream_t *
-create_signed_nalus(const char *str, struct sv_setting settings);
+create_signed_stream(const char *str, struct sv_setting settings);
 
-/* See function create_signed_nalus_int, with the difference that each NAL Unit is split in
- * two parts. */
+/* See function create_signed_stream_int, with the difference that each Bitstream Unit is
+ * split in two parts. */
 test_stream_t *
-create_signed_splitted_nalus(const char *str, struct sv_setting settings);
+create_signed_stream_splitted_bu(const char *str, struct sv_setting settings);
 
-/* Creates a test_stream_t with all the NAL Units produced after signing. This mimic what
- * leaves the camera.
+/* Creates a test_stream_t with all the Bitstream Units produced after signing. This mimic
+ * what leaves the camera.
  *
- * The input is a string of characters representing the type of NAL Units passed into the
- * signing session.
+ * The input is a string of characters representing the type of Bitstream Units passed
+ * into the signing session.
  * Example-1: 'IPPIPP' will push two identical GOPs
- *   I-nalu, P-nalu, P-nalu.
+ *   I-frame, P-frame, P-frame.
  * Example-2: for multi slice, 'IiPpPpIiPpPp' will push two identical GOPs
- *   I-nalu, i-nalu, P-nalu, p-nalu, P-nalu, p-nalu.
+ *   I (primary slice), I (secondary slice), P (primary), P (secondary), P (primary), P (secondary).
  * Valid characters are:
- *   I: I-nalu Indicates first slice in the current I nalu
- *   i: i-nalu Indicates other than first slice. Example: second and third slice
- *   P: P-nalu Indicates first slice in the current P nalu
- *   p: p-nalu Indicates other than first slice. Example: second and third slice
+ *   I: I-frame Indicates first slice in the current I frame
+ *   i: i-frame Indicates other than first slice. Example: second and third slice
+ *   P: P-frame Indicates first slice in the current P frame
+ *   p: p-frame Indicates other than first slice. Example: second and third slice
  *   S: Non signed-video-framework SEI
- *   X: Invalid nalu, i.e., not a H.26x nalu.
+ *   X: Invalid bitstream unit, i.e., not a H.26x nalu or OBU.
  *
  * settings = the session setup for this test.
  * new_private_key = Generate a new private key or not.
  */
 test_stream_t *
-create_signed_nalus_int(const char *str, struct sv_setting settings, bool new_private_key);
+create_signed_stream_int(const char *str, struct sv_setting settings, bool new_private_key);
 
-/* Generates a signed video stream of NAL Units for a user-owned signed_video_t session.
+/* Generates a signed video stream of Bitstream Units for a user-owned signed_video_t session.
  *
- * Takes a string of NAL Unit characters ('I', 'i', 'P', 'p', 'S', 'X') as input and
- * generates NAL Unit data for these. Then adds these NAL Units to the input session. The
- * generated sei-nalus are added to the stream. */
+ * Takes a string of Bitstream Unit characters ('I', 'i', 'P', 'p', 'S', 'X') as input and
+ * generates Bitstream Unit data for these. Then adds these Bitstream Units to the input
+ * session. The generated SEIs are added to the stream. */
 test_stream_t *
-create_signed_nalus_with_sv(signed_video_t *sv, const char *str, bool split_nalus);
+create_signed_stream_with_sv(signed_video_t *sv, const char *str, bool split_bu);
 
-/* Removes the NAL Unit item with position |item_number| from the test stream |list|. The
+/* Removes the Bitstream Unit item with position |item_number| from the test stream |list|. The
  * item is, after a check against the expected |type|, then freed. */
 void
 remove_item_then_check_and_free(test_stream_t *list, int item_number, char type);
@@ -154,7 +155,7 @@ remove_item_then_check_and_free(test_stream_t *list, int item_number, char type)
 void
 modify_list_item(test_stream_t *list, int item_number, char type);
 
-/* Checks if a particular TLV tag is present in the NAL Unit |item|. */
+/* Checks if a particular TLV tag is present in the Bitstream Unit |item|. */
 bool
 tag_is_present(const test_stream_item_t *item, SignedVideoCodec codec, sv_tlv_tag_t tag);
 
