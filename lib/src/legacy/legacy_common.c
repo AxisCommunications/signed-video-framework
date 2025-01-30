@@ -22,7 +22,6 @@
 #include <stdio.h>  // sscanf
 
 #include "legacy/legacy_bu_list.h"  // legacy_bu_list_create()
-#include "legacy/legacy_codec_internal.h"  // Has public declarations
 #include "legacy/legacy_internal.h"  // Has public declarations
 #include "legacy_validation.h"  // Has public declarations
 #include "sv_authenticity.h"  // latest_validation_init()

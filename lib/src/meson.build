@@ -29,7 +29,6 @@ legacy_sources = files(
   'legacy/legacy_auth.c',
   'legacy/legacy_bu_list.c',
   'legacy/legacy_bu_list.h',
-  'legacy/legacy_codec_internal.h',
   'legacy/legacy_common.c',
   'legacy/legacy_internal.h',
   'legacy/legacy_tlv.c',
