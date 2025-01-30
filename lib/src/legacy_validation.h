@@ -135,7 +135,7 @@ legacy_sv_add_and_authenticate(legacy_sv_t *self,
  *
  * @param self Pointer to the legacy_sv_t object
  *
- * @return Number of Bitstream Units (items) in the nalu_list
+ * @return Number of Bitstream Units (items) in the bu_list
  */
 int
 legacy_get_nalu_list_items(legacy_sv_t *self);

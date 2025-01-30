@@ -84,7 +84,7 @@ struct validation_stats {
  * index in the loop is _i and something the check test framework provides.
  */
 
-/* validate_nalu_list(...)
+/* validate_stream(...)
  *
  * Helper function to validate the authentication result.
  * It takes a test stream |list| as input together with |expected| values of
@@ -102,7 +102,7 @@ struct validation_stats {
  * like reset.
  */
 static void
-validate_nalu_list(signed_video_t *sv,
+validate_stream(signed_video_t *sv,
     test_stream_t *list,
     struct validation_stats expected,
     bool check_version)
@@ -245,24 +245,24 @@ START_TEST(invalid_api_inputs)
 
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
-  test_stream_item_t *p_nalu = test_stream_item_create_from_type('P', 0, codec);
+  test_stream_item_t *p_frame = test_stream_item_create_from_type('P', 0, codec);
   test_stream_item_t *invalid = test_stream_item_create_from_type('X', 0, codec);
 
   // signed_video_add_nalu_and_authenticate()
-  // NULL pointers are invalid, as well as zero sized nalus.
+  // NULL pointers are invalid, as well as zero sized BUs.
   SignedVideoReturnCode sv_rc =
-      signed_video_add_nalu_and_authenticate(NULL, p_nalu->data, p_nalu->data_size, NULL);
+      signed_video_add_nalu_and_authenticate(NULL, p_frame->data, p_frame->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_add_nalu_and_authenticate(sv, NULL, p_nalu->data_size, NULL);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, NULL, p_frame->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_video_add_nalu_and_authenticate(sv, p_nalu->data, 0, NULL);
+  sv_rc = signed_video_add_nalu_and_authenticate(sv, p_frame->data, 0, NULL);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   // An invalid NAL Unit should return silently.
   sv_rc = signed_video_add_nalu_and_authenticate(sv, invalid->data, invalid->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  // Free nalu_list_item and session.
-  test_stream_item_free(p_nalu);
+  // Free bu_list_item and session.
+  test_stream_item_free(p_frame);
   test_stream_item_free(invalid);
   signed_video_free(sv);
 }
@@ -285,7 +285,7 @@ START_TEST(intact_stream)
       SV_AUTH_RESULT_OK, false, 26, 23, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 6, .pending_bu = 6, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -302,7 +302,7 @@ START_TEST(intact_multislice_stream)
       SV_AUTH_RESULT_OK, false, 18, 13, 5, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 4, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -319,7 +319,7 @@ START_TEST(intact_stream_with_splitted_bu)
   // For expected values see the "intact_stream" test above.
   const struct validation_stats expected = {
       .valid_gops = 6, .pending_bu = 6, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -338,7 +338,7 @@ START_TEST(intact_stream_with_pps_in_stream)
       SV_AUTH_RESULT_OK, false, 11, 8, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 2, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -356,7 +356,7 @@ START_TEST(intact_ms_stream_with_pps_in_stream)
       SV_AUTH_RESULT_OK, false, 19, 14, 5, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 4, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -370,7 +370,7 @@ END_TEST
  * 2. Add these in the same order as they were generated.
  * 3. Check the authentication result
  */
-START_TEST(intact_with_undefined_nalu_in_stream)
+START_TEST(intact_with_undefined_bu_in_stream)
 {
   test_stream_t *list = create_signed_stream("IPXPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPXPISPPISP");
@@ -379,13 +379,13 @@ START_TEST(intact_with_undefined_nalu_in_stream)
       SV_AUTH_RESULT_OK, false, 11, 8, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 2, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
 END_TEST
 
-START_TEST(intact_with_undefined_multislice_nalu_in_stream)
+START_TEST(intact_multislice_with_undefined_bu_in_stream)
 {
   // For AV1, multi-slices are covered in one single OBU (OBU Frame).
   if (settings[_i].codec == SV_CODEC_AV1) return;
@@ -396,7 +396,7 @@ START_TEST(intact_with_undefined_multislice_nalu_in_stream)
       SV_AUTH_RESULT_OK, false, 19, 14, 5, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 4, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -414,8 +414,8 @@ START_TEST(remove_one_p_frame)
   test_stream_check_types(list, "IPPISPPPISPPISP");
 
   // Remove last 'P' in second GOP: IPPISPP P ISPPISP
-  const int remove_nalu_number = 8;
-  remove_item_then_check_and_free(list, remove_nalu_number, 'P');
+  const int remove_item_number = 8;
+  remove_item_then_check_and_free(list, remove_item_number, 'P');
   test_stream_check_types(list, "IPPISPPISPPISP");
 
   // Since one NAL Unit has been removed the authenticity is NOT OK.
@@ -441,7 +441,7 @@ START_TEST(remove_one_p_frame)
     expected.invalid_gops = 0;
     expected.final_validation->authenticity = SV_AUTH_RESULT_OK_WITH_MISSING_INFO;
   }
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -456,13 +456,13 @@ START_TEST(interchange_two_p_frames)
   test_stream_check_types(list, "IPPISPPPISPPISP");
 
   // Remove the middle 'P' in second GOP: IPPISP P PISPPISP
-  const int nalu_number = 7;
-  test_stream_item_t *item = test_stream_item_remove(list, nalu_number);
+  const int item_number = 7;
+  test_stream_item_t *item = test_stream_item_remove(list, item_number);
   test_stream_item_check_type(item, 'P');
 
-  // Inject the item again, but at position nalu_number + 1, that is, append the list item at
-  // position nalu_number.
-  test_stream_append_item(list, item, nalu_number);
+  // Inject the item again, but at position item_number + 1, that is, append the list item at
+  // position item_number.
+  test_stream_append_item(list, item, item_number);
   test_stream_check_types(list, "IPPISPPPISPPISP");
   // Since two NAL Units have been moved the authenticity is NOT OK.
   // IPPISPPPISPPISP
@@ -474,7 +474,7 @@ START_TEST(interchange_two_p_frames)
       SV_AUTH_RESULT_NOT_OK, false, 15, 12, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .invalid_gops = 1, .pending_bu = 3, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -490,8 +490,8 @@ START_TEST(modify_one_p_frame)
   test_stream_check_types(list, "IPPISPPPISPPISP");
 
   // Modify first 'P' in second GOP: IPPIS P PPISPPISP
-  const int modify_nalu_number = 6;
-  modify_list_item(list, modify_nalu_number, 'P');
+  const int modify_item_number = 6;
+  modify_list_item(list, modify_item_number, 'P');
 
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, false, 15, 12, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
@@ -502,7 +502,7 @@ START_TEST(modify_one_p_frame)
   //         ISPPIS           ....P. ->   (   valid)
   const struct validation_stats expected = {
       .valid_gops = 2, .invalid_gops = 1, .pending_bu = 3, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -514,8 +514,8 @@ START_TEST(modify_one_i_frame)
   test_stream_check_types(list, "IPPISPPPISPPISPPISP");
 
   // Modify the 'I' of the second GOP: IPP I SPPPISPPISPPISP
-  const int modify_nalu_number = 4;
-  modify_list_item(list, modify_nalu_number, 'I');
+  const int modify_item_number = 4;
+  modify_list_item(list, modify_item_number, 'I');
 
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, false, 19, 16, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
@@ -533,7 +533,7 @@ START_TEST(modify_one_i_frame)
   //             ISPPIS           .N..P. ->   (   valid)
   const struct validation_stats expected = {
       .valid_gops = 2, .invalid_gops = 2, .pending_bu = 4, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -545,8 +545,8 @@ START_TEST(modify_one_sei)
   test_stream_check_types(list, "IPPISPPPISPPISP");
 
   // Modify the second 'S': IPPISPPPI S PPISP
-  const int modify_nalu_number = 10;
-  test_stream_item_t *sei = test_stream_item_get(list, modify_nalu_number);
+  const int modify_item_number = 10;
+  test_stream_item_t *sei = test_stream_item_get(list, modify_item_number);
   test_stream_item_check_type(sei, 'S');
   // Bit flip one byte in the signature. EC signatures are the smallest ones and are at
   // least 70 bytes large, hence flipping the 50th byte from the end is safe.
@@ -562,7 +562,7 @@ START_TEST(modify_one_sei)
   //         ISPPIS           .N..P.     ->   (   valid)
   const struct validation_stats expected = {
       .valid_gops = 2, .invalid_gops = 1, .pending_bu = 3, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -580,8 +580,8 @@ START_TEST(remove_one_sei)
   test_stream_check_types(list, "IPPISPPISPPISPPISP");
 
   // Remove the second SEI: IPPISPPI S PPISPPISP
-  const int remove_nalu_number = 9;
-  remove_item_then_check_and_free(list, remove_nalu_number, 'S');
+  const int remove_item_number = 9;
+  remove_item_then_check_and_free(list, remove_item_number, 'S');
   test_stream_check_types(list, "IPPISPPIPPISPPISP");
 
   // IPPISPPIPPISPPISP
@@ -594,7 +594,7 @@ START_TEST(remove_one_sei)
   const struct validation_stats expected = {
       .valid_gops = 2, .invalid_gops = 1, .pending_bu = 3, .final_validation = &final_validation};
 
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -606,8 +606,8 @@ START_TEST(remove_one_i_frame)
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISPPISP");
 
   // Remove the third 'I': IPPISPP I SPPISPPISPPISPPISP
-  const int remove_nalu_number = 8;
-  remove_item_then_check_and_free(list, remove_nalu_number, 'I');
+  const int remove_item_number = 8;
+  remove_item_then_check_and_free(list, remove_item_number, 'I');
   test_stream_check_types(list, "IPPISPPSPPISPPISPPISPPISP");
 
   signed_video_accumulated_validation_t final_validation = {
@@ -625,7 +625,7 @@ START_TEST(remove_one_i_frame)
       .missed_bu = 1,
       .pending_bu = 5,
       .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -637,10 +637,10 @@ START_TEST(remove_one_sei_and_i_frame)
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISP");
 
   // Remove the third 'I': IPPISPP I SPPISPPISP
-  int remove_nalu_number = 8;
-  remove_item_then_check_and_free(list, remove_nalu_number, 'I');
+  int remove_item_number = 8;
+  remove_item_then_check_and_free(list, remove_item_number, 'I');
   // Remove the second SEI: IPPISPP S PPISPPISP
-  remove_item_then_check_and_free(list, remove_nalu_number, 'S');
+  remove_item_then_check_and_free(list, remove_item_number, 'S');
   test_stream_check_types(list, "IPPISPPPPISPPISPPISP");
 
   signed_video_accumulated_validation_t final_validation = {
@@ -665,7 +665,7 @@ START_TEST(remove_one_sei_and_i_frame)
       .missed_bu = 1,
       .pending_bu = 3,
       .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -677,11 +677,11 @@ START_TEST(two_lost_seis)
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISPPISP");
 
   // Remove the second and third 'S': IPPISPPI S PPI S PPISPPISPPISP
-  int remove_nalu_number = 9;
-  remove_item_then_check_and_free(list, remove_nalu_number, 'S');
+  int remove_item_number = 9;
+  remove_item_then_check_and_free(list, remove_item_number, 'S');
   test_stream_check_types(list, "IPPISPPIPPISPPISPPISPPISP");
-  remove_nalu_number = 12;
-  remove_item_then_check_and_free(list, remove_nalu_number, 'S');
+  remove_item_number = 12;
+  remove_item_then_check_and_free(list, remove_item_number, 'S');
   test_stream_check_types(list, "IPPISPPIPPIPPISPPISPPISP");
 
   signed_video_accumulated_validation_t final_validation = {
@@ -694,7 +694,7 @@ START_TEST(two_lost_seis)
   //                   ISPPIS                 ....P. ->  (   valid)
   const struct validation_stats expected = {
       .valid_gops = 3, .invalid_gops = 1, .pending_bu = 4, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -726,7 +726,7 @@ START_TEST(sei_arrives_late)
       SV_AUTH_RESULT_OK, false, 17, 13, 4, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 3, .pending_bu = 7, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -786,7 +786,7 @@ START_TEST(all_seis_arrive_late)
       SV_AUTH_RESULT_OK, false, 31, 28, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 6, .pending_bu = 26, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -813,7 +813,7 @@ START_TEST(all_seis_arrive_late_first_gop_scrapped)
       SV_AUTH_RESULT_OK, false, 26, 23, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 5, .has_signature = 1, .pending_bu = 26, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -839,7 +839,7 @@ START_TEST(all_seis_arrive_late_two_gops_scrapped)
       SV_AUTH_RESULT_OK, false, 22, 19, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 4, .pending_bu = 15, .has_signature = 1, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -875,7 +875,7 @@ START_TEST(lost_one_sei_before_late_sei_arrival)
       SV_AUTH_RESULT_NOT_OK, false, 24, 21, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 3, .invalid_gops = 1, .pending_bu = 7, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -932,7 +932,7 @@ START_TEST(lost_one_sei_and_gop_with_late_sei_arrival)
       SV_AUTH_RESULT_OK, false, 13, 10, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 6, .has_signature = 1, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -971,7 +971,7 @@ START_TEST(lost_all_data_between_two_seis)
     expected.valid_gops_with_missing_info = 0;
     expected.invalid_gops = 3;
   }
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -991,8 +991,8 @@ START_TEST(add_one_sei_after_signing)
   test_stream_item_t *sei = test_stream_item_create_from_type('Z', id, codec);
 
   // Append the middle 'P' in second GOP: IPPISP P(Z) PISPPISP
-  const int append_nalu_number = 7;
-  test_stream_append_item(list, sei, append_nalu_number);
+  const int append_item_number = 7;
+  test_stream_append_item(list, sei, append_item_number);
   test_stream_check_types(list, "IPPISPPZPISPPISP");
 
   // For AV1 OBU metadata are hashed, hence adding one will break the authenticity.
@@ -1005,7 +1005,7 @@ START_TEST(add_one_sei_after_signing)
       .missed_bu = codec != SV_CODEC_AV1 ? 0 : -1,
       .pending_bu = 3,
       .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -1051,7 +1051,7 @@ START_TEST(remove_two_gops_in_start_of_stream)
   //                                                          4 pending
   const struct validation_stats expected = {
       .valid_gops = 3, .pending_bu = 4, .has_signature = 1, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -1105,7 +1105,7 @@ START_TEST(camera_reset_on_signing_side)
   struct validation_stats expected = {
       .valid_gops = 4, .invalid_gops = 1, .pending_bu = 5, .final_validation = &final_validation};
 
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
   test_stream_free(list);
 }
 END_TEST
@@ -1167,7 +1167,7 @@ START_TEST(detect_change_of_public_key)
       .public_key_has_changed = true,
       .final_validation = &final_validation};
 
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -1181,8 +1181,8 @@ END_TEST
  *
  * The operation is as follows:
  * 1. Generate a test stream with a sequence of signed GOPs.
- * 2. Pop a new list from it with one complete GOP of nalus. Validate the new list.
- * 3. Remove all NAL Units until the next SEI. With the access unit format, the SEI is
+ * 2. Pop a new list from it with one complete GOP of BUs. Validate the new list.
+ * 3. Remove all BUs until the next SEI. With the access unit format, the SEI is
  *    sent together with the 'I'.
  * 4a. Reset the session, and validate.
  * 4b. Validate without a reset.
@@ -1205,7 +1205,7 @@ mimic_au_fast_forward_and_get_list(signed_video_t *sv, struct sv_setting setting
   // IPPPIS   ...P.  -> (   valid)
   const struct validation_stats expected = {
       .valid_gops = 1, .pending_bu = 1, .final_validation = &final_validation};
-  validate_nalu_list(sv, pre_fast_forward, expected, true);
+  validate_stream(sv, pre_fast_forward, expected, true);
   test_stream_free(pre_fast_forward);
 
   // Mimic fast forward to second I-frame: PPISPPP ISPPPISPPPISP
@@ -1239,7 +1239,7 @@ START_TEST(fast_forward_stream_with_reset)
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 3, .has_signature = 1, .final_validation = &final_validation};
 
-  validate_nalu_list(sv, list, expected, true);
+  validate_stream(sv, list, expected, true);
   // Free list and session.
   signed_video_free(sv);
   test_stream_free(list);
@@ -1271,7 +1271,7 @@ START_TEST(fast_forward_stream_without_reset)
       .missed_bu = 1,
       .pending_bu = 2,
       .final_validation = &final_validation};
-  validate_nalu_list(sv, list, expected, true);
+  validate_stream(sv, list, expected, true);
 
   // Free list and session.
   test_stream_free(list);
@@ -1297,7 +1297,7 @@ mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_se
   // IPPPPIPPS     -> .....PPP.  (   valid)
   const struct validation_stats expected = {
       .valid_gops = 1, .pending_bu = 3, .final_validation = &final_validation};
-  validate_nalu_list(sv, pre_fast_forward, expected, true);
+  validate_stream(sv, pre_fast_forward, expected, true);
   test_stream_free(pre_fast_forward);
 
   // Mimic fast forward to second I-frame: PIPPSP IPPSPIPPSPISPISP
@@ -1330,7 +1330,7 @@ START_TEST(fast_forward_stream_with_delayed_seis)
   const struct validation_stats expected = {
       .valid_gops = 3, .pending_bu = 8, .has_signature = 1, .final_validation = &final_validation};
 
-  validate_nalu_list(sv, list, expected, true);
+  validate_stream(sv, list, expected, true);
   // Free list and session.
   signed_video_free(sv);
   test_stream_free(list);
@@ -1416,7 +1416,7 @@ START_TEST(file_export_with_dangling_end)
   const struct validation_stats expected = {
       .valid_gops = 3, .pending_bu = 4, .has_signature = 1, .final_validation = &final_validation};
 
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -1442,7 +1442,7 @@ START_TEST(file_export_with_two_useless_seis)
   const struct validation_stats expected = {
       .valid_gops = 3, .pending_bu = 8, .has_signature = 1, .final_validation = &final_validation};
 
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -1463,7 +1463,7 @@ START_TEST(no_signature)
   const struct validation_stats expected = {
       .has_no_timestamp = true, .final_validation = &final_validation};
 
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -1483,7 +1483,7 @@ START_TEST(multislice_no_signature)
   const struct validation_stats expected = {
       .has_no_timestamp = true, .final_validation = &final_validation};
 
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -1516,7 +1516,7 @@ START_TEST(fallback_to_gop_level)
       SV_AUTH_RESULT_OK, false, 36, 33, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 3, .pending_bu = 3, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
   signed_video_free(sv);
@@ -1531,9 +1531,9 @@ START_TEST(vendor_axis_communications_operation)
   SignedVideoReturnCode sv_rc;
   struct sv_setting setting = settings[_i];
   SignedVideoCodec codec = settings[_i].codec;
-  test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
-  test_stream_item_t *p_nalu = test_stream_item_create_from_type('P', 1, codec);
-  test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 2, codec);
+  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *p_frame = test_stream_item_create_from_type('P', 1, codec);
+  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 2, codec);
   test_stream_item_t *sei_item = NULL;
   uint8_t *sei = NULL;
   size_t sei_size = 0;
@@ -1555,11 +1555,11 @@ START_TEST(vendor_axis_communications_operation)
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Mimic a GOP with 1 P-NAL Unit between 2 I-NAL Units to trigger an SEI message.
-  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_frame->data, i_frame->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_add_nalu_for_signing(sv, p_nalu->data, p_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, p_frame->data, p_frame->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_2->data, i_nalu_2->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_frame_2->data, i_frame_2->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_get_sei(sv, &sei, &sei_size, NULL, NULL, 0, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
@@ -1582,13 +1582,15 @@ START_TEST(vendor_axis_communications_operation)
   // Validate this first GOP.
   signed_video_authenticity_t *auth_report = NULL;
   signed_video_latest_validation_t *latest = NULL;
-  sv_rc = signed_video_add_nalu_and_authenticate(sv, i_nalu->data, i_nalu->data_size, &auth_report);
+  sv_rc =
+      signed_video_add_nalu_and_authenticate(sv, i_frame->data, i_frame->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(!auth_report);
-  sv_rc = signed_video_add_nalu_and_authenticate(sv, p_nalu->data, p_nalu->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc =
-      signed_video_add_nalu_and_authenticate(sv, i_nalu_2->data, i_nalu_2->data_size, &auth_report);
+      signed_video_add_nalu_and_authenticate(sv, p_frame->data, p_frame->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_add_nalu_and_authenticate(
+      sv, i_frame_2->data, i_frame_2->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(!auth_report);
   sv_rc =
@@ -1614,11 +1616,11 @@ START_TEST(vendor_axis_communications_operation)
     ck_assert(false);
   }
 
-  // Free nalu_list_item and session.
+  // Free bu_list_item and session.
   test_stream_item_free(sei_item);
-  test_stream_item_free(i_nalu);
-  test_stream_item_free(i_nalu_2);
-  test_stream_item_free(p_nalu);
+  test_stream_item_free(i_frame);
+  test_stream_item_free(i_frame_2);
+  test_stream_item_free(p_frame);
   signed_video_free(sv);
 }
 END_TEST
@@ -1717,7 +1719,7 @@ START_TEST(factory_provisioned_key)
   // We are done with auth_report.
   signed_video_authenticity_report_free(auth_report);
 
-  // Free nalu_list_item and session.
+  // Free bu_list_item and session.
   test_stream_item_free(sei_item);
   test_stream_item_free(i_item);
   test_stream_item_free(i_item_2);
@@ -1735,8 +1737,8 @@ generate_and_set_private_key_on_camera_side(struct sv_setting setting,
   SignedVideoReturnCode sv_rc;
   char *private_key = NULL;
   size_t private_key_size = 0;
-  test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, setting.codec);
-  test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 1, setting.codec);
+  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, setting.codec);
+  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 1, setting.codec);
   signed_video_t *sv = signed_video_create(setting.codec);
   ck_assert(sv);
   // Read and set content of private_key.
@@ -1750,9 +1752,9 @@ generate_and_set_private_key_on_camera_side(struct sv_setting setting,
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Add two 'I' to trigger a SEI.
-  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu->data, i_nalu->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_frame->data, i_frame->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_add_nalu_for_signing(sv, i_nalu_2->data, i_nalu_2->data_size);
+  sv_rc = signed_video_add_nalu_for_signing(sv, i_frame_2->data, i_frame_2->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   uint8_t *sei = NULL;
@@ -1765,8 +1767,8 @@ generate_and_set_private_key_on_camera_side(struct sv_setting setting,
 
   ck_assert(tag_is_present(*sei_item, setting.codec, PUBLIC_KEY_TAG) == add_public_key_to_sei);
 
-  test_stream_item_free(i_nalu);
-  test_stream_item_free(i_nalu_2);
+  test_stream_item_free(i_frame);
+  test_stream_item_free(i_frame_2);
   free(private_key);
   return sv;
 }
@@ -1785,8 +1787,9 @@ validate_public_key_scenario(signed_video_t *sv,
   signed_video_authenticity_t *auth_report = NULL;
   signed_video_latest_validation_t *latest = NULL;
 
-  test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
-  sv_rc = signed_video_add_nalu_and_authenticate(sv, i_nalu->data, i_nalu->data_size, &auth_report);
+  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec);
+  sv_rc =
+      signed_video_add_nalu_and_authenticate(sv, i_frame->data, i_frame->data_size, &auth_report);
   ck_assert(!auth_report);
 
   // Late public key
@@ -1794,7 +1797,7 @@ validate_public_key_scenario(signed_video_t *sv,
     sv_rc = signed_video_set_public_key(sv, public_key->key, public_key->key_size);
     ck_assert_int_eq(sv_rc, SV_NOT_SUPPORTED);
     // Since setting a public key after the session start is not supported, there is no point in
-    // adding the i_nalu and authenticate.
+    // adding the I-frame and authenticate.
   } else {
     sv_rc = signed_video_add_nalu_and_authenticate(sv, sei->data, sei->data_size, &auth_report);
     if (public_key_present) {
@@ -1821,8 +1824,8 @@ validate_public_key_scenario(signed_video_t *sv,
     // We are done with auth_report
     signed_video_authenticity_report_free(auth_report);
   }
-  // Free nalu_list_item and session.
-  test_stream_item_free(i_nalu);
+  // Free bu_list_item and session.
+  test_stream_item_free(i_frame);
 }
 
 /* Test description
@@ -1918,8 +1921,8 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
 {
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
-  test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
-  test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 1, codec);
+  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 1, codec);
   test_stream_item_t *sei = NULL;
   signed_video_t *sv_camera = NULL;
   char *tmp_private_key = NULL;
@@ -1947,12 +1950,12 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   // Validate this first GOP.
   signed_video_authenticity_t *auth_report = NULL;
 
-  sv_rc =
-      signed_video_add_nalu_and_authenticate(sv_vms, i_nalu->data, i_nalu->data_size, &auth_report);
+  sv_rc = signed_video_add_nalu_and_authenticate(
+      sv_vms, i_frame->data, i_frame->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(!auth_report);
   sv_rc = signed_video_add_nalu_and_authenticate(
-      sv_vms, i_nalu_2->data, i_nalu_2->data_size, &auth_report);
+      sv_vms, i_frame_2->data, i_frame_2->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(!auth_report);
 
@@ -1965,10 +1968,10 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   ck_assert_int_eq(auth_report->latest_validation.authenticity, SV_AUTH_RESULT_SIGNATURE_PRESENT);
 
   signed_video_authenticity_report_free(auth_report);
-  // Free nalu_list_item and session.
+  // Free bu_list_item and session.
   test_stream_item_free(sei);
-  test_stream_item_free(i_nalu);
-  test_stream_item_free(i_nalu_2);
+  test_stream_item_free(i_frame);
+  test_stream_item_free(i_frame_2);
   signed_video_free(sv_vms);
   signed_video_free(sv_camera);
   free(tmp_private_key);
@@ -1990,8 +1993,8 @@ START_TEST(no_emulation_prevention_bytes)
   SignedVideoReturnCode sv_rc;
 
   // Create a video with a single I-frame, and a SEI (to be created later).
-  test_stream_item_t *i_nalu = test_stream_item_create_from_type('I', 0, codec);
-  test_stream_item_t *i_nalu_2 = test_stream_item_create_from_type('I', 1, codec);
+  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 1, codec);
 
   test_stream_item_t *sei_item = NULL;
   uint8_t *sei = NULL;
@@ -2016,10 +2019,10 @@ START_TEST(no_emulation_prevention_bytes)
 
   // Add I-frame for signing and get SEI frame.
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
-      sv, i_nalu->data, i_nalu->data_size, &g_testTimestamp);
+      sv, i_frame->data, i_frame->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
-      sv, i_nalu_2->data, i_nalu_2->data_size, &g_testTimestamp);
+      sv, i_frame_2->data, i_frame_2->data_size, &g_testTimestamp);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   sv_rc = signed_video_get_sei(sv, &sei, &sei_size, NULL, NULL, 0, NULL);
@@ -2061,10 +2064,11 @@ START_TEST(no_emulation_prevention_bytes)
 
   ck_assert(!auth_report);
   // Pass in the I-frames.
-  sv_rc = signed_video_add_nalu_and_authenticate(sv, i_nalu->data, i_nalu->data_size, &auth_report);
-  ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc =
-      signed_video_add_nalu_and_authenticate(sv, i_nalu_2->data, i_nalu_2->data_size, &auth_report);
+      signed_video_add_nalu_and_authenticate(sv, i_frame->data, i_frame->data_size, &auth_report);
+  ck_assert_int_eq(sv_rc, SV_OK);
+  sv_rc = signed_video_add_nalu_and_authenticate(
+      sv, i_frame_2->data, i_frame_2->data_size, &auth_report);
   ck_assert_int_eq(sv_rc, SV_OK);
   signed_video_authenticity_report_free(auth_report);
   // Pass in the SEI.
@@ -2095,8 +2099,8 @@ START_TEST(no_emulation_prevention_bytes)
 
   // End of validation, free memory.
   test_stream_item_free(sei_item);
-  test_stream_item_free(i_nalu);
-  test_stream_item_free(i_nalu_2);
+  test_stream_item_free(i_frame);
+  test_stream_item_free(i_frame_2);
   signed_video_free(sv);
 }
 END_TEST
@@ -2139,7 +2143,7 @@ START_TEST(with_blocked_signing)
       SV_AUTH_RESULT_OK, false, 22, 19, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 5, .pending_bu = 17, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
@@ -2175,7 +2179,7 @@ START_TEST(golden_sei_principle)
       SV_AUTH_RESULT_OK, false, 15, 12, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 3, .has_signature = 1, .pending_bu = 3, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, true);
+  validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
   signed_video_free(sv);
@@ -2183,7 +2187,7 @@ START_TEST(golden_sei_principle)
 END_TEST
 
 /* Test description
- * Verify that a valid authentication is returned if all NALUs are added in the correct
+ * Verify that a valid authentication is returned if all BUs are added in the correct
  * order and the stream was generated from a legacy setup (tag v1.1.29).
  */
 START_TEST(legacy_stream)
@@ -2191,13 +2195,13 @@ START_TEST(legacy_stream)
   test_stream_t *list = get_legacy_stream(_i, settings[_i].codec);
   if (!list) return;
 
-  // All NALUs but the last 'I' are validated.
+  // All BUs but the last 'I' are validated.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 15, 13, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // One pending NALU per GOP.
+  // One pending BU per GOP.
   const struct validation_stats expected = {
       .valid_gops = 4, .pending_bu = 4, .final_validation = &final_validation};
-  validate_nalu_list(NULL, list, expected, false);
+  validate_stream(NULL, list, expected, false);
 
   test_stream_free(list);
 }
@@ -2224,8 +2228,8 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, intact_stream_with_splitted_bu, s, e);
   tcase_add_loop_test(tc, intact_stream_with_pps_in_stream, s, e);
   tcase_add_loop_test(tc, intact_ms_stream_with_pps_in_stream, s, e);
-  tcase_add_loop_test(tc, intact_with_undefined_nalu_in_stream, s, e);
-  tcase_add_loop_test(tc, intact_with_undefined_multislice_nalu_in_stream, s, e);
+  tcase_add_loop_test(tc, intact_with_undefined_bu_in_stream, s, e);
+  tcase_add_loop_test(tc, intact_multislice_with_undefined_bu_in_stream, s, e);
   tcase_add_loop_test(tc, remove_one_p_frame, s, e);
   tcase_add_loop_test(tc, interchange_two_p_frames, s, e);
   tcase_add_loop_test(tc, modify_one_p_frame, s, e);

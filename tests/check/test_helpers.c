@@ -81,7 +81,7 @@ const int64_t g_testTimestamp = 42;
 //   bool with_golden_sei;
 //   size_t max_sei_payload_size;
 //   const char *hash_algo_name;
-//   unsigned max_signing_nalus;
+//   unsigned max_signing_bu;
 //   unsigned signing_frequency;
 //   bool increased_sei_size;
 //   int vendor_axis_mode;

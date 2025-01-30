@@ -27,7 +27,16 @@
 
 #include "signed_video_common.h"
 
+/**
+ * @brief Parses a Bitstream Unit if it is a SEI/OBU Metadata
+ *
+ * @param bu A pointer to the Bitstream Unit data
+ * @param bu_size Size of the |bu|
+ * @param codec Codec for this particular bitstream unit
+ *
+ * @return True if |bu| is a golden SEI/OBU Metadata
+ */
 void
-signed_video_parse_sei(uint8_t *nalu, size_t nalu_size, SignedVideoCodec codec);
+signed_video_parse_sei(uint8_t *bu, size_t bu_size, SignedVideoCodec codec);
 
 #endif  // __SIGNED_VIDEO_HELPERS_H__

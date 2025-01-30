@@ -76,8 +76,8 @@ typedef enum {
  *
  * @param codec The codec used in this session.
  *
- * @returns A pointer to signed_video_t struct, allocated and initialized. A null pointer is
- *          returned if memory could not be allocated.
+ * @return A pointer to signed_video_t struct, allocated and initialized. A null pointer is
+ *         returned if memory could not be allocated.
  */
 signed_video_t*
 signed_video_create(SignedVideoCodec codec);
@@ -101,11 +101,11 @@ signed_video_free(signed_video_t* self);
  *
  * For the signing part, this means starting to produce the required SEIs/OBU Metadata needed for
  * authentication. For the authentication part, this should be used when scrubbing the video.
- * Otherwise the lib will fail authentication due to skipped NALUs/OBUs.
+ * Otherwise the lib will fail authentication due to skipped Bitstream Units.
  *
  * @param self Signed Video session in use
  *
- * @returns A Signed Video Return Code (SignedVideoReturnCode)
+ * @return A Signed Video Return Code (SignedVideoReturnCode)
  */
 SignedVideoReturnCode
 signed_video_reset(signed_video_t* self);
@@ -113,7 +113,7 @@ signed_video_reset(signed_video_t* self);
 /**
  * @brief Returns the current software version as a null-terminated string.
  *
- * @returns A string with the current software version
+ * @return A string with the current software version
  */
 const char*
 signed_video_get_version();
@@ -124,10 +124,10 @@ signed_video_get_version();
  * @param version1 Version string to compare against |version2|
  * @param version2 Version string to compare against |version1|
  *
- * @returns 0 if |version1| is equal to |version2|
- *          1 if |version1| is newer than |version2|
- *          2 if |version1| is older than |version2|
- *          -1 Failure
+ * @return 0 if |version1| is equal to |version2|
+ *         1 if |version1| is newer than |version2|
+ *         2 if |version1| is older than |version2|
+ *         -1 Failure
  */
 int
 signed_video_compare_versions(const char* version1, const char* version2);
@@ -143,13 +143,13 @@ signed_video_compare_versions(const char* version1, const char* version2);
  * For the signing side it can help out to verify that a pre-generated golden SEI/OBU Metadata
  * actually is a golden SEI/OBU Metadata before adding it to the stream.
  *
- * @param nalu A pointer to the Bitstream Unit data
- * @param nalu_size Size of the |nalu|
+ * @param bu A pointer to the Bitstream Unit data
+ * @param bu_size Size of the |bu|
  *
- * @returns True if |nalu| is a golden SEI/OBU Metadata
+ * @return True if |bu| is a golden SEI/OBU Metadata
  */
 bool
-signed_video_is_golden_sei(signed_video_t* self, const uint8_t* nalu, size_t nalu_size);
+signed_video_is_golden_sei(signed_video_t* self, const uint8_t* bu, size_t bu_size);
 
 #ifdef __cplusplus
 }

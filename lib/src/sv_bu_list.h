@@ -33,7 +33,7 @@ typedef enum {
  * authenticity of a Signed Video. */
 
 /**
- * @brief Creates a nalu list
+ * @brief Creates a Bitstream Unit list
  *
  * @return A pointer to the created object, or NULL upon failure.
  */
@@ -187,7 +187,7 @@ char*
 bu_list_get_str(const bu_list_t* list, BitstreamUnitListStringType str_type);
 
 /**
- * @brief Cleans up among validated NALUs
+ * @brief Cleans up among validated Bitstream Units
  *
  * To avoid the list from growing uncontrolled in size outdated, already validated, BUs
  * are removed. This is done by removing the first_item from the list one-by-one until the
