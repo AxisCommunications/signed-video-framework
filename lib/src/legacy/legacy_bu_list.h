@@ -23,7 +23,7 @@
 
 #include <stdbool.h>
 
-#include "legacy/legacy_codec_internal.h"
+#include "legacy/legacy_internal.h"
 #include "sv_defines.h"  // svrc_t
 
 typedef enum {
