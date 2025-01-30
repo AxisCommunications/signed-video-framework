@@ -27,8 +27,8 @@
 #include "includes/signed_video_sign.h"
 #include "includes/signed_video_signing_plugin.h"
 #include "sv_authenticity.h"  // allocate_memory_and_copy_string
+#include "sv_codec_internal.h"  // parse_bu_info(), METADATA_TYPE_USER_PRIVATE
 #include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
-#include "sv_h26x_internal.h"  // parse_bu_info(), METADATA_TYPE_USER_PRIVATE
 #include "sv_internal.h"  // gop_info_t
 #include "sv_openssl_internal.h"
 #include "sv_tlv.h"  // tlv_list_encode_or_get_size()

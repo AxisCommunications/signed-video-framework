@@ -261,7 +261,7 @@ set_hash_list_size(gop_info_t *gop_info, size_t hash_list_size);
 void
 product_info_free_members(signed_video_product_info_t *product_info);
 
-/* Defined in sv_h26x_sign.c */
+/* Defined in sv_sign.c */
 
 /* Frees all allocated memory of payload pointers in the SEI data buffer. */
 void

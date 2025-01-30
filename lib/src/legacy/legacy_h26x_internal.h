@@ -27,8 +27,8 @@
 
 #include "includes/signed_video_common.h"  // SignedVideoCodec
 #include "legacy/legacy_internal.h"  // legacy_sv_t, legacy_gop_state_t, legacy_validation_flags_t, legacy_gop_info_t
+#include "sv_codec_internal.h"  // SignedVideoFrameType, SignedVideoUUIDType
 #include "sv_defines.h"  // svrc_t
-#include "sv_h26x_internal.h"  // SignedVideoFrameType, SignedVideoUUIDType
 #include "sv_internal.h"  // MAX_HASH_SIZE
 
 typedef struct _legacy_h26x_nalu_list_item_st legacy_h26x_nalu_list_item_t;
