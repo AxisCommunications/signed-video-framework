@@ -18,8 +18,8 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#ifndef __SIGNED_VIDEO_TLV_H__
-#define __SIGNED_VIDEO_TLV_H__
+#ifndef __SV_TLV_H__
+#define __SV_TLV_H__
 
 #include <stdbool.h>  // bool
 #include <stdint.h>  // uint8_t
@@ -39,7 +39,7 @@
  * @param num_tags Number of tags in the array.
  * @param data Pointer to the memory to write to, or a NULL pointer to only get the size.
  *
- * @returns The size of the data encoded.
+ * @return The size of the data encoded.
  */
 size_t
 tlv_list_encode_or_get_size(signed_video_t *signed_video,
@@ -57,7 +57,7 @@ tlv_list_encode_or_get_size(signed_video_t *signed_video,
  * @param data Pointer to the data to read from.
  * @param data_size Size of the data.
  *
- * @returns SV_OK if decoding was successful, otherwise an error code.
+ * @return SV_OK if decoding was successful, otherwise an error code.
  */
 svrc_t
 tlv_decode(signed_video_t *signed_video, const uint8_t *data, size_t data_size);
@@ -74,7 +74,7 @@ tlv_decode(signed_video_t *signed_video, const uint8_t *data, size_t data_size);
  * @param tag The tag to search for and when detected returns its location.
  * @param with_ep Flag to indicate if emulation prevention bytes is on.
  *
- * @returns A pointer to the location of the tag to scan for. Returns NULL if the tag was not found.
+ * @return A pointer to the location of the tag to scan for. Returns NULL if the tag was not found.
  */
 const uint8_t *
 tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bool with_ep);
@@ -82,7 +82,7 @@ tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bo
 /**
  * @brief Reads bits from p into val.
  *
- * @returns Number of bytes read.
+ * @return Number of bytes read.
  */
 size_t
 read_64bits_signed(const uint8_t *p, int64_t *val);
@@ -124,7 +124,7 @@ write_byte(uint16_t *last_two_bytes, uint8_t **payload, uint8_t byte, bool do_em
 /**
  * @brief Reads a byte from payload w/wo emulation prevention
  *
- * @returns The byte read.
+ * @return The byte read.
  */
 uint8_t
 read_byte(uint16_t *last_two_bytes, const uint8_t **payload, bool do_emulation_prevention);
@@ -139,7 +139,7 @@ read_byte(uint16_t *last_two_bytes, const uint8_t **payload, bool do_emulation_p
  * @param tlv_data Pointer to the TLV data to scan.
  * @param tlv_data_size Size of the TLV data.
  *
- * @returns True if find and decoding tag was successful.
+ * @return True if find and decoding tag was successful.
  */
 bool
 tlv_find_and_decode_optional_tags(signed_video_t *self,
@@ -152,7 +152,7 @@ tlv_find_and_decode_optional_tags(signed_video_t *self,
  * @param num_of_optional_tags A pointer to a location where the number of optional tags will be
  * written.
  *
- * @returns Array that contains all optional tags.
+ * @return Array that contains all optional tags.
  */
 const sv_tlv_tag_t *
 get_optional_tags(size_t *num_of_optional_tags);
@@ -163,9 +163,9 @@ get_optional_tags(size_t *num_of_optional_tags);
  * @param num_of_mandatory_tags A pointer to a location where number of mandatory tags will be
  * written.
  *
- * @returns Array that contains all mandatory tags.
+ * @return Array that contains all mandatory tags.
  */
 const sv_tlv_tag_t *
 get_mandatory_tags(size_t *num_of_mandatory_tags);
 
-#endif  // __SIGNED_VIDEO_TLV_H__
+#endif  // __SV_TLV_H__

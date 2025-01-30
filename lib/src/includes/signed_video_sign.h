@@ -34,46 +34,47 @@ extern "C" {
 #endif
 
 /**
- * Instruction on where to prepend a generated NALU/OBU.
+ * Instruction on where to prepend a generated Bitstream Unit (NALU or OBU).
  *
- * If an action is to prepend a NALU/OBU (SIGNED_VIDEO_PREPEND_NALU) the generated NALU/OBU should
- * prepend the input NALU/OBU + all already prepended NALUs/OBUs.
- * If an action is to prepend an access unit (SIGNED_VIDEO_PREPEND_ACCESS_UNIT) the generated
- * NALU/OBU should be added to an extra access unit (AU) preceding the current one. If an extra AU
- * has already been created, this generated NALU/OBU should prepend all already added NALUs/OBUs in
- * that extra AU.
+ * If an action is to prepend a Bitstream Unit (SIGNED_VIDEO_PREPEND_NALU) the generated
+ * Bitstream Unit should prepend the input Bitstream Unit + all already prepended
+ * Bitstream Units.
+ * If an action is to prepend an access unit (SIGNED_VIDEO_PREPEND_ACCESS_UNIT) the
+ * generated Bitstream Unit should be added to an extra access unit (AU) preceding the
+ * current one. If an extra AU has already been created, this generated Bitstream Unit
+ * should prepend all already added Bitstream Units in that extra AU.
  *
- * For example, assume one AU with one NALU/OBU F0, that is, the memory looks like
+ * For example, assume one AU with one Bitstream Unit F0, that is, the memory looks like
  *
  * | AUD | F0 |
  *
- * Further, assume four NALUs are pulled in order; F1, F2, F3 and F4. The corresponding
- * instructions are; SIGNED_VIDEO_PREPEND_NALU, SIGNED_VIDEO_PREPEND_NALU,
- * SIGNED_VIDEO_PREPEND_ACCESS_UNIT and SIGNED_VIDEO_PREPEND_ACCESS_UNIT. Then the memory afterwards
- * should look like this
+ * Further, assume four Bitstream Units are pulled in order; F1, F2, F3 and F4. The
+ * corresponding instructions are; SIGNED_VIDEO_PREPEND_NALU, SIGNED_VIDEO_PREPEND_NALU,
+ * SIGNED_VIDEO_PREPEND_ACCESS_UNIT and SIGNED_VIDEO_PREPEND_ACCESS_UNIT. Then the memory
+ * afterwards should look like this
  *
  * | AUD | F4 | F3 | AUD | F2 | F1 | F0 |
  * /---------------/
  *       new AU
  */
 typedef enum {
-  SIGNED_VIDEO_PREPEND_NOTHING,
   // Nothing more to prepend.
+  SIGNED_VIDEO_PREPEND_NOTHING,
+  // Prepend the Bitstream Units in a preceding access unit.
   SIGNED_VIDEO_PREPEND_ACCESS_UNIT,
-  // Prepend the NALUs/OBUs in a preceding access unit.
+  // Prepend the Bitstream Units in the same access unit as the input Bitstream Unit.
   SIGNED_VIDEO_PREPEND_NALU,
-  // Prepend the NALUs/OBU in the same access unit as the input H26x NALU/AV1 OBU.
 } SignedVideoPrependInstruction;
 
 /**
- * A struct composed of the data of a, by Signed Video, generated NALU/OBU and instructions on how
- * to add it to the stream.
+ * A struct composed of the data of a, by Signed Video, generated Bitstream Unit and
+ * instructions on how to add it to the stream.
  */
 typedef struct {
   SignedVideoPrependInstruction prepend_instruction;
-  // Instructions on where to prepend the NALU/OBU.
+  // Instructions on where to prepend the Bitstream Unit.
   uint8_t *nalu_data;
-  // Data of generated NALU/OBU.
+  // Data of generated Bitstream Unit.
   size_t nalu_data_size;
   // Size of generated |nalu_data|.
 } signed_video_nalu_to_prepend_t;
@@ -84,49 +85,52 @@ typedef struct {
 typedef enum {
   SV_AUTHENTICITY_LEVEL_GOP = 0,
   // The entire GOP is verified as one solid chunk. Hence, if validation fails it is unknown which
-  // NALUs/OBUs were incorrect or missing.
+  // Bitstream Units were incorrect or missing.
   SV_AUTHENTICITY_LEVEL_FRAME = 1,
-  // Individual NALUs/OBUs are verified. Hence, if validation fails the incorrect or missing
-  // NALU/OBU(s) are detected.
+  // Individual Bitstream Units are verified. Hence, if validation fails the incorrect or missing
+  // Bitstream Unit(s) are detected.
   SV_AUTHENTICITY_LEVEL_NUM
 } SignedVideoAuthenticityLevel;
 
 /**
- * @brief Updates Signed Video, with a H26x NALU or AV1 OBU, for signing
+ * @brief Updates Signed Video, with a Bitstream Unit (H26x NALU or AV1 OBU), for signing
  *
- * Each NALU/OBU in a video has to be processed for signing. Sometimes the NALU/OBU data is split in
- * parts and cannot be hashed in one go. This API adds a NALU/OBU part to the signed_video_t object
- * for signing. It is very important that the video NALUs/OBUs are fed to this API in the same order
- * as they are transmitted. Otherwise, the authentication will fail.
+ * Each Bitstream Unit in a video has to be processed for signing. Sometimes the Bitstream
+ * Unit data is split in parts and cannot be hashed in one go. This API adds a Bitstream
+ * Unit part to the signed_video_t object for signing. It is very important that the video
+ * Bitstream Units are fed to this API in the same order as they are transmitted.
+ * Otherwise, the authentication will fail.
  *
- * Signed Video adds SEIs/OBU Metadata of type "user data unregistered"/"user private" to
- * communicate data for authentication. These SEIs/OBU Metadata are generated by the Signed Video
- * library and are complete NALUs + 4 start code bytes, or OBUs. The user is responsible for pulling
- * these generated NALUs/OBUs from the object. Hence, upon a successful
+ * Signed Video adds SEIs of type "user data unregistered" (OBU Metadata of type "user
+ * private") to communicate data for authentication. These SEIs/OBU Metadata are generated
+ * by the Signed Video library and are complete Bitstream Units (NALUs + 4 start code
+ * bytes, or OBUs). The user is responsible for pulling these generated Bitstream Units
+ * from the object. Hence, upon a successful
  * signed_video_add_nalu_for_signing_with_timestamp(...) call the user should always call
- * signed_video_get_nalu_to_prepend(...) to get the additional NALUs/OBUs.
+ * signed_video_get_nalu_to_prepend(...) to get the additional Bitstream Units.
  *
- * The timestamp parameter shall be a UNIX epoch value in UTC format. The integrator of this signed
- * video framework shall make sure this is true, so that the client side knows the expected format
- * and is able to convert the timestamp to whatever format is desired. If the timestamp is not NULL
- * and the NALU/OBU is the first in the gop (i.e. the first I-frame slice), it will be included in
- * the general SEI/OBU Metadata. All other timestamps and NULL will be disregarded.
+ * The timestamp parameter shall be a UNIX epoch value in UTC format. The integrator of
+ * this signed video framework shall make sure this is true, so that the client side knows
+ * the expected format and is able to convert the timestamp to whatever format is desired.
+ * If the timestamp is not NULL and the Bitstream Unit is the first in the GOP (i.e. the
+ * first I-frame slice), it will be included in the general SEI/OBU Metadata. All other
+ * timestamps and NULL will be disregarded.
  *
  * For sample code, see the description of signed_video_get_nalu_to_prepend(...) below.
  *
  * @param self Pointer to the signed_video_t object in use.
- * @param nalu_data A pointer to the NALU/OBU data
- * @param nalu_data_size The size of the NALU/OBU data.
+ * @param nalu_data A pointer to the Bitstream Unit data
+ * @param nalu_data_size The size of the Bitstream Unit data.
  * @param timestamp Unix epoch in UTC.
- * @param is_last_part Flag to mark the last part of the NALU/OBU data.
+ * @param is_last_part Flag to mark the last part of the Bitstream Unit data.
  *
- * @returns SV_OK            - the NALU was processed successfully.
- *          SV_NOT_SUPPORTED - signed_video_set_private_key_new(...) has not been set
- *                             OR
- *                             there are generated NALUs/OBUs waiting to be pulled. Use
- *                             signed_video_get_nalu_to_prepend(...) to fetch them. Then call this
- *                             function again to process the |nalu_data|.
- *          otherwise a different error code.
+ * @return SV_OK            - the NALU was processed successfully.
+ *         SV_NOT_SUPPORTED - signed_video_set_private_key_new(...) has not been set
+ *                            OR
+ *                            there are generated NALUs/OBUs waiting to be pulled. Use
+ *                            signed_video_get_nalu_to_prepend(...) to fetch them. Then call this
+ *                            function again to process the |nalu_data|.
+ *         otherwise a different error code.
  */
 SignedVideoReturnCode
 signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
@@ -136,8 +140,8 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     bool is_last_part);
 
 /**
- * This API is identical to signed_video_add_nalu_part_for_signing_with_timestamp() where every call
- * has |is_last_part| = true, that is, every part is a complete NALU.
+ * This API is identical to signed_video_add_nalu_part_for_signing_with_timestamp() where
+ * every call has |is_last_part| = true, that is, every part is a complete Bitstream Unit.
  */
 SignedVideoReturnCode
 signed_video_add_nalu_for_signing_with_timestamp(signed_video_t *self,
@@ -157,25 +161,26 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
     size_t nalu_data_size);
 
 /**
- * @brief Gets generated NALUs/OBUs to prepend the latest added NALU/OBU
+ * @brief Gets generated Bitstream Units to prepend the latest added Bitstream Unit
  *
  * This function should always be called after a successful
- * signed_video_add_nalu_for_signing_with_timestamp(...). Otherwise, the functionality of Signed
- * Video is jeopardized, since vital SEI-NALUs may not be added to the video stream. The
- * signed_video_add_nalu_for_signing_with_timestamp(...) returns SV_NOT_SUPPORTED if there are
- * available NALUs/OBUs to prepend. The user should then pull these before continuing; See return
- * values in signed_video_add_nalu_for_signing_with_timestamp(...).
+ * signed_video_add_nalu_for_signing_with_timestamp(...). Otherwise, the functionality of
+ * Signed Video is jeopardized, since vital SEIs may not be added to the video stream. The
+ * signed_video_add_nalu_for_signing_with_timestamp(...) returns SV_NOT_SUPPORTED if there
+ * are available Bitstream Units to prepend. The user should then pull these before
+ * continuing; See return values in signed_video_add_nalu_for_signing_with_timestamp(...).
  *
- * These SEIs are generated by the Signed Video library and are complete NALUs + 4 start code
- * bytes, or OBUs. Hence, the user can simply pull and prepend existing H26x NALUs, or AV1 OBUs.
- * Pull NALUs/OBUs to prepend from signed_video_t one by one until no further action is required.
- * When this happens, a SIGNED_VIDEO_PREPEND_NOTHING instruction is pulled. The
- * signed_video_get_nalu_to_prepend(...) API provides the user with the NALU/OBU data as well as
- * instructions on where to prepend that data.
+ * These SEIs are generated by the Signed Video library and are complete Bitstream Unit
+ * (NALUs + 4 start code bytes, or OBUs). Hence, the user can simply pull and prepend
+ * existing Bitstream Unit (H26x NALUs, or AV1 OBUs).
+ * Pull Bitstream Units to prepend from signed_video_t one by one until no further action
+ * is required. When this happens, a SIGNED_VIDEO_PREPEND_NOTHING instruction is pulled.
+ * The signed_video_get_nalu_to_prepend(...) API provides the user with the Bitstream Unit
+ * data as well as instructions on where to prepend that data.
  *
- * NOTE that as soon as the user pulls a new NALU/OBU to prepend, the ownership of the |nalu_data|
- * memory (see members of signed_video_nalu_to_prepend_t) is transferred. Free the |nalu_data|
- * memory with signed_video_nalu_data_free(...).
+ * @note that as soon as the user pulls a new Bitstream Unit to prepend, the ownership of
+ * the |nalu_data| memory (see members of signed_video_nalu_to_prepend_t) is transferred.
+ * Free the |nalu_data| memory with signed_video_nalu_data_free(...).
  *
  * Here is an example code of usage:
  *
@@ -217,12 +222,12 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
  *   }
  *
  * @param self Pointer to the signed_video_t object in use.
- * @param nalu_to_prepend A pointer to a signed_video_nalu_to_prepend_t object holding NALU/OBU data
- *   and prepend instructions.
+ * @param nalu_to_prepend A pointer to a signed_video_nalu_to_prepend_t object holding
+ *   Bitstream Unit data and prepend instructions.
  *
- * @returns SV_OK            - NALU/OBU was pulled successfully,
- *          SV_NOT_SUPPORTED - no available data, the action is not supported,
- *          otherwise        - an error code.
+ * @return SV_OK            - Bitstream Unit was pulled successfully,
+ *         SV_NOT_SUPPORTED - no available data, the action is not supported,
+ *         otherwise        - an error code.
  */
 SignedVideoReturnCode
 signed_video_get_nalu_to_prepend(signed_video_t *self,
@@ -233,15 +238,17 @@ signed_video_get_nalu_to_prepend(signed_video_t *self,
  *
  * This function is recommended to be called before
  * signed_video_add_nalu_for_signing_with_timestamp(...). The user has an option to
- * provide this function with a |peek_nalu|, which is the same NAL Unit/OBU that is to be
- * added for signing.
+ * provide this function with a |peek_nalu|, which is the same Bitstream Unit (NALU or
+ * OBU) that is to be added for signing.
  *
- * These SEIs/OBU Metadata are generated by the Signed Video library and are complete NAL Units + 4
- * start code bytes, or OBUs. Hence, the user can simply pull and prepend existing H26x NAL Units,
- * or AV1 OBUs. Pull NAL Units/OBUs to prepend from signed_video_t one by one until no more
- * generated SEIs/OBU Metadata exists, that is, when |sei_size| is zero.
+ * These SEIs/OBU Metadata are generated by the Signed Video library and are complete
+ * Bitstream Unit (NAL Units + 4 start code bytes, or OBUs). Hence, the user can simply
+ * pull and prepend existing Bitstream Units. Pull Bitstream Units to prepend from
+ * signed_video_t one by one until no more generated SEIs/OBU Metadata exists, that is,
+ * when |sei_size| is zero.
  *
- * NOTE: The memory is transferred and the user is responsible for freeing memory of the |sei|.
+ * @note: The memory is transferred and the user is responsible for freeing the memory of
+ * the |sei|.
  *
  * Here is an example code of usage:
  *
@@ -270,20 +277,22 @@ signed_video_get_nalu_to_prepend(signed_video_t *self,
  *   }
  *
  * @param self Pointer to the signed_video_t object in use.
- * @param sei Pointer to the memory pointer to which a complete SEI/OBU Metadata is located.
+ * @param sei Pointer to the memory pointer to which a complete SEI/OBU Metadata is
+ *   located.
  * @param sei_size Pointer to where the size of the SEI/OBU Metadata is written.
- * @param payload_offset Pointer to where the offset to the start of the SEI/OBU Metadata payload is
- *   written. This is useful if the SEI/OBU Metadata is added by the encoder, which would take the
- *   SEI/OBU Metadata payload only and then fill in the header, payload size and apply emulation
- *   prevention onto the data.
- * @param peek_nalu Pointer to the NAL Unit/OBU of which the SEI/OBU Metadata will be prepended as a
- *   header. When peeking at the next NAL Unit/OBU, SEIs/OBU Metadata can only be fetched if the
- *   NAL/OBU is a primary slice. A NULL pointer means that the user is responsible to add the
- *   SEI/OBU Metadata according to standard.
- * @param peek_nalu_size The size of the peek NAL Unit/OBU.
- * @param num_pending_seis Pointer to where the number of pending SEIs/OBU Metadata is written.
+ * @param payload_offset Pointer to where the offset to the start of the SEI/OBU Metadata
+ *   payload is written. This is useful if the SEI/OBU Metadata is added by the encoder,
+ *   which would take the SEI/OBU Metadata payload only and then fill in the header,
+ *   payload size and apply emulation prevention onto the data.
+ * @param peek_nalu Pointer to the Bitstream Unit of which the SEI/OBU Metadata will be
+ *   prepended as a header. When peeking at the next Bitstream Unit, SEIs/OBU Metadata can
+ *   only be fetched if the Bitstream Unit is a primary slice. A NULL pointer means that
+ *   the user is responsible to add the SEI/OBU Metadata according to standard.
+ * @param peek_nalu_size The size of the peek Bitstream Unit.
+ * @param num_pending_seis Pointer to where the number of pending SEIs/OBU Metadata is
+ *   written.
  *
- * @return SV_OK            - NALU/OBU was copied successfully,
+ * @return SV_OK            - Bitstream Unit was copied successfully,
  *         SV_NOT_SUPPORTED - no available data, the action is not supported,
  *         otherwise        - an error code.
  */
@@ -310,16 +319,18 @@ signed_video_nalu_data_free(uint8_t *nalu_data);
 /**
  * @brief Tells Signed Video that the stream has ended
  *
- * When reaching the end of a stream (EOS) a final SEI/OBU Metadata needs to be transmitted to be
- * able to validate all the way to the end, thereby avoiding a dangling end.
+ * When reaching the end of a stream (EOS) a final SEI/OBU Metadata needs to be
+ * transmitted to be able to validate all the way to the end, thereby avoiding a dangling
+ * end.
  *
- * This API can be called when the end of a stream is reached. Afterwards, all NALUs/OBUs to prepend
- * should be pulled as normal using signed_video_get_nalu_to_prepend(...) above.
+ * This API can be called when the end of a stream is reached. Afterwards, all Bitstream
+ * Units to prepend should be pulled as normal using signed_video_get_nalu_to_prepend(...)
+ * above.
  *
  * @param self Pointer to the signed_video_t object in use.
  *
- * @returns SV_OK            - EOS was successfully set,
- *          otherwise        - an error code.
+ * @return SV_OK            - EOS was successfully set,
+ *         otherwise        - an error code.
  */
 SignedVideoReturnCode
 signed_video_set_end_of_stream(signed_video_t *self);
@@ -327,11 +338,11 @@ signed_video_set_end_of_stream(signed_video_t *self);
 /**
  * @brief Generates a golden SEI/OBU Metadata.
  *
- * A golden SEI/OBU Metadata is a self-signed SEI/OBU Metadata that includes all information only
- * needed once such as the Public key. Usually a golden SEI/OBU Metadata is sent only once in the
- * beginning of a stream.
- * With this function a golden SEI/OBU Metadata can be generated and the user can store it for later
- * use, and easily added to the stream when needed.
+ * A golden SEI/OBU Metadata is a self-signed SEI/OBU Metadata that includes all
+ * information only needed once such as the Public key. Usually a golden SEI/OBU Metadata
+ * is sent only once in the beginning of a stream.
+ * With this function a golden SEI/OBU Metadata can be generated and the user can store it
+ * for later use, and easily added to the stream when needed.
  *
  * Here is an example code of usage:
  *
@@ -354,7 +365,7 @@ signed_video_set_end_of_stream(signed_video_t *self);
  *
  * @param self Pointer to the signed_video_t object in use.
  *
- * @returns An appropriate return code.
+ * @return An appropriate return code.
  */
 SignedVideoReturnCode
 signed_video_generate_golden_sei(signed_video_t *self);
@@ -362,12 +373,13 @@ signed_video_generate_golden_sei(signed_video_t *self);
 /**
  * @brief Sets the product information for the signed video session
  *
- * This API will set the hardware id, firmware version and serial number in the signed_video_t
- * struct for the session. Although this should only have to be set once, this can be called
- * multiple times during the signing, but it must be done in between adding NALUs synchronously.
- * NOTE: This API assumes null-terminated input strings.
- * NOTE: The length of a string has to be less than 255 characters, otherwise the string will be
- * truncated.
+ * This API will set the hardware id, firmware version and serial number in the
+ * signed_video_t struct for the session. Although this should only have to be set once,
+ * this can be called multiple times during the signing, but it must be done in between
+ * adding Bitstream Units synchronously.
+ * @note: This API assumes null-terminated input strings.
+ * @note: The length of a string has to be less than 255 characters, otherwise the string
+ * will be truncated.
  *
  * @param self Signed Video session pointer
  * @param hardware_id Null-terminated string
@@ -376,8 +388,8 @@ signed_video_generate_golden_sei(signed_video_t *self);
  * @param manufacturer Null-terminated string
  * @param address Null-terminated string
  *
- * @returns SV_OK            - Product info was successfully set,
- *          otherwise        - an error code.
+ * @return SV_OK            - Product info was successfully set,
+ *         otherwise        - an error code.
  */
 SignedVideoReturnCode
 signed_video_set_product_info(signed_video_t *self,
@@ -390,17 +402,18 @@ signed_video_set_product_info(signed_video_t *self,
 /**
  * @brief Sets the content of the private key.
  *
- * NOTE: This call has to be called before the video session can begin.
+ * @note: This call has to be called before the video session can begin.
  *
- * Signed Video requires a PEM file format of private (and public) keys. The user is responsible for
- * key handling. The content of the private key (in PEM format) is passed to Signed Video through
- * this API. For Linux there is an OpenSSL based helper function to generate a private key in a
- * given location; See signed_video_openssl.h.
+ * Signed Video requires a PEM file format of private (and public) keys. The user is
+ * responsible for key handling. The content of the private key (in PEM format) is passed
+ * to Signed Video through this API. For Linux there is an OpenSSL based helper function
+ * to generate a private key in a given location; See signed_video_openssl.h.
  *
- * Associated with the private key is a signing algorithm, for example RSA or ECDSA. This type
- * needs to be set to know if some additional actions need to be taken when signing or validating.
- * The algorithm will be transmitted in the SEI nalu and picked up by the client side which will
- * then be able to take necessary actions on their side before verifying the signature.
+ * Associated with the private key is a signing algorithm, for example RSA or ECDSA. This
+ * type needs to be set to know if some additional actions need to be taken when signing
+ * or validating. The algorithm will be transmitted in the SEI and picked up by the client
+ * side which will then be able to take necessary actions on their side before verifying
+ * the signature.
  *
  * @param self Pointer to the signed_video_t object session.
  * @param private_key The content of the private key pem file.
@@ -426,11 +439,11 @@ signed_video_set_private_key(signed_video_t *self,
  * @brief Setter for adding the Public key to the SEI/OBU Metadata or not
  *
  * If the public key, used to verify the signatures, cannot be secured through a hardware
- * certificate or key attestation, it should not be added to the video stream. Without securing it,
- * anyone can sign arbitrary (tampered) videos.
+ * certificate or key attestation, it should not be added to the video stream. Without
+ * securing it, anyone can sign arbitrary (tampered) videos.
  *
- * This function should be used before starting the Signed Video session. If it is not used, the
- * public key is added to the SEI/OBU Metadata.
+ * This function should be used before starting the Signed Video session. If it is not
+ * used, the public key is added to the SEI/OBU Metadata.
  *
  * @param self Pointer to the current Signed Video session
  * @param add_public_key_to_sei Flag to indicate if the public key should be added to the
@@ -444,15 +457,15 @@ signed_video_add_public_key_to_sei(signed_video_t *self, bool add_public_key_to_
 /**
  * @brief Sets the authenticity level to be used.
  *
- * The framework supports two levels of authenticity; GOP and Frame, where Frame is default. At GOP
- * level a verification is made for the entire GOP in one chunk, whereas at Frame level frame drops
- * can be handled.
+ * The framework supports two levels of authenticity; GOP and Frame, where Frame is
+ * default. At GOP level a verification is made for the entire GOP in one chunk, whereas
+ * at Frame level frame drops can be handled.
  *
- * The signing part decides on the level and the receiving end will automatically produce an
- * appropriate report.
+ * The signing part decides on the level and the receiving end will automatically produce
+ * an appropriate report.
  *
- * NOTE: that authenticity at Frame level will have a significantly higher bitrate than at GOP
- * level.
+ * @note: that authenticity at Frame level will have a significantly higher bitrate than
+ * at GOP level.
  *
  * @param self Pointer to the signed_video_t object session.
  * @param authenticity_level The authenticity level used.
@@ -468,43 +481,45 @@ signed_video_set_authenticity_level(signed_video_t *self,
 /**
  * @brief Sets the average recurrence interval for the signed video session in frames
  *
- * Metadata that is only needed once when validating the authenticity can be transmitted with a
- * different recurrence interval than the signatures. This API sets that recurrence, counted in
- * frames (not NALUs/OBUs). Note that this type of metadata is still bundled together in the same
- * SEI/OBU Metadata as the signature, hence the true recurrence will be correct on the average.
+ * Metadata that is only needed once when validating the authenticity can be transmitted
+ * with a different recurrence interval than the signatures. This API sets that
+ * recurrence, counted in frames (not Bitstream Units). Note that this type of metadata is
+ * still bundled together in the same SEI/OBU Metadata as the signature, hence the true
+ * recurrence will be correct on the average.
 
  * Example of metadata that is only needed once are the public key and product info.
  *
  * @param self Session struct pointer
  * @param recurrence Recurrence interval in frames
  *
- * @returns SV_OK Recurrence interval was successfully set,
- *          SV_INVALID_PARAMETER Invalid parameter,
- *          SV_NOT_SUPPORTED Recurrence interval is not supported.
+ * @return SV_OK Recurrence interval was successfully set,
+ *         SV_INVALID_PARAMETER Invalid parameter,
+ *         SV_NOT_SUPPORTED Recurrence interval is not supported.
  */
 /* TO BE DEPRECATED */
 SignedVideoReturnCode
 signed_video_set_recurrence_interval_frames(signed_video_t *self, unsigned recurrence);
 
 /**
- * @brief Configures Signed Video to generate the SEI NAL Units with/without emulation prevention
+ * @brief Configures Signed Video to generate the SEIs with/without emulation prevention
  *
- * Emulation prevention bytes (EPB) are used to prevent the decoder from detecting the start code
- * sequence in the middle of a NAL Unit. By default, the framework generates SEI frames with EPB
- * written to the payload. With this API, the user can select to have Signed Video generate SEI
- * frames with or without EPBs.
+ * Emulation prevention bytes (EPB) are used to prevent the decoder from detecting the
+ * start code sequence in the middle of a NAL Unit. By default, the framework generates
+ * SEI frames with EPB written to the payload. With this API, the user can select to have
+ * Signed Video generate SEI frames with or without EPBs.
 
- * If this API is not used, SEI payload is written with EPBs, hence equivalent with setting
- * |sei_epb| to True.
+ * If this API is not used, SEI payload is written with EPBs, hence equivalent with
+ * setting |sei_epb| to True.
  *
- * NOTE: AV1 does not have emulation prevention. Therefore, this API is not supported for AV1.
+ * @note: AV1 does not have emulation prevention. Therefore, this API is not supported for
+ * AV1.
  *
  * @param self Session struct pointer
- * @param sei_epb SEI payload written with EPB (default True)
+ * @param sei_epb SEI payload written with EPB (default True if applicable)
  *
- * @returns SV_OK SEI w/o EPB was successfully set,
- *          SV_NOT_SUPPORTED if codec is AV1,
- *          SV_INVALID_PARAMETER Invalid parameter.
+ * @return SV_OK SEI w/o EPB was successfully set,
+ *         SV_NOT_SUPPORTED if codec is AV1,
+ *         SV_INVALID_PARAMETER Invalid parameter.
  */
 SignedVideoReturnCode
 signed_video_set_sei_epb(signed_video_t *self, bool sei_epb);
@@ -512,23 +527,24 @@ signed_video_set_sei_epb(signed_video_t *self, bool sei_epb);
 /**
  * @brief Configures Signed Video to use golden SEI/OBU Metadata principle
  *
- * The principle of the golden SEI/OBU Metadata sends all information only needed once, such as the
- * Public key, at the start of the stream with the golden SEI/OBU Metadata. After that, the rest of
- * the SEIs/OBU Metadata in the stream only include mandatory information.
+ * The principle of the golden SEI/OBU Metadata sends all information only needed once,
+ * such as the Public key, at the start of the stream with the golden SEI/OBU Metadata.
+ * After that, the rest of the SEIs/OBU Metadata in the stream only include mandatory
+ * information.
  *
- * It is the user's responsibility to ensure that the first SEI/OBU Metadata in the stream is a
- * golden SEI/OBU Metadata.
- * This golden SEI/OBU Metadata does not necessarily have to be at the very beginning of the stream,
- * but it must be the first SEI/OBU Metadata included.
+ * It is the user's responsibility to ensure that the first SEI/OBU Metadata in the stream
+ * is a golden SEI/OBU Metadata.
+ * This golden SEI/OBU Metadata does not necessarily have to be at the very beginning of
+ * the stream, but it must be the first SEI/OBU Metadata included.
  *
- * NOTE: It is not feasible to set this on an ongoing session.
+ * @note: It is not feasible to set this on an ongoing session.
  *
  * @param self Session struct pointer
  * @param using_golden_sei Flag to enable or disable the golden SEI/OBU Metadata principle.
  *
- * @returns SV_OK SEI/OBU Metadata |using_golden_sei| was successfully set,
- *          SV_INVALID_PARAMETER Invalid parameter.
- *          SV_NOT_SUPPORTED if set during an ongoing session.
+ * @return SV_OK SEI/OBU Metadata |using_golden_sei| was successfully set,
+ *         SV_INVALID_PARAMETER Invalid parameter.
+ *         SV_NOT_SUPPORTED if set during an ongoing session.
  */
 SignedVideoReturnCode
 signed_video_set_using_golden_sei(signed_video_t *self, bool using_golden_sei);
@@ -536,27 +552,29 @@ signed_video_set_using_golden_sei(signed_video_t *self, bool using_golden_sei);
 /**
  * @brief Configures Signed Video to limit the payload size of the SEIs/OBU Metadata
  *
- * In many Signed Video integrations on the signing side SEIs/OBU Metadata cannot become arbitrary
- * large due to hardware constraints. This API sets an upper limit on the payload size of the
- * generated SEI/OBU Metadata. If the, to be generated, SEI/OBU Metadata exceeds the set
- * |max_sei_payload_size| Signed Video falls back to GOP level authentication.
+ * In many Signed Video integrations on the signing side SEIs/OBU Metadata cannot become
+ * arbitrary large due to hardware constraints. This API sets an upper limit on the
+ * payload size of the generated SEI/OBU Metadata. If the, to be generated, SEI/OBU
+ * Metadata exceeds the set |max_sei_payload_size| Signed Video falls back to GOP level
+ * authentication.
  *
  * Note that it is a soft limit. If the payload size is still too large even for GOP level
- * authentication the SEI/OBU Metadata is generated. Further, note that the API sets the maximum
- * SEI/OBU Metadata payload size. The final SEI/OBU Metadata size can become larger since it
- * includes headers, size bytes and potentional emulation prevention.
+ * authentication the SEI/OBU Metadata is generated. Further, note that the API sets the
+ * maximum SEI/OBU Metadata payload size. The final SEI/OBU Metadata size can become
+ * larger since it includes headers, size bytes and potentional emulation prevention.
  *
  * If this API is not used, an unlimited SEI/OBU Metadata payload size is used
  * (|max_sei_payload_size| = 0).
  *
- * The behavior of this API may change in the future and replace the fallback mechanism with a
- * forced signing mechanism.
+ * The behavior of this API may change in the future and replace the fallback mechanism
+ * with a forced signing mechanism.
  *
  * @param self Session struct pointer
- * @param max_sei_payload_size Upper limit on SEI/OBU Metadata payload (default 0 = unlimited)
+ * @param max_sei_payload_size Upper limit on SEI/OBU Metadata payload
+ *   (default 0 = unlimited)
  *
- * @returns SV_OK Max SEI/OBU Metadata payload size was successfully set,
- *          SV_INVALID_PARAMETER Invalid parameter.
+ * @return SV_OK Max SEI/OBU Metadata payload size was successfully set,
+ *         SV_INVALID_PARAMETER Invalid parameter.
  */
 SignedVideoReturnCode
 signed_video_set_max_sei_payload_size(signed_video_t *self, size_t max_sei_payload_size);
@@ -564,28 +582,30 @@ signed_video_set_max_sei_payload_size(signed_video_t *self, size_t max_sei_paylo
 /**
  * @brief Configures Signed Video to use a specific hash algorithm
  *
- * Signed Video hashes NAL Units/OBUs and, depending on configuration, sends these hashes in a
- * SEI/OBU Metadata.
+ * Signed Video hashes Bitstream Units and, depending on configuration, sends these hashes
+ * in a SEI/OBU Metadata.
  * The default hash algorithm used is SHA256. With this function, the user can change hash
  * algorithm.
  *
- * Only hash algorithms supported by OpenSSL can be used and should be specified by |name_or_oid|.
- * For example, to use SHA512 use the name "sha512", or the OID "2.16.840.1.101.3.4.2.3".
- * For a complete list of, by OpenSSL, supported algorithms see the OpenSSL documentation.
+ * Only hash algorithms supported by OpenSSL can be used and should be specified by
+ * |name_or_oid|. For example, to use SHA512 use the name "sha512", or the OID
+ * "2.16.840.1.101.3.4.2.3". For a complete list of, by OpenSSL, supported algorithms see
+ * the OpenSSL documentation.
  *
  * If this API is not used, or if a nullptr is passed in as |name_or_oid|, SHA256 is used.
  *
- * This function can only be used before a Signed Video stream has started, or after a reset.
- * Changing the hash algorithm on the fly is not supported.
+ * This function can only be used before a Signed Video stream has started, or after a
+ * reset. Changing the hash algorithm on the fly is not supported.
  *
- * NOTE: that this is NOT the message digest hash used in signing data.
+ * @note: that this is NOT the message digest hash used in signing data.
  *
  * @param self Session struct pointer
- * @param name_or_oid A null terminated string of the name or OID of the hash function to use
+ * @param name_or_oid A null terminated string of the name or OID of the hash function to
+ *   use
  *
- * @returns SV_OK A hash algorithm was successfully set,
- *          SV_INVALID_PARAMETER Invalid parameter,
- *          SV_NOT_SUPPORTED If called during ongoing signing.
+ * @return SV_OK A hash algorithm was successfully set,
+ *         SV_INVALID_PARAMETER Invalid parameter,
+ *         SV_NOT_SUPPORTED If called during ongoing signing.
  */
 SignedVideoReturnCode
 signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid);
