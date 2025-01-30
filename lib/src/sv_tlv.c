@@ -218,7 +218,7 @@ encode_general(signed_video_t *self, uint8_t *data)
   gop_info_t *gop_info = self->gop_info;
   size_t data_size = 0;
   uint32_t gop_counter = gop_info->global_gop_counter + 1;
-  uint16_t num_in_gop_hash = gop_info->num_nalus_in_gop_hash;
+  uint16_t num_in_gop_hash = gop_info->num_in_gop_hash;
   const uint8_t version = 3;
   int64_t timestamp = self->gop_info->timestamp;
   uint8_t flags = 0;
@@ -321,8 +321,8 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
 
     data_ptr += read_32bits(data_ptr, &gop_info->global_gop_counter);
     DEBUG_LOG("Found GOP counter = %u", gop_info->global_gop_counter);
-    data_ptr += read_16bits(data_ptr, &gop_info->num_sent_nalus);
-    DEBUG_LOG("Number of sent Bitstream Units = %u", gop_info->num_sent_nalus);
+    data_ptr += read_16bits(data_ptr, &gop_info->num_sent);
+    DEBUG_LOG("Number of sent Bitstream Units = %u", gop_info->num_sent);
 
     for (int i = 0; i < SV_VERSION_BYTES; i++) {
       self->code_version[i] = *data_ptr++;
@@ -361,7 +361,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
     printf("\nGeneral Information Tag\n");
     printf("             tag version: %u\n", version);
     printf("                   GOP #: %u\n", gop_info->global_gop_counter);
-    printf("# hashed Bitstream Units: %u\n", gop_info->num_sent_nalus);
+    printf("# hashed Bitstream Units: %u\n", gop_info->num_sent);
     printf("              SW version: %s\n", code_version_str);
     if (version >= 2) {
       if (gop_info->has_timestamp) {
@@ -1012,7 +1012,7 @@ decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
         self->crypto_handle, hash_algo_encoded_oid, hash_algo_encoded_oid_size));
     self->validation_flags.hash_algo_known = true;
     self->verify_data->hash_size = openssl_get_hash_size(self->crypto_handle);
-    self->gop_info->nalu_hash = self->gop_info->hashes + self->verify_data->hash_size;
+    self->gop_info->bu_hash = self->gop_info->hashes + self->verify_data->hash_size;
     data_ptr += hash_algo_encoded_oid_size;
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);

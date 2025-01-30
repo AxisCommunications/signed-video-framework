@@ -160,7 +160,7 @@ struct _signed_video_t {
   bool has_recurrent_data;
   int frame_count;
 
-  bu_info_t *last_nalu;  // Track last parsed bu_info_t to pass on to next part
+  bu_info_t *last_bu;  // Track last parsed bu_info_t to pass on to next part
 
   uint8_t received_linked_hash[MAX_HASH_SIZE];  // Stores linked hash data for liked hash method.
   // Members associated with SEI writing
@@ -174,10 +174,11 @@ struct _signed_video_t {
   // then is not needed to be created on the signing side, saving some memory.
 
   // Status and authentication
-  // Linked list to track the validation status of each added NALU. Items are appended to the list
-  // when added, that is, in signed_video_add_nalu_and_authenticate(). Items are removed when
-  // reported through the authenticity_report.
-  bu_list_t *nalu_list;
+  // Linked list to track the validation status of each added Bitstream Unit. Items are
+  // appended to the list when added, that is, in
+  // signed_video_add_nalu_and_authenticate(). Items are removed when reported through the
+  // authenticity_report.
+  bu_list_t *bu_list;
   bool authentication_started;
   uint8_t received_gop_hash[MAX_HASH_SIZE];  // Received hash list after decoding SEI data while
   // authenticating. |received_gop_hash| will be compared against |computed_gop_hash|.
@@ -206,11 +207,11 @@ typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;
  * Information related to the GOP signature.
  * The |gop_hash| is a recursive hash. It is the hash of the memory [gop_hash, latest hash] and then
  * replaces the gop_hash location. This is used for signing, as it incorporates all information of
- * the nalus that has been added.
+ * the Bitstream Units that have been added.
  */
 struct _gop_info_t {
   uint8_t hash_buddies[2 * MAX_HASH_SIZE];  // Memory for two hashes organized as
-  // [reference_hash, nalu_hash].
+  // [reference_hash, bu_hash].
   uint8_t hashes[2 * MAX_HASH_SIZE];  // Memory for storing, in order, the gop_hash and
   // 'latest hash'.
   uint8_t *gop_hash;  // Pointing to the memory slot of the gop_hash in |hashes|.
@@ -219,17 +220,17 @@ struct _gop_info_t {
   size_t hash_list_size;  // The allowed size of the |hash_list|. This can be less than allocated.
   int list_idx;  // Pointing to next available slot in the |hash_list|. If something has gone wrong,
   // like exceeding available memory, |list_idx| = -1.
-  uint8_t *nalu_hash;  // Pointing to the memory slot of the NALU hash in |hashes|.
+  uint8_t *bu_hash;  // Pointing to the memory slot of the BU hash in |hashes|.
   uint8_t document_hash[MAX_HASH_SIZE];  // Memory for storing the document hash to be signed
   // when SV_AUTHENTICITY_LEVEL_FRAME.
-  uint8_t computed_gop_hash[MAX_HASH_SIZE];  // Hash of NALU hashes in GOP.
+  uint8_t computed_gop_hash[MAX_HASH_SIZE];  // Hash of BU hashes in GOP.
   uint8_t linked_hashes[2 * MAX_HASH_SIZE];  // Stores linked hash data for liked hash method.
 
   uint8_t encoding_status;  // Stores potential errors when encoding, to transmit to the client
   // (authentication part).
-  uint16_t num_sent_nalus;  // The number of NALUs used to generate the gop_hash on the signing
+  uint16_t num_sent;  // The number of BUs used to generate the gop_hash on the signing
   // side.
-  uint16_t num_nalus_in_gop_hash;  // Counted number of NALUs in the currently recursively updated
+  uint16_t num_in_gop_hash;  // Counted number of BUs in the currently recursively updated
   // |gop_hash|.
   hash_type_t signature_hash_type;  // The type of hash signed, either gop_hash or document hash.
   uint32_t global_gop_counter;  // The index of the current GOP, incremented when encoded in the
@@ -240,7 +241,7 @@ struct _gop_info_t {
   int verified_signature_hash;  // Status of last hash-signature-pair verification. Has 1 for
   // success, 0 for fail, and -1 for error.
   bool has_timestamp;  // True if timestamp exists and has not yet been written to SEI.
-  int64_t timestamp;  // Unix epoch UTC timestamp of the first nalu in GOP
+  int64_t timestamp;  // Unix epoch UTC timestamp of the first Bitstream Unit in GOP
 };
 
 void
@@ -260,9 +261,7 @@ set_hash_list_size(gop_info_t *gop_info, size_t hash_list_size);
 void
 product_info_free_members(signed_video_product_info_t *product_info);
 
-/* Defined in signed_video_h26x_sign.c */
-void
-free_and_reset_nalu_to_prepend_list(signed_video_t *signed_video);
+/* Defined in sv_h26x_sign.c */
 
 /* Frees all allocated memory of payload pointers in the SEI data buffer. */
 void

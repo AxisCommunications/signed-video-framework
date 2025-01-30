@@ -257,8 +257,8 @@ update_authenticity_report(signed_video_t *self)
   // Skip if validation is handled by the legacy code.
   if (self->legacy_sv) return;
 
-  char *bu_str = bu_list_get_str(self->nalu_list, BU_STR);
-  char *validation_str = bu_list_get_str(self->nalu_list, VALIDATION_STR);
+  char *bu_str = bu_list_get_str(self->bu_list, BU_STR);
+  char *validation_str = bu_list_get_str(self->bu_list, VALIDATION_STR);
 
   // Transfer ownership of strings to |latest_validation| after freeing previous.
   free(self->latest_validation->nalu_str);
@@ -275,7 +275,7 @@ update_authenticity_report(signed_video_t *self)
     self->authenticity->latest_validation.authenticity = SV_AUTH_RESULT_VERSION_MISMATCH;
   }
   // Remove validated items from the list.
-  const unsigned int number_of_validated_bu = bu_list_clean_up(self->nalu_list);
+  const unsigned int number_of_validated_bu = bu_list_clean_up(self->bu_list);
   // Update the |accumulated_validation| w.r.t. the |latest_validation|.
   update_accumulated_validation(self->latest_validation, self->accumulated_validation);
   // Only update |number_of_validated_bu| if the video is signed. Currently, unsigned
@@ -321,11 +321,10 @@ signed_video_get_authenticity_report(signed_video_t *self)
       accumulated->number_of_pending_nalus = accumulated->number_of_received_nalus;
     } else {
       // At this point, all validated Bitstream Units up to the first pending Bitstream
-      // Unit have been removed from the |nalu_list|, hence number of pending Bitstream
-      // Units equals number of items in the |nalu_list|.
-      accumulated->number_of_pending_nalus = self->legacy_sv
-          ? legacy_get_nalu_list_items(self->legacy_sv)
-          : self->nalu_list->num_items;
+      // Unit have been removed from the |bu_list|, hence number of pending Bitstream
+      // Units equals number of items in the |bu_list|.
+      accumulated->number_of_pending_nalus =
+          self->legacy_sv ? legacy_get_nalu_list_items(self->legacy_sv) : self->bu_list->num_items;
     }
 
     SV_THROW(transfer_authenticity(authenticity_report, self->authenticity));

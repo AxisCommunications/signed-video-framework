@@ -229,7 +229,7 @@ gop_info_create(void)
 
   // Set shortcut pointers to the gop_hash and BU hash parts of the memory.
   gop_info->gop_hash = gop_info->hashes;
-  gop_info->nalu_hash = gop_info->hashes + DEFAULT_HASH_SIZE;
+  gop_info->bu_hash = gop_info->hashes + DEFAULT_HASH_SIZE;
 
   // Set hash_list_size to same as what is allocated.
   if (set_hash_list_size(gop_info, HASH_LIST_SIZE) != SV_OK) {
@@ -885,9 +885,9 @@ update_num_bu_in_gop_hash(signed_video_t *self, const bu_info_t *bu)
   if (!self || !bu) return;
 
   if (!bu->is_sv_sei) {
-    self->gop_info->num_nalus_in_gop_hash++;
-    if (self->gop_info->num_nalus_in_gop_hash == 0) {
-      DEBUG_LOG("Wraparound in |num_nalus_in_gop_hash|");
+    self->gop_info->num_in_gop_hash++;
+    if (self->gop_info->num_in_gop_hash == 0) {
+      DEBUG_LOG("Wraparound in |num_in_gop_hash|");
       // This will not fail validation, but may produce incorrect statistics.
     }
   }
@@ -993,7 +993,7 @@ update_hash(signed_video_t *self,
 /* simply_hash()
  *
  * takes the |hashable_data| from the Bitstream Unit (BU), hash it and store the hash in
- * |nalu_hash|. */
+ * |bu_hash|. */
 static svrc_t
 simply_hash(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t hash_size)
 {
@@ -1033,7 +1033,7 @@ hash_and_copy_to_ref(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, s
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW(simply_hash(self, bu, hash, hash_size));
-    // Copy the |nalu_hash| to |reference_hash| to be used in hash_with_reference().
+    // Copy the |bu_hash| to |reference_hash| to be used in hash_with_reference().
     memcpy(reference_hash, hash, hash_size);
   SV_CATCH()
   SV_DONE(status)
@@ -1045,7 +1045,7 @@ hash_and_copy_to_ref(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, s
  *
  * Hashes a Bitstream Unit (BU) together with a reference hash. The |hash_buddies| memory
  * is organized to have room for two hashes:
- *   hash_buddies = [reference_hash, nalu_hash]
+ *   hash_buddies = [reference_hash, bu_hash]
  * The output |buddy_hash| is then the hash of this memory
  *   buddy_hash = hash(hash_buddies)
  *
@@ -1060,7 +1060,7 @@ hash_with_reference(signed_video_t *self,
   assert(self && bu && buddy_hash);
 
   gop_info_t *gop_info = self->gop_info;
-  // Second hash in |hash_buddies| is the |nalu_hash|.
+  // Second hash in |hash_buddies| is the |bu_hash|.
   uint8_t *bu_hash = &gop_info->hash_buddies[hash_size];
 
   svrc_t status = SV_UNKNOWN_FAILURE;
@@ -1087,7 +1087,7 @@ hash_and_add(signed_video_t *self, const bu_info_t *bu)
   }
 
   gop_info_t *gop_info = self->gop_info;
-  uint8_t *bu_hash = gop_info->nalu_hash;
+  uint8_t *bu_hash = gop_info->bu_hash;
   assert(bu_hash);
   size_t hash_size = self->sign_data->hash_size;
 
@@ -1184,7 +1184,7 @@ signed_video_create(SignedVideoCodec codec)
 
     self->gop_info = gop_info_create();
     SV_THROW_IF_WITH_MSG(!self->gop_info, SV_MEMORY, "Could not allocate gop_info");
-    self->gop_info->num_nalus_in_gop_hash = 0;
+    self->gop_info->num_in_gop_hash = 0;
     // Setup vendor handle.
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     self->vendor_handle = sv_vendor_axis_communications_setup();
@@ -1206,16 +1206,16 @@ signed_video_create(SignedVideoCodec codec)
     self->has_recurrent_data = false;
     self->frame_count = 0;
 
-    self->last_nalu = (bu_info_t *)calloc(1, sizeof(bu_info_t));
-    SV_THROW_IF(!self->last_nalu, SV_MEMORY);
+    self->last_bu = (bu_info_t *)calloc(1, sizeof(bu_info_t));
+    SV_THROW_IF(!self->last_bu, SV_MEMORY);
     // Mark the last BU as complete, hence, no ongoing hashing is present.
-    self->last_nalu->is_last_bu_part = true;
+    self->last_bu->is_last_bu_part = true;
 
     self->last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
 
     // Initialize validation members
-    self->nalu_list = bu_list_create();
-    // No need to check if |nalu_list| is a nullptr, since it is only of importance on the
+    self->bu_list = bu_list_create();
+    // No need to check if |bu_list| is a nullptr, since it is only of importance on the
     // authentication side. The check is done there instead.
     self->authentication_started = false;
 
@@ -1252,15 +1252,15 @@ signed_video_reset(signed_video_t *self)
     validation_flags_init(&(self->validation_flags));
     latest_validation_init(self->latest_validation);
     accumulated_validation_init(self->accumulated_validation);
-    // Empty the |nalu_list|.
-    bu_list_free_items(self->nalu_list);
+    // Empty the |bu_list|.
+    bu_list_free_items(self->bu_list);
 
     memset(self->gop_info->linked_hashes, 0, sizeof(self->gop_info->linked_hashes));
-    memset(self->last_nalu, 0, sizeof(bu_info_t));
-    self->last_nalu->is_last_bu_part = true;
+    memset(self->last_bu, 0, sizeof(bu_info_t));
+    self->last_bu->is_last_bu_part = true;
     SV_THROW(openssl_init_hash(self->crypto_handle, false));
 
-    self->gop_info->num_nalus_in_gop_hash = 0;
+    self->gop_info->num_in_gop_hash = 0;
   SV_CATCH()
   SV_DONE(status)
 
@@ -1288,8 +1288,8 @@ signed_video_free(signed_video_t *self)
   // Free any pending SEIs
   free_sei_data_buffer(self->sei_data_buffer);
 
-  free(self->last_nalu);
-  bu_list_free(self->nalu_list);
+  free(self->last_bu);
+  bu_list_free(self->bu_list);
 
   signed_video_authenticity_report_free(self->authenticity);
   product_info_free(self->product_info);

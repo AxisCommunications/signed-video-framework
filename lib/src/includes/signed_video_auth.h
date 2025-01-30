@@ -253,8 +253,8 @@ signed_video_get_authenticity_report(signed_video_t *self);
  *
  *   // For every H26x NALU received do
  *   while (still_nalus_remaining) {
- *     SignedVideoReturnCode status = signed_video_add_nalu_and_authenticate(sv, nalu_data,
- *         nalu_data_size, &auth_report);
+ *     SignedVideoReturnCode status = signed_video_add_nalu_and_authenticate(sv, bu_data,
+ *         bu_data_size, &auth_report);
  *     if (status != SV_OK) {
  *       printf("Authentication encountered error (%d)\n", status);
  *     } else if (auth_report) {
@@ -294,9 +294,10 @@ signed_video_get_authenticity_report(signed_video_t *self);
 /**
  * @brief Add Bitstream Unit data to the session and get an authentication report
  *
- * This function should be called for each H26x NALU the user receives. It is assumed that
- * |nalu_data| consists of one single Bitstream Unit including Start Code and Bitstream Unit, so
- * that Bitstream Unit type can be parsed. That is, the format for H.26x should look like this:
+ * This function should be called for each codec specific Bitstream Unit (BU) the user
+ * receives. A Bitstream Unit is a NALU for H.26x and an OBU for AV1. It is assumed that
+ * |bu_data| consists of one single Bitstream Unit including Start Code for H.26x, so
+ * that BU type can be parsed. That is, the format for H.26x should look like this:
  *
  * |------------|------|
  * | Start Code | NALU |
@@ -304,20 +305,20 @@ signed_video_get_authenticity_report(signed_video_t *self);
  *  3 or 4 bytes       ^
  *                     Including stop bit
  *
- * NOTE: NALUs sent into the API cannot be in packetized format (access units)!
+ * @note: NALUs sent into the API cannot be in packetized format (access units)!
  * The access unit has to be split into NALUs if so.
- * NOTE: AV1 does not have start codes.
+ * @note: AV1 does not have start codes.
  *
- * The input |nalu_data| is not changed by this call. Note that it is assumed that ALL Bitstream
- * Units (H26x NALUs and AV1 OBUs) are passed to this function. Otherwise, they will be treated as
- * missing/lost packets which may affect the validation.
+ * The input |bu_data| is not changed by this call. Note that it is assumed that ALL
+ * BUs are passed to this function. Otherwise, they will be treated as missing/lost
+ * packets which may affect the validation.
  *
- * Signatures are sent on regular basis. Currently this is done at the end of each GOP (Group Of
- * Pictures). For every input |nalu_data| with a signature, or when a signature is expected,
- * validation is performed and a copy of the |authenticity| result is provided. If a Bitstream Unit
- * does not trigger a validation, |authenticity| is a NULL pointer. If one Bitstream Unit is lost or
- * tampered with within a GOP, the whole GOP is marked as NOT OK, even if the other Bitstream Units
- * are correct.
+ * Signatures are sent on a regular basis. Currently this is done at the end of each GOP
+ * (Group Of Pictures). For every input |bu_data| with a signature, or when a signature is
+ * expected, validation is performed and a copy of the |authenticity| result is provided.
+ * If a BU does not trigger a validation, |authenticity| is a NULL pointer. If one BU is
+ * lost or tampered with within a GOP, the whole GOP is marked as NOT OK, even if the
+ * other Bs are correct.
  *
  * The user should continuously check the return value for errors and upon success check
  * |authenticity| for a new report.
@@ -325,13 +326,13 @@ signed_video_get_authenticity_report(signed_video_t *self);
  * authenticity can no longer be validated OK, and 2) screening a recording and get a full report at
  * the end. In the first case further operations can simply be aborted as soon as a validation
  * fails, whereas in the latter case all the Bitstream Units need to be screened.
- * NOTE: Only the live monitoring use case is currently supported.
+ * @note: Only the live monitoring use case is currently supported.
  *
  * Example code of usage; See example code above.
  *
  * @param self Pointer to the signed_video_t object to update
- * @param nalu_data Pointer to the Bitstream Unit data (H26x NALU or AV1 OBU) to be added
- * @param nalu_data_size Size of the nalu_data
+ * @param bu_data Pointer to the Bitstream Unit data (H26x NALU or AV1 OBU) to be added
+ * @param bu_data_size Size of the |bu_data|
  * @param authenticity Pointer to the autenticity report. Passing in a NULL pointer will not provide
  *     latest validation results. The user is then responsible to get a report using
  *     signed_video_get_authenticity_report(...).
@@ -340,8 +341,8 @@ signed_video_get_authenticity_report(signed_video_t *self);
  */
 SignedVideoReturnCode
 signed_video_add_nalu_and_authenticate(signed_video_t *self,
-    const uint8_t *nalu_data,
-    size_t nalu_data_size,
+    const uint8_t *bu_data,
+    size_t bu_data_size,
     signed_video_authenticity_t **authenticity);
 
 /**

@@ -381,9 +381,9 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
       // after generating the SEI. So, for simplicity, we use the same function for both
       // authenticity levels.
 
-      // The current |nalu_hash| is the document hash. Copy to |document_hash|. In principle we only
+      // The current |bu_hash| is the document hash. Copy to |document_hash|. In principle we only
       // need to do this for SV_AUTHENTICITY_LEVEL_FRAME, but for simplicity we always copy it.
-      memcpy(self->gop_info->document_hash, self->gop_info->nalu_hash, hash_size);
+      memcpy(self->gop_info->document_hash, self->gop_info->bu_hash, hash_size);
       // Free the memory allocated when parsing the BU.
       free(bu_without_signature_data.nalu_data_wo_epb);
     }
@@ -395,8 +395,8 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
       memcpy(sign_data->hash, gop_info->gop_hash, hash_size);
     }
 
-    // Reset the |num_nalus_in_gop_hash| since we start a new GOP.
-    gop_info->num_nalus_in_gop_hash = 0;
+    // Reset the |num_in_gop_hash| since we start a new GOP.
+    gop_info->num_in_gop_hash = 0;
     // Reset the |hash_list| by rewinding the |list_idx| since we start a new GOP.
     gop_info->list_idx = 0;
 
@@ -520,15 +520,15 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
   bu_info_t bu_info = {0};
   gop_info_t *gop_info = self->gop_info;
   // TODO: Consider moving this into parse_bu_info().
-  if (self->last_nalu->is_last_bu_part) {
+  if (self->last_bu->is_last_bu_part) {
     // Only check for trailing zeros if this is the last part.
     bu_info = parse_bu_info(bu_data, bu_data_size, self->codec, is_last_part, false);
     bu_info.is_last_bu_part = is_last_part;
-    copy_bu_except_pointers(self->last_nalu, &bu_info);
+    copy_bu_except_pointers(self->last_bu, &bu_info);
   } else {
-    self->last_nalu->is_first_bu_part = false;
-    self->last_nalu->is_last_bu_part = is_last_part;
-    copy_bu_except_pointers(&bu_info, self->last_nalu);
+    self->last_bu->is_first_bu_part = false;
+    self->last_bu->is_last_bu_part = is_last_part;
+    copy_bu_except_pointers(&bu_info, self->last_bu);
     bu_info.bu_data = bu_data;
     bu_info.hashable_data = bu_data;
     // Remove any trailing 0x00 bytes at the end of a BU.
@@ -576,7 +576,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     }
     SV_THROW(hash_and_add(self, &bu_info));
     if (bu_info.is_first_bu_in_gop && bu_info.is_last_bu_part) {
-      SV_THROW(update_linked_hash(self, gop_info->nalu_hash, self->sign_data->hash_size));
+      SV_THROW(update_linked_hash(self, gop_info->bu_hash, self->sign_data->hash_size));
     }
 
   SV_CATCH()
@@ -951,8 +951,8 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid)
     SV_THROW_IF(hash_size == 0 || hash_size > MAX_HASH_SIZE, SV_NOT_SUPPORTED);
 
     self->sign_data->hash_size = hash_size;
-    // Point |nalu_hash| to the correct location in the |hashes| buffer.
-    self->gop_info->nalu_hash = self->gop_info->hashes + hash_size;
+    // Point |bu_hash| to the correct location in the |hashes| buffer.
+    self->gop_info->bu_hash = self->gop_info->hashes + hash_size;
   SV_CATCH()
   SV_DONE(status)
 

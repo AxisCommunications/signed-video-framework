@@ -93,49 +93,49 @@ typedef enum {
 } SignedVideoAuthenticityLevel;
 
 /**
- * @brief Updates Signed Video, with a Bitstream Unit (H26x NALU or AV1 OBU), for signing
+ * @brief Updates Signed Video, with a Bitstream Unit (BU), for signing
  *
- * Each Bitstream Unit in a video has to be processed for signing. Sometimes the Bitstream
- * Unit data is split in parts and cannot be hashed in one go. This API adds a Bitstream
- * Unit part to the signed_video_t object for signing. It is very important that the video
- * Bitstream Units are fed to this API in the same order as they are transmitted.
- * Otherwise, the authentication will fail.
+ * Each Bitstream Unit (NALU for H.26x and OBU for AV1) in a video has to be processed for
+ * signing. Sometimes the BU data is split in parts and cannot be hashed in one go. This
+ * API adds a BU part to the signed_video_t object for signing. It is very important that
+ * the video BUs are fed to this API in the same order as they are transmitted. Otherwise,
+ * the authentication will fail.
  *
  * Signed Video adds SEIs of type "user data unregistered" (OBU Metadata of type "user
  * private") to communicate data for authentication. These SEIs/OBU Metadata are generated
  * by the Signed Video library and are complete Bitstream Units (NALUs + 4 start code
- * bytes, or OBUs). The user is responsible for pulling these generated Bitstream Units
- * from the object. Hence, upon a successful
- * signed_video_add_nalu_for_signing_with_timestamp(...) call the user should always call
- * signed_video_get_nalu_to_prepend(...) to get the additional Bitstream Units.
+ * bytes, or OBUs). The user is responsible for pulling these generated BUs from the
+ * object. Hence, upon a successful signed_video_add_nalu_for_signing_with_timestamp(...)
+ * call the user should always call signed_video_get_nalu_to_prepend(...) to get the
+ * additional BUs.
  *
  * The timestamp parameter shall be a UNIX epoch value in UTC format. The integrator of
  * this signed video framework shall make sure this is true, so that the client side knows
  * the expected format and is able to convert the timestamp to whatever format is desired.
- * If the timestamp is not NULL and the Bitstream Unit is the first in the GOP (i.e. the
- * first I-frame slice), it will be included in the general SEI/OBU Metadata. All other
- * timestamps and NULL will be disregarded.
+ * If the timestamp is not NULL and the BU is the first in the GOP (i.e. the first I-frame
+ * slice), it will be included in the general SEI/OBU Metadata. All other timestamps and
+ * NULL will be disregarded.
  *
  * For sample code, see the description of signed_video_get_nalu_to_prepend(...) below.
  *
  * @param self Pointer to the signed_video_t object in use.
- * @param nalu_data A pointer to the Bitstream Unit data
- * @param nalu_data_size The size of the Bitstream Unit data.
+ * @param bu_data A pointer to the Bitstream Unit data
+ * @param bu_data_size The size of the Bitstream Unit data.
  * @param timestamp Unix epoch in UTC.
  * @param is_last_part Flag to mark the last part of the Bitstream Unit data.
  *
- * @return SV_OK            - the NALU was processed successfully.
+ * @return SV_OK            - the BU was processed successfully.
  *         SV_NOT_SUPPORTED - signed_video_set_private_key_new(...) has not been set
  *                            OR
- *                            there are generated NALUs/OBUs waiting to be pulled. Use
+ *                            there are generated BUs waiting to be pulled. Use
  *                            signed_video_get_nalu_to_prepend(...) to fetch them. Then call this
- *                            function again to process the |nalu_data|.
+ *                            function again to process the |bu_data|.
  *         otherwise a different error code.
  */
 SignedVideoReturnCode
 signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
-    const uint8_t *nalu_data,
-    size_t nalu_data_size,
+    const uint8_t *bu_data,
+    size_t bu_data_size,
     const int64_t *timestamp,
     bool is_last_part);
 
@@ -145,8 +145,8 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
  */
 SignedVideoReturnCode
 signed_video_add_nalu_for_signing_with_timestamp(signed_video_t *self,
-    const uint8_t *nalu_data,
-    size_t nalu_data_size,
+    const uint8_t *bu_data,
+    size_t bu_data_size,
     const int64_t *timestamp);
 
 /**
@@ -157,11 +157,11 @@ signed_video_add_nalu_for_signing_with_timestamp(signed_video_t *self,
  */
 SignedVideoReturnCode
 signed_video_add_nalu_for_signing(signed_video_t *self,
-    const uint8_t *nalu_data,
-    size_t nalu_data_size);
+    const uint8_t *bu_data,
+    size_t bu_data_size);
 
 /**
- * @brief Gets generated Bitstream Units to prepend the latest added Bitstream Unit
+ * @brief Gets generated Bitstream Units to prepend the latest added Bitstream Unit (BU)
  *
  * This function should always be called after a successful
  * signed_video_add_nalu_for_signing_with_timestamp(...). Otherwise, the functionality of
@@ -170,13 +170,12 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
  * are available Bitstream Units to prepend. The user should then pull these before
  * continuing; See return values in signed_video_add_nalu_for_signing_with_timestamp(...).
  *
- * These SEIs are generated by the Signed Video library and are complete Bitstream Unit
- * (NALUs + 4 start code bytes, or OBUs). Hence, the user can simply pull and prepend
- * existing Bitstream Unit (H26x NALUs, or AV1 OBUs).
- * Pull Bitstream Units to prepend from signed_video_t one by one until no further action
- * is required. When this happens, a SIGNED_VIDEO_PREPEND_NOTHING instruction is pulled.
- * The signed_video_get_nalu_to_prepend(...) API provides the user with the Bitstream Unit
- * data as well as instructions on where to prepend that data.
+ * These SEIs are generated by the Signed Video library and are complete BU (NALUs + 4
+ * start code bytes, or OBUs). Hence, the user can simply pull and prepend existing BU.
+ * Pull BUs to prepend from signed_video_t one by one until no further action is required.
+ * When this happens, a SIGNED_VIDEO_PREPEND_NOTHING instruction is pulled.
+ * The signed_video_get_nalu_to_prepend(...) API provides the user with the BU data as
+ * well as instructions on where to prepend that data.
  *
  * @note that as soon as the user pulls a new Bitstream Unit to prepend, the ownership of
  * the |nalu_data| memory (see members of signed_video_nalu_to_prepend_t) is transferred.
@@ -192,7 +191,7 @@ signed_video_add_nalu_for_signing(signed_video_t *self,
  *     // Handle error
  *   }
  *   SignedVideoReturnCode status;
- *   status = signed_video_add_nalu_for_signing_with_timestamp(sv, nalu, nalu_size, NULL);
+ *   status = signed_video_add_nalu_for_signing_with_timestamp(sv, bu, bu_size, NULL);
  *   if (status != SV_OK) {
  *     // Handle error
  *   } else {
@@ -238,14 +237,14 @@ signed_video_get_nalu_to_prepend(signed_video_t *self,
  *
  * This function is recommended to be called before
  * signed_video_add_nalu_for_signing_with_timestamp(...). The user has an option to
- * provide this function with a |peek_nalu|, which is the same Bitstream Unit (NALU or
- * OBU) that is to be added for signing.
+ * provide this function with a |peek_bu|, which is the same Bitstream Unit (BU) that is
+ * to be added for signing. A Bitstream Unit is a NALU for H.26x and OBU for AV1.
  *
  * These SEIs/OBU Metadata are generated by the Signed Video library and are complete
- * Bitstream Unit (NAL Units + 4 start code bytes, or OBUs). Hence, the user can simply
- * pull and prepend existing Bitstream Units. Pull Bitstream Units to prepend from
- * signed_video_t one by one until no more generated SEIs/OBU Metadata exists, that is,
- * when |sei_size| is zero.
+ * BU (NAL Units + 4 start code bytes, or OBUs). Hence, the user can simply pull and
+ * prepend existing BUs. Pull BUs to prepend from signed_video_t one by one until no more
+ * generated SEIs/OBU Metadata exists, that is, when |sei_size| is zero and/or |sei| is a
+ * NULL pointer.
  *
  * @note: The memory is transferred and the user is responsible for freeing the memory of
  * the |sei|.
@@ -271,7 +270,7 @@ signed_video_get_nalu_to_prepend(signed_video_t *self,
  *       // Check for more SEIs.
  *       status = signed_video_get_sei(sv, &sei, &sei_size, NULL, NULL, 0, NULL);
  *   }
- *   status = signed_video_add_nalu_for_signing_with_timestamp(sv, nalu, nalu_size, NULL);
+ *   status = signed_video_add_nalu_for_signing_with_timestamp(sv, bu, bu_size, NULL);
  *   if (status != SV_OK) {
  *     // Handle error
  *   }
@@ -284,11 +283,11 @@ signed_video_get_nalu_to_prepend(signed_video_t *self,
  *   payload is written. This is useful if the SEI/OBU Metadata is added by the encoder,
  *   which would take the SEI/OBU Metadata payload only and then fill in the header,
  *   payload size and apply emulation prevention onto the data.
- * @param peek_nalu Pointer to the Bitstream Unit of which the SEI/OBU Metadata will be
- *   prepended as a header. When peeking at the next Bitstream Unit, SEIs/OBU Metadata can
- *   only be fetched if the Bitstream Unit is a primary slice. A NULL pointer means that
- *   the user is responsible to add the SEI/OBU Metadata according to standard.
- * @param peek_nalu_size The size of the peek Bitstream Unit.
+ * @param peek_bu Pointer to the BU of which the SEI/OBU Metadata will be prepended as a
+ *   header. When peeking at the next BU, SEIs/OBU Metadata can only be fetched if the BU
+ *   is a primary slice. A NULL pointer means that the user is responsible to add the
+ *   SEI/OBU Metadata according to standard.
+ * @param peek_bu_size The size of the peek BU.
  * @param num_pending_seis Pointer to where the number of pending SEIs/OBU Metadata is
  *   written.
  *
@@ -301,8 +300,8 @@ signed_video_get_sei(signed_video_t *self,
     uint8_t **sei,
     size_t *sei_size,
     unsigned *payload_offset,
-    const uint8_t *peek_nalu,
-    size_t peek_nalu_size,
+    const uint8_t *peek_bu,
+    size_t peek_bu_size,
     unsigned *num_pending_seis);
 
 /**
