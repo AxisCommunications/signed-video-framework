@@ -78,7 +78,7 @@ legacy_sv_reset(legacy_sv_t *self);
  * @brief Add Bitstream Unit data to the session and get an authentication report
  *
  * This function should be called for each Bitstream Unit the user receives. It is assumed
- * that |nalu_data| consists of one single Bitstream Unit including Start Code and
+ * that |bu_data| consists of one single Bitstream Unit including Start Code and
  * Bitstream Unit, so that Bitstream Unit type can be parsed. That is, the format should
  * look like this:
  *
@@ -91,30 +91,30 @@ legacy_sv_reset(legacy_sv_t *self);
  * @note: Bitstream Units sent into the API cannot be in packetized format (access units)!
  * The access unit has to be split into Bitstream Units if so.
  *
- * The input |nalu_data| is not changed by this call. Note that it is assumed that ALL
+ * The input |bu_data| is not changed by this call. Note that it is assumed that ALL
  * Bitstream Units are passed to this function. Otherwise, they will be treated as
  * missing/lost packets which may affect the validation.
  *
  * Signatures are sent on regular basis. Currently this is done at the end of each GOP
- * (Group Of Pictures). For every input |nalu_data| with a signature, or when a signature
+ * (Group Of Pictures). For every input |bu_data| with a signature, or when a signature
  * is expected, validation is performed and a copy of the |authenticity| result is
  * provided. If a Bitstream Unit does not trigger a validation, |authenticity| is a NULL
- * pointer. If one NALU is lost or tampered with within a GOP, the whole GOP is marked as
- * NOT OK, even if the other NALUs are correct.
+ * pointer. If one BU is lost or tampered with within a GOP, the whole GOP is marked as
+ * NOT OK, even if the other BUs are correct.
  *
  * The user should continuously check the return value for errors and upon success check
  * |authenticity| for a new report.
  * Two typical use cases are; 1) live monitoring which could be screening the video until
  * authenticity can no longer be validated OK, and 2) screening a recording and get a full
  * report at the end. In the first case further operations can simply be aborted as soon
- * as a validation fails, whereas in the latter case all the NALUs need to be screened.
+ * as a validation fails, whereas in the latter case all the BUs need to be screened.
  * @note: Only the live monitoring use case is currently supported.
  *
  * Example code of usage; See example code above.
  *
  * @param self Pointer to the legacy_sv_t object to update
- * @param nalu_data Pointer to the Bitstream Unit data to be added
- * @param nalu_data_size Size of the nalu_data
+ * @param bu_data Pointer to the Bitstream Unit data to be added
+ * @param bu_data_size Size of the |bu_data|
  * @param authenticity Pointer to the autenticity report. Passing in a NULL pointer will
  *     not provide latest validation results. The user is then responsible to get a report
  *     using signed_video_get_authenticity_report(...).
@@ -123,8 +123,8 @@ legacy_sv_reset(legacy_sv_t *self);
  */
 svrc_t
 legacy_sv_add_and_authenticate(legacy_sv_t *self,
-    const uint8_t *nalu_data,
-    size_t nalu_data_size,
+    const uint8_t *bu_data,
+    size_t bu_data_size,
     signed_video_authenticity_t **authenticity);
 
 /**
@@ -138,6 +138,6 @@ legacy_sv_add_and_authenticate(legacy_sv_t *self,
  * @return Number of Bitstream Units (items) in the bu_list
  */
 int
-legacy_get_nalu_list_items(legacy_sv_t *self);
+legacy_get_num_bu_items(legacy_sv_t *self);
 
 #endif  // __LEGACY_VALIDATION_H__

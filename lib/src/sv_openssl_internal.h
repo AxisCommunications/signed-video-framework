@@ -35,7 +35,7 @@
  * handle should be created when starting the session and freed at teardown with
  * openssl_free_handle().
  *
- * @returns Pointer to the OpenSSL cryptographic handle.
+ * @return Pointer to the OpenSSL cryptographic handle.
  */
 void *
 openssl_create_handle(void);
