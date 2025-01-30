@@ -18,8 +18,8 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#ifndef __SV_H26X_INTERNAL__
-#define __SV_H26X_INTERNAL__
+#ifndef __SV_CODEC_INTERNAL__
+#define __SV_CODEC_INTERNAL__
 
 #include <stdbool.h>  // bool
 
@@ -192,4 +192,4 @@ copy_bu_except_pointers(bu_info_t *dst_bu, const bu_info_t *src_bu);
 void
 update_hashable_data(bu_info_t *bu);
 
-#endif  // __SV_H26X_INTERNAL__
+#endif  // __SV_CODEC_INTERNAL__
