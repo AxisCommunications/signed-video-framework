@@ -21,8 +21,8 @@
 #ifndef __SV_BU_LIST_H__
 #define __SV_BU_LIST_H__
 
+#include "sv_codec_internal.h"
 #include "sv_defines.h"
-#include "sv_h26x_internal.h"
 
 typedef enum {
   VALIDATION_STR = 0,
