@@ -1194,6 +1194,7 @@ signed_video_create(SignedVideoCodec codec)
     // Initialize signing members
     // Signing plugin is setup when the private key is set.
     self->authenticity_level = DEFAULT_AUTHENTICITY_LEVEL;
+    self->signing_frequency = 1;
     self->recurrence = RECURRENCE_ALWAYS;
     self->add_public_key_to_sei = true;
     self->sei_epb = codec != SV_CODEC_AV1;
