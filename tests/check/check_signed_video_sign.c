@@ -1034,6 +1034,25 @@ START_TEST(limited_sei_payload_size)
 }
 END_TEST
 
+/* Test description
+ * Verifies the setter for maximum NAL Units before signing, that is, triggers signing
+ * partial GOPs. */
+START_TEST(signing_partial_gops)
+{
+  struct sv_setting setting = settings[_i];
+  // Select a maximum number of added Bitstream Units before signing.
+  const unsigned max_signing_bu = 4;
+  setting.max_signing_bu = max_signing_bu;
+  test_stream_t *list = create_signed_stream("IPPIPPPPPPPPPPPPIPPPIP", setting);
+  // Expected when activated
+  // test_stream_check_types(list, "IPPISPPPPSPPPPSPPPPSISPPPISP");
+  test_stream_check_types(list, "IPPISPPPPPPPPPPPPISPPPISP");
+  verify_seis(list, setting);
+
+  test_stream_free(list);
+}
+END_TEST
+
 static Suite *
 signed_video_suite(void)
 {
@@ -1069,6 +1088,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, golden_sei_created, s, e);
   tcase_add_loop_test(tc, w_wo_emulation_prevention_bytes, s, e);
   tcase_add_loop_test(tc, limited_sei_payload_size, s, e);
+  tcase_add_loop_test(tc, signing_partial_gops, s, e);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);

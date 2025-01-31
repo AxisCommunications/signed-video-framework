@@ -2186,6 +2186,494 @@ START_TEST(golden_sei_principle)
 }
 END_TEST
 
+// Signed partial GOPs
+
+/* Test description
+ * Verifies intact and tampered streams when the device signs partial GOPs. */
+START_TEST(sign_partial_gops)
+{
+  // Device side
+  struct sv_setting setting = settings[_i];
+  const unsigned max_signing_bu = 4;  // Trigger signing after reaching 4 NAL Units.
+  setting.max_signing_bu = max_signing_bu;
+  test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPPPPPIP", setting);
+  // Expected when activated
+  // test_stream_check_types(list, "IPPPPSPISPPISPPPPSPPPPSPISP");
+  test_stream_check_types(list, "IPPPPPISPPISPPPPPPPPPISP");
+
+  // Client side
+  //
+  // IPPPPSPISPPISPPPPSPPPPSPISP
+  //
+  // IPPPPS                 ....P.                       (valid, 1 pending)
+  //     PSPIS                  ...P.                    (valid, 1 pending)
+  //        ISPPIS                 ....P.                (valid, 1 pending)
+  //            ISPPPPS                .....P.           (valid, 1 pending)
+  //                 PSPPPPS                .....P.      (valid, 1 pending)
+  //                      PSPIS                  ...P.   (valid, 1 pending)
+  //                                                             6 pending
+  //                         ISP                    P.P  (valid, 3 pending)
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false,
+      24,  // 27,
+      21,  // 24,
+      3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {.valid_gops = 3,  // 6,
+      .pending_bu = 3,  // 6,
+      .final_validation = &final_validation};
+  validate_stream(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
+// TODO: Activate when helper functions have been updated/added.
+#if 0
+START_TEST(all_seis_arrive_late_partial_gops)
+{
+  // Device side
+  struct sv_setting setting = settings[_i];
+  const unsigned max_signing_bu = 4;
+  setting.max_signing_bu = max_signing_bu;
+  const int delay = 3;
+  setting.delay = delay;
+  test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPPPPPIPPPPP", setting);
+  // Expected when activated
+  // test_stream_check_types(list, "IPPPPPIPSPIPSPPPSPPPSPPIPSPPPSP");
+  test_stream_check_types(list, "IPPPPPIPSPIPSPPPPPPPPIPSPPPP");
+
+  // Client side
+  //
+  // IPPPPPIPSPIPSPPPSPPPSPPIPSPPPSP
+  //
+  // IPPPPPIPS                   ....PPPP.                           (valid, 4 pending)
+  //     PPIPSPIPS                   ..PP.PPP.                       (valid, 5 pending)
+  //       IPSPIPSPPPS                 ....PP.PPP.                   (valid, 5 pending)
+  //           IPSPPPSPPPS                 .....P.PPP.               (valid, 4 pending)
+  //                PSPPPSPPIPS                 ......PPPP.          (valid, 4 pending)
+  //                      PPIPSPPPS                   ..PP.PPP.      (valid, 5 pending)
+  //                                                                        27 pending
+  //                        IPSPPPSP                    PP.PPP.P     (valid, 8 pending)
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 31, 23, 8, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {.valid_gops = 6, .pending_bu = 27, .final_validation = &final_validation};
+  validate_stream(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
+START_TEST(file_export_and_scrubbing_partial_gops)
+{
+  // Device side
+  struct sv_setting setting = settings[_i];
+  const unsigned max_signing_bu = 4;
+  setting.max_signing_bu = max_signing_bu;
+  test_stream_t *list = mimic_file_export(setting);
+
+  // Client side
+  signed_video_t *sv = onvif_media_signing_create(setting.codec);
+
+  // VISPPPPSPISPPISPPPPSPPPPSPISPPPPSPISPISPP
+  //
+  // VIS                    _P.                                       (signed, 1 pending)
+  //  ISPPPPS                .....P.                                  ( valid, 1 pending)
+  //       PSPIS                  ...P.                               ( valid, 1 pending)
+  //          ISPPIS                 ....P.                           ( valid, 1 pending)
+  //              ISPPPPS                .....P.                      ( valid, 1 pending)
+  //                   PSPPPPS                .....P.                 ( valid, 1 pending)
+  //                        PSPIS                  ...P.              ( valid, 1 pending)
+  //                           ISPPPPS                .....P.         ( valid, 1 pending)
+  //                                PSPIS                  ...P.      ( valid, 1 pending)
+  //                                   ISPIS                  ...P.   ( valid, 1 pending)
+  //                                                                          10 pending
+  //                                      ISPP                   P.PP ( valid, 4 pending)
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 41, 37, 4, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  struct validation_stats expected = {.valid_gops = 9, .has_signature = 1, .pending_bu = 10, .final_validation = &final_validation};
+  validate_stream(sv, list, expected, settings[_i].ec_key);
+
+  // 2) Scrub to the beginning and remove the parameter set NAL Unit at the beginning.
+  test_stream_item_t *item = test_stream_pop_first_item(list);
+  test_stream_item_free(item);
+  // ISPPPPSPISPPISPPPPSPPPPSPISPPPPSPISPISPP
+  final_validation.number_of_received_nalus--;
+  final_validation.number_of_validated_nalus--;
+  // The first report of stream being signed is now skipped, since it is already known.
+  expected.pending_bu--;
+  expected.has_signature--;
+  // 3) Validate after reset.
+  ck_assert_int_eq(signed_video_reset(sv), SV_OK);
+  validate_stream(sv, list, expected, false);
+  // 4) Scrub to the beginning.
+  // Get the first two GOPs.
+  test_stream_t *first_list = test_stream_pop_gops(list, 2);
+  // ISPPPPSPISPP
+  // No report triggered.
+  final_validation.number_of_received_nalus = 12;
+  final_validation.number_of_validated_nalus = 8;
+  expected.valid_gops = 2;
+  expected.pending_bu = 2;
+  // 5) Reset and validate the first two GOPs.
+  ck_assert_int_eq(signed_video_reset(sv), SV_OK);
+  validate_stream(sv, first_list, expected, false);
+  test_stream_free(first_list);
+  // 6) Scrub forward one GOP.
+  test_stream_t *scrubbed_list = test_stream_pop_gops(list, 1);
+  test_stream_free(scrubbed_list);
+  // ISPPPPSPISPISPP
+  final_validation.number_of_received_nalus = 15;
+  final_validation.number_of_validated_nalus = 11;
+  expected.valid_gops = 3;
+  expected.pending_bu = 3;
+  // 7) Reset and validate the rest of the file.
+  ck_assert_int_eq(signed_video_reset(sv), SV_OK);
+  validate_stream(sv, list, expected, true);
+
+  test_stream_free(list);
+  signed_video_free(sv);
+}
+END_TEST
+#endif
+
+START_TEST(modify_one_p_frame_partial_gops)
+{
+  // Device side
+  struct sv_setting setting = settings[_i];
+  const unsigned max_signing_bu = 4;
+  setting.max_signing_bu = max_signing_bu;
+  test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIP", setting);
+  // Expected when activated
+  // test_stream_check_types(list, "IPPPPSPISPPISPPPPSPISP");
+  test_stream_check_types(list, "IPPPPPISPPISPPPPPISP");
+
+  // Modify second 'P' in third GOP: IPPPPSPISPPISP P PPSPISP
+  const int modify_item_number = 14;  // 15;
+  modify_list_item(list, modify_item_number, 'P');
+
+  // Client side
+  //
+  // IPPPPSPISPPISPPPPSPISP
+  //
+  // IPPPPS                 ....P.                  (  valid, 1 pending)
+  //     PSPIS                  ...P.               (  valid, 1 pending)
+  //        ISPPIS                 ....P.           (  valid, 1 pending)
+  //            ISPPPPS                ...N.P.      (invalid, 1 pending)
+  //            ISPPPPS                N.NNNP.                         [low bitrate mode]
+  //                 PSPIS                  ...P.   (  valid, 1 pending)
+  //                                                          5 pending
+  //                    ISP                   P.P   (invalid, 3 pending)
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false,
+      20,  // 22,
+      17,  // 19,
+      3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {.valid_gops = 2,  // 4,
+      .invalid_gops = 1,
+      .pending_bu = 3,  // 5,
+      .final_validation = &final_validation};
+  validate_stream(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
+START_TEST(remove_one_p_frame_partial_gops)
+{
+  // Device side
+  struct sv_setting setting = settings[_i];
+  const unsigned max_signing_bu = 4;
+  setting.max_signing_bu = max_signing_bu;
+  test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIP", setting);
+  // Expected when activated
+  // test_stream_check_types(list, "IPPPPSPISPPISPPPPSPISP");
+  test_stream_check_types(list, "IPPPPPISPPISPPPPPISP");
+
+  // Remove second 'P' in third GOP: IPPPPSPISPPISP P PPSPISP
+  const int remove_item_number = 14;  // 15;
+  remove_item_then_check_and_free(list, remove_item_number, 'P');
+  // Expected when activated
+  // test_stream_check_types(list, "IPPPPSPISPPISPPPSPISP");
+  test_stream_check_types(list, "IPPPPPISPPISPPPPISP");
+
+  // Client side
+  //
+  // IPPPPSPISPPISPPPSPISP
+  //
+  // IPPPPS                 ....P.                  (  valid, 1 pending)
+  //     PSPIS                  ...P.               (  valid, 1 pending)
+  //        ISPPIS                 ....P.           (  valid, 1 pending)
+  //            ISPPPS                ...M.P.       (missing, 1 pending, 1 missing)
+  //                PSPIS                  ...P.    (  valid, 1 pending)
+  //                                                          5 pending
+  //                   ISP                    P.P   (missing, 3 pending)
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK_WITH_MISSING_INFO,
+      false,
+      19,  // 21,
+      16,  // 18,
+      3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  struct validation_stats expected = {.valid_gops = 2,  // 4,
+      .valid_gops_with_missing_info = 1,
+      .missed_bu = 1,
+      .pending_bu = 3,  // 5,
+      .final_validation = &final_validation};
+  if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
+    // IPPPPSPISPPISPPPSPISP
+    //
+    // IPPPPS                 ....P.                  (  valid, 1 pending)
+    //     PSPIS                  ...P.               (  valid, 1 pending)
+    //        ISPPIS                 ....P.           (  valid, 1 pending)
+    //            ISPPPS                ....N.        (invalid, 0 pending)
+    //                  PIS                   M.P.    (invalid, 1 pending, 1 missing)
+    //                                                          4 pending
+    //                   ISP                    P.P   (invalid, 2 pending)
+    expected.valid_gops = 2;  // 3;
+    expected.invalid_gops = 1;  // 2;
+    expected.pending_bu = 3;  // 4;
+    expected.valid_gops_with_missing_info = 0,
+    expected.final_validation->authenticity = SV_AUTH_RESULT_NOT_OK;
+  }
+  validate_stream(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
+START_TEST(add_one_p_frame_partial_gops)
+{
+  // Device side
+  struct sv_setting setting = settings[_i];
+  const unsigned max_signing_bu = 4;
+  setting.max_signing_bu = max_signing_bu;
+  test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIP", setting);
+  // Expected when activated
+  // test_stream_check_types(list, "IPPPPSPISPPISPPPPSPISP");
+  test_stream_check_types(list, "IPPPPPISPPISPPPPPISP");
+
+  // Add a middle 'P' in third GOP: IPPPPSPISPPISP P PPPSPISP
+  test_stream_item_t *p = test_stream_item_create_from_type('P', 100, settings[_i].codec);
+  const int append_item_number = 13;  // 14;
+  test_stream_append_item(list, p, append_item_number);
+  // Expected when activated
+  // test_stream_check_types(list, "IPPPPSPISPPISPPPPPSPISP");
+  test_stream_check_types(list, "IPPPPPISPPISPPPPPPISP");
+
+  // Client side
+  //
+  // IPPPPSPISPPISPPPPPSPISP
+  //
+  // IPPPPS                 ....P.                  (  valid, 1 pending)
+  //     PSPIS                  ...P.               (  valid, 1 pending)
+  //        ISPPIS                 ....P.           (  valid, 1 pending)
+  //            ISPPPPPS               ...N..P.     (invalid, 1 pending, -1 missing)
+  //                  PSPIS                  ...P.  (  valid, 1 pending)
+  //                                                          5 pending
+  //                   ISP                    P.P   (invalid, 3 pending)
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false,
+      21,  // 23,
+      18,  // 20,
+      3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  struct validation_stats expected = {.valid_gops = 2,  // 4,
+      .invalid_gops = 1,
+      .missed_bu = -1,
+      .pending_bu = 3,  // 5,
+      .final_validation = &final_validation};
+  if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
+    // IPPPPSPISPPISPPPPPSPISP
+    //
+    // IPPPPS                 ....P.                  (  valid, 1 pending)
+    //     PSPIS                  ...P.               (  valid, 1 pending)
+    //        ISPPIS                 ....P.           (  valid, 1 pending)
+    //            ISPPPPPS               N.NNNPP.     (invalid, 2 pending)
+    //                 PPSPIS                 NN.NP.  (invalid, 1 pending, -1 missing)
+    //                                                          6 pending
+    //                   ISP                    P.P   (invalid, 3 pending)
+    expected.valid_gops = 2;  // 3;
+    expected.invalid_gops = 1;  // 2;
+    expected.pending_bu = 3;  // 6;
+  }
+  validate_stream(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
+START_TEST(modify_one_i_frame_partial_gops)
+{
+  // Device side
+  struct sv_setting setting = settings[_i];
+  // Select a signing frequency longer than every GOP
+  const unsigned max_signing_bu = 4;
+  setting.max_signing_bu = max_signing_bu;
+  test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIPPIPIP", setting);
+  // Expected when activated
+  // test_stream_check_types(list, "IPPPPSPISPPISPPPPSPISPPISPISP");
+  test_stream_check_types(list, "IPPPPPISPPISPPPPPISPPISPISP");
+
+  // Modify third 'I': IPPPPSPISPP I SPPPPSPISPPISPISP
+  const int modify_item_number = 11;  // 12;
+  modify_list_item(list, modify_item_number, 'I');
+
+  // Client side
+  //
+  // IPPPPSPISPPISPPPPSPISPPISPISP
+  //
+  // IPPPPS                 ....P.                        (  valid, 1 pending)
+  //     PSPIS                  ...P.                     (  valid, 1 pending)
+  //        ISPPIS                 ....P.                 (  valid, 1 pending)
+  //            ISPPPPS                N.NNNP.            (invalid, 1 pending)
+  //                 PSPIS                  N.NP.         (invalid, 1 pending)
+  //                    ISPPIS                 N.NNP.     (invalid, 1 pending, wrong link)
+  //                        ISPIS                 ...P.   (  valid, 1 pending)
+  //                                                                7 pending
+  //                           ISP                   P.P  (invalid, 3 pending)
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false,
+      27,  // 29,
+      24,  // 26,
+      3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {.valid_gops = 3,  // 4,
+      .invalid_gops = 2,  // 3,
+      .pending_bu = 5,  // 7,
+      .final_validation = &final_validation};
+  validate_stream(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
+START_TEST(remove_one_i_frame_partial_gops)
+{
+  // Device side
+  struct sv_setting setting = settings[_i];
+  const unsigned max_signing_bu = 4;
+  setting.max_signing_bu = max_signing_bu;
+  test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIPPIPIP", setting);
+  // Expected when activated
+  // test_stream_check_types(list, "IPPPPSPISPPISPPPPSPISPPISPISP");
+  test_stream_check_types(list, "IPPPPPISPPISPPPPPISPPISPISP");
+
+  // Remove third 'I': IPPPPSPISPP I SPPPPSPISPPISPISP
+  const int remove_item_number = 11;  // 12;
+  remove_item_then_check_and_free(list, remove_item_number, 'I');
+  // Expected when activated
+  // test_stream_check_types(list, "IPPPPSPISPPSPPPPSPISPPISPISP");
+  test_stream_check_types(list, "IPPPPPISPPSPPPPPISPPISPISP");
+
+  // Client side
+  //
+  // IPPPPSPISPPSPPPPSPISPPISPISP
+  //
+  // IPPPPS     ....P.                         (  valid, 1 pending)
+  //     PSPIS      ...P.                      (  valid, 1 pending)
+  //        ISPPS      .....                   (  valid, 0 pending)
+  //             PPPPS      NNNN.              (invalid, 0 pending)
+  //                  PIS        NMP.          (invalid, 1 pending, 1 missing, wrong link)
+  //                   ISPPIS      N.NNP.      (invalid, 1 pending, wrong link)
+  //                       ISPIS       ...P.   (  valid, 1 pending)
+  //                                                     5 pending
+  //                          ISP         P.P  (invalid, 3 pending)
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false,
+      26,  // 28,
+      23,  // 25,
+      3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {.valid_gops = 3,  // 4,
+      .invalid_gops = 2,  // 3,
+      .pending_bu = 4,  // 5,
+      .missed_bu = 1,
+      .final_validation = &final_validation};
+  validate_stream(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
+START_TEST(modify_one_sei_frame_partial_gops)
+{
+  // Device side
+  struct sv_setting setting = settings[_i];
+  const unsigned max_signing_bu = 4;
+  setting.max_signing_bu = max_signing_bu;
+  test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIPPIPIP", setting);
+  // Expected when activated
+  // test_stream_check_types(list, "IPPPPSPISPPISPPPPSPISPPISPISP");
+  test_stream_check_types(list, "IPPPPPISPPISPPPPPISPPISPISP");
+
+  // Modify fourth 'S': IPPPPSPISPPISPPPP S PISPPISPISP
+  const int modify_item_number = 19;  // 18;
+  test_stream_item_t *sei = test_stream_item_get(list, modify_item_number);
+  test_stream_item_check_type(sei, 'S');
+  // Modify the signature by flipping the bits in one byte. Count 50 bytes from the end of
+  // the SEI, which works for both EC and RSA keys.
+  sei->data[sei->data_size - 50] = ~sei->data[sei->data_size - 50];
+
+  // Client side
+  //
+  // IPPPPSPISPPISPPPPSPISPPISPISP
+  //
+  // IPPPPS                 ....P.                        (  valid, 1 pending)
+  //     PSPIS                  ...P.                     (  valid, 1 pending)
+  //        ISPPIS                 ....P.                 (  valid, 1 pending)
+  //            ISPPPPS                N.NNNPN            (invalid, 1 pending)
+  //                 PSPIS                  .N.P.         (  valid, 1 pending)
+  //                    ISPPIS                 ....P.     (  valid, 1 pending)
+  //                        ISPIS                 ...P.   (  valid, 1 pending)
+  //                                                                7 pending
+  //                           ISP                   P.P  (invalid, 3 pending)
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false,
+      27,  // 29,
+      24,  // 26,
+      3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {.valid_gops = 4,  // 6,
+      .invalid_gops = 1,
+      .pending_bu = 5,  // 7,
+      .final_validation = &final_validation};
+  validate_stream(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
+START_TEST(remove_one_sei_frame_partial_gops)
+{
+  // Device side
+  struct sv_setting setting = settings[_i];
+  // Select a signing frequency longer than every GOP
+  const unsigned max_signing_bu = 4;
+  setting.max_signing_bu = max_signing_bu;
+  test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIPPIPIP", setting);
+  // Expected when activated
+  // test_stream_check_types(list, "IPPPPSPISPPISPPPPSPISPPISPISP");
+  test_stream_check_types(list, "IPPPPPISPPISPPPPPISPPISPISP");
+
+  // Remove forth 'S': IPPPPSPISPPISPPPP S PISPPISPISP
+  const int remove_item_number = 19;  // 18;
+  remove_item_then_check_and_free(list, remove_item_number, 'S');
+  // Expected when activated
+  // test_stream_check_types(list, "IPPPPSPISPPISPPPPPISPPISPISP");
+  test_stream_check_types(list, "IPPPPPISPPISPPPPPIPPISPISP");
+
+  // Client side
+  //
+  // IPPPPSPISPPISPPPPPISPPISPISP
+  //
+  // IPPPPS     ....P.                         (  valid, 1 pending)
+  //     PSPIS      ...P.                      (  valid, 1 pending)
+  //        ISPPIS     ....P.                  (  valid, 1 pending)
+  //            ISPPPPPIS  N.NNN..P.           (invalid, 1 pending)
+  //                   ISPPIS     ....P.       (  valid, 1 pending)
+  //                       ISPIS       ...P.   (  valid, 1 pending)
+  //                                                     6 pending
+  //                          ISP         P.P  (invalid, 3 pending)
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false,
+      26,  // 28,
+      23,  // 25,
+      3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {.valid_gops = 3,  // 5,
+      .invalid_gops = 1,
+      .pending_bu = 4,  // 6,
+      .final_validation = &final_validation};
+  validate_stream(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
 /* Test description
  * Verify that a valid authentication is returned if all BUs are added in the correct
  * order and the stream was generated from a legacy setup (tag v1.1.29).
@@ -2267,6 +2755,18 @@ signed_video_suite(void)
 #endif
   tcase_add_loop_test(tc, no_emulation_prevention_bytes, s, e);
   tcase_add_loop_test(tc, with_blocked_signing, s, e);
+  // Signed partial GOPs
+  tcase_add_loop_test(tc, sign_partial_gops, s, e);
+  // tcase_add_loop_test(tc, all_seis_arrive_late_partial_gops, s, e);
+  // tcase_add_loop_test(tc, file_export_and_scrubbing_partial_gops, s, e);
+  tcase_add_loop_test(tc, modify_one_p_frame_partial_gops, s, e);
+  tcase_add_loop_test(tc, remove_one_p_frame_partial_gops, s, e);
+  tcase_add_loop_test(tc, add_one_p_frame_partial_gops, s, e);
+  tcase_add_loop_test(tc, modify_one_i_frame_partial_gops, s, e);
+  tcase_add_loop_test(tc, remove_one_i_frame_partial_gops, s, e);
+  tcase_add_loop_test(tc, modify_one_sei_frame_partial_gops, s, e);
+  tcase_add_loop_test(tc, remove_one_sei_frame_partial_gops, s, e);
+  // Legacy streams
   tcase_add_loop_test(tc, legacy_stream, s, e);
 
   // Add test case to suit
