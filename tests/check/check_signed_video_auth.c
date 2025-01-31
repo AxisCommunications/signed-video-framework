@@ -53,13 +53,13 @@ teardown()
  * index in the loop is _i and something the check test framework provides.
  *
  * Most of the test streams end with a short GOP 'IP' which is not signed. Since the last SEI
- * prepends the 'P' of that GOP, the last NAL Units are 'ISP'. The accumulated validation will then
- * state that all NAL Units but the last 3 to be validated, even though the SEI is actually
- * validated. That is because the accumulated validation counts validated NAL Units up to the first
- * pending NAL Unit.
+ * prepends the 'P' of that GOP, the last Bitstream Units are 'ISP'. The accumulated validation will
+ * then state that all Bitstream Units but the last 3 to be validated, even though the SEI is
+ * actually validated. That is because the accumulated validation counts validated Bitstream Units
+ * up to the first pending Bitstream Unit.
  *
  * In general, the SEI prepends the first 'P' of a GOP, hence the leading 'I' will always be
- * pending. That is, one (or two for multi-slice) pending NAL Unit per GOP.
+ * pending. That is, one (or two for multi-slice) pending Bitstream Unit per GOP.
  *
  * TODO: Currently, validation is triggered already on the second I-frame, which triggers an
  * unsigned GOP.
@@ -127,7 +127,7 @@ validate_stream(signed_video_t *sv,
   int has_signature = 0;
   bool public_key_has_changed = false;
   bool has_timestamp = false;
-  // Pop one NAL Unit at a time.
+  // Pop one Bitstream Unit at a time.
   test_stream_item_t *item = test_stream_pop_first_item(list);
   while (item) {
     SignedVideoReturnCode rc =
@@ -235,7 +235,7 @@ validate_stream(signed_video_t *sv,
 
 /* Test description
  * The public API signed_video_add_nalu_and_authenticate(...) is checked for invalid parameters, and
- * invalid H.26x NAL Units.
+ * invalid Bitstream Units.
  */
 START_TEST(invalid_api_inputs)
 {
@@ -257,7 +257,7 @@ START_TEST(invalid_api_inputs)
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
   sv_rc = signed_video_add_nalu_and_authenticate(sv, p_frame->data, 0, NULL);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  // An invalid NAL Unit should return silently.
+  // An invalid Bitstream Unit should return silently.
   sv_rc = signed_video_add_nalu_and_authenticate(sv, invalid->data, invalid->data_size, NULL);
   ck_assert_int_eq(sv_rc, SV_OK);
 
@@ -269,7 +269,7 @@ START_TEST(invalid_api_inputs)
 END_TEST
 
 /* Test description
- * Verify that we get a valid authentication if all NAL Units are added in the correct order.
+ * Verify that we get a valid authentication if all Bitstream Units are added in the correct order.
  * The operation is as follows:
  * 1. Generate a test stream with a sequence of signed GOPs.
  * 2. Add these in the same order as they were generated.
@@ -277,7 +277,7 @@ END_TEST
  */
 START_TEST(intact_stream)
 {
-  // Create a list of NAL Units given the input string.
+  // Create a list of Bitstream Units given the input string.
   test_stream_t *list = create_signed_stream("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISPPISP");
 
@@ -310,7 +310,7 @@ END_TEST
 
 START_TEST(intact_stream_with_splitted_bu)
 {
-  // Create a list of NAL Units given the input string.
+  // Create a list of Bitstream Units given the input string.
   test_stream_t *list = create_signed_stream_splitted_bu("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISPPISP");
 
@@ -325,8 +325,8 @@ START_TEST(intact_stream_with_splitted_bu)
 }
 END_TEST
 
-/* The action here is only correct in the NAL unit stream format. If we use the bytestream format,
- * the PPS is prepended the 'I' in the same AU, hence, the prepending function will add the
+/* The action here is only correct in the Bitstream unit stream format. If we use the bytestream
+ * format, the PPS is prepended the 'I' in the same AU, hence, the prepending function will add the
  * SEI(s) before the PPS. */
 START_TEST(intact_stream_with_pps_in_stream)
 {
@@ -363,9 +363,8 @@ START_TEST(intact_ms_stream_with_pps_in_stream)
 END_TEST
 
 /* Test description
- * Verify that we get a valid authentication if all NAL Units are added in the correct order and one
- * NAL Unit is undefined.
- * The operation is as follows:
+ * Verify that we get a valid authentication if all Bitstream Units are added in the correct order
+ * and one Bitstream Unit is undefined. The operation is as follows:
  * 1. Generate a test stream with a sequence of signed GOPs.
  * 2. Add these in the same order as they were generated.
  * 3. Check the authentication result
@@ -418,7 +417,7 @@ START_TEST(remove_one_p_frame)
   remove_item_then_check_and_free(list, remove_item_number, 'P');
   test_stream_check_types(list, "IPPISPPISPPISP");
 
-  // Since one NAL Unit has been removed the authenticity is NOT OK.
+  // Since one Bitstream Unit has been removed the authenticity is NOT OK.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, false, 14, 11, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // IPPISPPISPPISP
@@ -430,8 +429,9 @@ START_TEST(remove_one_p_frame)
       .missed_bu = 1,
       .pending_bu = 3,
       .final_validation = &final_validation};
-  // For Frame level we can identify the missing NAL Unit and mark the GOP as valid with missing
-  // info.
+  // For Frame level we can identify the missing Bitstream Unit and mark the GOP as valid with
+  // missing info.
+
   // IPPISPPISPPISP
   // IPPIS            ...P.          ->   (   valid)
   //    ISPPIS           ....MP.     ->   ( invalid, 1 missed)
@@ -464,7 +464,7 @@ START_TEST(interchange_two_p_frames)
   // position item_number.
   test_stream_append_item(list, item, item_number);
   test_stream_check_types(list, "IPPISPPPISPPISP");
-  // Since two NAL Units have been moved the authenticity is NOT OK.
+  // Since two Bitstream Units have been moved the authenticity is NOT OK.
   // IPPISPPPISPPISP
   // IPPIS            ...P.          ->   (   valid)
   //    ISPPPIS          ...M.NP.    ->   ( invalid) Adds a missing item in string, to be fixed
@@ -481,8 +481,9 @@ START_TEST(interchange_two_p_frames)
 END_TEST
 
 /* Test description
- * Verify that if we manipulate a NAL Unit, the authentication should become invalid. We do this for
- * both a P- and an 'I', by replacing the NAL Unit data with a modified NAL Unit.
+ * Verify that if we manipulate a Bitstream Unit, the authentication should become invalid. We do
+ * this for both a P- and an 'I', by replacing the Bitstream Unit data with a modified Bitstream
+ * Unit.
  */
 START_TEST(modify_one_p_frame)
 {
@@ -927,7 +928,7 @@ START_TEST(lost_one_sei_and_gop_with_late_sei_arrival)
   // IPS            -> (signature) -> PPU
   // IPSPPIPS*      ->     (valid) -> ..U..PP.
   //      IPS*PPIPS ->     (valid) -> .....PP.
-  // All NAL Units but the last three NAL Units are validated.
+  // All Bitstream Units but the last three Bitstream Units are validated.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 13, 10, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
@@ -939,7 +940,8 @@ START_TEST(lost_one_sei_and_gop_with_late_sei_arrival)
 END_TEST
 
 /* Test description
- * Verify that we can validate authenticity correctly if we lose all NAL Units between two SEIs. */
+ * Verify that we can validate authenticity correctly if we lose all Bitstream Units between two
+ * SEIs. */
 START_TEST(lost_all_data_between_two_seis)
 {
   test_stream_t *list = create_signed_stream("IPPPIPPPIPPPIPPIPPIP", settings[_i]);
@@ -1017,7 +1019,7 @@ END_TEST
  */
 START_TEST(remove_two_gops_in_start_of_stream)
 {
-  // Create a list of NAL Units given the input string.
+  // Create a list of Bitstream Units given the input string.
   test_stream_t *list = create_signed_stream("IPIPIPPPIPPPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPISPISPPPISPPPPISPPISP");
 
@@ -1059,12 +1061,12 @@ END_TEST
 
 /* Test description
  * Verify that we do get a valid authentication if the signing on the camera was reset. From a
- * signed video perspective this action is correct as long as recorded NAL Units are not transmitted
- * while the signing is down. That would on the other hand be detected at the client side through a
- * failed validation. The operation is as follows:
+ * signed video perspective this action is correct as long as recorded Bitstream Units are not
+ * transmitted while the signing is down. That would on the other hand be detected at the client
+ * side through a failed validation. The operation is as follows:
  * 1. Generate a test stream with a sequence of signed GOPs.
  * 2. Generate a second test stream with a sequence of signed GOPs and concatenate lists.
- * 3. Run all NAL Units through the validator.
+ * 3. Run all Bitstream Units through the validator.
  */
 START_TEST(camera_reset_on_signing_side)
 {
@@ -1151,7 +1153,7 @@ START_TEST(detect_change_of_public_key)
   test_stream_append_item(list, item, 8);
   test_stream_check_types(list, "IPPISPPISPISPISP");
 
-  // Final validation is NOT OK and all received NAL Units, but the last, are validated. The
+  // Final validation is NOT OK and all received Bitstream Units, but the last, are validated. The
   // |public_key_has_changed| flag has been set.
   // IPPISPPISPIS*PIS*P  ---  S* has the new Public key.
   //
@@ -1194,7 +1196,7 @@ mimic_au_fast_forward_and_get_list(signed_video_t *sv, struct sv_setting setting
   test_stream_check_types(list, "IPPPISPPPPISPPPISPPPISPPPISP");
 
   // Remove 1.5 GOPs: IPPPISPP PPISPPPISPPPISPPPISP
-  // These are the NAL Units to be processed before the fast forward.
+  // These are the Bitstream Units to be processed before the fast forward.
   test_stream_t *pre_fast_forward = test_stream_pop(list, 8);
   test_stream_check_types(pre_fast_forward, "IPPPISPP");
   test_stream_check_types(list, "PPISPPPISPPPISPPPISP");
@@ -1255,8 +1257,8 @@ START_TEST(fast_forward_stream_without_reset)
 
   // NOTE: Without resetting, the validation will detect 2 missing GOPs, that is, the ones "lost"
   // upon fast forward.
-  // NOTE: The accumulated validation includes the pre_fast_forward validation of 8 NAL Units.
-  // TODO: When multiple GOPs are lost, the validation currently consumes too many NAL Units.
+  // NOTE: The accumulated validation includes the pre_fast_forward validation of 8 Bitstream Units.
+  // TODO: When multiple GOPs are lost, the validation currently consumes too many Bitstream Units.
   // IPPPISPP
   //         ISPPPISPPPISP
   //
@@ -1285,7 +1287,7 @@ mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_se
   test_stream_t *list = generate_delayed_sei_list(setting, false);
   test_stream_check_types(list, "IPPPPIPPSPIPPSPIPPSPIPPSPISPISP");
 
-  // Process the first 9 NAL Units before fast forward: IPPPPIPPS PIPPSPIPPSPIPPSPISPISP
+  // Process the first 9 Bitstream Units before fast forward: IPPPPIPPS PIPPSPIPPSPIPPSPISPISP
   test_stream_t *pre_fast_forward = test_stream_pop(list, 9);
   test_stream_check_types(pre_fast_forward, "IPPPPIPPS");
   test_stream_check_types(list, "PIPPSPIPPSPIPPSPISPISP");
@@ -1341,11 +1343,11 @@ END_TEST
  * The main scenario for usage is to validate authenticity on exported files. The stream then looks
  * a little different since we have no start reference.
  *
- * Below is a helper function that creates a stream of NAL Units and exports the middle part by
- * pop-ing GOPs at the beginning and at the end.
+ * Below is a helper function that creates a stream of Bitstream Units and exports the middle part
+ * by pop-ing GOPs at the beginning and at the end.
  *
- * As an additional piece, the stream starts with a PPS/SPS/VPS NAL Unit, which is moved to the
- * beginning of the "file" as well. That should not affect the validation. */
+ * As an additional piece, the stream starts with a PPS/SPS/VPS Bitstream Unit, which is moved to
+ * the beginning of the "file" as well. That should not affect the validation. */
 static test_stream_t *
 mimic_file_export(struct sv_setting setting, bool delayed_seis)
 {
@@ -1353,7 +1355,7 @@ mimic_file_export(struct sv_setting setting, bool delayed_seis)
   test_stream_t *list = create_signed_stream("VIPPIPPIPPIPPIPPIPP", setting);
   test_stream_check_types(list, "VIPPISPPISPPISPPISPPISPP");
 
-  // Remove the initial PPS/SPS/VPS NAL Unit to add back later.
+  // Remove the initial PPS/SPS/VPS Bitstream Unit to add back later.
   test_stream_item_t *ps = test_stream_pop_first_item(list);
   test_stream_item_check_type(ps, 'V');
   // Stream is now: IPPISPPISPPISPPISPPISPP
@@ -1388,7 +1390,7 @@ mimic_file_export(struct sv_setting setting, bool delayed_seis)
     test_stream_item_t *item = test_stream_pop_last_item(list);
     test_stream_item_free(item);
   }
-  // Prepend list with PPS/SPS/VPS NAL Unit
+  // Prepend list with PPS/SPS/VPS Bitstream Unit
   test_stream_prepend_first_item(list, ps);
 
   if (delayed_seis) {
@@ -1456,7 +1458,7 @@ START_TEST(no_signature)
   test_stream_t *list = test_stream_create("IPPIPPIPPIPPI", settings[_i].codec);
   test_stream_check_types(list, "IPPIPPIPPIPPI");
 
-  // Video is not signed, hence all NAL Units are pending.
+  // Video is not signed, hence all Bitstream Units are pending.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_SIGNED, false, 13, 0, 13, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, false, 0, 0};
   // No intermediate results
@@ -1476,7 +1478,7 @@ START_TEST(multislice_no_signature)
   test_stream_t *list = test_stream_create("IiPpPpIiPpPpIiPpPpIiPpPpIi", settings[_i].codec);
   test_stream_check_types(list, "IiPpPpIiPpPpIiPpPpIiPpPpIi");
 
-  // Video is not signed, hence all NAL Units are pending.
+  // Video is not signed, hence all Bitstream Units are pending.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_SIGNED, false, 26, 0, 26, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, false, 0, 0};
   // No intermediate results
@@ -1490,7 +1492,7 @@ START_TEST(multislice_no_signature)
 END_TEST
 
 /* Test description
- * Add some NAL Units to a stream, where the last one is super long. Too long for
+ * Add some Bitstream Units to a stream, where the last one is super long. Too long for
  * SV_AUTHENTICITY_LEVEL_FRAME to handle it. Note that in tests we run with a shorter max hash list
  * size, namely 10; See meson file.
  *
@@ -1507,7 +1509,7 @@ START_TEST(fallback_to_gop_level)
   // If the true hash size is different from the default one, the test should still pass.
   ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * MAX_HASH_SIZE), SV_OK);
 
-  // Create a list of NAL Units given the input string.
+  // Create a list of Bitstream Units given the input string.
   test_stream_t *list =
       create_signed_stream_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPIP", false);
   test_stream_check_types(list, "IPPISPPPPPPPPPPPPPPPPPPPPPPPPISPPISP");
@@ -1554,7 +1556,7 @@ START_TEST(vendor_axis_communications_operation)
   sv_rc = signed_video_set_product_info(sv, HW_ID, FW_VER, NULL, "Axis Communications AB", ADDR);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  // Mimic a GOP with 1 P-NAL Unit between 2 I-NAL Units to trigger an SEI message.
+  // Mimic a GOP with 1 P-frame between 2 I-frames to trigger an SEI message.
   sv_rc = signed_video_add_nalu_for_signing(sv, i_frame->data, i_frame->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_add_nalu_for_signing(sv, p_frame->data, p_frame->data_size);
@@ -1662,7 +1664,7 @@ START_TEST(factory_provisioned_key)
   sv_rc = signed_video_set_product_info(sv, HW_ID, FW_VER, NULL, "Axis Communications AB", ADDR);
   ck_assert_int_eq(sv_rc, SV_OK);
 
-  // Mimic a GOP with 1 P-NAL Unit between 2 I-NAL Units to trigger an SEI message.
+  // Mimic a GOP with 1 P-frame between 2 I-frames to trigger an SEI message.
   sv_rc = signed_video_add_nalu_for_signing(sv, i_item->data, i_item->data_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   sv_rc = signed_video_add_nalu_for_signing(sv, p_item->data, p_item->data_size);
@@ -2194,7 +2196,7 @@ START_TEST(sign_partial_gops)
 {
   // Device side
   struct sv_setting setting = settings[_i];
-  const unsigned max_signing_bu = 4;  // Trigger signing after reaching 4 NAL Units.
+  const unsigned max_signing_bu = 4;  // Trigger signing after reaching 4 Bitstream Units.
   setting.max_signing_bu = max_signing_bu;
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPPPPPIP", setting);
   // Expected when activated
@@ -2290,7 +2292,7 @@ START_TEST(file_export_and_scrubbing_partial_gops)
   struct validation_stats expected = {.valid_gops = 9, .has_signature = 1, .pending_bu = 10, .final_validation = &final_validation};
   validate_stream(sv, list, expected, settings[_i].ec_key);
 
-  // 2) Scrub to the beginning and remove the parameter set NAL Unit at the beginning.
+  // 2) Scrub to the beginning and remove the parameter set Bitstream Unit at the beginning.
   test_stream_item_t *item = test_stream_pop_first_item(list);
   test_stream_item_free(item);
   // ISPPPPSPISPPISPPPPSPPPPSPISPPPPSPISPISPP

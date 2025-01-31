@@ -1035,8 +1035,8 @@ START_TEST(limited_sei_payload_size)
 END_TEST
 
 /* Test description
- * Verifies the setter for maximum NAL Units before signing, that is, triggers signing
- * partial GOPs. */
+ * Verifies the setter for maximum Bitstream Units before signing, that is, triggers
+ * signing partial GOPs. */
 START_TEST(signing_partial_gops)
 {
   struct sv_setting setting = settings[_i];
