@@ -52,6 +52,7 @@ struct sv_setting {
   unsigned signing_frequency;  // Not yet activated
   bool increased_sei_size;
   int vendor_axis_mode;  // 0: not Axis, 1: attestation, 2: factory provisioned
+  unsigned delay;  // Delay of SEIs
 };
 
 #define NUM_SETTINGS 9
@@ -143,7 +144,7 @@ create_signed_stream_int(const char *str, struct sv_setting settings, bool new_p
  * generates Bitstream Unit data for these. Then adds these Bitstream Units to the input
  * session. The generated SEIs are added to the stream. */
 test_stream_t *
-create_signed_stream_with_sv(signed_video_t *sv, const char *str, bool split_bu);
+create_signed_stream_with_sv(signed_video_t *sv, const char *str, bool split_bu, int delay);
 
 /* Removes the Bitstream Unit item with position |item_number| from the test stream |list|. The
  * item is, after a check against the expected |type|, then freed. */

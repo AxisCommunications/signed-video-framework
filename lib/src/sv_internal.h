@@ -127,6 +127,7 @@ struct _signed_video_t {
   // Configuration members
   SignedVideoAuthenticityLevel authenticity_level;
   size_t max_sei_payload_size;  // Default 0 = unlimited
+  unsigned signing_frequency;  // Number of GOPs per signature (default 1)
   unsigned recurrence;
 
   // Flags

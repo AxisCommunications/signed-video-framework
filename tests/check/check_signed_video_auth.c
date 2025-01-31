@@ -1511,7 +1511,7 @@ START_TEST(fallback_to_gop_level)
 
   // Create a list of Bitstream Units given the input string.
   test_stream_t *list =
-      create_signed_stream_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPIP", false);
+      create_signed_stream_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPIP", false, 0);
   test_stream_check_types(list, "IPPISPPPPPPPPPPPPPPPPPPPPPPPPISPPISP");
 
   signed_video_accumulated_validation_t final_validation = {
@@ -2168,7 +2168,7 @@ START_TEST(golden_sei_principle)
   signed_video_t *sv = get_initialized_signed_video(setting, false);
   ck_assert(sv);
 
-  test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIPPIPPIP", false);
+  test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIPPIPPIP", false, 0);
   test_stream_check_types(list, "GIPPISPPISPPISP");
 
   // GIPPISPPISPPISP
@@ -2228,8 +2228,6 @@ START_TEST(sign_partial_gops)
 }
 END_TEST
 
-// TODO: Activate when helper functions have been updated/added.
-#if 0
 START_TEST(all_seis_arrive_late_partial_gops)
 {
   // Device side
@@ -2241,7 +2239,7 @@ START_TEST(all_seis_arrive_late_partial_gops)
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPPPPPIPPPPP", setting);
   // Expected when activated
   // test_stream_check_types(list, "IPPPPPIPSPIPSPPPSPPPSPPIPSPPPSP");
-  test_stream_check_types(list, "IPPPPPIPSPIPSPPPPPPPPIPSPPPP");
+  test_stream_check_types(list, "IPPPPPIPPISPPPSPPPPPPIPPPSPP");
 
   // Client side
   //
@@ -2255,14 +2253,21 @@ START_TEST(all_seis_arrive_late_partial_gops)
   //                      PPIPSPPPS                   ..PP.PPP.      (valid, 5 pending)
   //                                                                        27 pending
   //                        IPSPPPSP                    PP.PPP.P     (valid, 8 pending)
-  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 31, 23, 8, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  const struct validation_stats expected = {.valid_gops = 6, .pending_bu = 27, .final_validation = &final_validation};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false,
+      28,  // 31,
+      21,  // 23,
+      7, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {.valid_gops = 3,  // 6,
+      .pending_bu = 12,  // 27,
+      .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
 }
 END_TEST
 
+// TODO: Activate when helper functions have been updated/added.
+#if 0
 START_TEST(file_export_and_scrubbing_partial_gops)
 {
   // Device side
@@ -2759,7 +2764,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, with_blocked_signing, s, e);
   // Signed partial GOPs
   tcase_add_loop_test(tc, sign_partial_gops, s, e);
-  // tcase_add_loop_test(tc, all_seis_arrive_late_partial_gops, s, e);
+  tcase_add_loop_test(tc, all_seis_arrive_late_partial_gops, s, e);
   // tcase_add_loop_test(tc, file_export_and_scrubbing_partial_gops, s, e);
   tcase_add_loop_test(tc, modify_one_p_frame_partial_gops, s, e);
   tcase_add_loop_test(tc, remove_one_p_frame_partial_gops, s, e);

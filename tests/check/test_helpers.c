@@ -85,19 +85,20 @@ const int64_t g_testTimestamp = 42;
 //   unsigned signing_frequency;
 //   bool increased_sei_size;
 //   int vendor_axis_mode;
+//   unsigned delay;
 // };
 struct sv_setting settings[NUM_SETTINGS] = {
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, true, true, false, 0, NULL, 0, 1, false, 0},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, true, true, false, 0, NULL, 0, 1, false, 0},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, NULL, 0, 1, false, 0},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, NULL, 0, 1, false, 0},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, true, true, false, 0, NULL, 0, 1, false, 0, 0},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, true, true, false, 0, NULL, 0, 1, false, 0, 0},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, NULL, 0, 1, false, 0, 0},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, NULL, 0, 1, false, 0, 0},
     // Special cases
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, false, true, false, 0, NULL, 0, 1, false, 0},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, false, true, false, 0, NULL, 0, 1, false, 0},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, "sha512", 0, 1, false, 0},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, false, true, false, 0, NULL, 0, 1, false, 0, 0},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, false, true, false, 0, NULL, 0, 1, false, 0, 0},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, "sha512", 0, 1, false, 0, 0},
     // AV1 tests
-    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_GOP, true, false, false, 0, NULL, 0, 1, false, 0},
-    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_FRAME, true, false, false, 0, NULL, 0, 1, false, 0},
+    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_GOP, true, false, false, 0, NULL, 0, 1, false, 0, 0},
+    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_FRAME, true, false, false, 0, NULL, 0, 1, false, 0, 0},
 };
 
 static char private_key_rsa[RSA_PRIVATE_KEY_ALLOC_BYTES];
@@ -109,48 +110,11 @@ static size_t new_private_key_size_rsa;
 static char new_private_key_ecdsa[ECDSA_PRIVATE_KEY_ALLOC_BYTES];
 static size_t new_private_key_size_ecdsa;
 
-/* Pull SEIs from the signed_video_t session |sv| and prepend them to the test stream |item|. */
-static int
-pull_seis(signed_video_t *sv, test_stream_item_t **item)
-{
-  bool is_first_sei = true;
-  int num_seis = 0;
-  unsigned payload_offset = 0;
-  uint8_t *sei = NULL;
-  size_t sei_size = 0;
-  uint8_t *peek_bu = (*item)->data;
-  size_t peek_bu_size = (*item)->data_size;
-  // Only prepend the SEI if it follows the standard, by peeking the current Bitstream Unit.
-  SignedVideoReturnCode sv_rc =
-      signed_video_get_sei(sv, &sei, &sei_size, &payload_offset, peek_bu, peek_bu_size, NULL);
-  ck_assert_int_eq(sv_rc, SV_OK);
-
-  while (sv_rc == SV_OK && (sei_size != 0) && sei) {
-    // Check that the SEI payload starts with the Signed Video UUID.
-    ck_assert_int_eq(memcmp(sei + payload_offset, kUuidSignedVideo, UUID_LEN), 0);
-    if (!is_first_sei) {
-      // The first SEI could be a golden SEI, hence do not check.
-      ck_assert(!signed_video_is_golden_sei(sv, sei, sei_size));
-    }
-    // Generate a new test stream item with this SEI.
-    test_stream_item_t *new_item = test_stream_item_create(sei, sei_size, sv->codec);
-    // Prepend the |item| with this |new_item|.
-    test_stream_item_prepend(*item, new_item);
-    num_seis++;
-    // Ask for next completed SEI.
-    sv_rc = signed_video_get_sei(sv, &sei, &sei_size, &payload_offset, peek_bu, peek_bu_size, NULL);
-    ck_assert_int_eq(sv_rc, SV_OK);
-    is_first_sei = false;
-  }
-  int pulled_seis = num_seis;
-  // Rewind to the first SEI, which should be added for signing.
-  while (num_seis > 0) {
-    *item = (*item)->prev;
-    num_seis--;
-  }
-
-  return pulled_seis;
-}
+static unsigned int num_gops_until_signing = 0;
+static unsigned int delay_until_pull = 0;
+static uint8_t *sei = NULL;
+static size_t sei_size = 0;
+static unsigned payload_offset = 0;
 
 #ifndef GENERATE_TEST_KEYS
 static bool
@@ -307,26 +271,115 @@ done:
   return success;
 }
 
+/* Pull SEIs from the signed_video_t session |sv| and prepend them to the test stream |item|. */
+static int
+pull_seis(signed_video_t *sv, test_stream_item_t **item, bool apply_ep, unsigned int delay)
+{
+  bool is_first_sei = true;
+  bool no_delay = (delay_until_pull == 0);
+  int num_seis = 0;
+  // unsigned payload_offset = 0;
+  uint8_t *peek_bu = (*item)->data;
+  size_t peek_bu_size = (*item)->data_size;
+  SignedVideoReturnCode sv_rc = SV_OK;
+
+  // Fetch next SEI if there is none in the pipe.
+  if (!sei && sei_size == 0) {
+    sv_rc = signed_video_get_sei(sv, &sei, &sei_size, &payload_offset, peek_bu, peek_bu_size, NULL);
+    ck_assert_int_eq(sv_rc, SV_OK);
+  }
+  // To be really correct only I- & P-frames should be counted, but since this is in test
+  // code it is of less importance. It only means that the SEI shows up earlier in the
+  // test_stream.
+  if (!no_delay && sei_size != 0) {
+    delay_until_pull--;
+  }
+
+  while (sv_rc == SV_OK && sei_size != 0 && no_delay) {
+    // Check that the SEI payload starts with the Signed Video UUID.
+    ck_assert_int_eq(memcmp(sei + payload_offset, kUuidSignedVideo, UUID_LEN), 0);
+    if (!is_first_sei) {
+      // The first SEI could be a golden SEI, hence do not check.
+      ck_assert(!signed_video_is_golden_sei(sv, sei, sei_size));
+    }
+    // Handle delay counters.
+    if (num_gops_until_signing == 0) {
+      num_gops_until_signing = sv->signing_frequency;
+    }
+    num_gops_until_signing--;
+    if (num_gops_until_signing == 0) {
+      delay_until_pull = delay;
+    }
+    no_delay = delay_until_pull == 0;
+    // Apply emulation prevention.
+    if (apply_ep) {
+      uint8_t *tmp = malloc(sei_size * 4 / 3);
+      memcpy(tmp, sei, 4);  // Copy start code
+      uint8_t *tmp_ptr = tmp + 4;
+      const uint8_t *sei_ptr = sei + 4;
+      while ((size_t)(sei_ptr - sei) < sei_size) {
+        if (*(tmp_ptr - 2) == 0 && *(tmp_ptr - 1) == 0 && !(*sei_ptr & 0xfc)) {
+          // Add emulation prevention byte
+          *tmp_ptr = 3;
+          tmp_ptr++;
+        }
+        *tmp_ptr = *sei_ptr;
+        tmp_ptr++;
+        sei_ptr++;
+      }
+      // Update size, free the old SEI and assign the new.
+      sei_size = (tmp_ptr - tmp);
+      free(sei);
+      sei = tmp;
+    }
+    // Generate a new test stream item with this SEI.
+    test_stream_item_t *new_item = test_stream_item_create(sei, sei_size, sv->codec);
+    sei = NULL;
+    sei_size = 0;
+    // Prepend the |item| with this |new_item|.
+    test_stream_item_prepend(*item, new_item);
+    num_seis++;
+    // Ask for next completed SEI.
+    sv_rc = signed_video_get_sei(sv, &sei, &sei_size, &payload_offset, peek_bu, peek_bu_size, NULL);
+    ck_assert_int_eq(sv_rc, SV_OK);
+    is_first_sei = false;
+  }
+  int pulled_seis = num_seis;
+  while (num_seis > 0) {
+    *item = (*item)->prev;
+    num_seis--;
+  }
+  return pulled_seis;
+}
+
 /* Generates a signed video test stream for a user-owned signed_video_t session.
  *
  * Takes a string of Bitstream Unit characters ('I', 'i', 'P', 'p', 'S', 'X') as input and
  * generates Bitstream Unit data for these. Then adds these Bitstream Units to the input session.
  * The generated SEIs are added to the stream. */
 test_stream_t *
-create_signed_stream_with_sv(signed_video_t *sv, const char *str, bool split_bu)
+create_signed_stream_with_sv(signed_video_t *sv, const char *str, bool split_bu, int delay)
 {
   SignedVideoReturnCode rc = SV_UNKNOWN_FAILURE;
   ck_assert(sv);
 
+  // Settings to be used in the future
+  const bool apply_ep = false;  // Apply emulation prevention on generated SEI afterwards.
+  const bool get_seis_at_end = false;  // Fetch all SEIs at once at the end of the stream.
   // Create a test stream given the input string.
   test_stream_t *list = test_stream_create(str, sv->codec);
   test_stream_item_t *item = list->first_item;
-  int pulled_seis = 0;
+  int64_t timestamp = g_testTimestamp;
+  num_gops_until_signing = sv->signing_frequency - 1;
+  delay_until_pull = num_gops_until_signing ? 0 : delay;
 
   // Loop through the Bitstream Units and add for signing.
   while (item) {
+    int pulled_seis = 0;
     // Pull all SEIs and add them into the test stream.
-    pulled_seis += pull_seis(sv, &item);
+    if (!get_seis_at_end || (get_seis_at_end && item->next == NULL)) {
+      pulled_seis = pull_seis(sv, &item, apply_ep, delay);
+    }
     // If the test uses Golden SEIs, they are currently present as the first item in the stream.
     if (!(!item->prev && sv->using_golden_sei)) {
       ck_assert(!signed_video_is_golden_sei(sv, item->data, item->data_size));
@@ -336,18 +389,27 @@ create_signed_stream_with_sv(signed_video_t *sv, const char *str, bool split_bu)
       // Split the Bitstream Unit into 2 parts, where the last part inlcudes the ID and the stop
       // bit.
       rc = signed_video_add_nalu_part_for_signing_with_timestamp(
-          sv, item->data, item->data_size - 2, &g_testTimestamp, false);
+          sv, item->data, item->data_size - 2, &timestamp, false);
       ck_assert_int_eq(rc, SV_OK);
       rc = signed_video_add_nalu_part_for_signing_with_timestamp(
-          sv, &item->data[item->data_size - 2], 2, &g_testTimestamp, true);
+          sv, &item->data[item->data_size - 2], 2, &timestamp, true);
     } else {
       rc = signed_video_add_nalu_part_for_signing_with_timestamp(
-          sv, item->data, item->data_size, &g_testTimestamp, true);
+          sv, item->data, item->data_size, &timestamp, true);
     }
     ck_assert_int_eq(rc, SV_OK);
     pulled_seis -= pulled_seis ? 1 : 0;
+    // TODO: Activate timestamps in tests
+    // timestamp += 400000;  // One frame if 25 fps.
 
-    if (item->next == NULL) break;
+    if (item->next == NULL) {
+      if (sei) {
+        free(sei);
+        sei = NULL;
+        sei_size = 0;
+      }
+      break;
+    }
 
     item = item->next;
   }
@@ -387,7 +449,7 @@ create_signed_stream_splitted_bu_int(const char *str,
   ck_assert(sv);
 
   // Create a test stream of Bitstream Units given the input string.
-  test_stream_t *list = create_signed_stream_with_sv(sv, str, split_bu);
+  test_stream_t *list = create_signed_stream_with_sv(sv, str, split_bu, settings.delay);
   signed_video_free(sv);
 
   return list;

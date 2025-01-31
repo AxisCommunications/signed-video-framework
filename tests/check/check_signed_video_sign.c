@@ -455,7 +455,7 @@ START_TEST(vendor_axis_communications_operation)
 
   // Add 2 P-frames between 2 I-frames to mimic a GOP structure in the stream to trigger a
   // SEI.
-  test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIP", false);
+  test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIP", false, 0);
   test_stream_check_types(list, "IPPISP");
   verify_seis(list, setting);
   test_stream_free(list);
@@ -490,7 +490,7 @@ START_TEST(factory_provisioned_key)
   setting.vendor_axis_mode = 2;
 
   // Generate a GOP to trigger a SEI.
-  test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIP", false);
+  test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIP", false, 0);
   test_stream_check_types(list, "IPPISP");
   verify_seis(list, setting);
 
@@ -619,7 +619,8 @@ START_TEST(fallback_to_gop_level)
   ck_assert_int_eq(set_hash_list_size(sv->gop_info, kFallbackSize * MAX_HASH_SIZE), SV_OK);
 
   // Create a test stream given the input string.
-  test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIP", false);
+  test_stream_t *list =
+      create_signed_stream_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIP", false, 0);
   test_stream_check_types(list, "IPPISPPPPPPPPPPPPPPPPPPPPPPPPISP");
   test_stream_item_t *sei_2 = test_stream_item_remove(list, 31);
   test_stream_item_check_type(sei_2, 'S');
