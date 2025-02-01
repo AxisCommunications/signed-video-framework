@@ -270,8 +270,9 @@ encode_general(signed_video_t *self, uint8_t *data)
     write_byte(last_two_bytes, &data_ptr, (uint8_t)self->code_version[i], epb);
   }
 
-  // Write bool flags; 1 byte
+  // Write bool flags; 1 byte | xxxxxx | triggered_partial_gop | has_timestamp |
   flags |= (gop_info->has_timestamp << 0) & 0x01;
+  flags |= (gop_info->triggered_partial_gop << 1) & 0x02;
   write_byte(last_two_bytes, &data_ptr, flags, epb);
   if (gop_info->has_timestamp) {
     // Write timestamp; 8 bytes
@@ -337,6 +338,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
       uint8_t flags = 0;
       data_ptr += read_8bits(data_ptr, &flags);
       gop_info->has_timestamp = flags & 0x01;
+      gop_info->triggered_partial_gop = !!(flags & 0x02);
       if (gop_info->has_timestamp) {
         data_ptr += read_64bits_signed(data_ptr, &gop_info->timestamp);
       }
@@ -361,6 +363,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
     printf("\nGeneral Information Tag\n");
     printf("             tag version: %u\n", version);
     printf("                   GOP #: %u\n", gop_info->global_gop_counter);
+    printf("triggered by partial GOP: %s\n", gop_info->triggered_partial_gop ? "true" : "false");
     printf("# hashed Bitstream Units: %u\n", gop_info->num_sent);
     printf("              SW version: %s\n", code_version_str);
     if (version >= 2) {
