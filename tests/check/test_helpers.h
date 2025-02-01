@@ -48,7 +48,7 @@ struct sv_setting {
   bool with_golden_sei;
   size_t max_sei_payload_size;
   const char *hash_algo_name;
-  unsigned max_signing_bu;  // Not yet activated
+  unsigned max_signing_frames;  // Not yet activated
   unsigned signing_frequency;  // Not yet activated
   bool increased_sei_size;
   int vendor_axis_mode;  // 0: not Axis, 1: attestation, 2: factory provisioned

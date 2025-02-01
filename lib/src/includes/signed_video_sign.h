@@ -609,6 +609,36 @@ signed_video_set_max_sei_payload_size(signed_video_t *self, size_t max_sei_paylo
 SignedVideoReturnCode
 signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid);
 
+/**
+ * @brief Sets an upper limit on number of frames before signing
+ *
+ * The default behavior of the Signed Video library is to sign and generate a SEI every
+ * GOP (Group Of Pictures). When very long GOPs are used, the duration between signatures
+ * can become impractically long, or even makes a file export on the validation side
+ * infeasible to validate because the segment lacks a SEI.
+ *
+ * This API allows the user to set an upper limit on how many frames that can be added
+ * before sending a signing request. If this limit is reached, an intermediate SEI is
+ * generated. This limit will not affect the normal behavior of signing when reaching the
+ * end of a GOP (or when the signing frequency set with
+ * signed_video_set_signing_frequency(...) (to be implemented)).
+ * If |max_signing_frames| = 0, no limit is used. This is the default behavior.
+ *
+ * @note the difference between 'frames' and 'Bitstream Units'. A frame can be split in
+ * several slices. To avoid creating a SEI and signing it in the middle of a frame only
+ * primary slices are counted.
+ * @note that it is the responsibility to set a value that will not jeopardize the signing
+ * functionality. For example, signing every frame (max_signing_frames = 1) can be
+ * infeasible in practice since signing takes longer than the duration between frames.
+ *
+ * @param self Pointer to the Signed Video session.
+ * @param max_signing_frames Maximum number of frames covered by a signatures.
+ *
+ * @return An appropriate Signed Video Return Code.
+ */
+SignedVideoReturnCode
+signed_viedo_set_max_signing_frames(signed_video_t *self, unsigned max_signing_frames);
+
 #ifdef __cplusplus
 }
 #endif
