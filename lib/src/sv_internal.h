@@ -228,6 +228,8 @@ struct _gop_info_t {
   uint8_t computed_gop_hash[MAX_HASH_SIZE];  // Hash of BU hashes in GOP.
   uint8_t linked_hashes[2 * MAX_HASH_SIZE];  // Stores linked hash data for liked hash method.
 
+  bool triggered_partial_gop;  // Marks if the signing was triggered by an intermediate
+  // partial GOP, compared to normal I-frame triggered.
   uint8_t encoding_status;  // Stores potential errors when encoding, to transmit to the client
   // (authentication part).
   uint16_t num_sent;  // The number of BUs used to generate the gop_hash on the signing
