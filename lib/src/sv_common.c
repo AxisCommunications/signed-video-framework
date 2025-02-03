@@ -1035,6 +1035,10 @@ hash_and_copy_to_ref(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, s
     SV_THROW(simply_hash(self, bu, hash, hash_size));
     // Copy the |bu_hash| to |reference_hash| to be used in hash_with_reference().
     memcpy(reference_hash, hash, hash_size);
+    // Update |linked_hash| with |reference_hash| if applied on the signing side.
+    if (!self->authentication_started) {
+      update_linked_hash(self, reference_hash, hash_size);
+    }
   SV_CATCH()
   SV_DONE(status)
 
@@ -1070,6 +1074,11 @@ hash_with_reference(signed_video_t *self,
     // Hash reference hash together with the |bu_hash| and store in |buddy_hash|.
     SV_THROW(
         openssl_hash_data(self->crypto_handle, gop_info->hash_buddies, hash_size * 2, buddy_hash));
+    // Copy |buddy_hash| to |linked_hash| queue if signing is triggered. Only applies on
+    // the signing side.
+    if (gop_info->triggered_partial_gop && !self->authentication_started) {
+      update_linked_hash(self, buddy_hash, hash_size);
+    }
   SV_CATCH()
   SV_DONE(status)
 
