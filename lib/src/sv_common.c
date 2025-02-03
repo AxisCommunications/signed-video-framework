@@ -223,7 +223,7 @@ gop_info_create(void)
   gop_info_t *gop_info = (gop_info_t *)calloc(1, sizeof(gop_info_t));
   if (!gop_info) return NULL;
 
-  gop_info->global_gop_counter = 0;
+  gop_info->current_partial_gop = 0;
   // Initialize |verified_signature_hash| as 'error', since we lack data.
   gop_info->verified_signature_hash = -1;
 
@@ -252,7 +252,7 @@ gop_info_reset(gop_info_t *gop_info)
   gop_info->verified_signature_hash = -1;
   // If a reset is forced, the stored hashes in |hash_list| have no meaning anymore.
   gop_info->list_idx = 0;
-  gop_info->global_gop_counter_is_synced = false;
+  gop_info->partial_gop_is_synced = false;
 }
 
 svrc_t
@@ -885,9 +885,9 @@ update_num_bu_in_gop_hash(signed_video_t *self, const bu_info_t *bu)
   if (!self || !bu) return;
 
   if (!bu->is_sv_sei) {
-    self->gop_info->num_in_gop_hash++;
-    if (self->gop_info->num_in_gop_hash == 0) {
-      DEBUG_LOG("Wraparound in |num_in_gop_hash|");
+    self->gop_info->num_in_partial_gop++;
+    if (self->gop_info->num_in_partial_gop == 0) {
+      DEBUG_LOG("Wraparound in |num_in_partial_gop|");
       // This will not fail validation, but may produce incorrect statistics.
     }
   }
@@ -1193,7 +1193,7 @@ signed_video_create(SignedVideoCodec codec)
 
     self->gop_info = gop_info_create();
     SV_THROW_IF_WITH_MSG(!self->gop_info, SV_MEMORY, "Could not allocate gop_info");
-    self->gop_info->num_in_gop_hash = 0;
+    self->gop_info->num_in_partial_gop = 0;
     // Setup vendor handle.
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     self->vendor_handle = sv_vendor_axis_communications_setup();
@@ -1270,7 +1270,7 @@ signed_video_reset(signed_video_t *self)
     self->last_bu->is_last_bu_part = true;
     SV_THROW(openssl_init_hash(self->crypto_handle, false));
 
-    self->gop_info->num_in_gop_hash = 0;
+    self->gop_info->num_in_partial_gop = 0;
   SV_CATCH()
   SV_DONE(status)
 
