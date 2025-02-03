@@ -129,6 +129,7 @@ struct _signed_video_t {
   size_t max_sei_payload_size;  // Default 0 = unlimited
   unsigned signing_frequency;  // Number of GOPs per signature (default 1)
   unsigned recurrence;
+  unsigned max_signing_frames;
 
   // Flags
   bool add_public_key_to_sei;

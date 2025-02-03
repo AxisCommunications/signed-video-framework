@@ -958,3 +958,14 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid)
 
   return status;
 }
+
+SignedVideoReturnCode
+signed_viedo_set_max_signing_frames(signed_video_t *self, unsigned max_signing_frames)
+{
+  if (!self) {
+    return SV_INVALID_PARAMETER;
+  }
+  self->max_signing_frames = max_signing_frames;
+
+  return SV_OK;
+}

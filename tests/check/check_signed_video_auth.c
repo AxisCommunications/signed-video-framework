@@ -1355,7 +1355,7 @@ mimic_file_export(struct sv_setting setting)
   if (setting.signing_frequency == 3) {
     // Only works for hard coded signing frequency.
     test_stream_check_types(list, "VIPPIsPPPPPIsPPISPPPPPPPPPIsPPPPPIsPISPP");
-  } else if (setting.max_signing_bu == 4) {
+  } else if (setting.max_signing_frames == 4) {
     // Only works for hard coded max signing BUs.
     // test_stream_check_types(list, "VIPPISPPPPSPISPPISPPPPSPPPPSPISPPPPSPISPISPP");
     test_stream_check_types(list, "VIPPISPPPPPISPPISPPPPPPPPPISPPPPPISPISPP");
@@ -1375,7 +1375,7 @@ mimic_file_export(struct sv_setting setting)
   test_stream_prepend_first_item(list, ps);
   if (setting.signing_frequency == 3) {
     test_stream_check_types(list, "VIsPPPPPIsPPISPPPPPPPPPIsPPPPPIsPISPP");
-  } else if (setting.max_signing_bu == 4) {
+  } else if (setting.max_signing_frames == 4) {
     // test_stream_check_types(list, "VISPPPPSPISPPISPPPPSPPPPSPISPPPPSPISPISPP");
     test_stream_check_types(list, "VISPPPPPISPPISPPPPPPPPPISPPPPPISPISPP");
   } else {
@@ -2186,8 +2186,8 @@ START_TEST(sign_partial_gops)
 {
   // Device side
   struct sv_setting setting = settings[_i];
-  const unsigned max_signing_bu = 4;  // Trigger signing after reaching 4 Bitstream Units.
-  setting.max_signing_bu = max_signing_bu;
+  const unsigned max_signing_frames = 4;  // Trigger signing after reaching 4 Bitstream Units.
+  setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPPPPPIP", setting);
   // Expected when activated
   // test_stream_check_types(list, "IPPPPSPISPPISPPPPSPPPPSPISP");
@@ -2222,8 +2222,8 @@ START_TEST(all_seis_arrive_late_partial_gops)
 {
   // Device side
   struct sv_setting setting = settings[_i];
-  const unsigned max_signing_bu = 4;
-  setting.max_signing_bu = max_signing_bu;
+  const unsigned max_signing_frames = 4;
+  setting.max_signing_frames = max_signing_frames;
   const int delay = 3;
   setting.delay = delay;
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPPPPPIPPPPP", setting);
@@ -2260,8 +2260,8 @@ START_TEST(file_export_and_scrubbing_partial_gops)
 {
   // Device side
   struct sv_setting setting = settings[_i];
-  const unsigned max_signing_bu = 4;
-  setting.max_signing_bu = max_signing_bu;
+  const unsigned max_signing_frames = 4;
+  setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = mimic_file_export(setting);
 
   // Client side
@@ -2338,8 +2338,8 @@ START_TEST(modify_one_p_frame_partial_gops)
 {
   // Device side
   struct sv_setting setting = settings[_i];
-  const unsigned max_signing_bu = 4;
-  setting.max_signing_bu = max_signing_bu;
+  const unsigned max_signing_frames = 4;
+  setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIP", setting);
   // Expected when activated
   // test_stream_check_types(list, "IPPPPSPISPPISPPPPSPISP");
@@ -2379,8 +2379,8 @@ START_TEST(remove_one_p_frame_partial_gops)
 {
   // Device side
   struct sv_setting setting = settings[_i];
-  const unsigned max_signing_bu = 4;
-  setting.max_signing_bu = max_signing_bu;
+  const unsigned max_signing_frames = 4;
+  setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIP", setting);
   // Expected when activated
   // test_stream_check_types(list, "IPPPPSPISPPISPPPPSPISP");
@@ -2440,8 +2440,8 @@ START_TEST(add_one_p_frame_partial_gops)
 {
   // Device side
   struct sv_setting setting = settings[_i];
-  const unsigned max_signing_bu = 4;
-  setting.max_signing_bu = max_signing_bu;
+  const unsigned max_signing_frames = 4;
+  setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIP", setting);
   // Expected when activated
   // test_stream_check_types(list, "IPPPPSPISPPISPPPPSPISP");
@@ -2500,8 +2500,8 @@ START_TEST(modify_one_i_frame_partial_gops)
   // Device side
   struct sv_setting setting = settings[_i];
   // Select a signing frequency longer than every GOP
-  const unsigned max_signing_bu = 4;
-  setting.max_signing_bu = max_signing_bu;
+  const unsigned max_signing_frames = 4;
+  setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIPPIPIP", setting);
   // Expected when activated
   // test_stream_check_types(list, "IPPPPSPISPPISPPPPSPISPPISPISP");
@@ -2542,8 +2542,8 @@ START_TEST(remove_one_i_frame_partial_gops)
 {
   // Device side
   struct sv_setting setting = settings[_i];
-  const unsigned max_signing_bu = 4;
-  setting.max_signing_bu = max_signing_bu;
+  const unsigned max_signing_frames = 4;
+  setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIPPIPIP", setting);
   // Expected when activated
   // test_stream_check_types(list, "IPPPPSPISPPISPPPPSPISPPISPISP");
@@ -2588,8 +2588,8 @@ START_TEST(modify_one_sei_frame_partial_gops)
 {
   // Device side
   struct sv_setting setting = settings[_i];
-  const unsigned max_signing_bu = 4;
-  setting.max_signing_bu = max_signing_bu;
+  const unsigned max_signing_frames = 4;
+  setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIPPIPIP", setting);
   // Expected when activated
   // test_stream_check_types(list, "IPPPPSPISPPISPPPPSPISPPISPISP");
@@ -2635,8 +2635,8 @@ START_TEST(remove_one_sei_frame_partial_gops)
   // Device side
   struct sv_setting setting = settings[_i];
   // Select a signing frequency longer than every GOP
-  const unsigned max_signing_bu = 4;
-  setting.max_signing_bu = max_signing_bu;
+  const unsigned max_signing_frames = 4;
+  setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIPPIPIP", setting);
   // Expected when activated
   // test_stream_check_types(list, "IPPPPSPISPPISPPPPSPISPPISPISP");

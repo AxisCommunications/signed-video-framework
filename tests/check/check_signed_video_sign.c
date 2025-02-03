@@ -222,6 +222,12 @@ START_TEST(api_inputs)
   sv_rc = signed_video_set_recurrence_interval_frames(sv, 1);
   ck_assert_int_eq(sv_rc, SV_OK);
 
+  // Check setting max signing frames
+  sv_rc = signed_viedo_set_max_signing_frames(NULL, 1);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  sv_rc = signed_viedo_set_max_signing_frames(sv, 1);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
   // Setting validation level.
   sv_rc = signed_video_set_authenticity_level(NULL, SV_AUTHENTICITY_LEVEL_GOP);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
@@ -1042,8 +1048,8 @@ START_TEST(signing_partial_gops)
 {
   struct sv_setting setting = settings[_i];
   // Select a maximum number of added Bitstream Units before signing.
-  const unsigned max_signing_bu = 4;
-  setting.max_signing_bu = max_signing_bu;
+  const unsigned max_signing_frames = 4;
+  setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = create_signed_stream("IPPIPPPPPPPPPPPPIPPPIP", setting);
   // Expected when activated
   // test_stream_check_types(list, "IPPISPPPPSPPPPSPPPPSISPPPISP");
