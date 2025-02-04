@@ -141,10 +141,6 @@ struct _signed_video_t {
                                 // the first signing attempt, triggering SEI generation at the end
                                 // of GOP.
 
-  // TODO: Once the transition to linking to previous GOP is complete, the following flag will be
-  // unnecessary.
-  bool gop_hash_off;  // Flag indicating if the GENERAL TAG doesn't include GOP hash.
-  // TODO: |gop_hash_off| will be deprecated when the feature is fully integrated.
   // TODO: Remove this flag when the deprecated API get_nalus_to_prepend have been removed.
   bool avoid_checking_available_seis;  // Temporary flag to avoid checking for available SEIs when
                                        // peek NAL Units are used when getting SEIs, since they
