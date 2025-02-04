@@ -842,7 +842,7 @@ encode_signature(signed_video_t *self, uint8_t *data)
   gop_info_t *gop_info = self->gop_info;
   sign_or_verify_data_t *sign_data = self->sign_data;
   size_t data_size = 0;
-  const uint8_t version = 1;  // Increment when the change breaks the format
+  const uint8_t version = 2;  // Increment when the change breaks the format
 
   // Value fields:
   //  - version (1 byte)
@@ -898,6 +898,7 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
   uint8_t **signature_ptr = &verify_data->signature;
   uint8_t version = *data_ptr++;
   uint8_t encoding_status = *data_ptr++;
+  if(version < 2) (void)(*data_ptr++); //If the version is older than 2 move past the hash_type byte.
   uint16_t signature_size = 0;
   size_t max_signature_size = 0;
 
