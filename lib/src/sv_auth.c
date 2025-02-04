@@ -201,10 +201,11 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
   assert(self);
 
   // Initialize pointers and variables
+  gop_info_t *gop_info = self->gop_info;
   bu_list_t *bu_list = self->bu_list;
   const size_t hash_size = self->verify_data->hash_size;
   bu_list_item_t *item = NULL;
-  int num_in_gop = 0;
+  int num_in_partial_gop = 0;
   assert(bu_list);
 
   bu_list_print(bu_list);
@@ -230,7 +231,7 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
       if (num_i_frames > 1) break;  // Break if encountered second I frame.
       // Break at I-frame if NAL Units have been added to GOP hash, since a GOP hash cannot span
       // across multiple GOPs.
-      if (item->bu->is_first_bu_in_gop && (num_in_gop > 0)) {
+      if (item->bu->is_first_bu_in_gop && (num_in_partial_gop > 0)) {
         break;
       }
 
@@ -238,10 +239,15 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
       if (item == sei) {
         break;  // Break if encountered SEI frame.
       }
+      // Stop adding Bitstream Units when exceeding the amount that the SEI has reported
+      // in the partial GOP if the SEI was triggered by a partial GOP.
+      if (gop_info->triggered_partial_gop && (num_in_partial_gop >= gop_info->num_sent)) {
+        break;
+      }
       // Since the GOP hash is initialized, it can be updated with each incoming BU hash.
       SV_THROW(openssl_update_hash(self->crypto_handle, item->hash, hash_size, true));
       item->used_in_gop_hash = true;  // Mark the item as used in the GOP hash
-      num_in_gop++;
+      num_in_partial_gop++;
 
       item = item->next;
     }
@@ -259,6 +265,53 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
   SV_DONE(status)
 
   return status;
+}
+
+/* Mark as many items as possible with |used_in_gop_hash| for the current partial GOP.
+ * This function should be called if validation with the |gop_hash| fails and individual
+ * hashes are to be verified. */
+static void
+extend_partial_gop(signed_video_t *self, const bu_list_item_t *sei)
+{
+  if (!sei) {
+    return;
+  }
+
+  assert(self);
+  if (!self->gop_info->triggered_partial_gop) {
+    // This operation is only valid if the full GOP has been split in partial GOPs.
+    return;
+  }
+
+  // Loop through the items of |bu_list| and associate the remaining items in the same
+  // partial GOP.
+  bu_list_item_t *item = self->bu_list->first_item;
+  bu_list_item_t *next_hashable_item = NULL;
+  while (item) {
+    // Due to causuality it is not possible to validate BUs after the associated SEI.
+    if (item == sei) {
+      break;
+    }
+    // If this item is not pending, or already part of |gop_hash|, move to the next one.
+    if (item->tmp_validation_status != 'P' || item->used_in_gop_hash) {
+      item = item->next;
+      continue;
+    }
+    // Stop if a new GOP is found.
+    if (item->bu->is_first_bu_in_gop) {
+      break;
+    }
+    // Stop if the current |item| is the last hashable in the GOP, otherwise no other
+    // partial GOP is feasible.
+    next_hashable_item = bu_list_item_get_next_hashable(item);
+    if (next_hashable_item && next_hashable_item->bu->is_first_bu_in_gop) {
+      break;
+    }
+
+    // Mark the item and move to next.
+    item->used_in_gop_hash = true;
+    item = item->next;
+  }
 }
 
 /* Verifies the hashes of the oldest pending GOP from a hash list.
@@ -328,6 +381,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
   // Statistics tracked while verifying hashes.
   int num_invalid_since_latest_match = 0;
   int num_verified_hashes = 0;
+  int num_missed_hashes = 0;
   // Initialization
   int latest_match_idx = -1;  // The latest matching hash in |hash_list|
   int compare_idx = 0;  // The offset in |hash_list| selecting the hash to compared
@@ -338,6 +392,10 @@ verify_hashes_with_hash_list(signed_video_t *self,
   // This while-loop selects items from the oldest pending GOP. Each item hash is then verified
   // against the feasible hashes in the received |hash_list|.
   while (item && !(found_next_gop || found_item_after_sei)) {
+    if (gop_info->triggered_partial_gop &&
+        !((num_verified_hashes + num_missed_hashes) < num_expected_hashes)) {
+      break;
+    }
     // If this item is not Pending or not part of the GOP hash, move to the next one.
     if (item->tmp_validation_status != 'P' || !item->used_in_gop_hash) {
       DEBUG_LOG("Skipping non-pending Bitstream Unit");
@@ -371,6 +429,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
         // Add missing items to |bu_list|.
         int num_detected_missing =
             (compare_idx - latest_match_idx) - 1 - num_invalid_since_latest_match;
+        num_missed_hashes += num_detected_missing;
         // No need to check the return value. A failure only affects the statistics. In the worst
         // case we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
         bu_list_add_missing(bu_list, num_detected_missing, false, item);
@@ -515,6 +574,8 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected, int *num_receive
     // If the signature is verified but GOP hash or the linked hash is not, continue validation with
     // the hash list if it is present.
     if (validation_status != '.' && self->gop_info->list_idx > 0) {
+      // Extend partial GOP with more items, since the failure can be due to added BUs.
+      extend_partial_gop(self, sei);
       return verify_hashes_with_hash_list(self, num_expected, num_received, order_ok);
     }
   } else if (self->gop_info->verified_signature_hash == 0) {
