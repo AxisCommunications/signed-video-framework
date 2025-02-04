@@ -898,7 +898,10 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
   uint8_t **signature_ptr = &verify_data->signature;
   uint8_t version = *data_ptr++;
   uint8_t encoding_status = *data_ptr++;
-  if(version < 2) (void)(*data_ptr++); //If the version is older than 2 move past the hash_type byte.
+  if (version < 2) {
+    // Move past the written hash type since it is never used.
+    data_ptr++;
+  }
   uint16_t signature_size = 0;
   size_t max_signature_size = 0;
 
