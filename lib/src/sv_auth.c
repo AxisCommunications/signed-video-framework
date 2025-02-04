@@ -164,7 +164,7 @@ update_link_hash_for_auth(signed_video_t *self)
   const size_t hash_size = self->verify_data->hash_size;
   bu_list_item_t *item = self->bu_list->first_item;
   while (item) {
-    if (item->used_in_gop_hash && item->bu->is_first_bu_in_gop) {
+    if (item->used_in_gop_hash) {
       if (!item->used_for_linked_hash) {
         update_linked_hash(self, item->hash, hash_size);
         item->used_for_linked_hash = true;
