@@ -395,8 +395,10 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
       memcpy(sign_data->hash, gop_info->gop_hash, hash_size);
     }
 
-    // Reset the |num_in_partial_gop| since we start a new GOP.
+    // Reset the |num_in_partial_gop| and |num_frames_in_partial_gop| since a new partial
+    // GOP is started.
     gop_info->num_in_partial_gop = 0;
+    gop_info->num_frames_in_partial_gop = 0;
     // Reset the |hash_list| by rewinding the |list_idx| since we start a new GOP.
     gop_info->list_idx = 0;
 
@@ -553,8 +555,23 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       self->frame_count++;  // It is ok for this variable to wrap around
     }
 
-    // Finalize GOP hash and generate SEI if the BU is I frame of a non-empty GOP.
-    if (bu_info.is_first_bu_in_gop && bu_info.is_last_bu_part) {
+    // Determine if a SEI should be generated.
+    bool new_gop = (bu_info.is_first_bu_in_gop && bu_info.is_last_bu_part);
+    // Trigger signing if number of frames exceeds the limit for a partial GOP.
+    bool trigger_signing = ((self->max_signing_frames > 0) &&
+        (gop_info->num_frames_in_partial_gop >= self->max_signing_frames));
+    // Only trigger if this Bitstream Unit is hashable, hence will be added to the hash
+    // list. Also, trigger on a primary slice. Otherwise two slices belonging to the same
+    // frame will be part of different SEIs.
+    trigger_signing &= bu_info.is_hashable && bu_info.is_primary_slice;
+    gop_info->triggered_partial_gop = false;
+    // Depending on the input Bitstream Unit, different actions are taken. If the input is
+    // an I-frame there is a transition to a new GOP. That triggers generating a SEI. If
+    // the number of maximum frames to sign has been reached before the end of a GOP, that
+    // also triggers generating a SEI. While the SEI is being signed it is put in a
+    // buffer. For all other valid Bitstream Units, simply hash and proceed.
+    if (new_gop || trigger_signing) {
+      gop_info->triggered_partial_gop = !new_gop;
       if (self->sei_generation_enabled) {
         if (timestamp) {
           self->gop_info->timestamp = *timestamp;
@@ -575,6 +592,10 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       self->sei_generation_enabled = true;
     }
     SV_THROW(hash_and_add(self, &bu_info));
+    // Increment frame counter after the incoming Bitstream Unit has been processed.
+    if (bu_info.is_primary_slice && bu_info.is_last_bu_part) {
+      gop_info->num_frames_in_partial_gop++;
+    }
 
   SV_CATCH()
   SV_DONE(status)

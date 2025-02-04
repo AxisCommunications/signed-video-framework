@@ -1051,9 +1051,24 @@ START_TEST(signing_partial_gops)
   const unsigned max_signing_frames = 4;
   setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = create_signed_stream("IPPIPPPPPPPPPPPPIPPPIP", setting);
-  // Expected when activated
-  // test_stream_check_types(list, "IPPISPPPPSPPPPSPPPPSISPPPISP");
-  test_stream_check_types(list, "IPPISPPPPPPPPPPPPISPPPISP");
+  test_stream_check_types(list, "IPPISPPPPSPPPPSPPPPSISPPPISP");
+  verify_seis(list, setting);
+
+  test_stream_free(list);
+}
+END_TEST
+
+START_TEST(signing_mulitslice_stream_partial_gops)
+{
+  // For AV1, multi-slices are covered in one single OBU (OBU Frame).
+  if (settings[_i].codec == SV_CODEC_AV1) return;
+
+  struct sv_setting setting = settings[_i];
+  // Select a maximum number of added Bitstream Units before signing.
+  const unsigned max_signing_frames = 4;
+  setting.max_signing_frames = max_signing_frames;
+  test_stream_t *list = create_signed_stream("IiPpIiPpPpPpPpPpPpPpIiPpPpIiPp", setting);
+  test_stream_check_types(list, "IiPpIiSPpPpPpPpSPpPpPpIiSPpPpIiSPp");
   verify_seis(list, setting);
 
   test_stream_free(list);
@@ -1096,6 +1111,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, w_wo_emulation_prevention_bytes, s, e);
   tcase_add_loop_test(tc, limited_sei_payload_size, s, e);
   tcase_add_loop_test(tc, signing_partial_gops, s, e);
+  tcase_add_loop_test(tc, signing_mulitslice_stream_partial_gops, s, e);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);
