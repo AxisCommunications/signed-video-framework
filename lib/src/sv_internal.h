@@ -232,6 +232,8 @@ struct _gop_info_t {
   // side.
   uint16_t num_in_partial_gop;  // Counted number of BUs in the currently updated
   // |gop_hash|.
+  uint16_t num_frames_in_partial_gop;  // Counted number of frames in the current partial
+  // GOP.
   hash_type_t signature_hash_type;  // The type of hash signed, either gop_hash or document hash.
   uint32_t current_partial_gop;  // The index of the current GOP, incremented when encoded in the
   // TLV.

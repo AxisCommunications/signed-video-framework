@@ -2186,7 +2186,7 @@ START_TEST(sign_partial_gops)
 {
   // Device side
   struct sv_setting setting = settings[_i];
-  const unsigned max_signing_frames = 4;  // Trigger signing after reaching 4 Bitstream Units.
+  const unsigned max_signing_frames = 0;  // 4;  // Trigger signing after reaching 4 frames.
   setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPPPPPIP", setting);
   // Expected when activated
@@ -2218,11 +2218,48 @@ START_TEST(sign_partial_gops)
 }
 END_TEST
 
+START_TEST(sign_multislice_stream_partial_gops)
+{
+  // For AV1, multi-slices are covered in one single OBU (OBU Frame).
+  if (settings[_i].codec == SV_CODEC_AV1) return;
+
+  // Device side
+  struct sv_setting setting = settings[_i];
+  const unsigned max_signing_frames = 0;  // 4;  // Trigger signing after reaching 4 frames.
+  setting.max_signing_frames = max_signing_frames;
+  test_stream_t *list = create_signed_stream("IiPpIiPpPpPpPpPpPpPpIiPpPpIiPp", setting);
+  // Expected when activated
+  // test_stream_check_types(list, "IiPpIiSPpPpPpPpSPpPpPpIiSPpPpIiSPp");
+  test_stream_check_types(list, "IiPpIiSPpPpPpPpPpPpPpIiSPpPpIiSPp");
+
+  // Client side
+  //
+  // IiPpIiSPpPpPpPpSPpPpPpIiSPpPpIiSPp
+  //
+  // IiPpIiS                 ....PP.                             (valid, 2 pending)
+  //     IiSPpPpPpPpS            .........PP.                    (valid, 2 pending)
+  //              PpSPpPpPpIiS            .........PP.           (valid, 2 pending)
+  //                       IiSPpPpIiS              .......PP.    (valid, 2 pending)
+  //                                                                     8 pending
+  //                              IiSPp                   PP.PP  (valid, 5 pending)
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false,
+      33,  // 34,
+      28,  // 29,
+      5, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {.valid_gops = 3,  // 4,
+      .pending_bu = 6,  // 8,
+      .final_validation = &final_validation};
+  validate_stream(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
 START_TEST(all_seis_arrive_late_partial_gops)
 {
   // Device side
   struct sv_setting setting = settings[_i];
-  const unsigned max_signing_frames = 4;
+  const unsigned max_signing_frames = 0;  // 4;
   setting.max_signing_frames = max_signing_frames;
   const int delay = 3;
   setting.delay = delay;
@@ -2260,7 +2297,7 @@ START_TEST(file_export_and_scrubbing_partial_gops)
 {
   // Device side
   struct sv_setting setting = settings[_i];
-  const unsigned max_signing_frames = 4;
+  const unsigned max_signing_frames = 0;  // 4;
   setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = mimic_file_export(setting);
 
@@ -2338,7 +2375,7 @@ START_TEST(modify_one_p_frame_partial_gops)
 {
   // Device side
   struct sv_setting setting = settings[_i];
-  const unsigned max_signing_frames = 4;
+  const unsigned max_signing_frames = 0;  // 4;
   setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIP", setting);
   // Expected when activated
@@ -2379,7 +2416,7 @@ START_TEST(remove_one_p_frame_partial_gops)
 {
   // Device side
   struct sv_setting setting = settings[_i];
-  const unsigned max_signing_frames = 4;
+  const unsigned max_signing_frames = 0;  // 4;
   setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIP", setting);
   // Expected when activated
@@ -2440,7 +2477,7 @@ START_TEST(add_one_p_frame_partial_gops)
 {
   // Device side
   struct sv_setting setting = settings[_i];
-  const unsigned max_signing_frames = 4;
+  const unsigned max_signing_frames = 0;  // 4;
   setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIP", setting);
   // Expected when activated
@@ -2500,7 +2537,7 @@ START_TEST(modify_one_i_frame_partial_gops)
   // Device side
   struct sv_setting setting = settings[_i];
   // Select a signing frequency longer than every GOP
-  const unsigned max_signing_frames = 4;
+  const unsigned max_signing_frames = 0;  // 4;
   setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIPPIPIP", setting);
   // Expected when activated
@@ -2542,7 +2579,7 @@ START_TEST(remove_one_i_frame_partial_gops)
 {
   // Device side
   struct sv_setting setting = settings[_i];
-  const unsigned max_signing_frames = 4;
+  const unsigned max_signing_frames = 0;  // 4;
   setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIPPIPIP", setting);
   // Expected when activated
@@ -2588,7 +2625,7 @@ START_TEST(modify_one_sei_frame_partial_gops)
 {
   // Device side
   struct sv_setting setting = settings[_i];
-  const unsigned max_signing_frames = 4;
+  const unsigned max_signing_frames = 0;  // 4;
   setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIPPIPIP", setting);
   // Expected when activated
@@ -2635,7 +2672,7 @@ START_TEST(remove_one_sei_frame_partial_gops)
   // Device side
   struct sv_setting setting = settings[_i];
   // Select a signing frequency longer than every GOP
-  const unsigned max_signing_frames = 4;
+  const unsigned max_signing_frames = 0;  // 4;
   setting.max_signing_frames = max_signing_frames;
   test_stream_t *list = create_signed_stream("IPPPPPIPPIPPPPPIPPIPIP", setting);
   // Expected when activated
@@ -2758,6 +2795,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, with_blocked_signing, s, e);
   // Signed partial GOPs
   tcase_add_loop_test(tc, sign_partial_gops, s, e);
+  tcase_add_loop_test(tc, sign_multislice_stream_partial_gops, s, e);
   tcase_add_loop_test(tc, all_seis_arrive_late_partial_gops, s, e);
   tcase_add_loop_test(tc, file_export_and_scrubbing_partial_gops, s, e);
   tcase_add_loop_test(tc, modify_one_p_frame_partial_gops, s, e);
