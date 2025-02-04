@@ -276,7 +276,7 @@ is_in_list(const bu_list_t *list, const bu_list_item_t *item_to_find)
 }
 
 /**
- * Public bu_list_t functions.
+ * Public bu_list_t and bu_list_item_t functions.
  */
 
 /* Creates and returns a bitstream unit list. */
@@ -678,4 +678,20 @@ bu_list_print(const bu_list_t *list)
   }
   printf("\n");
 #endif
+}
+
+bu_list_item_t *
+bu_list_item_get_next_hashable(const bu_list_item_t *start_item)
+{
+  if (!start_item) {
+    return NULL;
+  }
+  bu_list_item_t *item = start_item->next;
+  while (item) {
+    if (item->bu && item->bu->is_hashable) {
+      break;
+    }
+    item = item->next;
+  }
+  return item;
 }
