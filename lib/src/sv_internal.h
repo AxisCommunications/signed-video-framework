@@ -203,8 +203,6 @@ struct _signed_video_t {
   legacy_sv_t *legacy_sv;
 };
 
-typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;
-
 /**
  * Information related to the GOP signature.
  * The |gop_hash| is a recursive hash. It is the hash of the memory [gop_hash, latest hash] and then
@@ -236,7 +234,6 @@ struct _gop_info_t {
   // side.
   uint16_t num_in_gop_hash;  // Counted number of BUs in the currently recursively updated
   // |gop_hash|.
-  hash_type_t signature_hash_type;  // The type of hash signed, either gop_hash or document hash.
   uint32_t global_gop_counter;  // The index of the current GOP, incremented when encoded in the
   // TLV.
   uint32_t latest_validated_gop;  // The index of latest validated GOP.

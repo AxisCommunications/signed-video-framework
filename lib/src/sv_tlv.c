@@ -794,10 +794,6 @@ encode_hash_list(signed_video_t *self, uint8_t *data)
     write_byte(last_two_bytes, &data_ptr, gop_info->hash_list[i], epb);
   }
 
-  // Having successfully encoded the hash_list means we should sign the document_hash and not the
-  // gop_hash.
-  self->gop_info->signature_hash_type = DOCUMENT_HASH;
-
   return (data_ptr - data);
 }
 
@@ -851,7 +847,6 @@ encode_signature(signed_video_t *self, uint8_t *data)
   // Value fields:
   //  - version (1 byte)
   //  - info field (1 byte)
-  //  - hash type (1 byte)
   //  - signature size (2 bytes)
   //  - signature (max_signature_size bytes)
 
@@ -861,7 +856,6 @@ encode_signature(signed_video_t *self, uint8_t *data)
   // there were errors. This means that the validator is informed what can be verified and what
   // cannot.
   data_size += sizeof(gop_info->encoding_status);  // Info field
-  data_size += 1;  // hash type
   data_size += 2;  // 2 bytes to store the actual size of the signature.
   data_size += sign_data->max_signature_size;  // Allocated size of the signature
 
@@ -876,7 +870,6 @@ encode_signature(signed_video_t *self, uint8_t *data)
   // Write info field
   write_byte(last_two_bytes, &data_ptr, gop_info->encoding_status, epb);
   // Write hash type
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)gop_info->signature_hash_type, epb);
   // Write actual signature size (2 bytes)
   write_byte(last_two_bytes, &data_ptr, (uint8_t)((signature_size >> 8) & 0x00ff), epb);
   write_byte(last_two_bytes, &data_ptr, (uint8_t)((signature_size)&0x00ff), epb);
@@ -905,7 +898,6 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
   uint8_t **signature_ptr = &verify_data->signature;
   uint8_t version = *data_ptr++;
   uint8_t encoding_status = *data_ptr++;
-  hash_type_t hash_type = *data_ptr++;
   uint16_t signature_size = 0;
   size_t max_signature_size = 0;
 
@@ -918,7 +910,6 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
 
   SV_TRY()
     SV_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
-    SV_THROW_IF(hash_type < 0 || hash_type >= NUM_HASH_TYPES, SV_AUTHENTICATION_ERROR);
     SV_THROW_IF(max_signature_size < signature_size, SV_AUTHENTICATION_ERROR);
     if (!*signature_ptr) {
       verify_data->max_signature_size = 0;
@@ -936,7 +927,6 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
     // Set true signature size.
     verify_data->signature_size = signature_size;
     gop_info->encoding_status = encoding_status;
-    gop_info->signature_hash_type = hash_type;
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
 #ifdef PRINT_DECODED_SEI
     printf("\nSignature Tag\n");

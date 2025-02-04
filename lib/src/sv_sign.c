@@ -208,11 +208,6 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
     return SV_NOT_SUPPORTED;
   }
 
-  // The |signature_hash_type| is now always set to |DOCUMENT_HASH|. The use of |GOP_HASH|
-  // has been removed. If the |hash_list| is successfully added, |signature_hash_type|
-  // remains |DOCUMENT_HASH|. This behavior applies consistently, including for golden SEI hashes.
-  self->gop_info->signature_hash_type = DOCUMENT_HASH;
-
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Get the total payload size of all TLVs. Then compute the total size of the SEI to be
@@ -389,11 +384,8 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
     }
 
     gop_info_t *gop_info = self->gop_info;
-    if (gop_info->signature_hash_type == DOCUMENT_HASH) {
-      memcpy(sign_data->hash, gop_info->document_hash, hash_size);
-    } else {
-      memcpy(sign_data->hash, gop_info->gop_hash, hash_size);
-    }
+
+    memcpy(sign_data->hash, gop_info->document_hash, hash_size);
 
     // Reset the |num_in_gop_hash| since we start a new GOP.
     gop_info->num_in_gop_hash = 0;
