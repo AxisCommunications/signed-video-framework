@@ -338,7 +338,7 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
     uint8_t reserved_byte = self->sei_epb << 7;
     reserved_byte |= self->is_golden_sei << 6;
     reserved_byte |= 1 << 5;
-    reserved_byte |= !self->gop_hash_off << 4;
+    reserved_byte |= 1 << 4;
     *payload_ptr++ = reserved_byte;
 
     size_t written_size = 0;
