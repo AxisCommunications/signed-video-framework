@@ -575,9 +575,6 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       self->sei_generation_enabled = true;
     }
     SV_THROW(hash_and_add(self, &bu_info));
-    if (bu_info.is_first_bu_in_gop && bu_info.is_last_bu_part) {
-      SV_THROW(update_linked_hash(self, gop_info->bu_hash, self->sign_data->hash_size));
-    }
 
   SV_CATCH()
   SV_DONE(status)
