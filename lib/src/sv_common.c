@@ -227,9 +227,8 @@ gop_info_create(void)
   // Initialize |verified_signature_hash| as 'error', since we lack data.
   gop_info->verified_signature_hash = -1;
 
-  // Set shortcut pointers to the gop_hash and BU hash parts of the memory.
-  gop_info->gop_hash = gop_info->hashes;
-  gop_info->bu_hash = gop_info->hashes + DEFAULT_HASH_SIZE;
+  // Set shortcut pointers to the BU hash part of the memory.
+  gop_info->bu_hash = gop_info->hashes;
 
   // Set hash_list_size to same as what is allocated.
   if (set_hash_list_size(gop_info, HASH_LIST_SIZE) != SV_OK) {
