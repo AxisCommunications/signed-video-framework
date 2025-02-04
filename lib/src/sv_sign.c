@@ -395,8 +395,8 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
       memcpy(sign_data->hash, gop_info->gop_hash, hash_size);
     }
 
-    // Reset the |num_in_gop_hash| since we start a new GOP.
-    gop_info->num_in_gop_hash = 0;
+    // Reset the |num_in_partial_gop| since we start a new GOP.
+    gop_info->num_in_partial_gop = 0;
     // Reset the |hash_list| by rewinding the |list_idx| since we start a new GOP.
     gop_info->list_idx = 0;
 

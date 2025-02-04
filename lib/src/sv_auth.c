@@ -106,7 +106,7 @@ detect_lost_sei(signed_video_t *self)
   // Get the last GOP counter.
   uint32_t exp_gop_number = self->gop_info->latest_validated_gop + 1;
   // Compare new with last number of GOPs to detect potentially lost SEIs.
-  uint32_t new_gop_number = self->gop_info->global_gop_counter;
+  uint32_t new_gop_number = self->gop_info->current_partial_gop;
   int64_t potentially_missed_gops = (int64_t)new_gop_number - exp_gop_number;
   // To estimate whether a wraparound has occurred, we check if the adjusted value
   // is within a specific range that indicates a likely wraparound. If so, we adjust
@@ -117,10 +117,10 @@ detect_lost_sei(signed_video_t *self)
   bool is_wraparound = (potentially_missed_gops + INT64_MAX) < (INT64_MAX / 2);
   if (is_wraparound) potentially_missed_gops += INT64_MAX;
 
-  // It is only possible to know if a SEI has been lost if the |global_gop_counter| is in sync.
+  // It is only possible to know if a SEI has been lost if the |current_partial_gop| is in sync.
   // Otherwise, the counter cannot be trusted.
   self->validation_flags.has_lost_sei =
-      (potentially_missed_gops > 0) && self->gop_info->global_gop_counter_is_synced;
+      (potentially_missed_gops > 0) && self->gop_info->partial_gop_is_synced;
 }
 
 /**
@@ -591,7 +591,7 @@ verify_hashes_without_sei(signed_video_t *self)
       found_next_gop = item->bu->is_first_bu_in_gop && !item->used_for_linked_hash;
     }
   }
-  // If we have verified a GOP without a SEI, we should increment the |global_gop_counter|.
+  // If we have verified a GOP without a SEI, we should increment the |current_partial_gop|.
   if (self->validation_flags.signing_present && (num_marked_items > 0)) {
     self->gop_info->latest_validated_gop++;
   }
@@ -645,7 +645,7 @@ validate_authenticity(signed_video_t *self)
   } else {
     verify_success = verify_hashes_with_sei(self, &num_expected, &num_received);
     // Set |latest_validated_gop| to recived gop counter for the next validation.
-    self->gop_info->latest_validated_gop = self->gop_info->global_gop_counter;
+    self->gop_info->latest_validated_gop = self->gop_info->current_partial_gop;
   }
 
   // Collect statistics from the bu_list. This is used to validate the GOP and provide additional
@@ -667,7 +667,7 @@ validate_authenticity(signed_video_t *self)
     if ((valid == SV_AUTH_RESULT_OK) && (num_expected > 1) && (num_missed >= num_expected)) {
       valid = SV_AUTH_RESULT_NOT_OK;
     }
-    self->gop_info->global_gop_counter_is_synced = true;
+    self->gop_info->partial_gop_is_synced = true;
   }
   // Determine if this GOP is valid, but has missing information. This happens if we have detected
   // missed BUs or if the GOP is incomplete.
@@ -686,8 +686,8 @@ validate_authenticity(signed_video_t *self)
     if ((valid == SV_AUTH_RESULT_OK) && !has_valid_bu) {
       valid = SV_AUTH_RESULT_SIGNATURE_PRESENT;
     }
-    // If validation was successful, the |global_gop_counter| is in sync.
-    self->gop_info->global_gop_counter_is_synced = (valid == SV_AUTH_RESULT_OK);
+    // If validation was successful, the |current_partial_gop| is in sync.
+    self->gop_info->partial_gop_is_synced = (valid == SV_AUTH_RESULT_OK);
     if (valid != SV_AUTH_RESULT_OK) {
       // We have validated the authenticity based on one single BU, but failed. A success can only
       // happen if we are at the beginning of the original stream. For all other cases, for example,

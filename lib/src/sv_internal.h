@@ -234,13 +234,13 @@ struct _gop_info_t {
   // (authentication part).
   uint16_t num_sent;  // The number of BUs used to generate the gop_hash on the signing
   // side.
-  uint16_t num_in_gop_hash;  // Counted number of BUs in the currently recursively updated
+  uint16_t num_in_partial_gop;  // Counted number of BUs in the currently updated
   // |gop_hash|.
   hash_type_t signature_hash_type;  // The type of hash signed, either gop_hash or document hash.
-  uint32_t global_gop_counter;  // The index of the current GOP, incremented when encoded in the
+  uint32_t current_partial_gop;  // The index of the current GOP, incremented when encoded in the
   // TLV.
   uint32_t latest_validated_gop;  // The index of latest validated GOP.
-  bool global_gop_counter_is_synced;  // Turns true when a SEI corresponding to the segment is
+  bool partial_gop_is_synced;  // Turns true when a SEI corresponding to the segment is
   // detected.
   int verified_signature_hash;  // Status of last hash-signature-pair verification. Has 1 for
   // success, 0 for fail, and -1 for error.
