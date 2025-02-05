@@ -913,7 +913,7 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
   svrc_t status = SV_UNKNOWN_FAILURE;
 
   SV_TRY()
-    SV_THROW_IF(version > 0 && version < 3, SV_OK);
+    SV_THROW_IF(version < 1 || version > 2, SV_INCOMPATIBLE_VERSION);
     SV_THROW_IF(max_signature_size < signature_size, SV_AUTHENTICATION_ERROR);
     if (!*signature_ptr) {
       verify_data->max_signature_size = 0;
