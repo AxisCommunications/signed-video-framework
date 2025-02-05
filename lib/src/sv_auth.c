@@ -229,8 +229,8 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
       assert(item->bu);
       num_i_frames += item->bu->is_first_bu_in_gop;
       if (num_i_frames > 1) break;  // Break if encountered second I frame.
-      // Break at I-frame if NAL Units have been added to GOP hash, since a GOP hash cannot span
-      // across multiple GOPs.
+      // Break at I-frame if Bitstream Units have been added to GOP hash, since a GOP hash
+      // cannot span across multiple GOPs.
       if (item->bu->is_first_bu_in_gop && (num_in_partial_gop > 0)) {
         break;
       }
