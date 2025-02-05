@@ -49,7 +49,7 @@ set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
     char validation_status,
     bu_list_item_t *sei);
 static bool
-verify_hashes_without_sei(signed_video_t *self);
+verify_hashes_without_sei(signed_video_t *self, int num_skips);
 static void
 validate_authenticity(signed_video_t *self);
 static svrc_t
@@ -285,9 +285,10 @@ verify_hashes_with_hash_list(signed_video_t *self,
 
   const size_t hash_size = self->verify_data->hash_size;
   assert(hash_size > 0);
+  gop_info_t *gop_info = self->gop_info;
   // Expected hashes.
-  uint8_t *expected_hashes = self->gop_info->hash_list;
-  const int num_expected_hashes = (const int)(self->gop_info->list_idx / hash_size);
+  uint8_t *expected_hashes = gop_info->hash_list;
+  const int num_expected_hashes = (const int)(gop_info->list_idx / hash_size);
 
   bu_list_t *bu_list = self->bu_list;
   bu_list_item_t *last_used_item = NULL;
@@ -305,13 +306,13 @@ verify_hashes_with_hash_list(signed_video_t *self,
   // First of all we need to know if the SEI itself is authentic, that is, the SEI |document_hash|
   // has successfully been verified (= 1). If the document could not be verified sucessfully, that
   // is, the SEI is invalid, all BUs become invalid. Hence, verify_hashes_without_sei().
-  switch (self->gop_info->verified_signature_hash) {
+  switch (gop_info->verified_signature_hash) {
     case -1:
       sei->tmp_validation_status = 'E';
-      return verify_hashes_without_sei(self);
+      return verify_hashes_without_sei(self, 0);
     case 0:
       sei->tmp_validation_status = 'N';
-      return verify_hashes_without_sei(self);
+      return verify_hashes_without_sei(self, 0);
     case 1:
       assert(sei->tmp_validation_status == 'P');
       break;
@@ -525,7 +526,7 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected, int *num_receive
     sei->tmp_validation_status = validation_status;
     // Remove |used_in_gop_hash| from marked BUs.
     remove_used_in_gop_hash(self->bu_list);
-    return verify_hashes_without_sei(self);
+    return verify_hashes_without_sei(self, 0);
   }
 
   // Identify the first BU used in the GOP hash. This will be used to add missing BUs.
@@ -557,46 +558,97 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected, int *num_receive
  * Returns false if we failed verifying hashes, which happens if there is no list or if there are no
  * pending BUs. Otherwise, returns true. */
 static bool
-verify_hashes_without_sei(signed_video_t *self)
+verify_hashes_without_sei(signed_video_t *self, int num_skips)
 {
   assert(self);
-
   bu_list_t *bu_list = self->bu_list;
-
-  if (!bu_list) return false;
+  if (!bu_list) {
+    return false;
+  }
 
   bu_list_print(bu_list);
 
-  // Start from the oldest item and mark all pending items as NOT OK ('N') until we detect a new
-  // GOP.
-  int num_marked_items = 0;
+  // If there should be unmarked Bitstream Units (BUs) in the GOP, for example, if a GOP
+  // is split in several partial GOPs, determine the maximum number of BUs to mark
+  // verified as 'N'.
+  int num_gop_starts = 0;
+  int num_bu_in_gop = 0;
+  // There could be more then one GOP present, e.g., when a SEI is lost. Therefore, track
+  // both the total number of BUs of complete GOPs as well as the number of BUs of the
+  // first GOP. The first GOP is the one to mark as validated.
+  int num_bu_in_first_gop = 0;
+  int num_bu_in_all_gops = 0;
   bu_list_item_t *item = bu_list->first_item;
-  bool found_next_gop = false;
-  while (item && !found_next_gop) {
-    // Skip non-pending items.
+  while (item) {
+    // Skip non-pending items
     if (item->tmp_validation_status != 'P') {
       item = item->next;
       continue;
     }
-    // Stop verifying when SEI is encountered. There can't be another BU after SEI in the
-    // GOP.
-    if (item->bu->is_sv_sei) {
-      break;
-    }
-    item->tmp_validation_status = 'N';
-    num_marked_items++;
 
+    bu_info_t *bu_info = item->bu;
+    // Only (added) items marked as 'missing' ('M') have no |bu_info|.
+    assert(bu_info);
+    if (bu_info->is_sv_sei) {
+      // Skip counting signed SEIs since they are verified by its signature.
+      item = item->next;
+      continue;
+    }
+
+    num_gop_starts += bu_info->is_first_bu_in_gop;
+    if (bu_info->is_first_bu_in_gop && (num_gop_starts > 1)) {
+      // Store |num_bu_in_gop| and reset for the next GOP.
+      num_bu_in_all_gops += num_bu_in_gop;
+      if (num_bu_in_first_gop == 0) {
+        num_bu_in_first_gop = num_bu_in_gop;
+      }
+      num_bu_in_gop = 0;
+    }
+
+    num_bu_in_gop++;
     item = item->next;
-    if (item) {
-      found_next_gop = item->bu->is_first_bu_in_gop && !item->used_for_linked_hash;
+  }
+
+  // Determine number of items to mark given number of BUs to skip.
+  int num_marked_items = 0;
+  int max_marked_items = num_bu_in_first_gop;
+  if (num_bu_in_all_gops == num_bu_in_first_gop) {
+    // Only one GOP present. Skip BUs from first GOP.
+    max_marked_items -= num_skips;
+    if (max_marked_items < 0) {
+      max_marked_items = 0;
     }
   }
+
+  // Start from the oldest item and mark all pending items as NOT OK ('N') until
+  // |max_marked_items| have been marked.
+  item = bu_list->first_item;
+  while (item && (num_marked_items < max_marked_items)) {
+    // Skip non-pending items and items already associated with a SEI.
+    if (item->tmp_validation_status != 'P') {
+      item = item->next;
+      continue;
+    }
+
+    bu_info_t *bu_info = item->bu;
+    if (bu_info->is_sv_sei) {
+      // Skip marking signed SEIs since they are verified by its signature.
+      item = item->next;
+      continue;
+    }
+
+    item->tmp_validation_status = self->validation_flags.signing_present ? 'N' : 'U';
+    // item->validation_status_if_sei_ok = ' ';
+    num_marked_items++;
+    item = item->next;
+  }
   // If we have verified a GOP without a SEI, we should increment the |current_partial_gop|.
-  if (self->validation_flags.signing_present && (num_marked_items > 0)) {
+  if (self->validation_flags.signing_present &&
+      ((num_marked_items > 0) || (max_marked_items == 0))) {
     self->gop_info->latest_validated_gop++;
   }
 
-  return found_next_gop;
+  return (num_marked_items > 0);
 }
 
 /* Validates the authenticity using hashes in the |bu_list|.
@@ -641,7 +693,7 @@ validate_authenticity(signed_video_t *self)
     DEBUG_LOG("We never received the SEI associated with this GOP");
     // We never received the SEI, but we know we have passed a GOP transition. Hence, we cannot
     // verify this GOP. Marking this GOP as not OK by verify_hashes_without_sei().
-    verify_success = verify_hashes_without_sei(self);
+    verify_success = verify_hashes_without_sei(self, self->gop_info->num_sent);
   } else {
     verify_success = verify_hashes_with_sei(self, &num_expected, &num_received);
     // Set |latest_validated_gop| to recived gop counter for the next validation.

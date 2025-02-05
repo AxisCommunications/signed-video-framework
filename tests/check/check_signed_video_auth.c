@@ -645,26 +645,15 @@ START_TEST(remove_one_sei_and_i_frame)
 
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, false, 20, 17, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // TODO: Currently, the validation cannot handle the case where two GOPs have been merged into
-  // one, like this case. Since there is a missing SEI, one GOP should be validated without a SEI,
-  // but that validation "consumes" the entire GOP instead of a subset, hence the second validation
-  // only gets an I-frame (which actually should not be used). This will be solved separately. The
-  // final report NOT OK is still correct.
   // IPPISPPPPISPPISPPISP
   //
-  // IPPIS            ...P.                     ->  (   valid)
-  //    ISPPPPIS         N.NNNNP.               ->  ( invalid)             [Desired]
-  //          ISPPIS           N...P.           ->  ( invalid, wrong link) [Desired]
-  //    ISPPPPIS         NMM.NNNNN.             ->  ( invalid)             [Actual Frame level]
-  //            PPIS               M..P.        ->  ( invalid, wrong link) [Actual Frame level]
-  //    ISPPPPIS         N.NNNNNMMN             ->  ( invalid)             [Actual GOP level]
-  //            PPIS               MNNPN        ->  ( invalid, wrong link) [Actual GOP level]
-  //              ISPPIS           ....P.       ->  (   valid)
-  const struct validation_stats expected = {.valid_gops = 2,
-      .invalid_gops = 2,
-      .missed_bu = 1,
-      .pending_bu = 3,
-      .final_validation = &final_validation};
+  // IPPIS            ...P.                     ->  (  valid)
+  //    ISPPPPIS         N.NNNNP.               ->  (invalid)
+  //          ISPPIS           N...P.           ->  (invalid, wrong link)
+  //          ISPPIS           N.NNP.           ->  (invalid, wrong link) [GOP level]
+  //              ISPPIS           ....P.       ->  (  valid)
+  const struct validation_stats expected = {
+      .valid_gops = 2, .invalid_gops = 2, .pending_bu = 4, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -1257,6 +1246,9 @@ START_TEST(fast_forward_stream_without_reset)
   // NOTE: Without resetting, the validation will detect 2 missing GOPs, that is, the ones "lost"
   // upon fast forward.
   // NOTE: The accumulated validation includes the pre_fast_forward validation of 8 Bitstream Units.
+  // NOTE: The detected missing item is part of validating two GOPs, where the first one
+  // is not feasible to determine number of missing items since the SEI frame is lost.
+  // Hence, no missing item are reported.
   // TODO: When multiple GOPs are lost, the validation currently consumes too many Bitstream Units.
   // IPPPISPP
   //         ISPPPISPPPISP
@@ -1267,11 +1259,8 @@ START_TEST(fast_forward_stream_without_reset)
   //              ISPPPIS         .....P.  ->  (   valid)
   signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 8 + 13,
       8 + 10, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  const struct validation_stats expected = {.valid_gops = 1,
-      .invalid_gops = 2,
-      .missed_bu = 1,
-      .pending_bu = 2,
-      .final_validation = &final_validation};
+  const struct validation_stats expected = {
+      .valid_gops = 1, .invalid_gops = 2, .pending_bu = 3, .final_validation = &final_validation};
   validate_stream(sv, list, expected, true);
 
   // Free list and session.
