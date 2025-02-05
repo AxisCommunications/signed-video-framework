@@ -210,9 +210,7 @@ typedef enum { GOP_HASH = 0, DOCUMENT_HASH = 1, NUM_HASH_TYPES } hash_type_t;
 struct _gop_info_t {
   uint8_t hash_buddies[2 * MAX_HASH_SIZE];  // Memory for two hashes organized as
   // [reference_hash, bu_hash].
-  uint8_t hashes[2 * MAX_HASH_SIZE];  // Memory for storing, in order, the gop_hash and
-  // 'latest hash'.
-  uint8_t *gop_hash;  // Pointing to the memory slot of the gop_hash in |hashes|.
+  uint8_t hashes[MAX_HASH_SIZE];  // Memory for storing 'latest hash'.
   uint8_t hash_list[HASH_LIST_SIZE];  // Pointer to the list of hashes used for
   // SV_AUTHENTICITY_LEVEL_FRAME.
   size_t hash_list_size;  // The allowed size of the |hash_list|. This can be less than allocated.

@@ -389,11 +389,7 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
     }
 
     gop_info_t *gop_info = self->gop_info;
-    if (gop_info->signature_hash_type == DOCUMENT_HASH) {
-      memcpy(sign_data->hash, gop_info->document_hash, hash_size);
-    } else {
-      memcpy(sign_data->hash, gop_info->gop_hash, hash_size);
-    }
+    memcpy(sign_data->hash, gop_info->document_hash, hash_size);
 
     // Reset the |num_in_partial_gop| and |num_frames_in_partial_gop| since a new partial
     // GOP is started.
@@ -969,8 +965,6 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid)
     SV_THROW_IF(hash_size == 0 || hash_size > MAX_HASH_SIZE, SV_NOT_SUPPORTED);
 
     self->sign_data->hash_size = hash_size;
-    // Point |bu_hash| to the correct location in the |hashes| buffer.
-    self->gop_info->bu_hash = self->gop_info->hashes + hash_size;
   SV_CATCH()
   SV_DONE(status)
 
