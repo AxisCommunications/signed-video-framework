@@ -213,4 +213,15 @@ bu_list_clean_up(bu_list_t* list);
 void
 bu_list_print(const bu_list_t* list);
 
+/**
+ * @brief Returns the first hashable item after the |start_item|
+ *
+ * @param start_item The item to start the search from.
+ *
+ * @return First hashable item after |start_item|. A NULL pointer is returned if no item
+ *   was found.
+ */
+bu_list_item_t*
+bu_list_item_get_next_hashable(const bu_list_item_t* start_item);
+
 #endif  // __SV_BU_LIST_H__

@@ -141,10 +141,6 @@ struct _signed_video_t {
                                 // the first signing attempt, triggering SEI generation at the end
                                 // of GOP.
 
-  // TODO: Once the transition to linking to previous GOP is complete, the following flag will be
-  // unnecessary.
-  bool gop_hash_off;  // Flag indicating if the GENERAL TAG doesn't include GOP hash.
-  // TODO: |gop_hash_off| will be deprecated when the feature is fully integrated.
   // TODO: Remove this flag when the deprecated API get_nalus_to_prepend have been removed.
   bool avoid_checking_available_seis;  // Temporary flag to avoid checking for available SEIs when
                                        // peek NAL Units are used when getting SEIs, since they
@@ -212,9 +208,7 @@ struct _signed_video_t {
 struct _gop_info_t {
   uint8_t hash_buddies[2 * MAX_HASH_SIZE];  // Memory for two hashes organized as
   // [reference_hash, bu_hash].
-  uint8_t hashes[2 * MAX_HASH_SIZE];  // Memory for storing, in order, the gop_hash and
-  // 'latest hash'.
-  uint8_t *gop_hash;  // Pointing to the memory slot of the gop_hash in |hashes|.
+  uint8_t hashes[MAX_HASH_SIZE];  // Memory for storing 'latest hash'.
   uint8_t hash_list[HASH_LIST_SIZE];  // Pointer to the list of hashes used for
   // SV_AUTHENTICITY_LEVEL_FRAME.
   size_t hash_list_size;  // The allowed size of the |hash_list|. This can be less than allocated.
@@ -232,12 +226,14 @@ struct _gop_info_t {
   // (authentication part).
   uint16_t num_sent;  // The number of BUs used to generate the gop_hash on the signing
   // side.
-  uint16_t num_in_gop_hash;  // Counted number of BUs in the currently recursively updated
+  uint16_t num_in_partial_gop;  // Counted number of BUs in the currently updated
   // |gop_hash|.
-  uint32_t global_gop_counter;  // The index of the current GOP, incremented when encoded in the
+  uint16_t num_frames_in_partial_gop;  // Counted number of frames in the current partial
+  // GOP.
+  uint32_t current_partial_gop;  // The index of the current GOP, incremented when encoded in the
   // TLV.
   uint32_t latest_validated_gop;  // The index of latest validated GOP.
-  bool global_gop_counter_is_synced;  // Turns true when a SEI corresponding to the segment is
+  bool partial_gop_is_synced;  // Turns true when a SEI corresponding to the segment is
   // detected.
   int verified_signature_hash;  // Status of last hash-signature-pair verification. Has 1 for
   // success, 0 for fail, and -1 for error.

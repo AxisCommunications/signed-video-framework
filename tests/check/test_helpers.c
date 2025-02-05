@@ -535,7 +535,7 @@ modify_list_item(test_stream_t *list, int item_number, char type)
 
   test_stream_item_t *item = test_stream_item_get(list, item_number);
   test_stream_item_check_type(item, type);
-  item->data[item->data_size - 2] += 1;  // Modify id byte
+  item->data[item->data_size - 2] += 128;  // Modify id byte
 }
 
 /* Checks if a particular TLV tag is present in the Bitstream Unit. */
