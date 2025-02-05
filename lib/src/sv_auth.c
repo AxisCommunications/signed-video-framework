@@ -57,7 +57,7 @@ prepare_for_validation(signed_video_t *self);
 static bool
 is_recurrent_data_decoded(signed_video_t *self);
 static bool
-has_pending_gop(signed_video_t *self);
+has_pending_partial_gop(signed_video_t *self);
 static bool
 validation_is_feasible(const bu_list_item_t *item);
 
@@ -960,36 +960,40 @@ is_recurrent_data_decoded(signed_video_t *self)
 
 /* Loops through the |bu_list| to find out if there are GOPs that awaits validation. */
 static bool
-has_pending_gop(signed_video_t *self)
+has_pending_partial_gop(signed_video_t *self)
 {
   assert(self && self->bu_list);
   bu_list_item_t *item = self->bu_list->first_item;
   // Statistics collected while looping through the BUs.
   int num_pending_gop_ends = 0;
-  bool found_pending_gop_sei = false;
+  int num_pending_bu = 0;
+  bool found_pending_sv_sei = false;
   bool found_pending_gop = false;
+  bool found_pending_partial_gop = false;
 
   // Reset the GOP-related |has_lost_sei| member before running through the BUs in |bu_list|.
   self->validation_flags.has_lost_sei = false;
 
-  while (item && !found_pending_gop) {
+  while (item && !found_pending_gop && !found_pending_partial_gop) {
     // Collect statistics from pending and hashable BUs only. The others are either out of date or
     // not part of the validation.
     if (item->tmp_validation_status == 'P' && item->bu && item->bu->is_hashable) {
+      num_pending_bu += !item->bu->is_sv_sei;
       num_pending_gop_ends += item->bu->is_first_bu_in_gop;
-      found_pending_gop_sei |= item->bu->is_sv_sei;
+      found_pending_sv_sei |= item->bu->is_sv_sei;
     }
     if (!self->validation_flags.signing_present) {
       // If the video is not signed we need at least 2 I-frames to have a complete GOP.
       found_pending_gop |= (num_pending_gop_ends >= 2);
     } else {
-      // When the video is signed it is time to validate when there is at least one GOP and a SEI.
-      found_pending_gop |= (num_pending_gop_ends > 0) && found_pending_gop_sei;
+      // When the video is signed it is time to validate when there is at least one
+      // partial GOP with a SEI, i.e., there is a SEI and at least one BU.
+      found_pending_partial_gop |= (num_pending_bu > 0) && found_pending_sv_sei;
     }
     item = item->next;
   }
 
-  return found_pending_gop;
+  return found_pending_gop || found_pending_partial_gop;
 }
 
 /* Determines if the |item| is up for a validation.
@@ -1082,7 +1086,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
     char sei_validation_status = 'U';
     // Keep validating as long as there are pending GOPs.
     bool stop_validating = false;
-    while (has_pending_gop(self) && !stop_validating) {
+    while (has_pending_partial_gop(self) && !stop_validating) {
       // Initialize latest validation.
       if (!self->validation_flags.has_auth_result || validation_flags->is_first_validation) {
         latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
