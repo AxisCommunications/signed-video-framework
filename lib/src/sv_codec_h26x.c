@@ -22,21 +22,20 @@
 #include <stdint.h>  // uint8_t
 #include <string.h>  // size_t
 
-#include "includes/signed_video_common.h"
-#include "sv_codec_internal.h"  // bu_list_item_t, METADATA_TYPE_USER_PRIVATE
+#include "sv_codec_internal.h"  // bu_info_t
 
 #define H264_NALU_HEADER_LEN 1  // length of forbidden_zero_bit, nal_ref_idc and nal_unit_type
 #define H265_NALU_HEADER_LEN 2  // length of nal_unit_header as per ISO/ITU spec
 
 size_t
-h264_get_payload_size(const uint8_t *data, size_t *payload_size);
+h26x_get_payload_size(const uint8_t *data, size_t *payload_size);
 bool
 parse_h264_nalu_header(bu_info_t *bu);
 bool
 parse_h265_nalu_header(bu_info_t *bu);
 
 size_t
-h264_get_payload_size(const uint8_t *data, size_t *payload_size)
+h26x_get_payload_size(const uint8_t *data, size_t *payload_size)
 {
   const uint8_t *data_ptr = data;
   // Get payload size (including uuid). We assume the data points to the size bytes.

@@ -197,7 +197,7 @@ Common utility functions for parsing and extracting metadata from H264, H265, an
 units. Used for authentication and signing.*/
 /* Returns the payload size for an H264 bitstream unit. */
 size_t
-h264_get_payload_size(const uint8_t *data, size_t *payload_size);
+h26x_get_payload_size(const uint8_t *data, size_t *payload_size);
 
 /* Parses the H264 NAL unit header and determines the BU type. */
 bool

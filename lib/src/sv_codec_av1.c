@@ -23,8 +23,7 @@
 #include <stdint.h>  // uint8_t
 #include <string.h>  // size_t
 
-#include "includes/signed_video_common.h"
-#include "sv_codec_internal.h"  // bu_list_item_t, METADATA_TYPE_USER_PRIVATE
+#include "sv_codec_internal.h"  // bu_info_t
 
 #define AV1_OBU_HEADER_LEN 1
 

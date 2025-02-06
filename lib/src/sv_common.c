@@ -468,7 +468,7 @@ parse_bu_info(const uint8_t *bu_data,
       payload++;
       if (user_data_unregistered == USER_DATA_UNREGISTERED) {
         // Decode payload size and compute emulation prevention bytes
-        payload += h264_get_payload_size(payload, &payload_size);
+        payload += h26x_get_payload_size(payload, &payload_size);
         bu.payload = payload;
         bu.payload_size = payload_size;
         // We now know the payload size, including UUID (16 bytes) and excluding stop bit. This
