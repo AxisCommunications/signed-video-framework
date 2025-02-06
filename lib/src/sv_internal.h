@@ -208,15 +208,12 @@ struct _signed_video_t {
 struct _gop_info_t {
   uint8_t hash_buddies[2 * MAX_HASH_SIZE];  // Memory for two hashes organized as
   // [reference_hash, bu_hash].
-  uint8_t hashes[MAX_HASH_SIZE];  // Memory for storing 'latest hash'.
+  uint8_t bu_hash[MAX_HASH_SIZE];  // Memory for storing 'latest hash'.
   uint8_t hash_list[HASH_LIST_SIZE];  // Pointer to the list of hashes used for
   // SV_AUTHENTICITY_LEVEL_FRAME.
   size_t hash_list_size;  // The allowed size of the |hash_list|. This can be less than allocated.
   int list_idx;  // Pointing to next available slot in the |hash_list|. If something has gone wrong,
   // like exceeding available memory, |list_idx| = -1.
-  uint8_t *bu_hash;  // Pointing to the memory slot of the BU hash in |hashes|.
-  uint8_t document_hash[MAX_HASH_SIZE];  // Memory for storing the document hash to be signed
-  // when SV_AUTHENTICITY_LEVEL_FRAME.
   uint8_t computed_gop_hash[MAX_HASH_SIZE];  // Hash of BU hashes in GOP.
   uint8_t linked_hashes[2 * MAX_HASH_SIZE];  // Stores linked hash data for liked hash method.
 
