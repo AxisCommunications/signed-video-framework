@@ -192,4 +192,27 @@ copy_bu_except_pointers(bu_info_t *dst_bu, const bu_info_t *src_bu);
 void
 update_hashable_data(bu_info_t *bu);
 
+/*
+Common utility functions for parsing and extracting metadata from H264, H265, and AV1 bitstream
+units. Used for authentication and signing.*/
+/* Returns the payload size for an H264 bitstream unit. */
+size_t
+h264_get_payload_size(const uint8_t *data, size_t *payload_size);
+
+/* Parses the H264 NAL unit header and determines the BU type. */
+bool
+parse_h264_nalu_header(bu_info_t *bu);
+
+/* Parses the H265 NAL unit header and determines the BU type. */
+bool
+parse_h265_nalu_header(bu_info_t *bu);
+
+/* Returns the payload size for an AV1 bitstream unit. */
+size_t
+av1_get_payload_size(const uint8_t *data, size_t *payload_size);
+
+/* Parses the AV1 OBU header and determines the BU type. */
+bool
+parse_av1_obu_header(bu_info_t *obu);
+
 #endif  // __SV_CODEC_INTERNAL__
