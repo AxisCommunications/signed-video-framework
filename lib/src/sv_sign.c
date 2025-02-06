@@ -382,7 +382,7 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
 
     gop_info_t *gop_info = self->gop_info;
 
-    memcpy(sign_data->hash, self->gop_info->bu_hash, hash_size);
+    memcpy(sign_data->hash, gop_info->bu_hash, hash_size);
 
     // Reset the |num_in_partial_gop| and |num_frames_in_partial_gop| since a new partial
     // GOP is started.
