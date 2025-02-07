@@ -28,13 +28,6 @@
 #define H265_NALU_HEADER_LEN 2  // length of nal_unit_header as per ISO/ITU spec
 
 size_t
-h26x_get_payload_size(const uint8_t *data, size_t *payload_size);
-bool
-parse_h264_nalu_header(bu_info_t *bu);
-bool
-parse_h265_nalu_header(bu_info_t *bu);
-
-size_t
 h26x_get_payload_size(const uint8_t *data, size_t *payload_size)
 {
   const uint8_t *data_ptr = data;

@@ -28,11 +28,6 @@
 #define AV1_OBU_HEADER_LEN 1
 
 size_t
-av1_get_payload_size(const uint8_t *data, size_t *payload_size);
-bool
-parse_av1_obu_header(bu_info_t *obu);
-
-size_t
 av1_get_payload_size(const uint8_t *data, size_t *payload_size)
 {
   const uint8_t *data_ptr = data;
