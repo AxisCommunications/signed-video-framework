@@ -22,7 +22,7 @@ is automatically added to the stream.
 
 The Signed Video Framework generates SEI/OBU Metadata frames including signatures and other
 information. Getting them and instructions on how to add them to the current stream are handled
-through the API `signed_video_get_nalu_to_prepend()`. Note that the framework follows the Access
+through the API `signed_video_get_sei()`. Note that the framework follows the Access
 Unit format of H.264, hence SEI frames must prepend the current picture frame.
 
 For a detailed description and example code see

@@ -172,7 +172,7 @@ test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec)
   size_t bu_data_size = DUMMY_NALU_SIZE;  // Change if it is a H.26x SEI.
   bool start_code = true;  // Use a valid start code by default unless AV1.
 
-  // Find out which type of NAL Unit the character is and point |bu_data| to it.
+  // Find out which type of Bitstream Unit the character is and point |bu_data| to it.
   switch (type) {
     case 'I':
       bu_data =
@@ -525,7 +525,7 @@ test_stream_prepend_first_item(test_stream_t *list, test_stream_item_t *new_item
   test_stream_refresh(list);
 }
 
-/* Checks the sequence of NAL Units in |list| against their expected |types|. */
+/* Checks the sequence of Bitstream Units in |list| against their expected |types|. */
 void
 test_stream_check_types(const test_stream_t *list, const char *types)
 {

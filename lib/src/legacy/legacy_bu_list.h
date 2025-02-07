@@ -167,8 +167,8 @@ legacy_bu_list_num_pending_items(const legacy_bu_list_t* list);
 /**
  * @brief Returns a string with all authentication statuses of the items
  *
- * Transforms all |validation_status| characters, or NAL Unit character, of the items in
- * the |list| into a char string.
+ * Transforms all |validation_status| characters, or Bitstream Unit character, of the
+ * items in the |list| into a char string.
  *
  * @param list The list to get string from.
  * @param str_type The type of string data to get (validation or bu).
