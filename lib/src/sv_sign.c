@@ -34,7 +34,7 @@
 #include "sv_tlv.h"  // tlv_list_encode_or_get_size()
 
 static void
-h26x_set_nal_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDType uuid_type);
+bu_set_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDType uuid_type);
 static size_t
 get_sign_and_complete_sei(signed_video_t *self, uint8_t **payload, uint8_t *payload_signature_ptr);
 
@@ -53,7 +53,7 @@ static void
 shift_sei_buffer_at_index(signed_video_t *self, int index);
 
 static void
-h26x_set_nal_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDType uuid_type)
+bu_set_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDType uuid_type)
 {
   const uint8_t *uuid;
   switch (uuid_type) {
@@ -325,7 +325,7 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
     }
 
     // User data unregistered UUID field
-    h26x_set_nal_uuid_type(self, &payload_ptr, UUID_TYPE_SIGNED_VIDEO);
+    bu_set_uuid_type(self, &payload_ptr, UUID_TYPE_SIGNED_VIDEO);
 
     // Add reserved byte(s).
     // The bit stream is illustrated below.
