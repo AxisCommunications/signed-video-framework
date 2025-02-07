@@ -376,16 +376,13 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
       // after generating the SEI. So, for simplicity, we use the same function for both
       // authenticity levels.
 
-      // The current |bu_hash| is the document hash. Copy to |document_hash|. In principle we only
-      // need to do this for SV_AUTHENTICITY_LEVEL_FRAME, but for simplicity we always copy it.
-      memcpy(self->gop_info->document_hash, self->gop_info->bu_hash, hash_size);
       // Free the memory allocated when parsing the BU.
       free(bu_without_signature_data.nalu_data_wo_epb);
     }
 
     gop_info_t *gop_info = self->gop_info;
 
-    memcpy(sign_data->hash, gop_info->document_hash, hash_size);
+    memcpy(sign_data->hash, gop_info->bu_hash, hash_size);
 
     // Reset the |num_in_partial_gop| and |num_frames_in_partial_gop| since a new partial
     // GOP is started.
