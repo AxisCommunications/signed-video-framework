@@ -210,7 +210,7 @@ legacy_get_uuid_sei_type(const uint8_t *uuid)
 static bool
 legacy_parse_h264_nalu_header(legacy_bu_info_t *nalu)
 {
-  // Parse the H264 NAL Unit Header
+  // Parse the H.264 NAL Unit Header
   uint8_t nalu_header = *(nalu->hashable_data);
   bool forbidden_zero_bit = (bool)(nalu_header & 0x80);  // First bit
   uint8_t nal_ref_idc = nalu_header & 0x60;  // Two bits
@@ -273,7 +273,7 @@ legacy_parse_h264_nalu_header(legacy_bu_info_t *nalu)
 static bool
 legacy_parse_h265_nalu_header(legacy_bu_info_t *nalu)
 {
-  // Parse the H265 NAL Unit Header
+  // Parse the H.265 NAL Unit Header
   uint8_t nalu_header = *(nalu->hashable_data);
   bool forbidden_zero_bit = (bool)(nalu_header & 0x80);  // First bit
   uint8_t nalu_type = (nalu_header & 0x7E) >> 1;  // Six bits
@@ -538,9 +538,9 @@ legacy_parse_bu_info(const uint8_t *bu_data,
 
   if (!bu_data || (bu_data_size == 0) || codec < 0 || codec >= SV_CODEC_NUM) return bu;
 
-  // For a Bytestream the bu_data begins with a Start Code, which is either 3 or 4 bytes. That is,
-  // look for a 0x000001 or 0x00000001 pattern. For a NAL Unit stream a start code is not necessary.
-  // We need to support all three cases.
+  // For a Bytestream the bu_data begins with a Start Code, which is either 3 or 4 bytes.
+  // That is, look for a 0x000001 or 0x00000001 pattern. For an H.26x NAL Unit stream a
+  // start code is not necessary. We need to support all three cases.
   const uint32_t kStartCode = 0x00000001;
   uint32_t start_code = 0;
   size_t read_bytes = 0;

@@ -538,18 +538,19 @@ set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
  * Bitstream Unit (BU) counts, and returns true if the verification is successful.
  *
  * The function performs the following steps:
- * 1. Determines the validation status based on the verified signature hash. If this signature
- *    is not successfully verified, the entire GOP is considered invalid and cannot be trusted.
- * 2. If the SEI signature is valid, the next step is to verify the GOP
- *    hash. This hash is computed during signing and included in the SEI. On the validation side,
- * the received GOP hash is compared with the locally computed GOP hash. If they match, the entire
- * GOP is confirmed as valid.
- * 3. If the GOP hash verification fails, the function attempts to
- *    validate the GOP using individual NAL Unit hashes, provided they are available in the SEI.
- * This secondary validation can still result in a valid GOP, even if some NAL Units are missing.
- * 4.  Each NAL Unit in the GOP is marked according to its validation
- *    status (valid, invalid, or missing). If necessary, missing NAL Units are added, and validation
- *    statistics are updated to reflect the total number of expected and received NAL Units.
+ * 1. Determines the validation status based on the verified signature hash. If this
+ *    signature is not successfully verified, the entire GOP is considered invalid and
+ *    cannot be trusted.
+ * 2. If the SEI signature is valid, the next step is to verify the GOP hash. This hash is
+ *    computed during signing and included in the SEI. On the validation side, the
+ *    received GOP hash is compared with the locally computed GOP hash. If they match, the
+ *    entire GOP is confirmed as valid.
+ * 3. If the GOP hash verification fails, the function attempts to validate the GOP using
+ *    individual BU hashes, provided they are available in the SEI. This secondary
+ *    validation can still result in a valid GOP, even if some BUs are missing.
+ * 4. Each BU in the GOP is marked according to its validation status (valid, invalid, or
+ *    missing). If necessary, missing BUs are added, and validation statistics are updated
+ *    to reflect the total number of expected and received BUs.
  */
 static bool
 verify_hashes_with_sei(signed_video_t *self, int *num_expected, int *num_received)
@@ -815,8 +816,8 @@ validate_authenticity(signed_video_t *self)
       valid = SV_AUTH_RESULT_SIGNATURE_PRESENT;
       num_expected = -1;
       num_received = -1;
-      // If no valid NAL Units were found, reset validation to be able to make more attepts to
-      // synchronize the SEIs.
+      // If no valid Bitstream Units were found, reset validation to be able to make more
+      // attepts to synchronize the SEIs.
       self->validation_flags.reset_first_validation = !has_valid_bu;
     }
   }
@@ -1327,8 +1328,8 @@ add_bitstream_unit(signed_video_t *self, const uint8_t *bu_data, size_t bu_data_
     update_validation_flags(validation_flags, &bu);
     SV_THROW(register_bu(self, bu_list->last_item));
     // As soon as the first Signed Video SEI arrives (|signing_present| is true) and the
-    // crypto TLV tag has been decoded it is feasible to hash the temporarily stored NAL
-    // Units.
+    // crypto TLV tag has been decoded it is feasible to hash the temporarily stored
+    // Bitstream Units.
     if (!validation_flags->hash_algo_known &&
         ((validation_flags->signing_present && is_recurrent_data_decoded(self)) ||
             (bu_list->num_gops > MAX_UNHASHED_GOPS))) {

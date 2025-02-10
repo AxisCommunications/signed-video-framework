@@ -323,8 +323,7 @@ signed_video_nalu_data_free(uint8_t *nalu_data);
  * end.
  *
  * This API can be called when the end of a stream is reached. Afterwards, all Bitstream
- * Units to prepend should be pulled as normal using signed_video_get_nalu_to_prepend(...)
- * above.
+ * Units to prepend should be pulled as normal using signed_video_get_sei(...) above.
  *
  * @param self Pointer to the signed_video_t object in use.
  *

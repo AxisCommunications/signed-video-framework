@@ -1067,8 +1067,8 @@ START_TEST(signing_mulitslice_stream_partial_gops)
   // Select a maximum number of added Bitstream Units before signing.
   const unsigned max_signing_frames = 4;
   setting.max_signing_frames = max_signing_frames;
-  test_stream_t *list = create_signed_stream("IiPpIiPpPpPpPpPpPpPpIiPpPpIiPp", setting);
-  test_stream_check_types(list, "IiPpIiSPpPpPpPpSPpPpPpIiSPpPpIiSPp");
+  test_stream_t *list = create_signed_stream("VIiPpIiPpPpPpPpPpPpPpPpPpPpIiPp", setting);
+  test_stream_check_types(list, "VIiPpIiSPpPpPpPpSPpPpPpPpSPpPpIiSPp");
   verify_seis(list, setting);
 
   test_stream_free(list);

@@ -143,8 +143,8 @@ struct _signed_video_t {
 
   // TODO: Remove this flag when the deprecated API get_nalus_to_prepend have been removed.
   bool avoid_checking_available_seis;  // Temporary flag to avoid checking for available SEIs when
-                                       // peek NAL Units are used when getting SEIs, since they
-                                       // might be postponed.
+                                       // peek Bitstream Units are used when getting SEIs, since
+                                       // they might be postponed.
 
   // For signing plugin
   void *plugin_handle;
