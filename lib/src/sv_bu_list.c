@@ -27,7 +27,6 @@
 #include <string.h>  // memcpy
 
 #include "sv_bu_list.h"
-#include "sv_internal.h"
 
 /* Declarations of static bu_list_item_t functions. */
 static bu_list_item_t *
