@@ -21,14 +21,13 @@
 #include <assert.h>
 #ifdef SIGNED_VIDEO_DEBUG
 #include <stdio.h>  // printf
-
-#include "sv_internal.h"  // SHA_HASH_SIZE
 #endif
 #include <stdint.h>
 #include <stdlib.h>  // calloc, malloc, free, size_t
 #include <string.h>  // memcpy
 
 #include "sv_bu_list.h"
+#include "sv_internal.h"
 
 /* Declarations of static bu_list_item_t functions. */
 static bu_list_item_t *

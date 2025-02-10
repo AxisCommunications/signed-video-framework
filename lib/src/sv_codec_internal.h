@@ -26,6 +26,8 @@
 #include "sv_defines.h"  // svrc_t
 #include "sv_internal.h"  // MAX_HASH_SIZE, validation_flags_t
 
+#define METADATA_TYPE_USER_PRIVATE 25
+
 /*
 Common utility functions for parsing and extracting metadata from H264, H265, and AV1 bitstream
 units. Used for authentication and signing.*/
