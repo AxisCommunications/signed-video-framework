@@ -458,8 +458,8 @@ prepare_for_signing(signed_video_t *self)
     // plugin.
     SV_THROW_IF_WITH_MSG(
         !self->plugin_handle, SV_NOT_SUPPORTED, "The private key has not been set");
-    // Mark the start of signing when the first NAL Unit is passed in and a signing key
-    // has been set.
+    // Mark the start of signing when the first Bitstream Unit is passed in and a signing
+    // key has been set.
     self->signing_started = true;
     // Check if we have BUs to prepend waiting to be pulled. If we have one item only, this is an
     // empty list item, the pull action has no impact. We can therefore silently remove it and
@@ -693,12 +693,12 @@ signed_video_get_sei(signed_video_t *self,
     return SV_OK;
   }
 
-  // If the user peek this NAL Unit, a SEI can only be fetched if it can prepend the
-  // peeked NAL Unit and at the same time follows the standard.
+  // If the user peek this Bitstream Unit, a SEI can only be fetched if it can prepend the
+  // peeked Bitstream Unit and at the same time follows the standard.
   if (peek_bu && peek_bu_size > 0) {
     bu_info_t bu_info = parse_bu_info(peek_bu, peek_bu_size, self->codec, false, false);
     free(bu_info.nalu_data_wo_epb);
-    // Only display a SEI if the |peek_bu| is a primary picture NAL Unit.
+    // Only display a SEI if the |peek_bu| is a primary picture Bitstream Unit.
     if (!((bu_info.bu_type == BU_TYPE_I || bu_info.bu_type == BU_TYPE_P) &&
             bu_info.is_primary_slice)) {
       // Flip the sanity check flag since there are pending SEIs, which could not be fetched without

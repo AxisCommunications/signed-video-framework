@@ -95,7 +95,7 @@ test_stream_prepend_first_item(test_stream_t *list, test_stream_item_t *new_item
 void
 test_stream_refresh(test_stream_t *list);
 
-/* Checks the sequence of NAL Units of |list| against the expected |types|. */
+/* Checks the sequence of Bitstream Units of |list| against the expected |types|. */
 void
 test_stream_check_types(const test_stream_t *list, const char *types);
 

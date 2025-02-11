@@ -46,8 +46,8 @@
 
 /**
  * Object to keep a message digest as both an EVP_MD type and on serialized OID form. This
- * holds for both the hash algorithm used to hash NAL Units and the message digest used in
- * signing with RSA.
+ * holds for both the hash algorithm used to hash Bitstream Units and the message digest
+ * used in signing with RSA.
  */
 typedef struct {
   unsigned char *encoded_oid;  // Serialized OID form

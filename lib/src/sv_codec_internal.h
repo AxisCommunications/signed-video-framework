@@ -35,11 +35,11 @@ units. Used for authentication and signing.*/
 size_t
 h26x_get_payload_size(const uint8_t *data, size_t *payload_size);
 
-/* Parses the H264 NAL unit header and determines the BU type. */
+/* Parses the H.264 NAL unit header and determines the BU type. */
 bool
 parse_h264_nalu_header(bu_info_t *bu);
 
-/* Parses the H265 NAL unit header and determines the BU type. */
+/* Parses the H.265 NAL unit header and determines the BU type. */
 bool
 parse_h265_nalu_header(bu_info_t *bu);
 

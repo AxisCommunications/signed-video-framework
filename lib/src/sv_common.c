@@ -400,7 +400,7 @@ parse_bu_info(const uint8_t *bu_data,
   if (!bu_data || (bu_data_size == 0) || codec < 0 || codec >= SV_CODEC_NUM) return bu;
 
   // For a Bytestream the bu_data begins with a Start Code, which is either 3 or 4 bytes. That is,
-  // look for a 0x000001 or 0x00000001 pattern. For a NAL Unit stream a start code is not necessary.
+  // look for a 0x000001 or 0x00000001 pattern. For an H.26x stream a start code is not necessary.
   // We need to support all three cases.
   const uint32_t kStartCode = 0x00000001;
   uint32_t start_code = 0;
