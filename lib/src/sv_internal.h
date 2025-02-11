@@ -32,14 +32,6 @@
 #include "legacy_validation.h"  // legacy_sv_t
 #include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
 
-typedef struct _gop_info_t gop_info_t;
-typedef struct _validation_flags_t validation_flags_t;
-typedef struct _sei_data_t sei_data_t;
-
-// Forward declare bu_list_t here for signed_video_t.
-typedef struct _bu_list_t bu_list_t;
-typedef struct _bu_info_t bu_info_t;  // Bitstream Unit (BU); NALU or OBU
-
 #if defined(_WIN32) || defined(_WIN64)
 #define ATTR_UNUSED
 #else
@@ -76,7 +68,120 @@ typedef struct _bu_info_t bu_info_t;  // Bitstream Unit (BU); NALU or OBU
 
 #define HASH_LIST_SIZE (MAX_HASH_SIZE * MAX_GOP_LENGTH)
 
-struct _validation_flags_t {
+// Forward declare bu_list_t here for signed_video_t.
+typedef struct _bu_list_item_t bu_list_item_t;
+
+typedef enum {
+  BU_TYPE_UNDEFINED = 0,
+  BU_TYPE_SEI = 1,
+  BU_TYPE_I = 2,
+  BU_TYPE_P = 3,
+  BU_TYPE_PS = 4,  // Parameter Set: PPS/SPS/VPS and similar for AV1
+  BU_TYPE_AUD = 5,
+  BU_TYPE_OTHER = 6,
+} SignedVideoFrameType;
+
+typedef enum {
+  UUID_TYPE_UNDEFINED = 0,
+  UUID_TYPE_SIGNED_VIDEO = 1,
+} SignedVideoUUIDType;
+
+/* SEI UUID types */
+extern const uint8_t kUuidSignedVideo[UUID_LEN];
+
+/**
+ * A struct representing the stream of Bitstream Units (BUs), added to Signed Video for
+ * validating authenticity. It is a linked list of bu_list_item_t and holds the first and
+ * last items. The list is linear, that is, one parent and one child only.
+ */
+typedef struct {
+  bu_list_item_t *first_item;  // Points to the first item in the linked list, that is,
+  // the oldest BU added for validation.
+  bu_list_item_t *last_item;  // Points to the last item in the linked list, that is, the
+  // latest BU added for validation.
+  int num_items;  // The number of items linked together in the list.
+  int num_gops;  // The number of gops linked together in the list, that is, I-frames.
+} bu_list_t;
+
+/**
+ * Information of a Bitstream Unit (BU), which is either NALU or OBU.
+ * This struct stores all necessary information of the BU, such as, pointer to BU data,
+ * BU data size, pointer to hashable data and size of the hashable data. Further, includes
+ * information on BU type, uuid type (if any) and if the BU is valid for use/hashing.
+ */
+typedef struct {
+  const uint8_t *bu_data;  // The actual BU data
+  size_t bu_data_size;  // The total size of the BU data
+  const uint8_t *hashable_data;  // The BU data for potential hashing
+  size_t hashable_data_size;  // Size of the data to hash, excluding stop bit
+  uint8_t *pending_bu_data;  // The BU data for potential hashing
+  SignedVideoFrameType bu_type;  // Frame type: I, P, SPS, PPS, VPS or SEI
+  SignedVideoUUIDType uuid_type;  // UUID type if a SEI
+  int is_valid;  // Is a valid codec specific BU (1), invalid (0) or has errors (-1)
+  bool is_hashable;  // Should be hashed
+  const uint8_t *payload;  // Points to the payload (including UUID for SEIs)
+  size_t payload_size;  // Parsed payload size
+  uint8_t reserved_byte;  // First byte of SEI payload
+  const uint8_t *tlv_start_in_bu_data;  // Points to beginning of the TLV data in the |bu_data|
+  const uint8_t *tlv_data;  // Points to the TLV data after removing emulation prevention bytes
+  size_t tlv_size;  // Total size of the |tlv_data|
+  uint8_t *nalu_data_wo_epb;  // Temporary memory used if there are emulation prevention bytes
+  uint32_t start_code;  // Start code or replaced by BU data size
+  int emulation_prevention_bytes;  // Computed emulation prevention bytes
+  bool is_primary_slice;  // The first slice in the BU or not
+  bool is_first_bu_in_gop;  // True for the first slice of an I-frame
+  bool is_sv_sei;  // True if this is a Signed Video generated SEI
+  bool is_first_bu_part;  // True if the |bu_data| includes the first part
+  bool is_last_bu_part;  // True if the |bu_data| includes the last part
+  bool with_epb;  // Hashable data may include emulation prevention bytes
+  bool is_golden_sei;
+} bu_info_t;
+
+/**
+ * A struct representing a Bitstream Unit (BU) in a stream. The stream being a linked
+ * list. Each item holds the BU data as well as pointers to the previous and next items in
+ * the list.
+ */
+struct _bu_list_item_t {
+  bu_info_t *bu;  // The parsed BU information.
+  char validation_status;  // The authentication status which can take on the following
+  // characters:
+  // 'P' : Pending validation. This is the initial value. The BU has been registered and
+  //       waiting for validating the authenticity.
+  // 'U' : The BU has an unknown authenticity. This occurs if the BU could not be parsed,
+  //       or if the SEI is associated with BUs not part of the validating segment.
+  // '_' : The BU is ignored and therefore not part of the signature. The BU has no impact
+  //       on the video and can be considered authentic.
+  // '.' : The BU has been validated authentic.
+  // 'N' : The BU has been validated not authentic.
+  // 'M' : The validation has detected one or more missing BUs at this position. Note that
+  //       changing the order of BUs will detect a missing BU and an invalid BU.
+  // 'E' : An error occurred and validation could not be performed. This should be treated
+  //       as an invalid BU.
+  uint8_t hash[MAX_HASH_SIZE];  // The hash of the BU is stored in this memory slot, if it
+  // is hashable that is.
+  size_t hash_size;
+  // Flags
+  bool taken_ownership_of_bu;  // Flag to indicate if the item has taken ownership of the
+  // |bu| memory, hence need to free the memory if the item is released.
+
+  bool has_been_decoded;  // Marks a SEI as decoded. Decoding it twice might overwrite
+  // vital information.
+  bool used_in_gop_hash;  // Marks the BU as being part of a computed |gop_hash|.
+
+  bool used_for_linked_hash;
+
+  // Members used when synchronizing the first usable SEI with the I-frame(s).
+  bool in_validation;  // Marks the SEI that is currently up for use.
+  char tmp_validation_status;  // Temporary status used before updating the final one.
+
+  // Linked list
+  bu_list_item_t *prev;  // Points to the previously added BU. Is NULL if this is the
+  // first item.
+  bu_list_item_t *next;  // Points to the next added BU. Is NULL if this is the last item.
+};
+
+typedef struct {
   bool has_auth_result;  // Indicates that an authenticity result is available for the user.
   bool is_first_validation;  // Indicates if this is the first validation. If so, a failing
   // validation result is not necessarily true, since the framework may be out of sync, e.g., after
@@ -90,18 +195,57 @@ struct _validation_flags_t {
 
   // GOP-related flags.
   bool has_lost_sei;  // Has detected a lost SEI since last validation.
-};
+} validation_flags_t;
 
 // Buffer of |last_two_bytes| and pointers to |sei| memory and current |write_position|.
 // Writing of the SEI is split in time and it is therefore necessary to pick up the value
 // of |last_two_bytes| when we continue writing with emulation prevention turned on. As
 // soon as a SEI is completed, the |completed_sei_size| is filled in.
-struct _sei_data_t {
+typedef struct {
   uint8_t *sei;  // Pointer to the allocated SEI data
   uint8_t *write_position;
   uint16_t last_two_bytes;
   size_t completed_sei_size;  // The final SEI size, set when it is completed
-};
+} sei_data_t;
+
+/**
+ * Information related to the GOP signature.
+ * The |gop_hash| is a recursive hash. It is the hash of the memory [gop_hash, latest hash] and then
+ * replaces the gop_hash location. This is used for signing, as it incorporates all information of
+ * the Bitstream Units that have been added.
+ */
+typedef struct {
+  uint8_t hash_buddies[2 * MAX_HASH_SIZE];  // Memory for two hashes organized as
+  // [reference_hash, bu_hash].
+  uint8_t bu_hash[MAX_HASH_SIZE];  // Memory for storing 'latest hash'.
+  uint8_t hash_list[HASH_LIST_SIZE];  // Pointer to the list of hashes used for
+  // SV_AUTHENTICITY_LEVEL_FRAME.
+  size_t hash_list_size;  // The allowed size of the |hash_list|. This can be less than allocated.
+  int list_idx;  // Pointing to next available slot in the |hash_list|. If something has gone wrong,
+  // like exceeding available memory, |list_idx| = -1.
+  uint8_t computed_gop_hash[MAX_HASH_SIZE];  // Hash of BU hashes in GOP.
+  uint8_t linked_hashes[2 * MAX_HASH_SIZE];  // Stores linked hash data for liked hash method.
+
+  bool triggered_partial_gop;  // Marks if the signing was triggered by an intermediate
+  // partial GOP, compared to normal I-frame triggered.
+  uint8_t encoding_status;  // Stores potential errors when encoding, to transmit to the client
+  // (authentication part).
+  uint16_t num_sent;  // The number of BUs used to generate the gop_hash on the signing
+  // side.
+  uint16_t num_in_partial_gop;  // Counted number of BUs in the currently updated
+  // |gop_hash|.
+  uint16_t num_frames_in_partial_gop;  // Counted number of frames in the current partial
+  // GOP.
+  uint32_t current_partial_gop;  // The index of the current GOP, incremented when encoded in the
+  // TLV.
+  uint32_t latest_validated_gop;  // The index of latest validated GOP.
+  bool partial_gop_is_synced;  // Turns true when a SEI corresponding to the segment is
+  // detected.
+  int verified_signature_hash;  // Status of last hash-signature-pair verification. Has 1 for
+  // success, 0 for fail, and -1 for error.
+  bool has_timestamp;  // True if timestamp exists and has not yet been written to SEI.
+  int64_t timestamp;  // Unix epoch UTC timestamp of the first Bitstream Unit in GOP
+} gop_info_t;
 
 struct _signed_video_t {
   // Members common to both signing and validation
@@ -199,44 +343,48 @@ struct _signed_video_t {
   legacy_sv_t *legacy_sv;
 };
 
-/**
- * Information related to the GOP signature.
- * The |gop_hash| is a recursive hash. It is the hash of the memory [gop_hash, latest hash] and then
- * replaces the gop_hash location. This is used for signing, as it incorporates all information of
- * the Bitstream Units that have been added.
- */
-struct _gop_info_t {
-  uint8_t hash_buddies[2 * MAX_HASH_SIZE];  // Memory for two hashes organized as
-  // [reference_hash, bu_hash].
-  uint8_t bu_hash[MAX_HASH_SIZE];  // Memory for storing 'latest hash'.
-  uint8_t hash_list[HASH_LIST_SIZE];  // Pointer to the list of hashes used for
-  // SV_AUTHENTICITY_LEVEL_FRAME.
-  size_t hash_list_size;  // The allowed size of the |hash_list|. This can be less than allocated.
-  int list_idx;  // Pointing to next available slot in the |hash_list|. If something has gone wrong,
-  // like exceeding available memory, |list_idx| = -1.
-  uint8_t computed_gop_hash[MAX_HASH_SIZE];  // Hash of BU hashes in GOP.
-  uint8_t linked_hashes[2 * MAX_HASH_SIZE];  // Stores linked hash data for liked hash method.
+/* Internal APIs for validation_flags_t functions */
 
-  bool triggered_partial_gop;  // Marks if the signing was triggered by an intermediate
-  // partial GOP, compared to normal I-frame triggered.
-  uint8_t encoding_status;  // Stores potential errors when encoding, to transmit to the client
-  // (authentication part).
-  uint16_t num_sent;  // The number of BUs used to generate the gop_hash on the signing
-  // side.
-  uint16_t num_in_partial_gop;  // Counted number of BUs in the currently updated
-  // |gop_hash|.
-  uint16_t num_frames_in_partial_gop;  // Counted number of frames in the current partial
-  // GOP.
-  uint32_t current_partial_gop;  // The index of the current GOP, incremented when encoded in the
-  // TLV.
-  uint32_t latest_validated_gop;  // The index of latest validated GOP.
-  bool partial_gop_is_synced;  // Turns true when a SEI corresponding to the segment is
-  // detected.
-  int verified_signature_hash;  // Status of last hash-signature-pair verification. Has 1 for
-  // success, 0 for fail, and -1 for error.
-  bool has_timestamp;  // True if timestamp exists and has not yet been written to SEI.
-  int64_t timestamp;  // Unix epoch UTC timestamp of the first Bitstream Unit in GOP
-};
+void
+validation_flags_print(const validation_flags_t *validation_flags);
+
+void
+validation_flags_init(validation_flags_t *validation_flags);
+
+/* Updates the |validation_flags| w.r.t. a |bu|. */
+void
+update_validation_flags(validation_flags_t *validation_flags, bu_info_t *bu);
+
+/* Others */
+void
+update_num_bu_in_gop_hash(signed_video_t *signed_video, const bu_info_t *bu);
+
+void
+check_and_copy_hash_to_hash_list(signed_video_t *signed_video,
+    const uint8_t *hash,
+    size_t hash_size);
+
+svrc_t
+hash_and_add(signed_video_t *self, const bu_info_t *bu);
+
+svrc_t
+update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size);
+
+svrc_t
+hash_and_add_for_auth(signed_video_t *signed_video, bu_list_item_t *item);
+
+bu_info_t
+parse_bu_info(const uint8_t *bu_data,
+    size_t bu_data_size,
+    SignedVideoCodec codec,
+    bool check_trailing_bytes,
+    bool is_auth_side);
+
+void
+copy_bu_except_pointers(bu_info_t *dst_bu, const bu_info_t *src_bu);
+
+void
+update_hashable_data(bu_info_t *bu);
 
 void
 bytes_to_version_str(const int *arr, char *str);
@@ -266,5 +414,14 @@ free_sei_data_buffer(sei_data_t sei_data_buffer[]);
 void
 sv_print_hex_data(const uint8_t *data, size_t data_size, const char *fmt, ...);
 #endif
+
+/* Semicolon needed after, ex. DEBUG_LOG("my debug: %d", 42); */
+#ifdef SIGNED_VIDEO_DEBUG
+char *
+bu_type_to_str(const bu_info_t *bu);
+#endif
+
+char
+bu_type_to_char(const bu_info_t *bu);
 
 #endif  // __SV_INTERNAL_H__

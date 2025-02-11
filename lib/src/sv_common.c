@@ -37,7 +37,7 @@
 #include "includes/signed_video_signing_plugin.h"
 #include "sv_authenticity.h"  // latest_validation_init()
 #include "sv_bu_list.h"  // bu_list_create(), bu_list_free()
-#include "sv_codec_internal.h"  // bu_list_item_t, METADATA_TYPE_USER_PRIVATE
+#include "sv_codec_internal.h"  // parse_h264_nalu_header(), parse_av1_obu_header()
 #include "sv_defines.h"  // svrc_t
 #include "sv_internal.h"  // gop_info_t, validation_flags_t, MAX_HASH_SIZE, DEFAULT_HASH_SIZE
 #include "sv_openssl_internal.h"
