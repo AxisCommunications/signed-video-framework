@@ -236,15 +236,14 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
       payload_size += mandatory_tags_size;
     }
     // Compute total SEI data size.
-    sei_buffer_size += self->codec == SV_CODEC_H264 ? 6 : 7;  // BU header
-    sei_buffer_size += payload_size / 256 + 1;  // Size field
-    sei_buffer_size += payload_size;
-    sei_buffer_size += 1;  // Stop bit in a separate byte
     if (self->codec != SV_CODEC_AV1) {
       sei_buffer_size += self->codec == SV_CODEC_H264 ? 6 : 7;  // BU header
       sei_buffer_size += payload_size / 256 + 1;  // Size field
       sei_buffer_size += payload_size;
       sei_buffer_size += 1;  // Stop bit in a separate byte
+      // Secure enough memory for emulation prevention. Worst case will add 1 extra byte
+      // per 3 bytes.
+      sei_buffer_size = sei_buffer_size * 4 / 3;
     } else {
       payload_size += 3;  // 2 trailing-bit bytes, 1 metadata_type byte
       int payload_size_bytes = 0;
@@ -256,12 +255,6 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
       sei_buffer_size += 1;  // OBU header
       sei_buffer_size += payload_size_bytes;  // Size field
       sei_buffer_size += payload_size;
-    }
-
-    if (self->codec != SV_CODEC_AV1) {
-      // Secure enough memory for emulation prevention. Worst case will add 1 extra byte per 3
-      // bytes.
-      sei_buffer_size = sei_buffer_size * 4 / 3;
     }
 
     // Allocate memory for payload + SEI header to return
