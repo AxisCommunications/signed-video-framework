@@ -967,7 +967,7 @@ legacy_sv_create(signed_video_t *parent)
     self->codec = parent->codec;
 
     // Borrow product_info from |parent|.
-    self->product_info = parent->product_info;
+    self->product_info = &parent->product_info;
 
     // Borrow crypto handle from |parent|.
     self->crypto_handle = parent->crypto_handle;

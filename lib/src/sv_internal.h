@@ -251,7 +251,7 @@ struct _signed_video_t {
   // Members common to both signing and validation
   int code_version[SV_VERSION_BYTES];
   SignedVideoCodec codec;  // Codec used in this session.
-  signed_video_product_info_t *product_info;
+  signed_video_product_info_t product_info;
 
   // For cryptographic functions, like OpenSSL
   void *crypto_handle;
@@ -401,7 +401,7 @@ svrc_t
 set_hash_list_size(gop_info_t *gop_info, size_t hash_list_size);
 
 void
-product_info_free_members(signed_video_product_info_t *product_info);
+product_info_reset_members(signed_video_product_info_t *product_info);
 
 /* Defined in sv_sign.c */
 

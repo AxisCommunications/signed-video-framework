@@ -21,7 +21,7 @@
 #include <assert.h>  // assert
 #include <stdint.h>  // uint8_t
 #include <stdlib.h>  // free, malloc
-#include <string.h>  // size_t
+#include <string.h>  // size_t, strncpy
 
 #include "includes/signed_video_openssl.h"  // pem_pkey_t
 #include "includes/signed_video_sign.h"
@@ -821,24 +821,30 @@ signed_video_set_product_info(signed_video_t *self,
     const char *manufacturer,
     const char *address)
 {
-  if (!self || !self->product_info) return SV_INVALID_PARAMETER;
+  if (!self) return SV_INVALID_PARAMETER;
 
-  signed_video_product_info_t *product_info = self->product_info;
-
-  svrc_t status = SV_UNKNOWN_FAILURE;
-  SV_TRY()
-    SV_THROW(allocate_memory_and_copy_string(&product_info->hardware_id, hardware_id));
-    SV_THROW(allocate_memory_and_copy_string(&product_info->firmware_version, firmware_version));
-    SV_THROW(allocate_memory_and_copy_string(&product_info->serial_number, serial_number));
-    SV_THROW(allocate_memory_and_copy_string(&product_info->manufacturer, manufacturer));
-    SV_THROW(allocate_memory_and_copy_string(&product_info->address, address));
-  SV_CATCH()
-  {
-    product_info_free_members(product_info);
+  if (hardware_id) {
+    strncpy(self->product_info.hardware_id, hardware_id, 255);
+    self->product_info.hardware_id[255] = '\0';
   }
-  SV_DONE(status)
+  if (firmware_version) {
+    strncpy(self->product_info.firmware_version, firmware_version, 255);
+    self->product_info.firmware_version[255] = '\0';
+  }
+  if (serial_number) {
+    strncpy(self->product_info.serial_number, serial_number, 255);
+    self->product_info.serial_number[255] = '\0';
+  }
+  if (manufacturer) {
+    strncpy(self->product_info.manufacturer, manufacturer, 255);
+    self->product_info.manufacturer[255] = '\0';
+  }
+  if (address) {
+    strncpy(self->product_info.address, address, 255);
+    self->product_info.address[255] = '\0';
+  }
 
-  return status;
+  return SV_OK;
 }
 
 SignedVideoReturnCode

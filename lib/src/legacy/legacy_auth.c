@@ -757,8 +757,7 @@ legacy_prepare_for_validation(legacy_sv_t *self)
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // If "Axis Communications AB" can be identified from the |product_info|, get
     // |supplemental_authenticity| from |vendor_handle|.
-    if (sei && self->product_info->manufacturer &&
-        strcmp(self->product_info->manufacturer, "Axis Communications AB") == 0) {
+    if (sei && strcmp(self->product_info->manufacturer, "Axis Communications AB") == 0) {
 
       sv_vendor_axis_supplemental_authenticity_t *supplemental_authenticity = NULL;
       SV_THROW(get_axis_communications_supplemental_authenticity(
