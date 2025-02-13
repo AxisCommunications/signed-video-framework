@@ -22,7 +22,7 @@
 #define __SV_TLV_H__
 
 #include <stdbool.h>  // bool
-#include <stdint.h>  // uint8_t
+#include <stdint.h>  // uint8_t, etc.
 #include <stdlib.h>  // size_t
 
 #include "includes/signed_video_common.h"  // signed_video_t
