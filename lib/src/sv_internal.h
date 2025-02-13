@@ -294,10 +294,6 @@ struct _signed_video_t {
   void *plugin_handle;
   sign_or_verify_data_t *sign_data;  // Pointer to all necessary information to sign in a plugin.
 
-  // Vendor encoders for signing. Only works with one vendor.
-  const sv_tlv_tag_t *vendor_encoders;
-  size_t num_vendor_encoders;
-
   // Frame counter and flag to handle recurrence
   bool has_recurrent_data;
   int frame_count;
