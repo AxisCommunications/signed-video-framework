@@ -420,4 +420,11 @@ bu_type_to_str(const bu_info_t *bu);
 char
 bu_type_to_char(const bu_info_t *bu);
 
+/**
+ * Depricated public API which is still handy in tests. */
+SignedVideoReturnCode
+signed_video_add_nalu_for_signing(signed_video_t *self,
+    const uint8_t *bu_data,
+    size_t bu_data_size);
+
 #endif  // __SV_INTERNAL_H__

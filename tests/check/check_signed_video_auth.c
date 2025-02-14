@@ -1726,7 +1726,7 @@ generate_and_set_private_key_on_camera_side(struct sv_setting setting,
   ck_assert(sv);
   // Read and set content of private_key.
   ck_assert(read_test_private_key(setting.ec_key, &private_key, &private_key_size, false));
-  sv_rc = signed_video_set_private_key_new(sv, private_key, private_key_size);
+  sv_rc = signed_video_set_private_key(sv, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   sv_rc = signed_video_add_public_key_to_sei(sv, add_public_key_to_sei);
