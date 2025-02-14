@@ -49,9 +49,9 @@ typedef size_t (*sv_tlv_encoder_t)(signed_video_t *, uint8_t *);
 /**
  * @brief TLV decoder interface
  *
+ * @param signed_video_t The Signed Video object to write to.
  * @param data Pointer to the data to decode.
  * @param data_size Size of the data.
- * @param signed_video_t The Signed Video object to write to.
  *
  * @returns SV_OK if successful otherwise an error code.
  */
@@ -103,9 +103,9 @@ static svrc_t
 decode_axis_communications(signed_video_t *self, const uint8_t *data, size_t data_size);
 
 /**
- * Definition of a TLV tuple associating the TLV Tag with an encoder, a decoder and the number of
- * bytes to represent the Length.
- */
+ * Definition of a TLV tuple associating the TLV Tag with an encoder, a decoder and the
+ * number of bytes to represent the Length. Also associates the tag with a flag indicating
+ * if this should always be present */
 typedef struct {
   sv_tlv_tag_t tag;
   uint8_t bytes_for_length;
@@ -115,10 +115,10 @@ typedef struct {
 } sv_tlv_tuple_t;
 
 /**
- * This is an array of all available TLV tuples. The first and last tuples, which are invalid tags,
- * have dummy values to avoid the risk of reading outside memory.
+ * This is an array of all available TLV tuples. The first and last tuples, which are
+ * invalid tags, have dummy values to avoid the risk of reading outside memory.
  *
- * NOTE: They HAVE TO be in the same order as the available tags!
+ * @note: They HAVE TO be in the same order as the available tags!
  *
  * When you add a new tag you have to add the tuple to this array as well.
  */
@@ -155,12 +155,12 @@ static const sv_tlv_tag_t mandatory_tags[] = {
 };
 
 /**
- * This is an array of all available Vendor TLV tuples. The first and last tuples, which are
- * invalid tags, have dummy values to avoid the risk of reading outside memory.
- * The tuples are offset with UNDEFINED_VENDOR_TAG since they start at UNDEFINED_VENDOR_TAG in
- * sv_tlv_tag_t.
+ * This is an array of all available Vendor TLV tuples. The first and last tuples, which
+ * are invalid tags, have dummy values to avoid the risk of reading outside memory.
+ * The tuples are offset with UNDEFINED_VENDOR_TAG since they start at
+ * UNDEFINED_VENDOR_TAG in sv_tlv_tag_t.
  *
- * NOTE: They HAVE TO be in the same order as the available tags!
+ * @note: They HAVE TO be in the same order as the available tags!
  *
  * When you add a new vendor tag you have to add the tuple to this array as well.
  */
@@ -316,6 +316,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
   char sw_version_str[SV_VERSION_MAX_STRLEN] = {0};
   char *code_version_str = sw_version_str;
   size_t hash_size = 0;
+  uint8_t flags = 0;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
@@ -336,7 +337,6 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
 
     if (version >= 2) {
       // Read bool flags
-      uint8_t flags = 0;
       data_ptr += read_8bits(data_ptr, &flags);
       gop_info->has_timestamp = flags & 0x01;
       gop_info->triggered_partial_gop = !!(flags & 0x02);
@@ -363,6 +363,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
 #ifdef PRINT_DECODED_SEI
     printf("\nGeneral Information Tag\n");
     printf("             tag version: %u\n", version);
+    printf("                   flags: %u\n", flags);
     printf("           partial GOP #: %u\n", gop_info->current_partial_gop);
     printf("triggered by partial GOP: %s\n", gop_info->triggered_partial_gop ? "true" : "false");
     printf("# hashed Bitstream Units: %u\n", gop_info->num_sent);
@@ -399,14 +400,14 @@ encode_product_info(signed_video_t *self, uint8_t *data)
   //  - version (1 byte)
   //  - hardware_id_size (1 byte)
   //  - hardware_id
-  //  - firmware_version
   //  - firmware_version_size (1 byte)
-  //  - serial_number
+  //  - firmware_version
   //  - serial_number_size (1 byte)
-  //  - manufacturer
+  //  - serial_number
   //  - manufacturer_size (1 byte)
-  //  - address
+  //  - manufacturer
   //  - address_size (1 byte)
+  //  - address
 
   data_size += sizeof(version);
 
@@ -580,7 +581,7 @@ decode_arbitrary_data(signed_video_t *self, const uint8_t *data, size_t data_siz
   svrc_t status = SV_UNKNOWN_FAILURE;
 
   SV_TRY()
-    SV_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
+    SV_THROW_IF(version != 1, SV_INCOMPATIBLE_VERSION);
     SV_THROW_IF(arbdata_size == 0, SV_AUTHENTICATION_ERROR);
     uint8_t *arbdata = realloc(self->arbitrary_data, arbdata_size);
     SV_THROW_IF(!arbdata, SV_MEMORY);
@@ -623,13 +624,9 @@ encode_public_key(signed_video_t *self, uint8_t *data)
   // Value fields:
   //  - version (1 byte)
   //  - public_key (key_size bytes)
-  //  - num_in_partial_gop (2 bytes)
-  //  - signed video version (SV_VERSION_BYTES bytes)
-  //  - flags (1 byte)
-  //  - timestamp (8 bytes) requires version 2+
   //
-  // Note that we do not have to store the size of the public. We already know it from the TLV
-  // length.
+  // Note that it is not necessary to store the size of the public key. It can be computed
+  // from the TLV length.
 
   data_size += sizeof(version);
 
@@ -664,7 +661,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
   const uint8_t *data_ptr = data;
   pem_pkey_t *pem_public_key = &self->pem_public_key;
   uint8_t version = *data_ptr++;
-  uint16_t pubkey_size = (uint16_t)(data_size - 1);  // We only store version and the key.
+  uint16_t pubkey_size = (uint16_t)(data_size - 1);  // Only version and the key is stored
 
   // The algo was removed in version 2 since it is not needed. Simply move to next byte if
   // older version.
@@ -675,7 +672,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SV_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
+    SV_THROW_IF(version < 1 || version > 2, SV_INCOMPATIBLE_VERSION);
     SV_THROW_IF(pubkey_size == 0, SV_AUTHENTICATION_ERROR);
 
     if (pem_public_key->key_size != pubkey_size) {
@@ -734,8 +731,8 @@ encode_hash_list(signed_video_t *self, uint8_t *data)
   size_t data_size = 0;
   const uint8_t version = 1;  // Increment when the change breaks the format
 
-  // If the |hash_list| is empty, or invalid, skip encoding, that is, return 0. Also, if we do not
-  // use SV_AUTHENTICITY_LEVEL_FRAME skip encoding.
+  // If the |hash_list| is empty, or invalid, skip encoding, that is, return 0. Also, skip
+  // encoding if SV_AUTHENTICITY_LEVEL_FRAME is used.
   if (gop_info->list_idx <= 0 || self->authenticity_level != SV_AUTHENTICITY_LEVEL_FRAME) return 0;
 
   // Value fields:
@@ -772,7 +769,7 @@ decode_hash_list(signed_video_t *self, const uint8_t *data, size_t data_size)
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SV_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
+    SV_THROW_IF(version != 1, SV_INCOMPATIBLE_VERSION);
     SV_THROW_IF_WITH_MSG(
         hash_list_size > HASH_LIST_SIZE, SV_MEMORY, "Found more hashes than fit in hash_list");
     memcpy(self->gop_info->hash_list, data_ptr, hash_list_size);
@@ -966,7 +963,7 @@ decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SV_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
+    SV_THROW_IF(version != 1, SV_INCOMPATIBLE_VERSION);
     SV_THROW_IF(hash_algo_encoded_oid_size == 0, SV_AUTHENTICATION_ERROR);
     SV_THROW(openssl_set_hash_algo_by_encoded_oid(
         self->crypto_handle, hash_algo_encoded_oid, hash_algo_encoded_oid_size));
@@ -1208,7 +1205,6 @@ tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bo
       read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
     }
   }
-  DEBUG_LOG("Never found the tag %d", tag);
 
   return NULL;
 }
