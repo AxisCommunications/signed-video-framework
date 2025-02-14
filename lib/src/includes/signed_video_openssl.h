@@ -31,39 +31,6 @@
 extern "C" {
 #endif
 
-/* TO BE DEPRECATED */
-/**
- * @brief Signing algorithm
- *
- * The following signing algorithms are supported and has to be set when creating the signed video
- * session on the signing side.
- *
- * NOTE: The algorithms are currently fixed to SHA-256, which needs to be addressed when
- * implementing the interfaces.
- */
-typedef enum { SIGN_ALGO_RSA = 0, SIGN_ALGO_ECDSA = 1, SIGN_ALGO_NUM } sign_algo_t;
-
-/* TO BE DEPRECATED */
-/**
- * Struct for storing necessary information to generate and verify a signature
- *
- * It is used by the signing plugins and also to validated the authenticity.
- */
-typedef struct _signature_info_t {
-  uint8_t *hash;  // The hash to be signed, or to verify the signature.
-  size_t hash_size;  // The size of the |hash|.
-  sign_algo_t algo;  // The algorithm used to sign the |hash|. NOT USED ANYMORE
-  void *private_key;  // The private key used for signing in a pem file format.
-  // Internally used as EVP_PKEY_CTX.
-  size_t private_key_size;  // The size of the |private_key| if pem file format.
-  void *public_key;  // The public key used for validation in a pem file format.
-  // Internally used as EVP_PKEY_CTX.
-  size_t public_key_size;  // The size of the |public_key| if pem file format.
-  uint8_t *signature;  // The signature of the |hash|.
-  size_t signature_size;  // The size of the |signature|.
-  size_t max_signature_size;  // The allocated size of the |signature|.
-} signature_info_t;
-
 /**
  * Struct for storing necessary information to sign a hash and generate a signature.
  * It is used primarily by the signing plugins.
@@ -139,7 +106,7 @@ openssl_free_key(void *key);
  *
  * Two different APIs for RSA and ECDSA. By specifying a location a PEM file is generated
  * and stored as private_rsa_key.pem or private_ecdsa_key.pem. The user can then read this
- * file and pass the content to Signed Video through signed_video_set_private_key_new().
+ * file and pass the content to Signed Video through signed_video_set_private_key().
  * In addition to storing as file the content can be written to buffers at once. Memory is
  * allocated for |private_key| and the content of |private_key_size| Bytes is written.
  * Note that the ownership is transferred.
@@ -163,36 +130,6 @@ signed_video_generate_ecdsa_private_key(const char *dir_to_key,
     size_t *private_key_size);
 SignedVideoReturnCode
 signed_video_generate_rsa_private_key(const char *dir_to_key,
-    char **private_key,
-    size_t *private_key_size);
-
-/* TO BE DEPRECATED */
-/**
- * @brief Helper function to generate a private key
- *
- * By specifying a location and a signing algorithm (RSA, or ECDSA) a PEM file is generated and
- * stored as private_rsa_key.pem or private_ecdsa_key.pem. The user can then read this file and
- * pass the content to Signed Video through signed_video_set_private_key_new().
- * If no |dir_to_key| is passed in, memory is allocated for |private_key| and the content of
- * |private_key_size| is written. Note that the ownership is transferred.
- *
- * Writing to file only works on Linux.
- *
- * @param algo The signing algorithm SIGN_ALGO_RSA or SIGN_ALGO_ECDSA.
- * @param dir_to_key If not NULL, the location where the PEM file will be written. Null-terminated
- *   string.
- * @param private_key If not NULL the content of the private key PEM file is copied to this output.
- *   Ownership is transferred.
- * @param private_key_size If not NULL outputs the size of the |private_key|.
- *
- * @return SV_OK Valid algorithm and successfully written PEM-file,
- *         SV_NOT_SUPPORTED Algorithm is not supported,
- *         SV_INVALID_PARAMETER Invalid input parameter,
- *         SV_EXTERNAL_ERROR PEM-file could not be written.
- */
-SignedVideoReturnCode
-signed_video_generate_private_key(sign_algo_t algo,
-    const char *dir_to_key,
     char **private_key,
     size_t *private_key_size);
 

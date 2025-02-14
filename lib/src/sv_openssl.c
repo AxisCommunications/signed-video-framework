@@ -750,22 +750,3 @@ signed_video_generate_rsa_private_key(const char *dir_to_key,
 
   return status;
 }
-
-/* TO BE DEPRECATED */
-SignedVideoReturnCode
-signed_video_generate_private_key(sign_algo_t algo,
-    const char *dir_to_key,
-    char **private_key,
-    size_t *private_key_size)
-{
-  if (!dir_to_key && (!private_key || !private_key_size)) return SV_INVALID_PARAMETER;
-
-  switch (algo) {
-    case SIGN_ALGO_RSA:
-      return signed_video_generate_rsa_private_key(dir_to_key, private_key, private_key_size);
-    case SIGN_ALGO_ECDSA:
-      return signed_video_generate_ecdsa_private_key(dir_to_key, private_key, private_key_size);
-    default:
-      return SV_NOT_SUPPORTED;
-  }
-}

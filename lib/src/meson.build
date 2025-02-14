@@ -2,7 +2,6 @@ signedvideoframework_public_headers = files(
   'includes/signed_video_auth.h',
   'includes/signed_video_common.h',
   'includes/signed_video_helpers.h',
-  'includes/signed_video_interfaces.h',
   'includes/signed_video_openssl.h',
   'includes/signed_video_sign.h',
   'includes/signed_video_signing_plugin.h',

@@ -122,7 +122,7 @@ complete_sei_and_add_to_prepend(signed_video_t *self)
   // move on. This is a valid operation. What will happen is that the video will have an unsigned
   // GOP.
   if (self->sign_data->signature_size == 0) {
-    signed_video_nalu_data_free(payload);
+    free(payload);
     status = SV_OK;
     goto done;
   } else if (!payload) {
@@ -140,9 +140,8 @@ complete_sei_and_add_to_prepend(signed_video_t *self)
   self->num_of_completed_seis++;
 
   // Unset flag when SEI is completed and prepended.
-  // Note: If signature could not be generated then |nalu_data| is freed. See
-  // |signed_video_nalu_data_free| above in this function. In this case the flag is still set and
-  // a SEI with all metatdata is created next time.
+  // Note: If signature could not be generated then |nalu_data| is freed. In this case the
+  // flag is still set and a SEI with all metadata is created next time.
   self->has_recurrent_data = false;
   return SV_OK;
 
@@ -622,31 +621,6 @@ get_signature_complete_sei_and_add_to_prepend(signed_video_t *self)
   return status;
 }
 
-static svrc_t
-get_latest_sei(signed_video_t *self, uint8_t *sei, size_t *sei_size)
-{
-  if (!self || !sei_size) return SV_INVALID_PARAMETER;
-  *sei_size = 0;
-
-  svrc_t status = get_signature_complete_sei_and_add_to_prepend(self);
-  if (status != SV_OK) return status;
-  if (self->num_of_completed_seis < 1) {
-    DEBUG_LOG("There are no completed seis.");
-    return SV_OK;
-  }
-
-  *sei_size = self->sei_data_buffer[self->num_of_completed_seis - 1].completed_sei_size;
-  if (!sei) return SV_OK;
-  // Copy SEI data to the provided pointer.
-  memcpy(sei, self->sei_data_buffer[self->num_of_completed_seis - 1].sei, *sei_size);
-
-  // Reset the fetched SEI information from the sei buffer.
-  free(self->sei_data_buffer[self->num_of_completed_seis - 1].sei);
-  --(self->num_of_completed_seis);
-  shift_sei_buffer_at_index(self, self->num_of_completed_seis);
-  return SV_OK;
-}
-
 SignedVideoReturnCode
 signed_video_get_sei(signed_video_t *self,
     uint8_t **sei,
@@ -710,33 +684,6 @@ signed_video_get_sei(signed_video_t *self,
   }
 
   return SV_OK;
-}
-
-SignedVideoReturnCode
-signed_video_get_nalu_to_prepend(signed_video_t *self,
-    signed_video_nalu_to_prepend_t *nalu_to_prepend)
-{
-  if (!self || !nalu_to_prepend) return SV_INVALID_PARAMETER;
-  // Reset nalu_to_prepend.
-  nalu_to_prepend->nalu_data = NULL;
-  nalu_to_prepend->nalu_data_size = 0;
-  nalu_to_prepend->prepend_instruction = SIGNED_VIDEO_PREPEND_NOTHING;
-  // Directly pass the members of nalu_to_prepend as arguments to get_latest_sei().
-  size_t *sei_size = &nalu_to_prepend->nalu_data_size;
-  // Get the size from get_latest_sei() and check if its success.
-  svrc_t status = get_latest_sei(self, NULL, sei_size);
-  if (SV_OK == status && *sei_size != 0) {
-    nalu_to_prepend->nalu_data = malloc(*sei_size);
-    nalu_to_prepend->prepend_instruction = SIGNED_VIDEO_PREPEND_NALU;
-    status = get_latest_sei(self, nalu_to_prepend->nalu_data, &nalu_to_prepend->nalu_data_size);
-  }
-  return status;
-}
-
-void
-signed_video_nalu_data_free(uint8_t *bu_data)
-{
-  if (bu_data) free(bu_data);
 }
 
 // Note that this API only works for a plugin that blocks the worker thread.
@@ -829,9 +776,7 @@ signed_video_set_product_info(signed_video_t *self,
 }
 
 SignedVideoReturnCode
-signed_video_set_private_key_new(signed_video_t *self,
-    const char *private_key,
-    size_t private_key_size)
+signed_video_set_private_key(signed_video_t *self, const char *private_key, size_t private_key_size)
 {
   if (!self || !private_key || private_key_size == 0) return SV_INVALID_PARAMETER;
 
@@ -851,17 +796,6 @@ signed_video_set_private_key_new(signed_video_t *self,
   self->sign_data->key = NULL;
 
   return status;
-}
-
-/* TO BE DEPRECATED */
-SignedVideoReturnCode
-signed_video_set_private_key(signed_video_t *self,
-    sign_algo_t algo,
-    const char *private_key,
-    size_t private_key_size)
-{
-  if (algo < 0 || algo >= SIGN_ALGO_NUM) return SV_NOT_SUPPORTED;
-  return signed_video_set_private_key_new(self, private_key, private_key_size);
 }
 
 SignedVideoReturnCode

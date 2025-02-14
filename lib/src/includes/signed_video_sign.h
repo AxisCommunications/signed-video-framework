@@ -27,57 +27,14 @@
 #include <string.h>  // size_t
 
 #include "signed_video_common.h"  // signed_video_t, SignedVideoReturnCode
-#include "signed_video_openssl.h"  // sign_algo_t
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/**
- * Instruction on where to prepend a generated Bitstream Unit (NALU or OBU).
- *
- * If an action is to prepend a Bitstream Unit (SIGNED_VIDEO_PREPEND_NALU) the generated
- * Bitstream Unit should prepend the input Bitstream Unit + all already prepended
- * Bitstream Units.
- * If an action is to prepend an access unit (SIGNED_VIDEO_PREPEND_ACCESS_UNIT) the
- * generated Bitstream Unit should be added to an extra access unit (AU) preceding the
- * current one. If an extra AU has already been created, this generated Bitstream Unit
- * should prepend all already added Bitstream Units in that extra AU.
- *
- * For example, assume one AU with one Bitstream Unit F0, that is, the memory looks like
- *
- * | AUD | F0 |
- *
- * Further, assume four Bitstream Units are pulled in order; F1, F2, F3 and F4. The
- * corresponding instructions are; SIGNED_VIDEO_PREPEND_NALU, SIGNED_VIDEO_PREPEND_NALU,
- * SIGNED_VIDEO_PREPEND_ACCESS_UNIT and SIGNED_VIDEO_PREPEND_ACCESS_UNIT. Then the memory
- * afterwards should look like this
- *
- * | AUD | F4 | F3 | AUD | F2 | F1 | F0 |
- * /---------------/
- *       new AU
- */
-typedef enum {
-  // Nothing more to prepend.
-  SIGNED_VIDEO_PREPEND_NOTHING,
-  // Prepend the Bitstream Units in a preceding access unit.
-  SIGNED_VIDEO_PREPEND_ACCESS_UNIT,
-  // Prepend the Bitstream Units in the same access unit as the input Bitstream Unit.
-  SIGNED_VIDEO_PREPEND_NALU,
-} SignedVideoPrependInstruction;
-
-/**
- * A struct composed of the data of a, by Signed Video, generated Bitstream Unit and
- * instructions on how to add it to the stream.
- */
-typedef struct {
-  SignedVideoPrependInstruction prepend_instruction;
-  // Instructions on where to prepend the Bitstream Unit.
-  uint8_t *nalu_data;
-  // Data of generated Bitstream Unit.
-  size_t nalu_data_size;
-  // Size of generated |nalu_data|.
-} signed_video_nalu_to_prepend_t;
+/* The signed_video_set_private_key_new(...) changes name and this makes sure not to
+ * break anything. */
+#define signed_video_set_private_key_new signed_video_set_private_key;
 
 /**
  * The authenticity level sets the granularity of the authenticity.
@@ -106,7 +63,7 @@ typedef enum {
  * by the Signed Video library and are complete Bitstream Units (NALUs + 4 start code
  * bytes, or OBUs). The user is responsible for pulling these generated BUs from the
  * object. Hence, upon a successful signed_video_add_nalu_for_signing_with_timestamp(...)
- * call the user should always call signed_video_get_nalu_to_prepend(...) to get the
+ * call the user should always call signed_video_get_sei(...) to get the
  * additional BUs.
  *
  * The timestamp parameter shall be a UNIX epoch value in UTC format. The integrator of
@@ -116,7 +73,7 @@ typedef enum {
  * slice), it will be included in the general SEI/OBU Metadata. All other timestamps and
  * NULL will be disregarded.
  *
- * For sample code, see the description of signed_video_get_nalu_to_prepend(...) below.
+ * For sample code, see the description of signed_video_get_sei(...) below.
  *
  * @param self Pointer to the signed_video_t object in use.
  * @param bu_data A pointer to the Bitstream Unit data
@@ -125,10 +82,10 @@ typedef enum {
  * @param is_last_part Flag to mark the last part of the Bitstream Unit data.
  *
  * @return SV_OK            - the BU was processed successfully.
- *         SV_NOT_SUPPORTED - signed_video_set_private_key_new(...) has not been set
+ *         SV_NOT_SUPPORTED - signed_video_set_private_key(...) has not been set
  *                            OR
  *                            there are generated BUs waiting to be pulled. Use
- *                            signed_video_get_nalu_to_prepend(...) to fetch them. Then call this
+ *                            signed_video_get_sei(...) to fetch them. Then call this
  *                            function again to process the |bu_data|.
  *         otherwise a different error code.
  */
@@ -148,89 +105,6 @@ signed_video_add_nalu_for_signing_with_timestamp(signed_video_t *self,
     const uint8_t *bu_data,
     size_t bu_data_size,
     const int64_t *timestamp);
-
-/**
- * To be depricated.
- *
- * This API is identical to signed_video_add_nalu_for_signing_with_timestamp using NULL as
- * timestamp.
- */
-SignedVideoReturnCode
-signed_video_add_nalu_for_signing(signed_video_t *self,
-    const uint8_t *bu_data,
-    size_t bu_data_size);
-
-/**
- * @brief Gets generated Bitstream Units to prepend the latest added Bitstream Unit (BU)
- *
- * This function should always be called after a successful
- * signed_video_add_nalu_for_signing_with_timestamp(...). Otherwise, the functionality of
- * Signed Video is jeopardized, since vital SEIs may not be added to the video stream. The
- * signed_video_add_nalu_for_signing_with_timestamp(...) returns SV_NOT_SUPPORTED if there
- * are available Bitstream Units to prepend. The user should then pull these before
- * continuing; See return values in signed_video_add_nalu_for_signing_with_timestamp(...).
- *
- * These SEIs are generated by the Signed Video library and are complete BU (NALUs + 4
- * start code bytes, or OBUs). Hence, the user can simply pull and prepend existing BU.
- * Pull BUs to prepend from signed_video_t one by one until no further action is required.
- * When this happens, a SIGNED_VIDEO_PREPEND_NOTHING instruction is pulled.
- * The signed_video_get_nalu_to_prepend(...) API provides the user with the BU data as
- * well as instructions on where to prepend that data.
- *
- * @note that as soon as the user pulls a new Bitstream Unit to prepend, the ownership of
- * the |nalu_data| memory (see members of signed_video_nalu_to_prepend_t) is transferred.
- * Free the |nalu_data| memory with signed_video_nalu_data_free(...).
- *
- * Here is an example code of usage:
- *
- *   signed_video_t *sv = signed_video_create(SV_CODEC_H264);
- *   if (!sv) {
- *     // Handle error
- *   }
- *   if (signed_video_set_private_key_new(sv, private_key, private_key_size) != SV_OK) {
- *     // Handle error
- *   }
- *   SignedVideoReturnCode status;
- *   status = signed_video_add_nalu_for_signing_with_timestamp(sv, bu, bu_size, NULL);
- *   if (status != SV_OK) {
- *     // Handle error
- *   } else {
- *     signed_video_nalu_to_prepend_t nalu_to_prepend;
- *     status = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
- *     while (status == SV_OK &&
- *         nalu_to_prepend.prepend_instruction != SIGNED_VIDEO_PREPEND_NOTHING) {
- *       switch (nalu_to_prepend.prepend_instruction) {
- *       case (SIGNED_VIDEO_PREPEND_ACCESS_UNIT):
- *         // Add an extra access unit (AU) before current AU, or prepend the
- *         // NALUs if an extra AU has already been created.
- *         break;
- *       case (SIGNED_VIDEO_PREPEND_NALU):
- *         // Prepend the NALUs in the current AU.
- *         break;
- *       default:
- *         break;
- *       }
- *       // Maybe free the |nalu_data| before pulling a new |nalu_to_prepend|.
- *       // signed_video_nalu_data_free(nalu_to_prepend.nalu_data);
- *       status = signed_video_get_nalu_to_prepend(sv, &nalu_to_prepend);
- *     }
- *     // Handle return code
- *     if (status != SV_OK) {
- *       // True error. Handle it properly.
- *     }
- *   }
- *
- * @param self Pointer to the signed_video_t object in use.
- * @param nalu_to_prepend A pointer to a signed_video_nalu_to_prepend_t object holding
- *   Bitstream Unit data and prepend instructions.
- *
- * @return SV_OK            - Bitstream Unit was pulled successfully,
- *         SV_NOT_SUPPORTED - no available data, the action is not supported,
- *         otherwise        - an error code.
- */
-SignedVideoReturnCode
-signed_video_get_nalu_to_prepend(signed_video_t *self,
-    signed_video_nalu_to_prepend_t *nalu_to_prepend);
 
 /**
  * @brief Gets generated SEIs/OBU Metadata to add to the stream
@@ -255,8 +129,7 @@ signed_video_get_nalu_to_prepend(signed_video_t *self,
  *   if (!sv) {
  *     // Handle error
  *   }
- *   if (signed_video_set_private_key(sv, SIGN_ALGO_ECDSA, private_key, private_key_size)
- *       != SV_OK) {
+ *   if (signed_video_set_private_key(sv, private_key, private_key_size) != SV_OK) {
  *     // Handle error
  *   }
  *   SignedVideoReturnCode status;
@@ -305,17 +178,6 @@ signed_video_get_sei(signed_video_t *self,
     unsigned *num_pending_seis);
 
 /**
- * @brief Frees the |nalu_data| of signed_video_nalu_to_prepend_t
- *
- * The user takes ownership of the |nalu_data| memory after pulling a
- * signed_video_nalu_to_prepend_t. Use this function to free that memory.
- *
- * @param nalu_data Pointer to the nalu_data of a signed_video_nalu_to_prepend_t object.
- */
-void
-signed_video_nalu_data_free(uint8_t *nalu_data);
-
-/**
  * @brief Tells Signed Video that the stream has ended
  *
  * When reaching the end of a stream (EOS) a final SEI/OBU Metadata needs to be
@@ -348,8 +210,7 @@ signed_video_set_end_of_stream(signed_video_t *self);
  *   if (!sv) {
  *     // Handle error
  *   }
- *   if (signed_video_set_private_key_new(sv, private_key, private_key_size)
- *       != SV_OK) {
+ *   if (signed_video_set_private_key(sv, private_key, private_key_size) != SV_OK) {
  *     // Handle error
  *   }
  *   // All necessary configurations need to be done prior to this call.
@@ -423,13 +284,7 @@ signed_video_set_product_info(signed_video_t *self,
  *         SV_EXTERNAL_ERROR The public key could not be extracted.
  */
 SignedVideoReturnCode
-signed_video_set_private_key_new(signed_video_t *self,
-    const char *private_key,
-    size_t private_key_size);
-/* TO BE REPLACED BY signed_video_set_private_key_new(). */
-SignedVideoReturnCode
 signed_video_set_private_key(signed_video_t *self,
-    sign_algo_t algo,
     const char *private_key,
     size_t private_key_size);
 

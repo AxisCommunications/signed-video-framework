@@ -495,7 +495,7 @@ get_initialized_signed_video(struct sv_setting settings, bool new_private_key)
     free(tmp_key);
   }
   ck_assert(private_key && *private_key_size > 0);
-  ck_assert_int_eq(signed_video_set_private_key_new(sv, private_key, *private_key_size), SV_OK);
+  ck_assert_int_eq(signed_video_set_private_key(sv, private_key, *private_key_size), SV_OK);
   ck_assert_int_eq(signed_video_set_product_info(sv, HW_ID, FW_VER, SER_NO, MANUFACT, ADDR), SV_OK);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
   ck_assert_int_eq(signed_video_set_max_sei_payload_size(sv, settings.max_sei_payload_size), SV_OK);
