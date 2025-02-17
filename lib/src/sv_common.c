@@ -158,6 +158,20 @@ sign_or_verify_data_free(sign_or_verify_data_t *self)
   free(self);
 }
 
+// Convert Axis Unix timestamp (microseconds since 1970) to 1601-based timestamp (100-ns intervals)
+int64_t
+convert_unix_to_1601(int64_t timestamp)
+{
+   return (timestamp + (EPOCH_DIFF * 1000000LL)) * MICROSECONDS;
+}
+
+// Convert 1601-based timestamp (100-nanosecond intervals since 1601) to Axis Unix timestamp (microseconds)
+int64_t
+convert_1601_to_unix(int64_t timestamp)
+{
+  return (timestamp / MICROSECONDS) - (EPOCH_DIFF * 1000000LL);
+}
+
 /* Reads the version string and puts the Major.Minor.Patch in the first, second and third element of
  * the array, respectively */
 static bool
