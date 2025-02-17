@@ -160,29 +160,6 @@ free_signature_buffer(signature_data_t *buf)
   buf->signature = NULL;
 }
 
-/* Allocate memory and copy data from |sign_data|.
- *
- * This is only done once and the necessary |private_key| is copied. Memory
- * for the |signature| is allocated and if known, also the |hash|. */
-static sign_or_verify_data_t *
-sign_data_create(const signature_info_t *signature_info)
-{
-  sign_or_verify_data_t *sign_data = calloc(1, sizeof(sign_or_verify_data_t));
-  if (!sign_data) goto catch_error;
-
-  // Turn the PEM key into an EVP_PKEY and allocate memory for signatures.
-  if (openssl_private_key_malloc(
-          sign_data, signature_info->private_key, signature_info->private_key_size) != SV_OK) {
-    goto catch_error;
-  }
-
-  return sign_data;
-
-catch_error:
-  sign_data_free(sign_data);
-  return NULL;
-}
-
 /* Free all memory of input and ourput buffers. */
 static void
 free_buffers(threaded_data_t *self)
@@ -831,51 +808,6 @@ sv_signing_plugin_session_teardown(void *handle)
   free(self);
 }
 
-/* This plugin initializer expects the |user_data| to be a signature_info_t struct. Only the
- * |private_key| in it is copied to the static |sign_data|. The |private_key| will be
- * used throught all added sessions.
- *
- * A central thread is set up and a list, containing the IDs of the active sessions, is initialized
- * with an empty list head.
- */
-int
-sv_signing_plugin_init(void *user_data)
-{
-  signature_info_t *signature_info = (signature_info_t *)user_data;
-
-  if (central.thread || id_list || central.sign_data) {
-    // Central thread, id list or sign_data already exists
-    return -1;
-  }
-
-  id_list = (id_node_t *)calloc(1, sizeof(id_node_t));
-  if (!id_list) goto catch_error;
-
-  central.sign_data = sign_data_create(signature_info);
-  if (!central.sign_data) goto catch_error;
-
-  g_mutex_init(&(central.mutex));
-  g_cond_init(&(central.cond));
-
-  central.thread = g_thread_try_new("central-signing", central_worker_thread, NULL, NULL);
-  if (!central.thread) goto catch_error;
-
-  // Wait for the thread to start before returning.
-  g_mutex_lock(&(central.mutex));
-  // TODO: Consider using g_cond_wait_until() instead, to avoid deadlock.
-  while (!central.is_running) g_cond_wait(&(central.cond), &(central.mutex));
-
-  g_mutex_unlock(&(central.mutex));
-  return 0;
-
-catch_error:
-  sign_data_free(central.sign_data);
-  central.sign_data = NULL;
-  free(id_list);
-  id_list = NULL;
-  return -1;
-}
-
 /* This plugin initializer expects the |user_data| to be a pem_pkey_t struct. The
  * |private_key| will be used through all added sessions.
  *
@@ -883,7 +815,7 @@ catch_error:
  * initialized with an empty list head.
  */
 int
-sv_signing_plugin_init_new(void *user_data)
+sv_signing_plugin_init(void *user_data)
 {
   pem_pkey_t *pem_private_key = (pem_pkey_t *)user_data;
 

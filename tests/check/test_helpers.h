@@ -66,7 +66,7 @@ extern const int64_t g_testTimestamp;
  * @brief Helper function to read test private key
  *
  * Reads either the pre-generated EC, or RSA, private key. The user can then pass the
- * content to Signed Video through signed_video_set_private_key_new(). Memory is allocated
+ * content to Signed Video through signed_video_set_private_key(). Memory is allocated
  * for |private_key| and the content of |private_key_size| bytes is written. Note that the
  * ownership is transferred.
  *

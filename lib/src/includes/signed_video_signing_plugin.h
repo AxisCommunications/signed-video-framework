@@ -36,6 +36,10 @@ extern "C" {
  * Cryptography library calling interface APIs are declared here.
  */
 
+/* The sv_signing_plugin_init_new(...) changes name and this makes sure not to break
+ * anything. */
+#define sv_signing_plugin_init_new sv_signing_plugin_init;
+
 /**
  * @brief Signs a hash with a private key
  *
@@ -120,9 +124,6 @@ sv_signing_plugin_session_teardown(void *handle);
  */
 int
 sv_signing_plugin_init(void *user_data);
-/* Temporary function for backwards compatibility while re-interpreting |user_data|. */
-int
-sv_signing_plugin_init_new(void *user_data);
 
 /**
  * @brief Plugin termination
