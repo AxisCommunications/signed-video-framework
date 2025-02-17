@@ -69,8 +69,7 @@
 #define HASH_LIST_SIZE (MAX_HASH_SIZE * MAX_GOP_LENGTH)
 
 #define EPOCH_DIFF 11644473600LL  // Difference between 1601 and 1970 in seconds
-#define HUNDRED_NANOSECONDS 10000000LL  // 1 second = 10^7 * 100-nanosecond
-
+#define MICROSECONDS 10LL         // 1 microsecond = 10 * 100-nanoseconds
 // Forward declare bu_list_t here for signed_video_t.
 typedef struct _bu_list_item_t bu_list_item_t;
 
@@ -388,11 +387,11 @@ update_hashable_data(bu_info_t *bu);
 void
 bytes_to_version_str(const int *arr, char *str);
 
-void
-convert_unix_to_1601(int64_t *timestamp);
+int64_t
+convert_unix_to_1601(int64_t timestamp);
 
-void
-convert_1601_to_unix(int64_t *timestamp);
+int64_t
+convert_1601_to_unix(int64_t timestamp);
 
 svrc_t
 struct_member_memory_allocated_and_copy(void **member_ptr,
