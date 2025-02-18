@@ -38,6 +38,7 @@ elif (signing_plugin == 'threaded_unless_check_dep')
   signing_plugin = 'threaded'
 endif
 
+
 cdata = configuration_data()
 cdata.set_quoted('VERSION', meson.project_version())
 configure_file(output : 'signed-video-framework.pc', configuration : cdata)
