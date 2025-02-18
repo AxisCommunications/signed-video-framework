@@ -130,6 +130,33 @@ bu_type_to_char(const bu_info_t *bu)
 // SEI UUID types
 const uint8_t kUuidSignedVideo[UUID_LEN] = {
     0x53, 0x69, 0x67, 0x6e, 0x65, 0x64, 0x20, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x2e, 0x2e, 0x30};
+/**
+ * Converts a MediaSigningReturnCode to a SignedVideoReturnCode.
+ */
+SignedVideoReturnCode
+msrc_to_svrc(MediaSigningReturnCode code)
+{
+  switch (code) {
+    case OMS_OK:
+      return SV_OK;
+    case OMS_MEMORY:
+      return SV_MEMORY;
+    case OMS_INVALID_PARAMETER:
+      return SV_INVALID_PARAMETER;
+    case OMS_NOT_SUPPORTED:
+      return SV_NOT_SUPPORTED;
+    case OMS_INCOMPATIBLE_VERSION:
+      return SV_INCOMPATIBLE_VERSION;
+    case OMS_EXTERNAL_ERROR:
+      return SV_EXTERNAL_ERROR;
+    case OMS_AUTHENTICATION_ERROR:
+      return SV_AUTHENTICATION_ERROR;
+    case OMS_UNKNOWN_FAILURE:
+      return SV_UNKNOWN_FAILURE;
+    default:
+      return SV_UNKNOWN_FAILURE;  // Default for unmapped values
+  }
+}
 
 static sign_or_verify_data_t *
 sign_or_verify_data_create()

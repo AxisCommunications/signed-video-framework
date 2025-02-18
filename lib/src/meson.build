@@ -20,6 +20,7 @@ signedvideoframework_sources = files(
   'sv_common.c',
   'sv_defines.h',
   'sv_internal.h',
+  'sv_onvif.h',
   'sv_openssl.c',
   'sv_sign.c',
   'sv_tlv.c',
