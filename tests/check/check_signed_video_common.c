@@ -23,6 +23,7 @@
 #include <stdlib.h>  // EXIT_SUCCESS, EXIT_FAILURE
 
 #include "lib/src/includes/signed_video_common.h"
+#include "lib/src/sv_internal.h"
 
 static void
 setup()
@@ -72,6 +73,25 @@ START_TEST(invalid_api_inputs)
 END_TEST
 
 /* Test description
+ * Verify correct conversion between Axis Unix timestamp (microseconds) and 1601-based timestamp
+ * (100-nanosecond intervals).
+ */
+START_TEST(test_timestamp_conversion)
+{
+  int64_t unix_ts = 1708156800000000;  // Example: Unix time for 2025-02-17 in microseconds
+  int64_t expected_1601_ts = 133526304000000000;  // Expected corresponding 1601-based timestamp
+
+  // Convert Unix to 1601-based timestamp
+  int64_t converted_1601 = convert_unix_us_to_1601(unix_ts);
+  ck_assert_int_eq(converted_1601, expected_1601_ts);
+
+  // Convert back to Unix timestamp
+  int64_t converted_unix = convert_1601_to_unix_us(converted_1601);
+  ck_assert_int_eq(converted_unix, unix_ts);
+}
+END_TEST
+
+/* Test description
  * Format check for the current software version.
  */
 START_TEST(correct_version)
@@ -115,6 +135,7 @@ signed_video_suite(void)
 
   // Add tests
   tcase_add_loop_test(tc, invalid_api_inputs, s, e);
+  tcase_add_loop_test(tc, test_timestamp_conversion, s, e);
   tcase_add_loop_test(tc, correct_version, s, e);
 
   // Add test case to suit
