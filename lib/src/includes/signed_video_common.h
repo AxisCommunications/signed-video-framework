@@ -21,19 +21,6 @@
 
 #ifndef __SIGNED_VIDEO_COMMON_H__
 #define __SIGNED_VIDEO_COMMON_H__
-#ifndef HAS_ONVIF
-// Define a fallback version if ONVIF is missing
-typedef enum {
-  OMS_OK = 0,
-  OMS_MEMORY = -1,
-  OMS_INVALID_PARAMETER = -10,
-  OMS_NOT_SUPPORTED = -12,
-  OMS_INCOMPATIBLE_VERSION = -15,
-  OMS_EXTERNAL_ERROR = -20,
-  OMS_AUTHENTICATION_ERROR = -30,
-  OMS_UNKNOWN_FAILURE = -100
-} MediaSigningReturnCode;
-#endif
 
 #include <stdbool.h>
 #include <stddef.h>

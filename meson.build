@@ -38,23 +38,6 @@ elif (signing_plugin == 'threaded_unless_check_dep')
   signing_plugin = 'threaded'
 endif
 
-onvif_subdir = 'onvif_media_signing'
-onvif_path = meson.source_root() / onvif_subdir
-
-onvif_check = run_command('test', '-d', onvif_path, check: false)
-
-if onvif_check.returncode() == 0
-  add_global_arguments('-DHAS_ONVIF', language : 'c')
-
-  onvif_dep = declare_dependency(
-    include_directories: include_directories('onvif_media_signing'),
-    link_with: static_library('onvif_media_signing', 'onvif_media_signing/onvif.c')
-  )
-  message('ONVIF module found: Enabling ONVIF support.')
-else
-  message('ONVIF module not found: Proceeding without ONVIF support.')
-endif
-
 cdata = configuration_data()
 cdata.set_quoted('VERSION', meson.project_version())
 configure_file(output : 'signed-video-framework.pc', configuration : cdata)

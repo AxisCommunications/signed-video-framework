@@ -134,7 +134,7 @@ const uint8_t kUuidSignedVideo[UUID_LEN] = {
  * Converts a MediaSigningReturnCode to a SignedVideoReturnCode.
  */
 SignedVideoReturnCode
-media_signing_return_code_to_signed_video_return_code(int code)
+msrc_to_svrc(MediaSigningReturnCode code)
 {
   switch (code) {
     case OMS_OK:
