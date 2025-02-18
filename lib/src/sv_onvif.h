@@ -21,17 +21,6 @@
 #ifndef __SV_ONVIF_H__
 #define __SV_ONVIF_H__
 
-#include <stdbool.h>  // bool
-#include <stdint.h>  // uint8_t
-#include <string.h>  // size_t
-
-#include "includes/signed_video_auth.h"  // signed_video_product_info_t
-#include "includes/signed_video_common.h"  // signed_video_t
-#include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
-#include "includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
-#include "legacy_validation.h"  // legacy_sv_t
-#include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
-
 #ifndef HAS_ONVIF
 // Define a placeholder for onvif_media_signing_t to avoid compilation errors
 typedef void onvif_media_signing_t;
@@ -48,10 +37,5 @@ typedef enum {
 } MediaSigningReturnCode;
 #endif
 ;
-
-/**
- * Converts a MediaSigningReturnCode to a SignedVideoReturnCode. */
-SignedVideoReturnCode
-msrc_to_svrc(MediaSigningReturnCode code);
 
 #endif  // __SV_ONVIF_H__
