@@ -781,6 +781,13 @@ signed_video_set_private_key(signed_video_t *self, const char *private_key, size
   if (!self || !private_key || private_key_size == 0) return SV_INVALID_PARAMETER;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
+  // If ONVIF is available, call its function and map the return code
+  if (self->onvif) {
+    MediaSigningReturnCode onvif_status = onvif_media_signing_set_signing_key_pair(
+        self->onvif, private_key, private_key_size, NULL, 0, false);
+
+    return msrc_to_svrc(onvif_status);
+  }
   SV_TRY()
     // Temporally turn the PEM |private_key| into an EVP_PKEY and allocate memory for signatures.
     SV_THROW(openssl_private_key_malloc(self->sign_data, private_key, private_key_size));

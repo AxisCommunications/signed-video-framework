@@ -21,6 +21,10 @@
 #ifndef __SV_ONVIF_H__
 #define __SV_ONVIF_H__
 
+#include <stdbool.h>  // bool
+#include <stdint.h>  // uint8_t
+#include <string.h>  // size_t
+
 #ifndef HAS_ONVIF
 // Define a placeholder for onvif_media_signing_t to avoid compilation errors
 typedef void onvif_media_signing_t;
@@ -35,6 +39,26 @@ typedef enum {
   OMS_AUTHENTICATION_ERROR = -30,
   OMS_UNKNOWN_FAILURE = -100
 } MediaSigningReturnCode;
+
+// Dummy function to prevent compilation errors
+static inline MediaSigningReturnCode
+onvif_media_signing_set_signing_key_pair(onvif_media_signing_t *self,
+    const char *private_key,
+    size_t private_key_size,
+    const char *certificate_chain,
+    size_t certificate_chain_size,
+    bool user_provisioned)
+{
+
+  (void)self;  // Prevent unused variable warnings
+  (void)private_key;
+  (void)private_key_size;
+  (void)certificate_chain;
+  (void)certificate_chain_size;
+  (void)user_provisioned;
+
+  return OMS_NOT_SUPPORTED;  // Always return -12 when ONVIF is missing
+}
 #endif
 
 #endif  // __SV_ONVIF_H__
