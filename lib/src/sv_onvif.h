@@ -36,6 +36,5 @@ typedef enum {
   OMS_UNKNOWN_FAILURE = -100
 } MediaSigningReturnCode;
 #endif
-;
 
 #endif  // __SV_ONVIF_H__
