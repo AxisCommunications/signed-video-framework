@@ -798,6 +798,15 @@ signed_video_set_private_key(signed_video_t *self, const char *private_key, size
   return status;
 }
 
+/* DEPRECATED */
+SignedVideoReturnCode
+signed_video_set_private_key_new(signed_video_t *self,
+    const char *private_key,
+    size_t private_key_size)
+{
+  return signed_video_set_private_key(self, private_key, private_key_size);
+}
+
 SignedVideoReturnCode
 signed_video_add_public_key_to_sei(signed_video_t *self, bool add_public_key_to_sei)
 {

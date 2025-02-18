@@ -207,6 +207,13 @@ sv_signing_plugin_init(void ATTR_UNUSED *user_data)
   return 0;
 }
 
+/* DEPRECATED */
+int
+sv_signing_plugin_init_new(void ATTR_UNUSED *user_data)
+{
+  return 0;
+}
+
 void
 sv_signing_plugin_exit(void ATTR_UNUSED *user_data)
 {
