@@ -858,6 +858,13 @@ catch_error:
   return -1;
 }
 
+/* DEPRECATED */
+int
+sv_signing_plugin_init_new(void *user_data)
+{
+  return sv_signing_plugin_init(user_data);
+}
+
 /* This function closes down the plugin. No |user_data| is expected and aborts the action if
  * present.
  *

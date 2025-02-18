@@ -32,10 +32,6 @@
 extern "C" {
 #endif
 
-/* The signed_video_set_private_key_new(...) changes name and this makes sure not to
- * break anything. */
-#define signed_video_set_private_key_new signed_video_set_private_key;
-
 /**
  * The authenticity level sets the granularity of the authenticity.
  */
@@ -285,6 +281,11 @@ signed_video_set_product_info(signed_video_t *self,
  */
 SignedVideoReturnCode
 signed_video_set_private_key(signed_video_t *self,
+    const char *private_key,
+    size_t private_key_size);
+/* DEPRECATED */
+SignedVideoReturnCode
+signed_video_set_private_key_new(signed_video_t *self,
     const char *private_key,
     size_t private_key_size);
 
