@@ -32,6 +32,10 @@
 #include "legacy_validation.h"  // legacy_sv_t
 #include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
 
+#ifndef HAS_ONVIF
+// If ONVIF is missing, define it as an alias to signed_video_t
+typedef struct signed_video_t onvif_media_signing_t;
+#endif
 #if defined(_WIN32) || defined(_WIN64)
 #define ATTR_UNUSED
 #else
@@ -337,6 +341,8 @@ struct _signed_video_t {
 
   // Legacy validation
   legacy_sv_t *legacy_sv;
+  // Onviff validation and signing
+  onvif_media_signing_t *onvif;
 };
 
 /* Internal APIs for validation_flags_t functions */
@@ -419,6 +425,11 @@ bu_type_to_str(const bu_info_t *bu);
 
 char
 bu_type_to_char(const bu_info_t *bu);
+
+/**
+ * Converts a MediaSigningReturnCode to a SignedVideoReturnCode. */
+SignedVideoReturnCode
+media_signing_return_code_to_signed_video_return_code(int code);
 
 /**
  * Depricated public API which is still handy in tests. */
