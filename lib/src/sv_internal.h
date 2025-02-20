@@ -31,13 +31,9 @@
 #include "includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
 #include "legacy_validation.h"  // legacy_sv_t
 #include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
+#include "sv_defines_general.h"  // ATTR_UNUSED
 #include "sv_onvif.h"  // svrc_t, sv_tlv_tag_t
 
-#if defined(_WIN32) || defined(_WIN64)
-#define ATTR_UNUSED
-#else
-#define ATTR_UNUSED __attribute__((unused))
-#endif
 // Currently the largest supported hash is SHA-512.
 #define MAX_HASH_SIZE (512 / 8)
 // Size of the default hash (SHA-256).
