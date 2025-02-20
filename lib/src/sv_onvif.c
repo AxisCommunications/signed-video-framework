@@ -20,6 +20,8 @@
  */
 #include "sv_onvif.h"
 
+#include <stdbool.h>
+
 #include "sv_defines_general.h"  // ATTR_UNUSED
 
 // Stubs for ONVIF APIs
@@ -39,6 +41,15 @@ onvif_media_signing_get_sei(onvif_media_signing_t ATTR_UNUSED *self,
 MediaSigningReturnCode
 onvif_media_signing_set_max_signing_frames(onvif_media_signing_t ATTR_UNUSED *self,
     unsigned ATTR_UNUSED max_signing_frames)
+{
+  return OMS_NOT_SUPPORTED;
+}
+
+MediaSigningReturnCode
+onvif_media_signing_add_nalu_for_signing(onvif_media_signing_t ATTR_UNUSED *self,
+    const uint8_t ATTR_UNUSED *nalu,
+    size_t ATTR_UNUSED nalu_size,
+    int64_t ATTR_UNUSED timestamp)
 {
   return OMS_NOT_SUPPORTED;
 }

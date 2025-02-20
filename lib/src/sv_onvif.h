@@ -53,4 +53,10 @@ MediaSigningReturnCode
 onvif_media_signing_set_max_signing_frames(onvif_media_signing_t *self,
     unsigned max_signing_frames);
 
+MediaSigningReturnCode
+onvif_media_signing_add_nalu_for_signing(onvif_media_signing_t *self,
+    const uint8_t *nalu,
+    size_t nalu_size,
+    int64_t timestamp);
+
 #endif  // __SV_ONVIF_H__
