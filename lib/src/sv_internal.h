@@ -32,7 +32,9 @@
 #include "legacy_validation.h"  // legacy_sv_t
 #include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
 #include "sv_defines_general.h"  // ATTR_UNUSED
-#include "sv_onvif.h"  // svrc_t, sv_tlv_tag_t
+#ifndef HAS_ONVIF
+#include "sv_onvif.h"  // Stubs for ONVIF APIs and structs
+#endif
 
 // Currently the largest supported hash is SHA-512.
 #define MAX_HASH_SIZE (512 / 8)

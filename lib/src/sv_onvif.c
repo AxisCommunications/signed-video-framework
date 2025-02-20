@@ -18,35 +18,20 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#ifndef __SV_ONVIF_H__
-#define __SV_ONVIF_H__
+#include "sv_onvif.h"
 
-#include <stddef.h>  // size_t
-#include <stdint.h>  // uint8_t
-
-// Define a placeholder for onvif_media_signing_t to avoid compilation errors
-typedef void onvif_media_signing_t;
-// Define MediaSigningReturnCode to avoid compilation errors
-typedef enum {
-  OMS_OK = 0,
-  OMS_MEMORY = -1,
-  OMS_INVALID_PARAMETER = -10,
-  OMS_NOT_SUPPORTED = -12,
-  OMS_INCOMPATIBLE_VERSION = -15,
-  OMS_EXTERNAL_ERROR = -20,
-  OMS_AUTHENTICATION_ERROR = -30,
-  OMS_UNKNOWN_FAILURE = -100
-} MediaSigningReturnCode;
+#include "sv_defines_general.h"  // ATTR_UNUSED
 
 // Stubs for ONVIF APIs
 
 MediaSigningReturnCode
-onvif_media_signing_get_sei(onvif_media_signing_t *self,
-    uint8_t **sei,
-    size_t *sei_size,
-    unsigned *payload_offset,
-    const uint8_t *peek_nalu,
-    size_t peek_nalu_size,
-    unsigned *num_pending_seis);
-
-#endif  // __SV_ONVIF_H__
+onvif_media_signing_get_sei(onvif_media_signing_t ATTR_UNUSED *self,
+    uint8_t ATTR_UNUSED **sei,
+    size_t ATTR_UNUSED *sei_size,
+    unsigned ATTR_UNUSED *payload_offset,
+    const uint8_t ATTR_UNUSED *peek_nalu,
+    size_t ATTR_UNUSED peek_nalu_size,
+    unsigned ATTR_UNUSED *num_pending_seis)
+{
+  return OMS_NOT_SUPPORTED;
+}

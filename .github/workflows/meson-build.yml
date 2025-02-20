@@ -22,11 +22,11 @@ jobs:
     - name: Install glib-2.0
       run: sudo apt-get install libglib2.0-dev
     - name: Setup meson using threaded plugin
-      run: meson -Ddebugprints=false -Dbuildtype=debug -Dsigningplugin=threaded . build_lib
+      run: meson setup -Ddebugprints=false -Dbuildtype=debug -Dsigningplugin=threaded . build_lib
     - name: Compile and run tests
       run: ninja -C build_lib test
     - name: Setup meson
-      run: meson -Dbuildtype=debug -Dsigningplugin=unthreaded --reconfigure . build_lib
+      run: meson setup -Dbuildtype=debug -Dsigningplugin=unthreaded --reconfigure . build_lib
     - name: Compile and run tests
       run: ninja -C build_lib test
     - name: Install valgrind manually

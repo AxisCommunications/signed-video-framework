@@ -30,6 +30,9 @@
 #include "sv_codec_internal.h"  // METADATA_TYPE_USER_PRIVATE
 #include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
 #include "sv_internal.h"  // gop_info_t
+#ifndef HAS_ONVIF
+#include "sv_onvif.h"  // Stubs for ONVIF APIs and structs
+#endif
 #include "sv_openssl_internal.h"
 #include "sv_tlv.h"  // tlv_list_encode_or_get_size()
 
@@ -631,7 +634,15 @@ signed_video_get_sei(signed_video_t *self,
     unsigned *num_pending_seis)
 {
 
-  if (!self || !sei || !sei_size) return SV_INVALID_PARAMETER;
+  if (!self || !sei || !sei_size) {
+    return SV_INVALID_PARAMETER;
+  }
+
+  if (self->onvif) {
+    return msrc_to_svrc(onvif_media_signing_get_sei(
+        self->onvif, sei, sei_size, payload_offset, peek_bu, peek_bu_size, num_pending_seis));
+  }
+
   *sei = NULL;
   *sei_size = 0;
   if (payload_offset) {
