@@ -53,4 +53,7 @@ MediaSigningReturnCode
 onvif_media_signing_set_max_signing_frames(onvif_media_signing_t *self,
     unsigned max_signing_frames);
 
+MediaSigningReturnCode
+onvif_media_signing_set_hash_algo(onvif_media_signing_t *self, const char *name_or_oid);
+
 #endif  // __SV_ONVIF_H__
