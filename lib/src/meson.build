@@ -19,6 +19,7 @@ signedvideoframework_sources = files(
   'sv_codec_internal.h',
   'sv_common.c',
   'sv_defines.h',
+  'sv_defines_general.h',
   'sv_internal.h',
   'sv_onvif.h',
   'sv_openssl.c',
