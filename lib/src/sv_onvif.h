@@ -49,4 +49,8 @@ onvif_media_signing_get_sei(onvif_media_signing_t *self,
     size_t peek_nalu_size,
     unsigned *num_pending_seis);
 
+MediaSigningReturnCode
+onvif_media_signing_set_max_signing_frames(onvif_media_signing_t *self,
+    unsigned max_signing_frames);
+
 #endif  // __SV_ONVIF_H__
