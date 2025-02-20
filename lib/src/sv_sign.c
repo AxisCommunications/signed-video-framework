@@ -466,6 +466,11 @@ prepare_for_signing(signed_video_t *self)
 SignedVideoReturnCode
 signed_video_add_nalu_for_signing(signed_video_t *self, const uint8_t *bu_data, size_t bu_data_size)
 {
+  if (self->onvif) {
+    int64_t timestamp = 0;  // Use 0 or another valid default timestamp
+    return msrc_to_svrc(
+        onvif_media_signing_add_nalu_for_signing(self, bu_data, bu_data_size, timestamp));
+  }
   return signed_video_add_nalu_for_signing_with_timestamp(self, bu_data, bu_data_size, NULL);
 }
 

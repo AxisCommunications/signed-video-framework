@@ -42,3 +42,12 @@ onvif_media_signing_set_max_signing_frames(onvif_media_signing_t ATTR_UNUSED *se
 {
   return OMS_NOT_SUPPORTED;
 }
+
+MediaSigningReturnCode
+onvif_media_signing_add_nalu_for_signing(onvif_media_signing_t ATTR_UNUSED *self,
+    const uint8_t ATTR_UNUSED *nalu,
+    size_t ATTR_UNUSED nalu_size,
+    int64_t ATTR_UNUSED timestamp)
+{
+  return OMS_NOT_SUPPORTED;
+}
