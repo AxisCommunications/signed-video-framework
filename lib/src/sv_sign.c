@@ -762,6 +762,13 @@ signed_video_set_product_info(signed_video_t *self,
 {
   if (!self) return SV_INVALID_PARAMETER;
 
+  // If ONVIF is available, translate and call ONVIF API
+  if (self->onvif) {
+    onvif_media_signing_vendor_info_t vendor_info;
+    sv_product_info_to_onvif_vendor(firmware_version, serial_number, manufacturer, &vendor_info);
+    return msrc_to_svrc(onvif_media_signing_set_vendor_info(self->onvif, &vendor_info));
+  }
+
   if (hardware_id) {
     strncpy(self->product_info.hardware_id, hardware_id, 255);
     self->product_info.hardware_id[255] = '\0';
