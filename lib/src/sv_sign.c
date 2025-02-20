@@ -631,7 +631,15 @@ signed_video_get_sei(signed_video_t *self,
     unsigned *num_pending_seis)
 {
 
-  if (!self || !sei || !sei_size) return SV_INVALID_PARAMETER;
+  if (!self || !sei || !sei_size) {
+    return SV_INVALID_PARAMETER;
+  }
+
+  if (self->onvif) {
+    return msrc_to_svrc(onvif_media_signing_get_sei(
+        self->onvif, sei, sei_size, payload_offset, peek_bu, peek_bu_size, num_pending_seis));
+  }
+
   *sei = NULL;
   *sei_size = 0;
   if (payload_offset) {

@@ -21,7 +21,8 @@
 #ifndef __SV_ONVIF_H__
 #define __SV_ONVIF_H__
 
-#ifndef HAS_ONVIF
+#include "sv_defines_general.h"  // ATTR_UNUSED
+
 // Define a placeholder for onvif_media_signing_t to avoid compilation errors
 typedef void onvif_media_signing_t;
 // Define MediaSigningReturnCode to avoid compilation errors
@@ -35,6 +36,19 @@ typedef enum {
   OMS_AUTHENTICATION_ERROR = -30,
   OMS_UNKNOWN_FAILURE = -100
 } MediaSigningReturnCode;
-#endif
+
+// Stubs for ONVIF APIs
+
+inline MediaSigningReturnCode
+onvif_media_signing_get_sei(onvif_media_signing_t ATTR_UNUSED *self,
+    uint8_t ATTR_UNUSED **sei,
+    size_t ATTR_UNUSED *sei_size,
+    unsigned ATTR_UNUSED *payload_offset,
+    const uint8_t ATTR_UNUSED *peek_nalu,
+    size_t ATTR_UNUSED peek_nalu_size,
+    unsigned ATTR_UNUSED *num_pending_seis)
+{
+  return OMS_NOT_SUPPORTED;
+}
 
 #endif  // __SV_ONVIF_H__
