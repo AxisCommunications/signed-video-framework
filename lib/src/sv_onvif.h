@@ -21,6 +21,7 @@
 #ifndef __SV_ONVIF_H__
 #define __SV_ONVIF_H__
 
+#include <stdbool.h>  // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint8_t
 
@@ -52,5 +53,11 @@ onvif_media_signing_get_sei(onvif_media_signing_t *self,
 MediaSigningReturnCode
 onvif_media_signing_set_max_signing_frames(onvif_media_signing_t *self,
     unsigned max_signing_frames);
+
+MediaSigningReturnCode
+onvif_media_signing_set_use_certificate_sei(onvif_media_signing_t *self, bool enable);
+
+MediaSigningReturnCode
+onvif_media_signing_generate_certificate_sei(onvif_media_signing_t *self);
 
 #endif  // __SV_ONVIF_H__
