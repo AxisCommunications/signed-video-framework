@@ -882,6 +882,11 @@ signed_video_set_max_sei_payload_size(signed_video_t *self, size_t max_sei_paylo
   if (!self) return SV_INVALID_PARAMETER;
 
   self->max_sei_payload_size = max_sei_payload_size;
+  if (self->onvif) {
+    return msrc_to_svrc(
+        onvif_media_signing_set_max_sei_payload_size(self->onvif, max_sei_payload_size));
+  }
+
   return SV_OK;
 }
 

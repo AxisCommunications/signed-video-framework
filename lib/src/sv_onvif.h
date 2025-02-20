@@ -56,4 +56,8 @@ onvif_media_signing_set_max_signing_frames(onvif_media_signing_t *self,
 MediaSigningReturnCode
 onvif_media_signing_set_hash_algo(onvif_media_signing_t *self, const char *name_or_oid);
 
+MediaSigningReturnCode
+onvif_media_signing_set_max_sei_payload_size(onvif_media_signing_t *self,
+    size_t max_sei_payload_size);
+
 #endif  // __SV_ONVIF_H__
