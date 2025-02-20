@@ -913,5 +913,10 @@ signed_viedo_set_max_signing_frames(signed_video_t *self, unsigned max_signing_f
   }
   self->max_signing_frames = max_signing_frames;
 
+  if (self->onvif) {
+    return msrc_to_svrc(
+        onvif_media_signing_set_max_signing_frames(self->onvif, max_signing_frames));
+  }
+
   return SV_OK;
 }
