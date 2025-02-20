@@ -899,6 +899,9 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid)
     SV_THROW_IF(hash_size == 0 || hash_size > MAX_HASH_SIZE, SV_NOT_SUPPORTED);
 
     self->sign_data->hash_size = hash_size;
+    if (self->onvif) {
+      SV_THROW(msrc_to_svrc(onvif_media_signing_set_hash_algo(self->onvif, name_or_oid)));
+    }
   SV_CATCH()
   SV_DONE(status)
 
