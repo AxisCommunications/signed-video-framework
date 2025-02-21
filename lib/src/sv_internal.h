@@ -436,14 +436,6 @@ SignedVideoReturnCode
 msrc_to_svrc(MediaSigningReturnCode code);
 
 /**
- * Converts a product information to a onvif_media_signing_vendor_info_t. */
-void
-sv_product_info_to_onvif_vendor(const char *firmware_version,
-    const char *serial_number,
-    const char *manufacturer,
-    onvif_media_signing_vendor_info_t *vendor_info);
-
-/**
  * Depricated public API which is still handy in tests. */
 SignedVideoReturnCode
 signed_video_add_nalu_for_signing(signed_video_t *self,
