@@ -869,6 +869,11 @@ signed_video_set_sei_epb(signed_video_t *self, bool sei_epb)
   if (!self) return SV_INVALID_PARAMETER;
   if (self->codec == SV_CODEC_AV1) return SV_NOT_SUPPORTED;
   self->sei_epb = sei_epb;
+  if (self->onvif) {
+    return msrc_to_svrc(
+        onvif_media_signing_set_emulation_prevention_before_signing(self->onvif, sei_epb));
+  }
+
   return SV_OK;
 }
 
@@ -888,6 +893,11 @@ signed_video_set_max_sei_payload_size(signed_video_t *self, size_t max_sei_paylo
   if (!self) return SV_INVALID_PARAMETER;
 
   self->max_sei_payload_size = max_sei_payload_size;
+  if (self->onvif) {
+    return msrc_to_svrc(
+        onvif_media_signing_set_max_sei_payload_size(self->onvif, max_sei_payload_size));
+  }
+
   return SV_OK;
 }
 
@@ -905,6 +915,9 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid)
     SV_THROW_IF(hash_size == 0 || hash_size > MAX_HASH_SIZE, SV_NOT_SUPPORTED);
 
     self->sign_data->hash_size = hash_size;
+    if (self->onvif) {
+      SV_THROW(msrc_to_svrc(onvif_media_signing_set_hash_algo(self->onvif, name_or_oid)));
+    }
   SV_CATCH()
   SV_DONE(status)
 

@@ -52,3 +52,24 @@ onvif_media_signing_set_max_signing_frames(onvif_media_signing_t ATTR_UNUSED *se
 {
   return OMS_NOT_SUPPORTED;
 }
+
+MediaSigningReturnCode
+onvif_media_signing_set_hash_algo(onvif_media_signing_t ATTR_UNUSED *self,
+    const char ATTR_UNUSED *name_or_oid)
+{
+  return OMS_NOT_SUPPORTED;
+}
+
+MediaSigningReturnCode
+onvif_media_signing_set_max_sei_payload_size(onvif_media_signing_t ATTR_UNUSED *self,
+    size_t ATTR_UNUSED max_sei_payload_size)
+{
+  return OMS_NOT_SUPPORTED;
+}
+
+MediaSigningReturnCode
+onvif_media_signing_set_emulation_prevention_before_signing(onvif_media_signing_t ATTR_UNUSED *self,
+    bool ATTR_UNUSED enable)
+{
+  return OMS_NOT_SUPPORTED;
+}
