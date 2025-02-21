@@ -396,3 +396,27 @@ signed_video_authenticity_report_free(signed_video_authenticity_t *authenticity_
 
   free(authenticity_report);
 }
+
+signed_video_authenticity_t *
+convert_onvif_authenticity_report(onvif_media_signing_authenticity_t *onvif_authenticity)
+{
+  // Sanity check.
+  if (!onvif_authenticity) return NULL;
+
+  signed_video_authenticity_t *authenticity = signed_video_authenticity_report_create();
+
+  // Add a 'ONVIF' prefix to the versions so users can identify the difference.
+  strcpy(authenticity->version_on_signing_side, "ONVIF ");
+  strcat(authenticity->version_on_signing_side, onvif_authenticity->version_on_signing_side);
+  strcpy(authenticity->this_version, "ONVIF ");
+  strcat(authenticity->this_version, onvif_authenticity->this_version);
+
+  // TODO: Port |vendor_info|
+  // TODO: Port |latest_validation|
+  // TODO: Port |accumulated_validation|
+
+  // Free the ONVIF report.
+  onvif_media_signing_authenticity_report_free(onvif_authenticity);
+
+  return authenticity;
+}

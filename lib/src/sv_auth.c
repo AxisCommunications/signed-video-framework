@@ -1399,9 +1399,7 @@ onvif_add_and_authenticate(onvif_media_signing_t *self,
   SignedVideoReturnCode status = msrc_to_svrc(
       onvif_media_signing_add_nalu_and_authenticate(self, bu_data, bu_data_size, auth_ptr));
   if (authenticity && onvif_auth) {
-    // TODO: Copy |onvif_auth| to |authenticity|.
-    // Free the ONVIF report.
-    onvif_media_signing_authenticity_report_free(onvif_auth);
+    *authenticity = convert_onvif_authenticity_report(onvif_auth);
   }
 
   return status;

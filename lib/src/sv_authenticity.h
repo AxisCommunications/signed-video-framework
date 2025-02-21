@@ -24,6 +24,9 @@
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
 #include "sv_defines.h"  // svrc_t
 #include "sv_internal.h"
+#ifndef HAS_ONVIF
+#include "sv_onvif.h"  // Stubs for ONVIF APIs and structs
+#endif
 
 /**
  * @brief Transfers all members in signed_video_product_info_t from |src| to |dst|
@@ -97,5 +100,18 @@ update_authenticity_report(signed_video_t *self);
 void
 update_accumulated_validation(const signed_video_latest_validation_t *latest,
     signed_video_accumulated_validation_t *accumulated);
+
+/**
+ * @brief Converts an ONVIF Media Signing authenticity report
+ *
+ * The function consumes the |onvif_authenticity| and returns a new Signed Video
+ * report.
+ *
+ * @param onvif_authenticity A pointer to the authenticity report to convert.
+ *
+ * @return A Signed Video authenticity report.
+ */
+signed_video_authenticity_t *
+convert_onvif_authenticity_report(onvif_media_signing_authenticity_t *onvif_authenticity);
 
 #endif  // __SV_AUTHENTICITY_H__
