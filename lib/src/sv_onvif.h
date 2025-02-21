@@ -23,7 +23,7 @@
 
 #include <stdbool.h>  // bool
 #include <stddef.h>  // size_t
-#include <stdint.h>  // uint8_t
+#include <stdint.h>  // uint8_t, int64_t
 
 // Define a placeholder for onvif_media_signing_t to avoid compilation errors
 typedef void onvif_media_signing_t;
