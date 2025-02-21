@@ -23,6 +23,7 @@
 #include "sv_defines_general.h"  // ATTR_UNUSED
 
 // Stubs for ONVIF APIs
+// Signing side
 
 MediaSigningReturnCode
 onvif_media_signing_get_sei(onvif_media_signing_t ATTR_UNUSED *self,
@@ -48,4 +49,54 @@ onvif_media_signing_set_vendor_info(onvif_media_signing_t ATTR_UNUSED *self,
     const onvif_media_signing_vendor_info_t ATTR_UNUSED *vendor_info)
 {
   return OMS_NOT_SUPPORTED;
+}
+MediaSigningReturnCode
+onvif_media_signing_set_hash_algo(onvif_media_signing_t ATTR_UNUSED *self,
+    const char ATTR_UNUSED *name_or_oid)
+{
+  return OMS_NOT_SUPPORTED;
+}
+
+MediaSigningReturnCode
+onvif_media_signing_set_max_sei_payload_size(onvif_media_signing_t ATTR_UNUSED *self,
+    size_t ATTR_UNUSED max_sei_payload_size)
+{
+  return OMS_NOT_SUPPORTED;
+}
+
+MediaSigningReturnCode
+onvif_media_signing_set_use_certificate_sei(onvif_media_signing_t ATTR_UNUSED *self,
+    bool ATTR_UNUSED enable)
+{
+  return OMS_NOT_SUPPORTED;
+}
+
+MediaSigningReturnCode
+onvif_media_signing_generate_certificate_sei(onvif_media_signing_t ATTR_UNUSED *self)
+{
+  return OMS_NOT_SUPPORTED;
+}
+
+MediaSigningReturnCode
+onvif_media_signing_set_emulation_prevention_before_signing(onvif_media_signing_t ATTR_UNUSED *self,
+    bool ATTR_UNUSED enable)
+{
+  return OMS_NOT_SUPPORTED;
+}
+
+// Validation side
+
+MediaSigningReturnCode
+onvif_media_signing_add_nalu_and_authenticate(onvif_media_signing_t ATTR_UNUSED *self,
+    const uint8_t ATTR_UNUSED *nalu,
+    size_t ATTR_UNUSED nalu_size,
+    onvif_media_signing_authenticity_t ATTR_UNUSED **authenticity)
+{
+  return OMS_NOT_SUPPORTED;
+}
+
+void
+onvif_media_signing_authenticity_report_free(
+    onvif_media_signing_authenticity_t ATTR_UNUSED *authenticity_report)
+{
 }

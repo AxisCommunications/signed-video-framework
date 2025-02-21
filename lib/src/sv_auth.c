@@ -31,6 +31,9 @@
 #include "sv_bu_list.h"  // bu_list_append()
 #include "sv_defines.h"  // svrc_t
 #include "sv_internal.h"  // gop_info_t, validation_flags_t
+#ifndef HAS_ONVIF
+#include "sv_onvif.h"  // Stubs for ONVIF APIs and structs
+#endif
 #include "sv_openssl_internal.h"  // openssl_{verify_hash, public_key_malloc}()
 #include "sv_tlv.h"  // tlv_find_tag()
 
@@ -1265,6 +1268,21 @@ reregister_bu(signed_video_t *self)
   bu_list_item_t *item = bu_list->first_item;
   svrc_t status = SV_UNKNOWN_FAILURE;
   while (item) {
+    if (self->onvif) {
+      // Pass in all, but the last one (the SEI), to the created ONVIF session. Do this
+      // without requesting an authenticity report.
+      if (item != bu_list->last_item) {
+        status = msrc_to_svrc(onvif_media_signing_add_nalu_and_authenticate(
+            self->onvif, item->bu->bu_data, item->bu->bu_data_size, NULL));
+        if (status != SV_OK) {
+          break;
+        }
+      } else {
+        status = SV_OK;
+      }
+      item = item->next;
+      continue;
+    }
     if (self->legacy_sv) {
       // Pass in all, but the last one (the SEI), to the created legacy session. Do this
       // without requesting an authenticity report.
@@ -1306,6 +1324,8 @@ add_bitstream_unit(signed_video_t *self, const uint8_t *bu_data, size_t bu_data_
 
   // Skip validation if it is done with the legacy code.
   if (self->legacy_sv) return SV_OK;
+  // Skip validation if it is done by ONVIF Media Signing.
+  if (self->onvif) return SV_OK;
 
   validation_flags_t *validation_flags = &(self->validation_flags);
   bu_list_t *bu_list = self->bu_list;
@@ -1363,6 +1383,30 @@ add_bitstream_unit(signed_video_t *self, const uint8_t *bu_data, size_t bu_data_
   return status;
 }
 
+static SignedVideoReturnCode
+onvif_add_and_authenticate(onvif_media_signing_t *self,
+    const uint8_t *bu_data,
+    size_t bu_data_size,
+    signed_video_authenticity_t **authenticity)
+{
+  // Return if ONVIF Media Signing is not active.
+  if (!self) {
+    return SV_OK;
+  }
+
+  onvif_media_signing_authenticity_t *onvif_auth = NULL;
+  onvif_media_signing_authenticity_t **auth_ptr = authenticity ? &onvif_auth : NULL;
+  SignedVideoReturnCode status = msrc_to_svrc(
+      onvif_media_signing_add_nalu_and_authenticate(self, bu_data, bu_data_size, auth_ptr));
+  if (authenticity && onvif_auth) {
+    // TODO: Copy |onvif_auth| to |authenticity|.
+    // Free the ONVIF report.
+    onvif_media_signing_authenticity_report_free(onvif_auth);
+  }
+
+  return status;
+}
+
 SignedVideoReturnCode
 signed_video_add_nalu_and_authenticate(signed_video_t *self,
     const uint8_t *bu_data,
@@ -1387,6 +1431,7 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
       self->latest_validation->has_timestamp = false;
     }
     SV_THROW(legacy_sv_add_and_authenticate(self->legacy_sv, bu_data, bu_data_size, authenticity));
+    SV_THROW(onvif_add_and_authenticate(self->onvif, bu_data, bu_data_size, authenticity));
   SV_CATCH()
   SV_DONE(status)
 
