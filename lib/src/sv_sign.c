@@ -863,6 +863,11 @@ signed_video_set_sei_epb(signed_video_t *self, bool sei_epb)
   if (!self) return SV_INVALID_PARAMETER;
   if (self->codec == SV_CODEC_AV1) return SV_NOT_SUPPORTED;
   self->sei_epb = sei_epb;
+  if (self->onvif) {
+    return msrc_to_svrc(
+        onvif_media_signing_set_emulation_prevention_before_signing(self->onvif, sei_epb));
+  }
+
   return SV_OK;
 }
 
