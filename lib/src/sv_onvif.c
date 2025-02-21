@@ -26,6 +26,16 @@
 // Signing side
 
 MediaSigningReturnCode
+onvif_media_signing_add_nalu_part_for_signing(onvif_media_signing_t ATTR_UNUSED *self,
+    const uint8_t ATTR_UNUSED *nalu_part,
+    size_t ATTR_UNUSED nalu_part_size,
+    int64_t ATTR_UNUSED timestamp,
+    bool ATTR_UNUSED is_last_part)
+{
+  return OMS_NOT_SUPPORTED;
+}
+
+MediaSigningReturnCode
 onvif_media_signing_get_sei(onvif_media_signing_t ATTR_UNUSED *self,
     uint8_t ATTR_UNUSED **sei,
     size_t ATTR_UNUSED *sei_size,

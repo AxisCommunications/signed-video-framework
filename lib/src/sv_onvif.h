@@ -23,7 +23,7 @@
 
 #include <stdbool.h>  // bool
 #include <stddef.h>  // size_t
-#include <stdint.h>  // uint8_t
+#include <stdint.h>  // uint8_t, int64_t
 
 // Define a placeholder for onvif_media_signing_t to avoid compilation errors
 typedef void onvif_media_signing_t;
@@ -53,6 +53,13 @@ typedef struct {
 
 // Stubs for ONVIF APIs
 // Signing side
+
+MediaSigningReturnCode
+onvif_media_signing_add_nalu_part_for_signing(onvif_media_signing_t *self,
+    const uint8_t *nalu_part,
+    size_t nalu_part_size,
+    int64_t timestamp,
+    bool is_last_part);
 
 MediaSigningReturnCode
 onvif_media_signing_get_sei(onvif_media_signing_t *self,
