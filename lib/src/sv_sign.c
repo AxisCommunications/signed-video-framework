@@ -730,6 +730,9 @@ signed_video_generate_golden_sei(signed_video_t *self)
 {
   if (!self) return SV_INVALID_PARAMETER;
 
+  if (self->onvif) {
+    return msrc_to_svrc(onvif_media_signing_generate_certificate_sei(self));
+  }
   uint8_t *payload = NULL;
   uint8_t *payload_signature_ptr = NULL;
   // The flag |is_golden_sei| will mark the next SEI as golden and should include
@@ -878,6 +881,10 @@ signed_video_set_using_golden_sei(signed_video_t *self, bool using_golden_sei)
   if (self->signing_started) return SV_NOT_SUPPORTED;
 
   self->using_golden_sei = using_golden_sei;
+  if (self->onvif) {
+    return msrc_to_svrc(onvif_media_signing_set_use_certificate_sei(self, using_golden_sei));
+  }
+
   return SV_OK;
 }
 

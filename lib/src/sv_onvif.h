@@ -62,6 +62,12 @@ onvif_media_signing_set_max_sei_payload_size(onvif_media_signing_t *self,
     size_t max_sei_payload_size);
 
 MediaSigningReturnCode
+onvif_media_signing_set_use_certificate_sei(onvif_media_signing_t *self, bool enable);
+
+MediaSigningReturnCode
+onvif_media_signing_generate_certificate_sei(onvif_media_signing_t *self);
+
+MediaSigningReturnCode
 onvif_media_signing_set_emulation_prevention_before_signing(onvif_media_signing_t *self,
     bool enable);
 
