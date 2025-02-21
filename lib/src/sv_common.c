@@ -131,38 +131,6 @@ bu_type_to_char(const bu_info_t *bu)
 const uint8_t kUuidSignedVideo[UUID_LEN] = {
     0x53, 0x69, 0x67, 0x6e, 0x65, 0x64, 0x20, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x2e, 0x2e, 0x30};
 
-void
-sv_product_info_to_onvif_vendor(const char *firmware_version,
-    const char *serial_number,
-    const char *manufacturer,
-    onvif_media_signing_vendor_info_t *vendor_info)
-{
-  if (!vendor_info) {
-    return;
-  }
-
-  if (firmware_version) {
-    strncpy(vendor_info->firmware_version, firmware_version, 255);
-    vendor_info->firmware_version[255] = '\0';
-  } else {
-    vendor_info->firmware_version[0] = '\0';
-  }
-
-  if (serial_number) {
-    strncpy(vendor_info->serial_number, serial_number, 255);
-    vendor_info->serial_number[255] = '\0';
-  } else {
-    vendor_info->serial_number[0] = '\0';
-  }
-
-  if (manufacturer) {
-    strncpy(vendor_info->manufacturer, manufacturer, 255);
-    vendor_info->manufacturer[255] = '\0';
-  } else {
-    vendor_info->manufacturer[0] = '\0';
-  }
-}
-
 /**
  * Converts a MediaSigningReturnCode to a SignedVideoReturnCode.
  */
