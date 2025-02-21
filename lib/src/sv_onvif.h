@@ -84,6 +84,9 @@ MediaSigningReturnCode
 onvif_media_signing_set_emulation_prevention_before_signing(onvif_media_signing_t *self,
     bool enable);
 
+MediaSigningReturnCode
+onvif_media_signing_set_end_of_stream(onvif_media_signing_t *self);
+
 // Validation side
 MediaSigningReturnCode
 onvif_media_signing_add_nalu_and_authenticate(onvif_media_signing_t *self,
