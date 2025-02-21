@@ -21,6 +21,7 @@
 #ifndef __SV_ONVIF_H__
 #define __SV_ONVIF_H__
 
+#include <stdbool.h>  // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint8_t
 
