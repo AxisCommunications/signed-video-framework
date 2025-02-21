@@ -91,4 +91,8 @@ onvif_media_signing_add_nalu_and_authenticate(onvif_media_signing_t *self,
     size_t nalu_size,
     onvif_media_signing_authenticity_t **authenticity);
 
+void
+onvif_media_signing_authenticity_report_free(
+    onvif_media_signing_authenticity_t *authenticity_report);
+
 #endif  // __SV_ONVIF_H__

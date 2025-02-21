@@ -1324,6 +1324,8 @@ add_bitstream_unit(signed_video_t *self, const uint8_t *bu_data, size_t bu_data_
 
   // Skip validation if it is done with the legacy code.
   if (self->legacy_sv) return SV_OK;
+  // Skip validation if it is done by ONVIF Media Signing.
+  if (self->onvif) return SV_OK;
 
   validation_flags_t *validation_flags = &(self->validation_flags);
   bu_list_t *bu_list = self->bu_list;
@@ -1381,6 +1383,30 @@ add_bitstream_unit(signed_video_t *self, const uint8_t *bu_data, size_t bu_data_
   return status;
 }
 
+static SignedVideoReturnCode
+onvif_add_and_authenticate(onvif_media_signing_t *self,
+    const uint8_t *bu_data,
+    size_t bu_data_size,
+    signed_video_authenticity_t **authenticity)
+{
+  // Return if ONVIF Media Signing is not active.
+  if (!self) {
+    return SV_OK;
+  }
+
+  onvif_media_signing_authenticity_t *onvif_auth = NULL;
+  onvif_media_signing_authenticity_t **auth_ptr = authenticity ? &onvif_auth : NULL;
+  SignedVideoReturnCode status = msrc_to_svrc(
+      onvif_media_signing_add_nalu_and_authenticate(self, bu_data, bu_data_size, auth_ptr));
+  if (authenticity && onvif_auth) {
+    // TODO: Copy |onvif_auth| to |authenticity|.
+    // Free the ONVIF report.
+    onvif_media_signing_authenticity_report_free(onvif_auth);
+  }
+
+  return status;
+}
+
 SignedVideoReturnCode
 signed_video_add_nalu_and_authenticate(signed_video_t *self,
     const uint8_t *bu_data,
@@ -1405,6 +1431,7 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
       self->latest_validation->has_timestamp = false;
     }
     SV_THROW(legacy_sv_add_and_authenticate(self->legacy_sv, bu_data, bu_data_size, authenticity));
+    SV_THROW(onvif_add_and_authenticate(self->onvif, bu_data, bu_data_size, authenticity));
   SV_CATCH()
   SV_DONE(status)
 
