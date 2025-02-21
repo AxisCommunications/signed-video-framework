@@ -31,6 +31,9 @@
 #include "sv_bu_list.h"  // bu_list_append()
 #include "sv_defines.h"  // svrc_t
 #include "sv_internal.h"  // gop_info_t, validation_flags_t
+#ifndef HAS_ONVIF
+#include "sv_onvif.h"  // Stubs for ONVIF APIs and structs
+#endif
 #include "sv_openssl_internal.h"  // openssl_{verify_hash, public_key_malloc}()
 #include "sv_tlv.h"  // tlv_find_tag()
 
@@ -1265,6 +1268,21 @@ reregister_bu(signed_video_t *self)
   bu_list_item_t *item = bu_list->first_item;
   svrc_t status = SV_UNKNOWN_FAILURE;
   while (item) {
+    if (self->onvif) {
+      // Pass in all, but the last one (the SEI), to the created ONVIF session. Do this
+      // without requesting an authenticity report.
+      if (item != bu_list->last_item) {
+        status = msrc_to_svrc(onvif_media_signing_add_nalu_and_authenticate(
+            self->onvif, item->bu->bu_data, item->bu->bu_data_size, NULL));
+        if (status != SV_OK) {
+          break;
+        }
+      } else {
+        status = SV_OK;
+      }
+      item = item->next;
+      continue;
+    }
     if (self->legacy_sv) {
       // Pass in all, but the last one (the SEI), to the created legacy session. Do this
       // without requesting an authenticity report.

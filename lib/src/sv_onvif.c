@@ -23,6 +23,7 @@
 #include "sv_defines_general.h"  // ATTR_UNUSED
 
 // Stubs for ONVIF APIs
+// Signing side
 
 MediaSigningReturnCode
 onvif_media_signing_get_sei(onvif_media_signing_t ATTR_UNUSED *self,
@@ -73,6 +74,17 @@ onvif_media_signing_generate_certificate_sei(onvif_media_signing_t ATTR_UNUSED *
 MediaSigningReturnCode
 onvif_media_signing_set_emulation_prevention_before_signing(onvif_media_signing_t ATTR_UNUSED *self,
     bool ATTR_UNUSED enable)
+{
+  return OMS_NOT_SUPPORTED;
+}
+
+// Validation side
+
+MediaSigningReturnCode
+onvif_media_signing_add_nalu_and_authenticate(onvif_media_signing_t ATTR_UNUSED *self,
+    const uint8_t ATTR_UNUSED *nalu,
+    size_t ATTR_UNUSED nalu_size,
+    onvif_media_signing_authenticity_t ATTR_UNUSED **authenticity)
 {
   return OMS_NOT_SUPPORTED;
 }
