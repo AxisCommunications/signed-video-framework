@@ -56,3 +56,10 @@ onvif_media_signing_set_max_sei_payload_size(onvif_media_signing_t ATTR_UNUSED *
 {
   return OMS_NOT_SUPPORTED;
 }
+
+MediaSigningReturnCode
+onvif_media_signing_set_emulation_prevention_before_signing(onvif_media_signing_t ATTR_UNUSED *self,
+    bool ATTR_UNUSED enable)
+{
+  return OMS_NOT_SUPPORTED;
+}

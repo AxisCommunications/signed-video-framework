@@ -21,6 +21,7 @@
 #ifndef __SV_ONVIF_H__
 #define __SV_ONVIF_H__
 
+#include <stdbool.h>  // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint8_t
 
@@ -59,5 +60,9 @@ onvif_media_signing_set_hash_algo(onvif_media_signing_t *self, const char *name_
 MediaSigningReturnCode
 onvif_media_signing_set_max_sei_payload_size(onvif_media_signing_t *self,
     size_t max_sei_payload_size);
+
+MediaSigningReturnCode
+onvif_media_signing_set_emulation_prevention_before_signing(onvif_media_signing_t *self,
+    bool enable);
 
 #endif  // __SV_ONVIF_H__
