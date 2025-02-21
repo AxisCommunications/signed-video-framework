@@ -38,9 +38,14 @@ typedef enum {
   OMS_AUTHENTICATION_ERROR = -30,
   OMS_UNKNOWN_FAILURE = -100
 } MediaSigningReturnCode;
+// Define onvif_media_signing_vendor_info_t
+typedef struct {
+  char firmware_version[256];
+  char serial_number[256];
+  char manufacturer[256];
+} onvif_media_signing_vendor_info_t;
 
 // Dummy re-definitions until true content is needed.
-typedef int onvif_media_signing_vendor_info_t;
 typedef int onvif_media_signing_latest_validation_t;
 typedef int onvif_media_signing_accumulated_validation_t;
 typedef struct {
@@ -73,6 +78,10 @@ onvif_media_signing_get_sei(onvif_media_signing_t *self,
 MediaSigningReturnCode
 onvif_media_signing_set_max_signing_frames(onvif_media_signing_t *self,
     unsigned max_signing_frames);
+
+MediaSigningReturnCode
+onvif_media_signing_set_vendor_info(onvif_media_signing_t *self,
+    const onvif_media_signing_vendor_info_t *vendor_info);
 
 MediaSigningReturnCode
 onvif_media_signing_set_hash_algo(onvif_media_signing_t *self, const char *name_or_oid);

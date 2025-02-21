@@ -55,6 +55,12 @@ onvif_media_signing_set_max_signing_frames(onvif_media_signing_t ATTR_UNUSED *se
 }
 
 MediaSigningReturnCode
+onvif_media_signing_set_vendor_info(onvif_media_signing_t ATTR_UNUSED *self,
+    const onvif_media_signing_vendor_info_t ATTR_UNUSED *vendor_info)
+{
+  return OMS_NOT_SUPPORTED;
+}
+MediaSigningReturnCode
 onvif_media_signing_set_hash_algo(onvif_media_signing_t ATTR_UNUSED *self,
     const char ATTR_UNUSED *name_or_oid)
 {
