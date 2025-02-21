@@ -494,7 +494,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
   if (self->onvif && timestamp) {
     int64_t onvif_timestamp = convert_unix_us_to_1601(*timestamp);
     return msrc_to_svrc(onvif_media_signing_add_nalu_part_for_signing(
-        self, bu_data, bu_data_size, onvif_timestamp, is_last_part));
+        self->onvif, bu_data, bu_data_size, onvif_timestamp, is_last_part));
   }
 
   bu_info_t bu_info = {0};
