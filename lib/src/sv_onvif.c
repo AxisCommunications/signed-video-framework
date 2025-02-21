@@ -43,6 +43,7 @@ onvif_media_signing_set_max_signing_frames(onvif_media_signing_t ATTR_UNUSED *se
   return OMS_NOT_SUPPORTED;
 }
 
+MediaSigningReturnCode
 onvif_media_signing_set_hash_algo(onvif_media_signing_t ATTR_UNUSED *self,
     const char ATTR_UNUSED *name_or_oid)
 {
@@ -69,21 +70,9 @@ onvif_media_signing_generate_certificate_sei(onvif_media_signing_t ATTR_UNUSED *
   return OMS_NOT_SUPPORTED;
 }
 
+MediaSigningReturnCode
 onvif_media_signing_set_emulation_prevention_before_signing(onvif_media_signing_t ATTR_UNUSED *self,
     bool ATTR_UNUSED enable)
-{
-  return OMS_NOT_SUPPORTED;
-}
-
-  MediaSigningReturnCode
-onvif_media_signing_set_use_certificate_sei(onvif_media_signing_t ATTR_UNUSED *self,
-    bool ATTR_UNUSED enable)
-{
-  return OMS_NOT_SUPPORTED;
-}
-
-MediaSigningReturnCode
-onvif_media_signing_generate_certificate_sei(onvif_media_signing_t ATTR_UNUSED *self)
 {
   return OMS_NOT_SUPPORTED;
 }
