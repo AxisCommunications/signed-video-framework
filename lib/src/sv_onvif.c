@@ -88,6 +88,12 @@ onvif_media_signing_set_emulation_prevention_before_signing(onvif_media_signing_
   return OMS_NOT_SUPPORTED;
 }
 
+MediaSigningReturnCode
+onvif_media_signing_set_end_of_stream(onvif_media_signing_t ATTR_UNUSED *self)
+{
+  return OMS_NOT_SUPPORTED;
+}
+
 // Validation side
 
 MediaSigningReturnCode

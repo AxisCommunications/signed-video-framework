@@ -709,6 +709,9 @@ signed_video_set_end_of_stream(signed_video_t *self)
 {
   if (!self) return SV_INVALID_PARAMETER;
 
+  if (self->onvif) {
+    return msrc_to_svrc(onvif_media_signing_set_end_of_stream(self->onvif));
+  } 
   uint8_t *payload = NULL;
   uint8_t *payload_signature_ptr = NULL;
   svrc_t status = SV_UNKNOWN_FAILURE;
