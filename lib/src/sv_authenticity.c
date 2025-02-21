@@ -303,6 +303,12 @@ signed_video_authenticity_t *
 signed_video_get_authenticity_report(signed_video_t *self)
 {
   if (!self) return NULL;
+  if (self->onvif) {
+    // If ONVIF Media Signing is active, get the report from ONVIF and convert it.
+    onvif_media_signing_authenticity_t *onvif_authenticity =
+        onvif_media_signing_get_authenticity_report(self->onvif);
+    return convert_onvif_authenticity_report(onvif_authenticity);
+  }
   // Return a nullptr if no local authenticity report exists.
   if (self->authenticity == NULL) return NULL;
 
