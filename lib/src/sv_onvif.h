@@ -21,6 +21,7 @@
 #ifndef __SV_ONVIF_H__
 #define __SV_ONVIF_H__
 
+#include <stdbool.h>  // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint8_t
 
@@ -41,6 +42,13 @@ typedef enum {
 // Stubs for ONVIF APIs
 
 MediaSigningReturnCode
+onvif_media_signing_add_nalu_part_for_signing(onvif_media_signing_t *self,
+    const uint8_t *nalu_part,
+    size_t nalu_part_size,
+    int64_t timestamp,
+    bool is_last_part);
+
+MediaSigningReturnCode
 onvif_media_signing_get_sei(onvif_media_signing_t *self,
     uint8_t **sei,
     size_t *sei_size,
@@ -53,10 +61,4 @@ MediaSigningReturnCode
 onvif_media_signing_set_max_signing_frames(onvif_media_signing_t *self,
     unsigned max_signing_frames);
 
-MediaSigningReturnCode
-onvif_media_signing_add_nalu_for_signing(onvif_media_signing_t *self,
-    const uint8_t *nalu,
-    size_t nalu_size,
-    int64_t timestamp);
-
-    #endif  // __SV_ONVIF_H__
+#endif  // __SV_ONVIF_H__

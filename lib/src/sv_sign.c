@@ -466,11 +466,6 @@ prepare_for_signing(signed_video_t *self)
 SignedVideoReturnCode
 signed_video_add_nalu_for_signing(signed_video_t *self, const uint8_t *bu_data, size_t bu_data_size)
 {
-  if (self->onvif) {
-    int64_t timestamp = 0;  // Use 0 or another valid default timestamp
-    return msrc_to_svrc(
-        onvif_media_signing_add_nalu_for_signing(self, bu_data, bu_data_size, timestamp));
-  }
   return signed_video_add_nalu_for_signing_with_timestamp(self, bu_data, bu_data_size, NULL);
 }
 
@@ -494,6 +489,11 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
   if (!self || !bu_data || !bu_data_size) {
     DEBUG_LOG("Invalid input parameters: (%p, %p, %zu)", self, bu_data, bu_data_size);
     return SV_INVALID_PARAMETER;
+  }
+
+  if (self->onvif) {
+    return msrc_to_svrc(onvif_media_signing_add_nalu_part_for_signing(
+        self, bu_data, bu_data_size, *timestamp, is_last_part));
   }
 
   bu_info_t bu_info = {0};
