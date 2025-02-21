@@ -86,6 +86,7 @@ typedef enum {
 typedef enum {
   UUID_TYPE_UNDEFINED = 0,
   UUID_TYPE_SIGNED_VIDEO = 1,
+  UUID_TYPE_ONVIF_MEDIA_SIGNING = 2,
 } SignedVideoUUIDType;
 
 /* SEI UUID types */

@@ -130,6 +130,9 @@ bu_type_to_char(const bu_info_t *bu)
 // SEI UUID types
 const uint8_t kUuidSignedVideo[UUID_LEN] = {
     0x53, 0x69, 0x67, 0x6e, 0x65, 0x64, 0x20, 0x56, 0x69, 0x64, 0x65, 0x6f, 0x2e, 0x2e, 0x2e, 0x30};
+// ONVIF UUID type
+const uint8_t kUuidOnvif[UUID_LEN] = {
+    0x00, 0x5b, 0xc9, 0x3f, 0x2d, 0x71, 0x5e, 0x95, 0xad, 0xa4, 0x79, 0x6f, 0x90, 0x87, 0x7a, 0x6f};
 /**
  * Converts a MediaSigningReturnCode to a SignedVideoReturnCode.
  */
@@ -336,6 +339,7 @@ bu_get_uuid_sei_type(const uint8_t *uuid)
   if (!uuid) return UUID_TYPE_UNDEFINED;
 
   if (memcmp(uuid, kUuidSignedVideo, UUID_LEN) == 0) return UUID_TYPE_SIGNED_VIDEO;
+  if (memcmp(uuid, kUuidOnvif, UUID_LEN) == 0) return UUID_TYPE_ONVIF_MEDIA_SIGNING;
 
   return UUID_TYPE_UNDEFINED;
 }
