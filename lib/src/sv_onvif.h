@@ -39,7 +39,20 @@ typedef enum {
   OMS_UNKNOWN_FAILURE = -100
 } MediaSigningReturnCode;
 
+// Dummy re-definitions until true content is needed.
+typedef int onvif_media_signing_vendor_info_t;
+typedef int onvif_media_signing_latest_validation_t;
+typedef int onvif_media_signing_accumulated_validation_t;
+typedef struct {
+  char *version_on_signing_side;
+  char *this_version;
+  onvif_media_signing_vendor_info_t vendor_info;
+  onvif_media_signing_latest_validation_t latest_validation;
+  onvif_media_signing_accumulated_validation_t accumulated_validation;
+} onvif_media_signing_authenticity_t;
+
 // Stubs for ONVIF APIs
+// Signing side
 
 MediaSigningReturnCode
 onvif_media_signing_get_sei(onvif_media_signing_t *self,
@@ -64,5 +77,12 @@ onvif_media_signing_set_max_sei_payload_size(onvif_media_signing_t *self,
 MediaSigningReturnCode
 onvif_media_signing_set_emulation_prevention_before_signing(onvif_media_signing_t *self,
     bool enable);
+
+// Validation side
+MediaSigningReturnCode
+onvif_media_signing_add_nalu_and_authenticate(onvif_media_signing_t *self,
+    const uint8_t *nalu,
+    size_t nalu_size,
+    onvif_media_signing_authenticity_t **authenticity);
 
 #endif  // __SV_ONVIF_H__
