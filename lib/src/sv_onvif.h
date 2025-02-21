@@ -46,7 +46,6 @@ typedef struct {
 } onvif_media_signing_vendor_info_t;
 
 // Dummy re-definitions until true content is needed.
-typedef int onvif_media_signing_vendor_info_t;
 typedef int onvif_media_signing_latest_validation_t;
 typedef int onvif_media_signing_accumulated_validation_t;
 typedef struct {
