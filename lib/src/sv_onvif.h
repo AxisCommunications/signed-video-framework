@@ -175,4 +175,10 @@ void
 onvif_media_signing_authenticity_report_free(
     onvif_media_signing_authenticity_t *authenticity_report);
 
+MediaSigningReturnCode
+onvif_media_signing_set_trusted_certificate(onvif_media_signing_t *self,
+    const char *trusted_certificate,
+    size_t trusted_certificate_size,
+    bool user_provisioned);
+
 #endif  // __SV_ONVIF_H__
