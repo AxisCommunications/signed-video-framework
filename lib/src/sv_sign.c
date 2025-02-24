@@ -865,7 +865,10 @@ signed_video_set_authenticity_level(signed_video_t *self,
     SV_THROW_IF(authenticity_level < SV_AUTHENTICITY_LEVEL_GOP, SV_NOT_SUPPORTED);
 
     self->authenticity_level = authenticity_level;
-
+    if (self->onvif) {
+      const bool low_bitrate = (authenticity_level == SV_AUTHENTICITY_LEVEL_GOP);
+      return msrc_to_svrc(onvif_media_signing_set_low_bitrate_mode(self->onvif, low_bitrate));
+    }
   SV_CATCH()
   SV_DONE(status)
 
