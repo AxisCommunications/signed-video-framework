@@ -1013,7 +1013,9 @@ signed_video_reset(signed_video_t *self)
     DEBUG_LOG("Resetting signed session");
     // Reset session states
     SV_THROW(legacy_sv_reset(self->legacy_sv));
-    SV_THROW(msrc_to_svrc(onvif_media_signing_reset(self->onvif)));
+    if (self->onvif) {
+      SV_THROW(msrc_to_svrc(onvif_media_signing_reset(self->onvif)));
+    }
     self->signing_started = false;
     self->sei_generation_enabled = false;
     gop_info_reset(self->gop_info);
@@ -1044,9 +1046,8 @@ signed_video_free(signed_video_t *self)
 
   // Free the legacy validation if present.
   legacy_sv_free(self->legacy_sv);
-  if (self->onvif) {
-    onvif_media_signing_free(self->onvif);
-  }
+  // Free the onvif object if present.
+  onvif_media_signing_free(self->onvif);
 
   // Teardown the plugin before closing.
   sv_signing_plugin_session_teardown(self->plugin_handle);

@@ -59,6 +59,17 @@ typedef struct {
 } onvif_media_signing_authenticity_t;
 
 // Stubs for ONVIF APIs
+// Common to Siging and Validation
+
+onvif_media_signing_t *
+onvif_media_signing_create(MediaSigningCodec codec);
+
+MediaSigningReturnCode
+onvif_media_signing_reset(onvif_media_signing_t *self);
+
+void
+onvif_media_signing_free(onvif_media_signing_t *self);
+
 // Signing side
 
 MediaSigningReturnCode
@@ -116,13 +127,4 @@ void
 onvif_media_signing_authenticity_report_free(
     onvif_media_signing_authenticity_t *authenticity_report);
 
-// Common to Siging and Validation
-
-onvif_media_signing_t *
-onvif_media_signing_create(MediaSigningCodec codec);
-
-MediaSigningReturnCode
-onvif_media_signing_reset(onvif_media_signing_t *self);
-void
-onvif_media_signing_free(onvif_media_signing_t *self);
 #endif  // __SV_ONVIF_H__

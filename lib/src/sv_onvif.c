@@ -23,6 +23,25 @@
 #include "sv_defines_general.h"  // ATTR_UNUSED
 
 // Stubs for ONVIF APIs
+// Common for Signing and Validation
+
+onvif_media_signing_t *
+onvif_media_signing_create(MediaSigningCodec ATTR_UNUSED codec)
+{
+  return NULL;
+}
+
+MediaSigningReturnCode
+onvif_media_signing_reset(onvif_media_signing_t ATTR_UNUSED *self)
+{
+  return OMS_INVALID_PARAMETER;
+}
+
+void
+onvif_media_signing_free(onvif_media_signing_t ATTR_UNUSED *self)
+{
+}
+
 // Signing side
 
 MediaSigningReturnCode
@@ -114,25 +133,5 @@ onvif_media_signing_add_nalu_and_authenticate(onvif_media_signing_t ATTR_UNUSED 
 void
 onvif_media_signing_authenticity_report_free(
     onvif_media_signing_authenticity_t ATTR_UNUSED *authenticity_report)
-{
-}
-
-// Common for Signing and Validation
-
-onvif_media_signing_t* onvif_media_signing_create(MediaSigningCodec ATTR_UNUSED codec)
-{
-    return NULL;
-}
-
-MediaSigningReturnCode onvif_media_signing_reset(onvif_media_signing_t* self)
-{
-  if (self) {
-    return OMS_INVALID_PARAMETER;
-  }
-  return OMS_OK;
-}
-
-void
-onvif_media_signing_free(onvif_media_signing_t ATTR_UNUSED *self)
 {
 }
