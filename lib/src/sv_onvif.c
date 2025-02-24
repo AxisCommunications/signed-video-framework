@@ -118,17 +118,21 @@ onvif_media_signing_authenticity_report_free(
 }
 
 // Common for Signing and Validation
-onvif_media_signing_t *
-onvif_media_signing_create(MediaSigningCodec ATTR_UNUSED codec)
+
+onvif_media_signing_t* onvif_media_signing_create(MediaSigningCodec ATTR_UNUSED codec)
 {
-  return NULL;
+    return NULL;
 }
 
-MediaSigningReturnCode
-onvif_media_signing_reset(onvif_media_signing_t *self)
+MediaSigningReturnCode onvif_media_signing_reset(onvif_media_signing_t* self)
 {
   if (self) {
     return OMS_INVALID_PARAMETER;
   }
   return OMS_OK;
+}
+
+void
+onvif_media_signing_free(onvif_media_signing_t ATTR_UNUSED *self)
+{
 }
