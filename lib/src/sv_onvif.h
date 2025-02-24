@@ -59,7 +59,7 @@ typedef struct {
 } onvif_media_signing_authenticity_t;
 
 // Stubs for ONVIF APIs
-// Common to Siging and Validation
+// Common to Signing and Validation
 
 onvif_media_signing_t *
 onvif_media_signing_create(MediaSigningCodec codec);
