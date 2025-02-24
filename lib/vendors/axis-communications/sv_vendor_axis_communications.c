@@ -868,6 +868,9 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
   } else {
     self->factory_provisioned = true;
     sv->add_public_key_to_sei = false;
+    if (sv->codec != SV_CODEC_AV1) {
+      onvif_media_signing_create(sv_codec_to_ms_codec(sv->codec));
+    }
   }
 
   return SV_OK;

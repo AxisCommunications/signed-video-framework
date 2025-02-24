@@ -437,6 +437,11 @@ SignedVideoReturnCode
 msrc_to_svrc(MediaSigningReturnCode code);
 
 /**
+ * Converts a SignedVideoCodec to a MediaSigningCodec. */
+MediaSigningCodec
+sv_codec_to_ms_codec(SignedVideoCodec sv_codec);
+
+/**
  * Depricated public API which is still handy in tests. */
 SignedVideoReturnCode
 signed_video_add_nalu_for_signing(signed_video_t *self,

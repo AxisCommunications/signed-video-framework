@@ -44,6 +44,8 @@ typedef struct {
   char serial_number[256];
   char manufacturer[256];
 } onvif_media_signing_vendor_info_t;
+// Define MediaSigningCodec
+typedef enum { OMS_CODEC_H264 = 0, OMS_CODEC_H265 = 1, OMS_CODEC_NUM } MediaSigningCodec;
 
 // Dummy re-definitions until true content is needed.
 typedef int onvif_media_signing_latest_validation_t;
@@ -114,4 +116,13 @@ void
 onvif_media_signing_authenticity_report_free(
     onvif_media_signing_authenticity_t *authenticity_report);
 
+// Common to Siging and Validation
+
+onvif_media_signing_t *
+onvif_media_signing_create(MediaSigningCodec codec);
+
+MediaSigningReturnCode
+onvif_media_signing_reset(onvif_media_signing_t *self);
+void
+onvif_media_signing_free(onvif_media_signing_t *self);
 #endif  // __SV_ONVIF_H__

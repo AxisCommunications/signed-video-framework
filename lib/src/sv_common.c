@@ -161,6 +161,22 @@ msrc_to_svrc(MediaSigningReturnCode code)
   }
 }
 
+/**
+ * Converts a SignedVideoCodec to a MediaSigningCodec.
+ */
+MediaSigningCodec
+sv_codec_to_ms_codec(SignedVideoCodec sv_codec)
+{
+  switch (sv_codec) {
+    case SV_CODEC_H264:
+      return OMS_CODEC_H264;
+    case SV_CODEC_H265:
+      return OMS_CODEC_H265;
+    default:
+      return OMS_CODEC_NUM;
+  }
+}
+
 static sign_or_verify_data_t *
 sign_or_verify_data_create()
 {
@@ -997,6 +1013,7 @@ signed_video_reset(signed_video_t *self)
     DEBUG_LOG("Resetting signed session");
     // Reset session states
     SV_THROW(legacy_sv_reset(self->legacy_sv));
+    SV_THROW(msrc_to_svrc(onvif_media_signing_reset(self->onvif)));
     self->signing_started = false;
     self->sei_generation_enabled = false;
     gop_info_reset(self->gop_info);
@@ -1027,6 +1044,9 @@ signed_video_free(signed_video_t *self)
 
   // Free the legacy validation if present.
   legacy_sv_free(self->legacy_sv);
+  if (self->onvif) {
+    onvif_media_signing_free(self->onvif);
+  }
 
   // Teardown the plugin before closing.
   sv_signing_plugin_session_teardown(self->plugin_handle);
