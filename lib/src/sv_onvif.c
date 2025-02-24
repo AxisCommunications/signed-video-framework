@@ -23,6 +23,25 @@
 #include "sv_defines_general.h"  // ATTR_UNUSED
 
 // Stubs for ONVIF APIs
+// Common for Signing and Validation
+
+onvif_media_signing_t *
+onvif_media_signing_create(MediaSigningCodec ATTR_UNUSED codec)
+{
+  return NULL;
+}
+
+MediaSigningReturnCode
+onvif_media_signing_reset(onvif_media_signing_t ATTR_UNUSED *self)
+{
+  return OMS_NOT_SUPPORTED;
+}
+
+void
+onvif_media_signing_free(onvif_media_signing_t ATTR_UNUSED *self)
+{
+}
+
 // Signing side
 
 MediaSigningReturnCode
