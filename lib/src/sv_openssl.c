@@ -542,6 +542,16 @@ done:
   return algo_name;
 }
 
+char *
+openssl_get_hash_algo(const void *handle)
+{
+  openssl_crypto_t *self = (openssl_crypto_t *)handle;
+  if (!self) {
+    return NULL;
+  }
+  return openssl_encoded_oid_to_str(self->hash_algo.encoded_oid, self->hash_algo.encoded_oid_size);
+}
+
 size_t
 openssl_get_hash_size(void *handle)
 {

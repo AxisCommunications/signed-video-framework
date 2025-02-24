@@ -471,11 +471,12 @@ port_settings_to_onvif(signed_video_t *self)
     return SV_OK;
   }
 
+  char *hash_algo_name = openssl_get_hash_algo(self->crypto_handle);
   const bool low_bitrate = (self->authenticity_level == SV_AUTHENTICITY_LEVEL_GOP);
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    // TODO: Get and port hash algo
+    SV_THROW(msrc_to_svrc(onvif_media_signing_set_hash_algo(self->onvif, hash_algo_name)));
     // TODO: Convert and port product_info
     SV_THROW(msrc_to_svrc(
         onvif_media_signing_set_emulation_prevention_before_signing(self->onvif, self->sei_epb)));
@@ -493,6 +494,8 @@ port_settings_to_onvif(signed_video_t *self)
     self->onvif = NULL;
   }
   SV_DONE(status)
+
+  free(hash_algo_name);
 
   return status;
 }

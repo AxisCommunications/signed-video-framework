@@ -110,6 +110,18 @@ char *
 openssl_encoded_oid_to_str(const unsigned char *encoded_oid, size_t encoded_oid_size);
 
 /**
+ * @brief Gets the hash algorithm
+ *
+ * Returns a null-terminated string defining the hashing algorithm and NULL upon failure.
+ *
+ * @param handle Pointer to the OpenSSL cryptographic handle.
+ *
+ * @return The hashing algorithm as a null-terminated string.
+ */
+char *
+openssl_get_hash_algo(const void *handle);
+
+/**
  * @brief Gets the hash size of the hashing algorithm
  *
  * Returns the hash size of the hashing algorithm and 0 upon failure.
