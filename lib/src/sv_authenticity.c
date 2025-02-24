@@ -411,7 +411,12 @@ convert_onvif_authenticity_report(onvif_media_signing_authenticity_t *onvif_auth
   strcpy(authenticity->this_version, "ONVIF ");
   strcat(authenticity->this_version, onvif_authenticity->this_version);
 
-  // TODO: Port |vendor_info|
+  // Copy |vendor_info|
+  strcpy(authenticity->product_info.firmware_version,
+      onvif_authenticity->vendor_info.firmware_version);
+  strcpy(authenticity->product_info.serial_number, onvif_authenticity->vendor_info.serial_number);
+  strcpy(authenticity->product_info.manufacturer, onvif_authenticity->vendor_info.manufacturer);
+
   // TODO: Port |latest_validation|
   // TODO: Port |accumulated_validation|
 
