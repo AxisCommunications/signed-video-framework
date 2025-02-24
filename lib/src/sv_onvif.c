@@ -100,6 +100,13 @@ onvif_media_signing_set_end_of_stream(onvif_media_signing_t ATTR_UNUSED *self)
   return OMS_NOT_SUPPORTED;
 }
 
+MediaSigningReturnCode
+onvif_media_signing_set_low_bitrate_mode(onvif_media_signing_t ATTR_UNUSED *self,
+    bool ATTR_UNUSED low_bitrate)
+{
+  return OMS_NOT_SUPPORTED;
+}
+
 // Validation side
 
 MediaSigningReturnCode

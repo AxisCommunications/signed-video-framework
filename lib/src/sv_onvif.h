@@ -103,6 +103,9 @@ onvif_media_signing_set_emulation_prevention_before_signing(onvif_media_signing_
 MediaSigningReturnCode
 onvif_media_signing_set_end_of_stream(onvif_media_signing_t *self);
 
+MediaSigningReturnCode
+onvif_media_signing_set_low_bitrate_mode(onvif_media_signing_t *self, bool low_bitrate);
+
 // Validation side
 MediaSigningReturnCode
 onvif_media_signing_add_nalu_and_authenticate(onvif_media_signing_t *self,
