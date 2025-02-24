@@ -47,8 +47,39 @@ typedef struct {
 // Define MediaSigningCodec
 typedef enum { OMS_CODEC_H264 = 0, OMS_CODEC_H265 = 1, OMS_CODEC_NUM } MediaSigningCodec;
 
+// Dummy define MediaSigningAuthenticityAndProvenance
+typedef int MediaSigningAuthenticityAndProvenance;
+typedef enum {
+  OMS_PROVENANCE_NOT_FEASIBLE = 0,
+  OMS_PROVENANCE_NOT_OK = 1,
+  OMS_PROVENANCE_FEASIBLE_WITHOUT_TRUSTED = 2,
+  OMS_PROVENANCE_OK = 3,
+  OMS_PROVENANCE_NUM_STATES
+} MediaSigningProvenanceResult;
+// Define MediaSigningAuthenticityResult
+typedef enum {
+  OMS_NOT_SIGNED = 0,
+  OMS_AUTHENTICITY_NOT_FEASIBLE = 1,
+  OMS_AUTHENTICITY_NOT_OK = 2,
+  OMS_AUTHENTICITY_OK_WITH_MISSING_INFO = 3,
+  OMS_AUTHENTICITY_OK = 4,
+  OMS_AUTHENTICITY_VERSION_MISMATCH = 5,
+  OMS_AUTHENTICITY_NUM_STATES
+} MediaSigningAuthenticityResult;
+// Define onvif_media_signing_latest_validation_t
+typedef struct {
+  MediaSigningAuthenticityAndProvenance authenticity_and_provenance;
+  MediaSigningProvenanceResult provenance;
+  bool public_key_has_changed;
+  MediaSigningAuthenticityResult authenticity;
+  int number_of_expected_hashable_nalus;
+  int number_of_received_hashable_nalus;
+  int number_of_pending_hashable_nalus;
+  char *validation_str;
+  char *nalu_str;
+  int64_t timestamp;
+} onvif_media_signing_latest_validation_t;
 // Dummy re-definitions until true content is needed.
-typedef int onvif_media_signing_latest_validation_t;
 typedef int onvif_media_signing_accumulated_validation_t;
 typedef struct {
   char *version_on_signing_side;
@@ -115,6 +146,9 @@ onvif_media_signing_set_emulation_prevention_before_signing(onvif_media_signing_
 
 MediaSigningReturnCode
 onvif_media_signing_set_end_of_stream(onvif_media_signing_t *self);
+
+MediaSigningReturnCode
+onvif_media_signing_set_low_bitrate_mode(onvif_media_signing_t *self, bool low_bitrate);
 
 // Validation side
 MediaSigningReturnCode
