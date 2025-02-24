@@ -34,7 +34,7 @@ onvif_media_signing_create(MediaSigningCodec ATTR_UNUSED codec)
 MediaSigningReturnCode
 onvif_media_signing_reset(onvif_media_signing_t ATTR_UNUSED *self)
 {
-  return OMS_INVALID_PARAMETER;
+  return OMS_NOT_SUPPORTED;
 }
 
 void
