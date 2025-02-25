@@ -109,6 +109,7 @@ bu_type_to_char(const bu_info_t *bu)
 
   switch (bu->bu_type) {
     case BU_TYPE_SEI:
+      if (bu->uuid_type == UUID_TYPE_ONVIF_MEDIA_SIGNING) return 'O';
       return bu->is_sv_sei ? (bu->is_golden_sei ? 'G' : 'S') : 'z';
     case BU_TYPE_I:
       return bu->is_primary_slice == true ? 'I' : 'i';
