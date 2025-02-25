@@ -20,7 +20,7 @@
  */
 
 /**
- * This signing plugin sets up a worker thread and calls openssl_sign_hash(), from the worker
+ * This signing plugin sets up a worker thread and calls sv_openssl_sign_hash(), from the worker
  * thread, when there is a new hash to sign. To handle several signatures at the same time, the
  * plugin has two buffers. One for incomming hashes and another one for outgoing signatures.
  * The thread is stopped if 1) the out buffer is full, 2) there was a failure in the memory
@@ -119,7 +119,7 @@ sign_data_free(sign_or_verify_data_t *sign_data)
 {
   if (!sign_data) return;
 
-  openssl_free_key(sign_data->key);
+  sv_openssl_free_key(sign_data->key);
   free(sign_data->signature);
   free(sign_data->hash);
   free(sign_data);
@@ -445,7 +445,7 @@ central_worker_thread(void *user_data)
       // blocked, since variables need to be read under a lock.
       central.is_in_signing = true;
       g_mutex_unlock(&(central.mutex));
-      status = openssl_sign_hash(central.sign_data);
+      status = sv_openssl_sign_hash(central.sign_data);
       g_mutex_lock(&(central.mutex));
       central.is_in_signing = false;
 
@@ -600,7 +600,7 @@ local_worker_thread(void *user_data)
       // blocked, since variables need to be read under a lock.
       self->is_in_signing = true;
       g_mutex_unlock(&self->mutex);
-      SignedVideoReturnCode status = openssl_sign_hash(self->sign_data);
+      SignedVideoReturnCode status = sv_openssl_sign_hash(self->sign_data);
       g_mutex_lock(&self->mutex);
       self->is_in_signing = false;
 

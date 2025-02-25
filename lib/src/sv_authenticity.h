@@ -47,7 +47,7 @@ transfer_product_info(signed_video_product_info_t *dst, const signed_video_produ
  * @param self The struct to initialize.
  */
 void
-latest_validation_init(signed_video_latest_validation_t *self);
+sv_latest_validation_init(signed_video_latest_validation_t *self);
 
 /**
  * @brief Initializes a signed_video_accumulated_validation_t struct
@@ -57,7 +57,7 @@ latest_validation_init(signed_video_latest_validation_t *self);
  * @param self The struct to initialize.
  */
 void
-accumulated_validation_init(signed_video_accumulated_validation_t *self);
+sv_accumulated_validation_init(signed_video_accumulated_validation_t *self);
 
 /**
  * @brief Maybe creates a local authenticity report
@@ -70,7 +70,7 @@ accumulated_validation_init(signed_video_accumulated_validation_t *self);
  * @return A Signed Video Return Code
  */
 svrc_t
-create_local_authenticity_report_if_needed(signed_video_t *self);
+sv_create_local_authenticity_report_if_needed(signed_video_t *self);
 
 /**
  * @brief Copies a null-terminated string
@@ -87,7 +87,7 @@ svrc_t
 allocate_memory_and_copy_string(char **dst_str, const char *src_str);
 
 void
-update_authenticity_report(signed_video_t *self);
+sv_update_authenticity_report(signed_video_t *self);
 
 /**
  * @brief Updates a signed_video_accumulated_validation_t struct

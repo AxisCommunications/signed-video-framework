@@ -31,8 +31,8 @@
 #include "legacy/legacy_internal.h"
 #include "legacy/legacy_tlv.h"  // legacy_tlv_decode()
 #include "sv_authenticity.h"  // update_accumulated_validation()
-#include "sv_openssl_internal.h"  // openssl_verify_hash()
-#include "sv_tlv.h"  // tlv_find_tag()
+#include "sv_openssl_internal.h"  // sv_openssl_verify_hash()
+#include "sv_tlv.h"  // sv_tlv_find_tag()
 
 static bool
 legacy_verify_hashes_without_sei(legacy_sv_t *self);
@@ -791,7 +791,7 @@ legacy_prepare_for_validation(legacy_sv_t *self)
       }
       printf("\n");
 #endif
-      SV_THROW(openssl_verify_hash(verify_data, &self->gop_info->verified_signature_hash));
+      SV_THROW(sv_openssl_verify_hash(verify_data, &self->gop_info->verified_signature_hash));
     }
 
   SV_CATCH()
@@ -1025,7 +1025,7 @@ legacy_update_hashable_data(legacy_bu_info_t *bu)
   // emulation prevention bytes) coresponding to that tag. This is done by scanning the TLV for that
   // tag.
   const uint8_t *signature_tag_ptr =
-      tlv_find_tag(bu->tlv_start_in_bu_data, bu->tlv_size, SIGNATURE_TAG, bu->with_epb);
+      sv_tlv_find_tag(bu->tlv_start_in_bu_data, bu->tlv_size, SIGNATURE_TAG, bu->with_epb);
 
   if (signature_tag_ptr) bu->hashable_data_size = signature_tag_ptr - bu->hashable_data;
 }
