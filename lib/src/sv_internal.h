@@ -442,7 +442,12 @@ MediaSigningCodec
 sv_codec_to_ms_codec(SignedVideoCodec sv_codec);
 
 /**
- * Depricated public API which is still handy in tests. */
+ * Goes through all Signed Video settings and ports them to ONVIF Media Signing. */
+svrc_t
+port_settings_to_onvif(signed_video_t *self);
+
+/**
+ * Deprecated public API which is still handy in tests. */
 SignedVideoReturnCode
 signed_video_add_nalu_for_signing(signed_video_t *self,
     const uint8_t *bu_data,

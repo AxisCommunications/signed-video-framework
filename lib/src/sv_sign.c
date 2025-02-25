@@ -459,6 +459,44 @@ prepare_for_signing(signed_video_t *self)
   return status;
 }
 
+svrc_t
+port_settings_to_onvif(signed_video_t *self)
+{
+  // Sanity checks.
+  if (!self) {
+    return SV_INVALID_PARAMETER;
+  }
+  // Only applies if ONVIF Media Signing is active (has been created).
+  if (!self->onvif) {
+    return SV_OK;
+  }
+
+  const bool low_bitrate = (self->authenticity_level == SV_AUTHENTICITY_LEVEL_GOP);
+
+  svrc_t status = SV_UNKNOWN_FAILURE;
+  SV_TRY()
+    // TODO: Get and port hash algo
+    // TODO: Convert and port product_info
+    SV_THROW(msrc_to_svrc(
+        onvif_media_signing_set_emulation_prevention_before_signing(self->onvif, self->sei_epb)));
+    SV_THROW(msrc_to_svrc(
+        onvif_media_signing_set_max_signing_frames(self->onvif, self->max_signing_frames)));
+    SV_THROW(msrc_to_svrc(
+        onvif_media_signing_set_use_certificate_sei(self->onvif, self->using_golden_sei)));
+    SV_THROW(msrc_to_svrc(onvif_media_signing_set_low_bitrate_mode(self->onvif, low_bitrate)));
+    SV_THROW(msrc_to_svrc(
+        onvif_media_signing_set_max_sei_payload_size(self->onvif, self->max_sei_payload_size)));
+  SV_CATCH()
+  {
+    // Discard ONVIF Media Signing if failed setting parameters.
+    onvif_media_signing_free(self->onvif);
+    self->onvif = NULL;
+  }
+  SV_DONE(status)
+
+  return status;
+}
+
 /**
  * @brief Public signed_video_sign.h APIs
  */
