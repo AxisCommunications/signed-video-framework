@@ -137,6 +137,12 @@ onvif_media_signing_add_nalu_and_authenticate(onvif_media_signing_t ATTR_UNUSED 
   return OMS_NOT_SUPPORTED;
 }
 
+onvif_media_signing_authenticity_t *
+onvif_media_signing_get_authenticity_report(onvif_media_signing_t ATTR_UNUSED *self)
+{
+  return NULL;
+}
+
 void
 onvif_media_signing_authenticity_report_free(
     onvif_media_signing_authenticity_t ATTR_UNUSED *authenticity_report)
