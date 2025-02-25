@@ -32,8 +32,16 @@
 #include "legacy_validation.h"  // legacy_sv_t
 #include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
 #include "sv_defines_general.h"  // ATTR_UNUSED
-#ifndef HAS_ONVIF
+
+// Include ONVIF Media Signing
+#if defined(NO_ONVIF_MEDIA_SIGNING)
 #include "sv_onvif.h"  // Stubs for ONVIF APIs and structs
+#elif defined(ONVIF_MEDIA_SIGNING_INSTALLED)
+// ONVIF Media Signing is installed separately; Camera
+#include <media-signing-framework/onvif_media_signing_common.h>
+#else
+// ONVIF Media Signing is dragged in as a submodule; FilePlayer
+#include "includes/onvif_media_signing_common.h"
 #endif
 
 // Currently the largest supported hash is SHA-512.

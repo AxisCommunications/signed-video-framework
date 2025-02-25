@@ -1656,6 +1656,11 @@ START_TEST(factory_provisioned_key)
 
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = setting.codec;
+  // If the test has been built with ONVIF Media Signing, factory provisioned keys will
+  // use Media Signing for H.264 and H.265.
+#ifndef NO_ONVIF_MEDIA_SIGNING
+  if (codec != SV_CODEC_AV1) return;
+#endif
   test_stream_item_t *i_item = test_stream_item_create_from_type('I', 0, codec);
   test_stream_item_t *p_item = test_stream_item_create_from_type('P', 1, codec);
   test_stream_item_t *i_item_2 = test_stream_item_create_from_type('I', 2, codec);

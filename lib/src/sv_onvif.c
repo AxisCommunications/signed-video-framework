@@ -20,6 +20,9 @@
  */
 #include "sv_onvif.h"
 
+// Add empty definitions if ONVIF Media Signing code is not present.
+#ifdef NO_ONVIF_MEDIA_SIGNING
+
 #include "sv_defines_general.h"  // ATTR_UNUSED
 
 // Stubs for ONVIF APIs
@@ -157,3 +160,5 @@ onvif_media_signing_set_trusted_certificate(onvif_media_signing_t ATTR_UNUSED *s
 {
   return OMS_NOT_SUPPORTED;
 }
+
+#endif  // NO_ONVIF_MEDIA_SIGNING

@@ -31,11 +31,19 @@
 #include "sv_bu_list.h"  // bu_list_append()
 #include "sv_defines.h"  // svrc_t
 #include "sv_internal.h"  // gop_info_t, validation_flags_t
-#ifndef HAS_ONVIF
-#include "sv_onvif.h"  // Stubs for ONVIF APIs and structs
-#endif
 #include "sv_openssl_internal.h"  // openssl_{verify_hash, public_key_malloc}()
 #include "sv_tlv.h"  // sv_tlv_find_tag()
+
+// Include ONVIF Media Signing
+#if defined(NO_ONVIF_MEDIA_SIGNING)
+#include "sv_onvif.h"  // Stubs for ONVIF APIs and structs
+#elif defined(ONVIF_MEDIA_SIGNING_INSTALLED)
+// ONVIF Media Signing is installed separately; Camera
+#include <media-signing-framework/onvif_media_signing_validator.h>
+#else
+// ONVIF Media Signing is dragged in as a submodule; FilePlayer
+#include "includes/onvif_media_signing_validator.h"
+#endif
 
 static svrc_t
 decode_sei_data(signed_video_t *signed_video, const uint8_t *payload, size_t payload_size);
