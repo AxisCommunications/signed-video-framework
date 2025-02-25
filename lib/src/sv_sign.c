@@ -459,6 +459,17 @@ prepare_for_signing(signed_video_t *self)
   return status;
 }
 
+static onvif_media_signing_vendor_info_t
+convert_product_info(const signed_video_product_info_t *product_info)
+{
+  onvif_media_signing_vendor_info_t vendor_info = {0};
+  strncpy(vendor_info.firmware_version, product_info->firmware_version, 255);
+  strncpy(vendor_info.serial_number, product_info->serial_number, 255);
+  strncpy(vendor_info.manufacturer, product_info->manufacturer, 255);
+
+  return vendor_info;
+}
+
 svrc_t
 port_settings_to_onvif(signed_video_t *self)
 {
@@ -471,13 +482,14 @@ port_settings_to_onvif(signed_video_t *self)
     return SV_OK;
   }
 
+  onvif_media_signing_vendor_info_t vendor_info = convert_product_info(&self->product_info);
   char *hash_algo_name = openssl_get_hash_algo(self->crypto_handle);
   const bool low_bitrate = (self->authenticity_level == SV_AUTHENTICITY_LEVEL_GOP);
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW(msrc_to_svrc(onvif_media_signing_set_hash_algo(self->onvif, hash_algo_name)));
-    // TODO: Convert and port product_info
+    SV_THROW(msrc_to_svrc(onvif_media_signing_set_vendor_info(self->onvif, &vendor_info)));
     SV_THROW(msrc_to_svrc(
         onvif_media_signing_set_emulation_prevention_before_signing(self->onvif, self->sei_epb)));
     SV_THROW(msrc_to_svrc(
@@ -837,16 +849,7 @@ signed_video_set_product_info(signed_video_t *self,
   }
   // If ONVIF is available, translate and call ONVIF API
   if (self->onvif) {
-    onvif_media_signing_vendor_info_t vendor_info = {0};
-    if (firmware_version) {
-      strncpy(vendor_info.firmware_version, firmware_version, 255);
-    }
-    if (serial_number) {
-      strncpy(vendor_info.serial_number, serial_number, 255);
-    }
-    if (manufacturer) {
-      strncpy(vendor_info.manufacturer, manufacturer, 255);
-    }
+    onvif_media_signing_vendor_info_t vendor_info = convert_product_info(&self->product_info);
     return msrc_to_svrc(onvif_media_signing_set_vendor_info(self->onvif, &vendor_info));
   }
 
