@@ -563,6 +563,28 @@ parse_bu_info(const uint8_t *bu_data,
   return bu;
 }
 
+char *
+get_private_key_from_sv(signed_video_t *self)
+{
+  if (!self || !self->private_key) return NULL;
+  size_t private_key_size = strlen(self->private_key);
+  if (private_key_size == 0) return NULL;
+
+  // Allocate memory for the private key copy (+1 for null terminator)
+  char *private_key_copy = (char *)malloc(private_key_size + 1);
+  if (!private_key_copy) return NULL;
+
+  // Copy the private key from self
+  memcpy(private_key_copy, self->private_key, private_key_size);
+  private_key_copy[private_key_size] = '\0';
+#if defined(SIGNED_VIDEO_DEBUG)
+  printf("Coppied Private Key :\n %s \n", private_key_copy);
+
+#endif
+
+  return private_key_copy;
+}
+
 /**
  * @brief Copy a Bitstream Unit Information struct (bu_info_t)
  *

@@ -66,6 +66,15 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
     uint8_t attestation_size,
     const char *certificate_chain);
 
+/**
+ * @brief Retrieves the certificate chain from the vendor handle.
+ *
+ * @param sv The signed_video_t structure containing vendor_handle.
+ * @return The certificate chain as a null-terminated string, or NULL on failure.
+ */
+const char *
+get_certificate_chain(signed_video_t *sv);
+
 // APIs for validating a signed video.
 
 #ifdef __cplusplus

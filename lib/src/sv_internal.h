@@ -329,6 +329,8 @@ struct _signed_video_t {
   // For signature verification
   sign_or_verify_data_t *verify_data;  // All necessary information to verify a signature.
 
+  char *private_key;
+
   // Shortcuts to authenticity information.
   // If no authenticity report has been set by the user the memory is allocated and used locally.
   // Otherwise, these members point to the corresponding members in |authenticity| below.
@@ -373,6 +375,10 @@ update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size);
 
 svrc_t
 hash_and_add_for_auth(signed_video_t *signed_video, bu_list_item_t *item);
+/**
+ * Extracts the private key from sign_data and returns it as a PEM-formatted string.*/
+char *
+get_private_key_from_sv(signed_video_t *signed_video);
 
 bu_info_t
 parse_bu_info(const uint8_t *bu_data,

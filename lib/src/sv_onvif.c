@@ -45,6 +45,17 @@ onvif_media_signing_free(onvif_media_signing_t ATTR_UNUSED *self)
 // Signing side
 
 MediaSigningReturnCode
+onvif_media_signing_set_signing_key_pair(onvif_media_signing_t ATTR_UNUSED *self,
+    const char ATTR_UNUSED *private_key,
+    size_t ATTR_UNUSED private_key_size,
+    const char ATTR_UNUSED *certificate_chain,
+    size_t ATTR_UNUSED certificate_chain_size,
+    bool ATTR_UNUSED user_provisioned)
+{
+  return OMS_NOT_SUPPORTED;
+}
+
+MediaSigningReturnCode
 onvif_media_signing_add_nalu_part_for_signing(onvif_media_signing_t ATTR_UNUSED *self,
     const uint8_t ATTR_UNUSED *nalu_part,
     size_t ATTR_UNUSED nalu_part_size,
