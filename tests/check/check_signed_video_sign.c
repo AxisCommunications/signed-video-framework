@@ -510,22 +510,17 @@ START_TEST(check_the_priv_key)
   ck_assert(read_test_private_key(settings[_i].ec_key, &private_key, &private_key_size, false));
   signed_video_set_private_key(sv, private_key, private_key_size);
   const char *private_key_2 = get_private_key_from_sv(sv);
-  // ck_assert_int_eq (strcmp(private_key, private_key_2),0);
+  private_key_size = strlen(private_key_2);
   signed_video_free(sv);
-  signed_video_t *sv_2 = get_initialized_signed_video(settings[_i], false);
-  ck_assert(sv_2);
-  test_stream_item_t *i_frame_1 = test_stream_item_create_from_type('I', 0, codec);
-  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 1, codec);
+
+  sv = signed_video_create(codec);
+  ck_assert(sv);
   signed_video_set_private_key(sv, private_key_2, private_key_size);
-  SignedVideoReturnCode sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
-      sv, i_frame_1->data, i_frame_1->data_size, NULL);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
-      sv, i_frame_2->data, i_frame_2->data_size, NULL);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  test_stream_item_free(i_frame_1);
-  test_stream_item_free(i_frame_2);
-  signed_video_free(sv_2);
+  test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIPPIP", false, false);
+  test_stream_check_types(list, "IPPISPPISP");
+  test_stream_free(list);
+  signed_video_free(sv);
+  free((char *)private_key_2);
 }
 END_TEST
 
