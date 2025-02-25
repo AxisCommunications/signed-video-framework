@@ -120,6 +120,8 @@ get_type_char(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
         type = 'Z';
       else if (bu.is_golden_sei)
         type = 'G';
+      else if (bu.uuid_type == UUID_TYPE_ONVIF_MEDIA_SIGNING)
+        type = 'O';
       else
         type = 'S';
       break;
