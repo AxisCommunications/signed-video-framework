@@ -526,7 +526,6 @@ START_TEST(check_the_priv_key)
   test_stream_item_free(i_frame_1);
   test_stream_item_free(i_frame_2);
   signed_video_free(sv_2);
-  free(private_key_2);
 }
 END_TEST
 

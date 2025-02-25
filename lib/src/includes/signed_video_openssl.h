@@ -101,6 +101,7 @@ openssl_private_key_malloc(sign_or_verify_data_t *sign_data,
 void
 openssl_free_key(void *key);
 
+char* get_private_key_from_sign_data(sign_or_verify_data_t *sign_data);
 /**
  * @brief Helper function to generate a private key
  *
