@@ -456,6 +456,58 @@ transfer_onvif_latest(signed_video_latest_validation_t *latest,
   latest->timestamp = convert_1601_to_unix_us(onvif_latest->timestamp);
 }
 
+static void
+transfer_onvif_accumulated(signed_video_accumulated_validation_t *accumulated,
+    const onvif_media_signing_accumulated_validation_t *onvif_accumulated)
+{
+  // Sanity check.
+  if (!accumulated || !onvif_accumulated) return;
+
+  // Convert authenticity result
+  switch (onvif_accumulated->authenticity) {
+    case OMS_AUTHENTICITY_VERSION_MISMATCH:
+      accumulated->authenticity = SV_AUTH_RESULT_NOT_SIGNED;
+      break;
+    case OMS_AUTHENTICITY_OK:
+      accumulated->authenticity = SV_AUTH_RESULT_OK;
+      break;
+    case OMS_AUTHENTICITY_OK_WITH_MISSING_INFO:
+      accumulated->authenticity = SV_AUTH_RESULT_OK_WITH_MISSING_INFO;
+      break;
+    case OMS_AUTHENTICITY_NOT_OK:
+      accumulated->authenticity = SV_AUTH_RESULT_NOT_OK;
+      break;
+    case OMS_AUTHENTICITY_NOT_FEASIBLE:
+      accumulated->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+      break;
+    case OMS_NOT_SIGNED:
+    default:
+      accumulated->authenticity = SV_AUTH_RESULT_NOT_SIGNED;
+      break;
+  }
+  accumulated->public_key_has_changed = onvif_accumulated->public_key_has_changed;
+  accumulated->number_of_received_nalus = onvif_accumulated->number_of_received_nalus;
+  accumulated->number_of_validated_nalus = onvif_accumulated->number_of_validated_nalus;
+  accumulated->number_of_pending_nalus = onvif_accumulated->number_of_pending_nalus;
+  // Convert provenance result
+  switch (onvif_accumulated->provenance) {
+    case OMS_PROVENANCE_OK:
+      accumulated->public_key_validation = SV_PUBKEY_VALIDATION_OK;
+      break;
+    case OMS_PROVENANCE_FEASIBLE_WITHOUT_TRUSTED:
+    case OMS_PROVENANCE_NOT_OK:
+      accumulated->public_key_validation = SV_PUBKEY_VALIDATION_NOT_OK;
+      break;
+    case OMS_PROVENANCE_NOT_FEASIBLE:
+    default:
+      accumulated->public_key_validation = SV_PUBKEY_VALIDATION_NOT_FEASIBLE;
+      break;
+  }
+  accumulated->has_timestamp = true;
+  accumulated->first_timestamp = convert_1601_to_unix_us(onvif_accumulated->first_timestamp);
+  accumulated->last_timestamp = convert_1601_to_unix_us(onvif_accumulated->last_timestamp);
+}
+
 signed_video_authenticity_t *
 convert_onvif_authenticity_report(onvif_media_signing_authenticity_t *onvif_authenticity)
 {
@@ -476,11 +528,11 @@ convert_onvif_authenticity_report(onvif_media_signing_authenticity_t *onvif_auth
   strcpy(authenticity->product_info.serial_number, onvif_authenticity->vendor_info.serial_number);
   strcpy(authenticity->product_info.manufacturer, onvif_authenticity->vendor_info.manufacturer);
 
-  // Port |latest_validation|
+  // Port |latest_validation| and |accumulated_validation|
   transfer_onvif_latest(
       &(authenticity->latest_validation), &(onvif_authenticity->latest_validation));
-
-  // TODO: Port |accumulated_validation|
+  transfer_onvif_accumulated(
+      &(authenticity->accumulated_validation), &(onvif_authenticity->accumulated_validation));
 
   // Free the ONVIF report.
   onvif_media_signing_authenticity_report_free(onvif_authenticity);

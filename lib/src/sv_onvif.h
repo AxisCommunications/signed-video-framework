@@ -79,8 +79,19 @@ typedef struct {
   char *nalu_str;
   int64_t timestamp;
 } onvif_media_signing_latest_validation_t;
-// Dummy re-definitions until true content is needed.
-typedef int onvif_media_signing_accumulated_validation_t;
+// Defines onvif_media_signing_accumulated_validation_t
+typedef struct {
+  MediaSigningAuthenticityAndProvenance authenticity_and_provenance;
+  MediaSigningProvenanceResult provenance;
+  bool public_key_has_changed;
+  MediaSigningAuthenticityResult authenticity;
+  unsigned int number_of_received_nalus;
+  unsigned int number_of_validated_nalus;
+  unsigned int number_of_pending_nalus;
+  int64_t first_timestamp;
+  int64_t last_timestamp;
+} onvif_media_signing_accumulated_validation_t;
+// Defines onvif_media_signing_authenticity_t
 typedef struct {
   char *version_on_signing_side;
   char *this_version;
