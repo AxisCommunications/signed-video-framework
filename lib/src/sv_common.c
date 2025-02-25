@@ -1012,6 +1012,9 @@ signed_video_reset(signed_video_t *self)
     SV_THROW_IF(!self, SV_INVALID_PARAMETER);
     DEBUG_LOG("Resetting signed session");
     // Reset session states
+    if (self->onvif) {
+      SV_THROW(msrc_to_svrc(onvif_media_signing_reset(self->onvif)));
+    }
     SV_THROW(legacy_sv_reset(self->legacy_sv));
     if (self->onvif) {
       SV_THROW(msrc_to_svrc(onvif_media_signing_reset(self->onvif)));
@@ -1044,6 +1047,8 @@ signed_video_free(signed_video_t *self)
   DEBUG_LOG("Free signed video %p", self);
   if (!self) return;
 
+  // Free the ONVIF Media Signing session if present.
+  onvif_media_signing_free(self->onvif);
   // Free the legacy validation if present.
   legacy_sv_free(self->legacy_sv);
   // Free the onvif object if present.
