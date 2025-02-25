@@ -91,6 +91,7 @@ typedef enum {
 
 /* SEI UUID types */
 extern const uint8_t kUuidSignedVideo[UUID_LEN];
+extern const uint8_t kUuidOnvifMediaSigning[UUID_LEN];
 
 /**
  * A struct representing the stream of Bitstream Units (BUs), added to Signed Video for
