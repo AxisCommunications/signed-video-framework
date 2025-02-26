@@ -1096,6 +1096,8 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
 
   // Skip validation if it is done with the legacy code.
   if (self->legacy_sv) return SV_OK;
+  // Skip validation if it is done by ONVIF Media Signing.
+  if (self->onvif) return SV_OK;
 
   // Make sure the current BU can trigger a validation.
   validation_feasible &= validation_is_feasible(bu_list->last_item);
@@ -1312,6 +1314,58 @@ reregister_bu(signed_video_t *self)
   return status;
 }
 
+static svrc_t
+detect_onvif_media_signing(signed_video_t *self, const bu_info_t *bu)
+{
+  assert(self && bu);
+  // Create an ONVIF Media Signing session for validation if and only if a SEI of type
+  // ONVIF Media Signing has been detected AND the library has been build for Axis
+  // Communications (|vendor_handle| exists).
+  if (bu->uuid_type != UUID_TYPE_ONVIF_MEDIA_SIGNING && self->vendor_handle) {
+    return SV_OK;
+  }
+
+  char *trusted_certificate = NULL;
+  size_t trusted_certificate_size = 0;
+  // Map codec to ONVIF enum.
+  MediaSigningCodec codec = OMS_CODEC_NUM;
+  switch (self->codec) {
+    case SV_CODEC_H264:
+      codec = OMS_CODEC_H264;
+      break;
+    case SV_CODEC_H265:
+      codec = OMS_CODEC_H265;
+      break;
+    default:
+      break;
+  }
+
+  svrc_t status = SV_UNKNOWN_FAILURE;
+  SV_TRY()
+    self->onvif = onvif_media_signing_create(codec);
+    SV_THROW_IF(!self->onvif, SV_EXTERNAL_ERROR);
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
+    // TODO: Get the root CA certificate from Axis code.
+#endif
+    SV_THROW(msrc_to_svrc(onvif_media_signing_set_trusted_certificate(
+        self->onvif, trusted_certificate, trusted_certificate_size, false)));
+    // If the ONVIF Media Signing session has successfully been set up, register all
+    // queued Bitstream Units to the ONVIF session.
+    SV_THROW(reregister_bu(self));
+  SV_CATCH()
+  {
+    // Make sure to free and set to NULL upon failure, since |onvif| is used to identify
+    // if ONVIF Media Signing is active.
+    onvif_media_signing_free(self->onvif);
+    self->onvif = NULL;
+  }
+  SV_DONE(status)
+
+  free(trusted_certificate);
+
+  return status;
+}
+
 /* The basic order of actions are:
  * 1. Every Bitstream Unit (BU) should be parsed and added to the |bu_list|.
  * 2. Update validation flags given the added BU.
@@ -1345,6 +1399,7 @@ add_bitstream_unit(signed_video_t *self, const uint8_t *bu_data, size_t bu_data_
     SV_THROW_IF(bu.is_valid < 0, SV_UNKNOWN_FAILURE);
     update_validation_flags(validation_flags, &bu);
     SV_THROW(register_bu(self, bu_list->last_item));
+    SV_THROW(detect_onvif_media_signing(self, &bu));
     // As soon as the first Signed Video SEI arrives (|signing_present| is true) and the
     // crypto TLV tag has been decoded it is feasible to hash the temporarily stored
     // Bitstream Units.
@@ -1372,6 +1427,10 @@ add_bitstream_unit(signed_video_t *self, const uint8_t *bu_data, size_t bu_data_
 
   // Need to make a copy of the |bu| independently of failure.
   svrc_t copy_bu_status = bu_list_copy_last_item(bu_list, validation_flags->hash_algo_known);
+  // Empty the |bu_list| if validation has been transferred to ONVIF Media Signing.
+  if (self->onvif) {
+    bu_list_free_items(self->bu_list);
+  }
   // Make sure to return the first failure if both operations failed.
   status = (status == SV_OK) ? copy_bu_status : status;
   if (status != SV_OK) {
