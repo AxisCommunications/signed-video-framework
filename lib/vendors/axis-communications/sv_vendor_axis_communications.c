@@ -885,3 +885,9 @@ catch_error:
 
   return SV_MEMORY;
 }
+
+const char *
+get_axis_communications_trusted_certificate(void)
+{
+  return kTrustedAxisRootCA;
+}

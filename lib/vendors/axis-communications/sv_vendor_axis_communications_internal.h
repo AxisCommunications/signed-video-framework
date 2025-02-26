@@ -140,4 +140,14 @@ svrc_t
 get_axis_communications_supplemental_authenticity(void *handle,
     sv_vendor_axis_supplemental_authenticity_t **supplemental_authenticity);
 
+/**
+ * @brief Returns the trusted anchor certificate of the certificate chain
+ *
+ * The memory is NOT transferred to the user.
+ *
+ * @return A pointer to the trusted certificate as a null-terminated string.
+ */
+const char *
+get_axis_communications_trusted_certificate(void);
+
 #endif  // __SV_VENDOR_AXIS_COMMUNICATIONS_INTERNAL_H__
