@@ -25,15 +25,15 @@
 #endif
 #include <stdlib.h>  // EXIT_SUCCESS, EXIT_FAILURE, size_t, abs()
 
-#include "lib/src/includes/signed_video_common.h"
-#include "lib/src/includes/signed_video_helpers.h"
-#include "lib/src/includes/signed_video_sign.h"
+#include "includes/signed_video_common.h"
+#include "includes/signed_video_helpers.h"
+#include "includes/signed_video_sign.h"
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
-#include "lib/src/includes/sv_vendor_axis_communications.h"
+#include "includes/sv_vendor_axis_communications.h"
 #endif
-#include "lib/src/sv_codec_internal.h"  // bu_info_t, kUuidSignedVideo
-#include "lib/src/sv_internal.h"  // set_hash_list_size(), UUID_LEN
-#include "lib/src/sv_tlv.h"  // tlv_has_{optional, mandatory}_tags()
+#include "sv_codec_internal.h"  // bu_info_t, kUuidSignedVideo
+#include "sv_internal.h"  // set_hash_list_size(), UUID_LEN
+#include "sv_tlv.h"  // tlv_has_{optional, mandatory}_tags()
 #include "test_helpers.h"
 #include "test_stream.h"
 

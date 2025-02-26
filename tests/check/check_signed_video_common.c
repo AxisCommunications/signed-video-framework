@@ -22,8 +22,8 @@
 #include <stdint.h>
 #include <stdlib.h>  // EXIT_SUCCESS, EXIT_FAILURE
 
-#include "lib/src/includes/signed_video_common.h"
-#include "lib/src/sv_internal.h"
+#include "includes/signed_video_common.h"
+#include "sv_internal.h"
 
 static void
 setup()

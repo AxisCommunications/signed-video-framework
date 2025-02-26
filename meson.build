@@ -7,6 +7,8 @@ project('signed-video-framework', 'c',
 
 cc = meson.get_compiler('c')
 
+# General dependencies
+openssl_dep = dependency('openssl', required : true, version : '>=3.0.0')
 check_dep = dependency('check', required : false)
 
 if check_dep.found()
@@ -45,5 +47,31 @@ configure_file(output : 'signed-video-framework.pc', configuration : cdata)
 
 configinc = include_directories('.')
 
+# Propagate through the file structure
 subdir('lib')
+
+# Create shared library and generate a pkgconfig.
+install_headers(
+    signedvideoframework_public_headers,
+    install_dir : '@0@/signed-video-framework'.format(get_option('includedir')))
+
+signedvideoframework_deps = [ openssl_dep, plugin_deps ]
+
+signedvideoframework = shared_library(
+    'signed-video-framework',
+    signedvideoframework_sources,
+    include_directories : [ svsrcinc, vendorinc ],
+    version : meson.project_version(),
+    dependencies : signedvideoframework_deps,
+    install : true,
+)
+
+pkgconfig = import('pkgconfig')
+pkgconfig.generate(
+    signedvideoframework,
+    name : 'signed-video-framework',
+    description : 'Signed Video Framework',
+)
+
+# Add test code if possible
 subdir('tests')

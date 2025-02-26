@@ -23,16 +23,16 @@
 #include <stdlib.h>  // EXIT_SUCCESS, EXIT_FAILURE
 #include <string.h>  // strcmp
 
-#include "lib/src/includes/signed_video_auth.h"  // signed_video_authenticity_t
-#include "lib/src/includes/signed_video_common.h"  // signed_video_t
-#include "lib/src/includes/signed_video_openssl.h"  // pem_pkey_t
-#include "lib/src/includes/signed_video_sign.h"  // signed_video_set_authenticity_level()
+#include "includes/signed_video_auth.h"  // signed_video_authenticity_t
+#include "includes/signed_video_common.h"  // signed_video_t
+#include "includes/signed_video_openssl.h"  // pem_pkey_t
+#include "includes/signed_video_sign.h"  // signed_video_set_authenticity_level()
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
-#include "lib/src/includes/sv_vendor_axis_communications.h"
+#include "includes/sv_vendor_axis_communications.h"
 #endif
-#include "lib/src/sv_internal.h"  // set_hash_list_size()
-#include "lib/src/sv_openssl_internal.h"  // openssl_read_pubkey_from_private_key()
-#include "lib/src/sv_tlv.h"  // write_byte_many()
+#include "sv_internal.h"  // set_hash_list_size()
+#include "sv_openssl_internal.h"  // openssl_read_pubkey_from_private_key()
+#include "sv_tlv.h"  // write_byte_many()
 #include "test_helpers.h"  // sv_setting, create_signed_stream()
 #include "test_stream.h"  // test_stream_create()
 
