@@ -121,12 +121,12 @@ get_type_char(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
       type = 'V';
       break;
     case BU_TYPE_SEI: {
-      if (!bu.is_sv_sei && !(bu.uuid_type == UUID_TYPE_ONVIF_MEDIA_SIGNING))
+      if (bu.uuid_type == UUID_TYPE_ONVIF_MEDIA_SIGNING)
+        type = 'O';
+      else if (!bu.is_sv_sei)
         type = 'Z';
       else if (bu.is_golden_sei)
         type = 'G';
-      else if (bu.uuid_type == UUID_TYPE_ONVIF_MEDIA_SIGNING)
-        type = 'O';
       else
         type = 'S';
       break;
@@ -202,7 +202,7 @@ test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec)
     case 'O':
       bu_data = codec == SV_CODEC_H264 ? oms_sei_nalu_h264
                                        : (codec == SV_CODEC_H265 ? oms_sei_nalu_h265 : NULL);
-      bu_data_size = (codec != SV_CODEC_AV1) ? DUMMY_SEI_SIZE : DUMMY_NALU_SIZE;
+      bu_data_size = (codec != SV_CODEC_AV1) ? DUMMY_SEI_SIZE : 0;
       break;
     case 'Z':
       bu_data = codec == SV_CODEC_H264 ? sei_nalu_h264

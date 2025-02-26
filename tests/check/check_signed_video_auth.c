@@ -1458,17 +1458,34 @@ END_TEST
 START_TEST(onvif_seis)
 {
   if (settings[_i].codec == SV_CODEC_AV1) return;
-  test_stream_t *list = test_stream_create("IPIOPIOPIOPIOP", settings[_i].codec);
-  test_stream_check_types(list, "IPIOPIOPIOPIOP");
 
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_SIGNED, false, 14, 0, 14, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, false, 0, 0};
-  // No intermediate results
-  const struct validation_stats expected = {
-      .has_no_timestamp = true, .final_validation = &final_validation};
+  signed_video_t *sv = signed_video_create(settings[_i].codec);
+  ck_assert(sv);
 
-  validate_stream(NULL, list, expected, true);
+  test_stream_t *list = test_stream_create("IPIOPIOP", settings[_i].codec);
+  test_stream_check_types(list, "IPIOPIOP");
 
+  test_stream_item_t *item = list->first_item;
+  int count = 0;
+  SignedVideoReturnCode sv_rc;
+
+  // Iterate through the first 9 elements in the list
+  while (item && count < 9) {
+    // If the current item's type corresponds to 'O', expect SV_EXTERNAL_ERROR
+    if (item->type == 'O') {
+      sv_rc = signed_video_add_nalu_and_authenticate(sv, item->data, item->data_size, NULL);
+      ck_assert_int_eq(sv_rc, SV_EXTERNAL_ERROR);
+    } else {
+      sv_rc = signed_video_add_nalu_and_authenticate(sv, item->data, item->data_size, NULL);
+      ck_assert_int_eq(sv_rc, SV_OK);
+    }
+
+    // Move to the next item in the list
+    item = item->next;
+    count++;
+  }
+
+  signed_video_free(sv);
   test_stream_free(list);
 }
 END_TEST
