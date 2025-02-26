@@ -1452,6 +1452,27 @@ START_TEST(no_signature)
 }
 END_TEST
 
+/* Test description
+ * Verify that we do not get any authentication if the stream has onvif SEIs.
+ */
+START_TEST(onvif_seis)
+{
+  if (settings[_i].codec == SV_CODEC_AV1) return;
+  test_stream_t *list = test_stream_create("IPIOPIOPIOPIOP", settings[_i].codec);
+  test_stream_check_types(list, "IPIOPIOPIOPIOP");
+
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_NOT_SIGNED, false, 14, 0, 14, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, false, 0, 0};
+  // No intermediate results
+  const struct validation_stats expected = {
+      .has_no_timestamp = true, .final_validation = &final_validation};
+
+  validate_stream(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
 START_TEST(multislice_no_signature)
 {
   // For AV1, multi-slices are covered in one single OBU (OBU Frame).
@@ -2709,6 +2730,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, file_export_with_dangling_end, s, e);
   tcase_add_loop_test(tc, file_export_with_two_useless_seis, s, e);
   tcase_add_loop_test(tc, no_signature, s, e);
+  tcase_add_loop_test(tc, onvif_seis, s, e);
   tcase_add_loop_test(tc, multislice_no_signature, s, e);
   tcase_add_loop_test(tc, test_public_key_scenarios, s, e);
   tcase_add_loop_test(tc, no_public_key_in_sei_and_bad_public_key_on_validation_side, s, e);
