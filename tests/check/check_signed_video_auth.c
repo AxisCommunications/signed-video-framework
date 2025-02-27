@@ -1436,11 +1436,13 @@ END_TEST
  */
 START_TEST(onvif_seis)
 {
-  // ONVIF SEI is not supported for AV1, so skip the test in that case
-  if (settings[_i].codec == SV_CODEC_AV1) return;
-
   test_stream_t *list = test_stream_create("IPIOPIOP", settings[_i].codec);
-  test_stream_check_types(list, "IPIOPIOP");
+  if (settings[_i].codec == SV_CODEC_AV1) {
+    // ONVIF Media Signing is not supported for AV1.
+    test_stream_check_types(list, "IPIPIP");
+  } else {
+    test_stream_check_types(list, "IPIOPIOP");
+  }
 
   signed_video_t *sv = signed_video_create(settings[_i].codec);
   ck_assert(sv);
@@ -1449,12 +1451,8 @@ START_TEST(onvif_seis)
   while (item) {
     SignedVideoReturnCode sv_rc =
         signed_video_add_nalu_and_authenticate(sv, item->data, item->data_size, NULL);
-    if (item->type == 'O') {
-      // If the current item's type corresponds to 'O', expect SV_EXTERNAL_ERROR
-      ck_assert_int_eq(sv_rc, SV_EXTERNAL_ERROR);
-    } else {
-      ck_assert_int_eq(sv_rc, SV_OK);
-    }
+    // If the current item's type corresponds to 'O', expect SV_EXTERNAL_ERROR
+    ck_assert_int_eq(sv_rc, item->type == 'O' ? SV_EXTERNAL_ERROR : SV_OK);
 
     // Move to the next item in the list
     item = item->next;

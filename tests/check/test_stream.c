@@ -201,7 +201,7 @@ test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec)
       break;
     case 'O':
       bu_data = codec == SV_CODEC_H264 ? oms_sei_nalu_h264
-                                       : (codec == SV_CODEC_H265 ? oms_sei_nalu_h265 : invalid_av1);
+                                       : (codec == SV_CODEC_H265 ? oms_sei_nalu_h265 : NULL);
       bu_data_size = (codec != SV_CODEC_AV1) ? DUMMY_SEI_SIZE : 0;
       break;
     case 'Z':
@@ -220,6 +220,9 @@ test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec)
       break;
   }
 
+  if (!bu_data) {
+    return NULL;
+  }
   size_t bu_size = 0;
   if (codec != SV_CODEC_AV1) {
     bu = generate_nalu(start_code, bu_data, bu_data_size, id, &bu_size);
