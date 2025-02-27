@@ -24,7 +24,7 @@
 #include <stdint.h>  // uint8_t
 #include <string.h>  // size_t
 
-#include "lib/src/includes/signed_video_common.h"  // SignedVideoCodec
+#include "includes/signed_video_common.h"  // SignedVideoCodec
 
 /* A struct representing a Bitstream Unit in a test stream, the test stream being
  * represented as a linked list. Each object holds the data as well as pointers to the
