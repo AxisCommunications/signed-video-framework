@@ -498,6 +498,33 @@ START_TEST(correct_signed_stream_with_eos)
 END_TEST
 #endif
 
+START_TEST(check_the_priv_key)
+{
+  SignedVideoCodec codec = settings[_i].codec;
+
+  signed_video_t *sv = signed_video_create(codec);
+  ck_assert(sv);
+  char *private_key = NULL;
+  size_t private_key_size = 0;
+
+  ck_assert(read_test_private_key(settings[_i].ec_key, &private_key, &private_key_size, false));
+  signed_video_set_private_key(sv, private_key, private_key_size);
+  const char *private_key_2 = get_private_key_from_sv(sv);
+  private_key_size = strlen(private_key_2);
+  signed_video_free(sv);
+
+  sv = signed_video_create(codec);
+  ck_assert(sv);
+  signed_video_set_private_key(sv, private_key_2, private_key_size);
+  test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIPPIP", false, false);
+  test_stream_check_types(list, "IPPISPPISP");
+  test_stream_free(list);
+  signed_video_free(sv);
+  free((char *)private_key_2);
+  free(private_key);
+}
+END_TEST
+
 START_TEST(correct_signed_stream_without_eos)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
@@ -942,6 +969,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, limited_sei_payload_size, s, e);
   tcase_add_loop_test(tc, signing_partial_gops, s, e);
   tcase_add_loop_test(tc, signing_mulitslice_stream_partial_gops, s, e);
+  tcase_add_loop_test(tc, check_the_priv_key, s, e);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);

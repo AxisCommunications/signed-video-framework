@@ -563,6 +563,13 @@ parse_bu_info(const uint8_t *bu_data,
   return bu;
 }
 
+char *
+get_private_key_from_sv(signed_video_t *self)
+{
+  if (!self) return NULL;
+  return get_private_key_from_sign_data(self->sign_data);
+}
+
 /**
  * @brief Copy a Bitstream Unit Information struct (bu_info_t)
  *
