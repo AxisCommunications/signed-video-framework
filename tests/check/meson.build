@@ -42,14 +42,14 @@ test_env.append('VALGRIND_OPTS',
 test_env.append('G_SLICE', 'always-malloc')
 test_env.append('G_DEBUG', 'gc-friendly')
 
-# TODO: It is decired to set CK_FORK=no also, to get ONE leak summary and not separate ones for
+# TODO: It is desired to set CK_FORK=no also, to get ONE leak summary and not separate ones for
 # each test. But currently it fails when running in 'CK_FORK = no' mode.
 #test_env.append('CK_FORK', 'no')
 
 foreach t : tests
   testexe = executable(t[0],
                        t[1],
-                       include_directories : [ configinc, testinc ],
+                       include_directories : [ configinc, svsrcinc, testinc ],
                        dependencies : [ check_dep ],
                        link_with : signedvideoframework)
   # run tests in own directories
