@@ -23,9 +23,11 @@
 #include <stdlib.h>  // free, malloc
 #include <string.h>  // size_t, strncpy
 
+#include "axis-communications/sv_vendor_axis_communications_internal.h"
 #include "includes/signed_video_openssl.h"  // pem_pkey_t
 #include "includes/signed_video_sign.h"
 #include "includes/signed_video_signing_plugin.h"
+#include "includes/sv_vendor_axis_communications.h"
 #include "sv_authenticity.h"  // allocate_memory_and_copy_string
 #include "sv_codec_internal.h"  // METADATA_TYPE_USER_PRIVATE
 #include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
@@ -585,6 +587,10 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       }
       self->frame_count++;  // It is ok for this variable to wrap around
     }
+    // if(self->sign_data->key) {
+    //   openssl_free_key(self->sign_data->key);
+    //   self->sign_data->key = NULL;
+    // }
 
     // Determine if a SEI should be generated.
     bool new_gop = (bu_info.is_first_bu_in_gop && bu_info.is_last_bu_part);
@@ -860,6 +866,16 @@ SignedVideoReturnCode
 signed_video_set_private_key(signed_video_t *self, const char *private_key, size_t private_key_size)
 {
   if (!self || !private_key || private_key_size == 0) return SV_INVALID_PARAMETER;
+#if defined(SIGNED_VIDEO_DEBUG)
+#endif
+  // If ONVIF is available, call its function and map the return code
+  if (self->onvif) {
+    const char *certificate_chain = get_certificate_chain(self);
+    size_t certificate_chain_size = strlen(certificate_chain);
+    MediaSigningReturnCode onvif_status = onvif_media_signing_set_signing_key_pair(self->onvif,
+        private_key, private_key_size, certificate_chain, certificate_chain_size, true);
+    return msrc_to_svrc(onvif_status);
+  }
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
@@ -871,10 +887,6 @@ signed_video_set_private_key(signed_video_t *self, const char *private_key, size
     SV_THROW_IF(!self->plugin_handle, SV_EXTERNAL_ERROR);
   SV_CATCH()
   SV_DONE(status)
-
-  // Free the EVP_PKEY since it is no longer needed. It is handled by the signing plugin.
-  openssl_free_key(self->sign_data->key);
-  self->sign_data->key = NULL;
 
   return status;
 }

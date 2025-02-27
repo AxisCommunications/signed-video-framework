@@ -373,6 +373,10 @@ update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size);
 
 svrc_t
 hash_and_add_for_auth(signed_video_t *signed_video, bu_list_item_t *item);
+/**
+ * Extracts the private key from sign_data and returns it as a PEM-formatted string.*/
+char *
+get_private_key_from_sv(signed_video_t *signed_video);
 
 bu_info_t
 parse_bu_info(const uint8_t *bu_data,

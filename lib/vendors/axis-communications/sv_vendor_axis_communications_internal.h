@@ -150,4 +150,13 @@ get_axis_communications_supplemental_authenticity(void *handle,
 const char *
 get_axis_communications_trusted_certificate(void);
 
+/**
+ * @brief Retrieves the certificate chain from the vendor handle.
+ *
+ * @param sv The signed_video_t structure containing vendor_handle.
+ * @return The certificate chain as a null-terminated string, or NULL on failure.
+ */
+const char *
+get_certificate_chain(signed_video_t *sv);
+
 #endif  // __SV_VENDOR_AXIS_COMMUNICATIONS_INTERNAL_H__

@@ -115,6 +115,14 @@ onvif_media_signing_free(onvif_media_signing_t *self);
 // Signing side
 
 MediaSigningReturnCode
+onvif_media_signing_set_signing_key_pair(onvif_media_signing_t *self,
+    const char *private_key,
+    size_t private_key_size,
+    const char *certificate_chain,
+    size_t certificate_chain_size,
+    bool user_provisioned);
+
+MediaSigningReturnCode
 onvif_media_signing_add_nalu_part_for_signing(onvif_media_signing_t *self,
     const uint8_t *nalu_part,
     size_t nalu_part_size,
