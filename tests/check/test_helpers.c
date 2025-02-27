@@ -31,11 +31,9 @@
 #include <unistd.h>  // getcwd
 #endif
 
-#include "lib/src/includes/signed_video_common.h"
-#include "lib/src/includes/signed_video_openssl.h"
-#include "lib/src/includes/signed_video_sign.h"
-#include "lib/src/sv_internal.h"  // parse_bu_info(), kUuidSignedVideo
-#include "lib/src/sv_tlv.h"  // tlv_find_tag()
+#include "includes/signed_video_openssl.h"
+#include "sv_internal.h"  // parse_bu_info(), kUuidSignedVideo
+#include "sv_tlv.h"  // tlv_find_tag()
 
 #define RSA_PRIVATE_KEY_ALLOC_BYTES 2000
 #define ECDSA_PRIVATE_KEY_ALLOC_BYTES 1000
