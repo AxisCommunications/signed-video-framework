@@ -1432,6 +1432,40 @@ START_TEST(file_export_with_two_useless_seis)
 END_TEST
 
 /* Test description
+ * Verify that we do not get any authentication if the stream has onvif SEIs.
+ */
+START_TEST(onvif_seis)
+{
+  // ONVIF SEI is not supported for AV1, so skip the test in that case
+  if (settings[_i].codec == SV_CODEC_AV1) return;
+
+  test_stream_t *list = test_stream_create("IPIOPIOP", settings[_i].codec);
+  test_stream_check_types(list, "IPIOPIOP");
+
+  signed_video_t *sv = signed_video_create(settings[_i].codec);
+  ck_assert(sv);
+
+  test_stream_item_t *item = list->first_item;
+  while (item) {
+    SignedVideoReturnCode sv_rc =
+        signed_video_add_nalu_and_authenticate(sv, item->data, item->data_size, NULL);
+    if (item->type == 'O') {
+      // If the current item's type corresponds to 'O', expect SV_EXTERNAL_ERROR
+      ck_assert_int_eq(sv_rc, SV_EXTERNAL_ERROR);
+    } else {
+      ck_assert_int_eq(sv_rc, SV_OK);
+    }
+
+    // Move to the next item in the list
+    item = item->next;
+  }
+
+  signed_video_free(sv);
+  test_stream_free(list);
+}
+END_TEST
+
+/* Test description
  * Verify that we do not get any authentication if the stream has no signature
  */
 START_TEST(no_signature)
@@ -1448,44 +1482,6 @@ START_TEST(no_signature)
 
   validate_stream(NULL, list, expected, true);
 
-  test_stream_free(list);
-}
-END_TEST
-
-/* Test description
- * Verify that we do not get any authentication if the stream has onvif SEIs.
- */
-START_TEST(onvif_seis)
-{
-  if (settings[_i].codec == SV_CODEC_AV1) return;
-
-  signed_video_t *sv = signed_video_create(settings[_i].codec);
-  ck_assert(sv);
-
-  test_stream_t *list = test_stream_create("IPIOPIOP", settings[_i].codec);
-  test_stream_check_types(list, "IPIOPIOP");
-
-  test_stream_item_t *item = list->first_item;
-  int count = 0;
-  SignedVideoReturnCode sv_rc;
-
-  // Iterate through the first 9 elements in the list
-  while (item && count < 9) {
-    // If the current item's type corresponds to 'O', expect SV_EXTERNAL_ERROR
-    if (item->type == 'O') {
-      sv_rc = signed_video_add_nalu_and_authenticate(sv, item->data, item->data_size, NULL);
-      ck_assert_int_eq(sv_rc, SV_EXTERNAL_ERROR);
-    } else {
-      sv_rc = signed_video_add_nalu_and_authenticate(sv, item->data, item->data_size, NULL);
-      ck_assert_int_eq(sv_rc, SV_OK);
-    }
-
-    // Move to the next item in the list
-    item = item->next;
-    count++;
-  }
-
-  signed_video_free(sv);
   test_stream_free(list);
 }
 END_TEST
@@ -2746,8 +2742,8 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, fast_forward_stream_with_delayed_seis, s, e);
   tcase_add_loop_test(tc, file_export_with_dangling_end, s, e);
   tcase_add_loop_test(tc, file_export_with_two_useless_seis, s, e);
-  tcase_add_loop_test(tc, no_signature, s, e);
   tcase_add_loop_test(tc, onvif_seis, s, e);
+  tcase_add_loop_test(tc, no_signature, s, e);
   tcase_add_loop_test(tc, multislice_no_signature, s, e);
   tcase_add_loop_test(tc, test_public_key_scenarios, s, e);
   tcase_add_loop_test(tc, no_public_key_in_sei_and_bad_public_key_on_validation_side, s, e);
