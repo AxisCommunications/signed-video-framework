@@ -67,10 +67,6 @@ typedef enum {
 } SignedVideoCodec;
 
 /**
- * Extracts the private key from sign_data and returns it as a PEM-formatted string.*/
-char*
-get_private_key_from_sv(signed_video_t* self);
-/**
  * @brief Creates a new signed video session.
  *
  * Creates a signed_video_t object which the user should keep across the entire streaming session.

@@ -587,10 +587,6 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       }
       self->frame_count++;  // It is ok for this variable to wrap around
     }
-    // if(self->sign_data->key) {
-    //   openssl_free_key(self->sign_data->key);
-    //   self->sign_data->key = NULL;
-    // }
 
     // Determine if a SEI should be generated.
     bool new_gop = (bu_info.is_first_bu_in_gop && bu_info.is_last_bu_part);
