@@ -33,22 +33,22 @@
  *
  * Allocates the memory for a crypthographic |handle| holding specific OpenSSL information. This
  * handle should be created when starting the session and freed at teardown with
- * openssl_free_handle().
+ * sv_openssl_free_handle().
  *
  * @return Pointer to the OpenSSL cryptographic handle.
  */
 void *
-openssl_create_handle(void);
+sv_openssl_create_handle(void);
 
 /**
  * @brief Free cryptographic handle
  *
- * Frees a crypthographic |handle| created with openssl_create_handle().
+ * Frees a crypthographic |handle| created with sv_openssl_create_handle().
  *
  * @param handle Pointer to the OpenSSL cryptographic handle.
  */
 void
-openssl_free_handle(void *handle);
+sv_openssl_free_handle(void *handle);
 
 /**
  * @brief Sets hashing algorithm
@@ -63,7 +63,7 @@ openssl_free_handle(void *handle);
  *         SV_INVALID_PARAMETER Null pointer |handle| or invalid |name_or_oid|.
  */
 svrc_t
-openssl_set_hash_algo(void *handle, const char *name_or_oid);
+sv_openssl_set_hash_algo(void *handle, const char *name_or_oid);
 
 /**
  * @brief Sets the hashing algorithm given by its OID on ASN.1/DER form
@@ -78,7 +78,7 @@ openssl_set_hash_algo(void *handle, const char *name_or_oid);
  *         Other appropriate error.
  */
 svrc_t
-openssl_set_hash_algo_by_encoded_oid(void *handle,
+sv_openssl_set_hash_algo_by_encoded_oid(void *handle,
     const unsigned char *encoded_oid,
     size_t encoded_oid_size);
 
@@ -94,7 +94,7 @@ openssl_set_hash_algo_by_encoded_oid(void *handle,
  *         and a NULL pointer upon failure.
  */
 const unsigned char *
-openssl_get_hash_algo_encoded_oid(void *handle, size_t *encoded_oid_size);
+sv_openssl_get_hash_algo_encoded_oid(void *handle, size_t *encoded_oid_size);
 
 /**
  * @brief Converts hashing algorithm from OID form to readable string
@@ -107,7 +107,7 @@ openssl_get_hash_algo_encoded_oid(void *handle, size_t *encoded_oid_size);
  * @return A string.
  */
 char *
-openssl_encoded_oid_to_str(const unsigned char *encoded_oid, size_t encoded_oid_size);
+sv_openssl_encoded_oid_to_str(const unsigned char *encoded_oid, size_t encoded_oid_size);
 
 /**
  * @brief Gets the hash algorithm
@@ -131,17 +131,17 @@ openssl_get_hash_algo(const void *handle);
  * @return The size of the hash.
  */
 size_t
-openssl_get_hash_size(void *handle);
+sv_openssl_get_hash_size(void *handle);
 
 /**
  * @brief Hashes data
  *
- * Uses the hash algorithm set through openssl_set_hash_algo() to hash data. The memory
- * for the |hash| has to be pre-allocated by the user. Use openssl_get_hash_size() to get
+ * Uses the hash algorithm set through sv_openssl_set_hash_algo() to hash data. The memory
+ * for the |hash| has to be pre-allocated by the user. Use sv_openssl_get_hash_size() to get
  * the hash size.
  *
- * This is a simplification for calling openssl_init_hash(), openssl_update_hash() and
- * openssl_finalize_hash() done in one go.
+ * This is a simplification for calling sv_openssl_init_hash(), sv_openssl_update_hash() and
+ * sv_openssl_finalize_hash() done in one go.
  *
  * @param data Pointer to the data to hash.
  * @param data_size Size of the |data| to hash.
@@ -152,7 +152,7 @@ openssl_get_hash_size(void *handle);
  *         SV_EXTERNAL_ERROR Failed to hash.
  */
 svrc_t
-openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *hash);
+sv_openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *hash);
 
 /**
  * @brief Initiates the cryptographic handle for hashing data
@@ -167,7 +167,7 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
  *         SV_EXTERNAL_ERROR Failed to initialize.
  */
 svrc_t
-openssl_init_hash(void *handle, bool use_primary_ctx);
+sv_openssl_init_hash(void *handle, bool use_primary_ctx);
 
 /**
  * @brief Updates the cryptographic handle with |data| for hashing
@@ -185,7 +185,7 @@ openssl_init_hash(void *handle, bool use_primary_ctx);
  *         SV_EXTERNAL_ERROR Failed to update.
  */
 svrc_t
-openssl_update_hash(void *handle, const uint8_t *data, size_t data_size, bool use_primary_ctx);
+sv_openssl_update_hash(void *handle, const uint8_t *data, size_t data_size, bool use_primary_ctx);
 
 /**
  * @brief Finalizes the cryptographic handle and outputs the hash
@@ -202,7 +202,7 @@ openssl_update_hash(void *handle, const uint8_t *data, size_t data_size, bool us
  *         SV_EXTERNAL_ERROR Failed to finalize.
  */
 svrc_t
-openssl_finalize_hash(void *handle, uint8_t *hash, bool use_primary_ctx);
+sv_openssl_finalize_hash(void *handle, uint8_t *hash, bool use_primary_ctx);
 
 /**
  * @brief Verifies a signature against a hash
@@ -218,7 +218,7 @@ openssl_finalize_hash(void *handle, uint8_t *hash, bool use_primary_ctx);
  *         SV_INVALID_PARAMETER Errors in |verify_data|, or null pointer inputs,
  */
 svrc_t
-openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_result);
+sv_openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_result);
 
 /**
  * @brief Reads the public key from the private key
@@ -242,7 +242,7 @@ openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_
  *
  * The function takes the public key as a pem_pkey_t and stores it as |public_key| in
  * |verify_data| on the EVP_PKEY form.
- * Use openssl_free_key() to free the key context.
+ * Use sv_openssl_free_key() to free the key context.
  *
  * @param verify_data A pointer to the struct that holds all necessary information for signing.
  * @param pem_public_key A pointer to the PEM format struct.

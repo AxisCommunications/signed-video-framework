@@ -32,7 +32,7 @@
 #include "includes/signed_video_openssl.h"  // sign_or_verify_data_t
 #include "sv_authenticity.h"  // allocate_memory_and_copy_string, transfer_product_info()
 #include "sv_openssl_internal.h"  // openssl_public_key_malloc()
-#include "sv_tlv.h"  // read_8bits, read_16bits, read_32bits, read_64bits_signed
+#include "sv_tlv.h"  // sv_read_8bits, sv_read_16bits, sv_read_32bits, sv_read_64bits_signed
 
 /**
  * Decoder interfaces
@@ -185,9 +185,9 @@ legacy_decode_general(legacy_sv_t *self, const uint8_t *data, size_t data_size)
   SV_TRY()
     SV_THROW_IF(version < 1 || version > 2, SV_INCOMPATIBLE_VERSION);
 
-    data_ptr += read_32bits(data_ptr, &gop_info->global_gop_counter);
+    data_ptr += sv_read_32bits(data_ptr, &gop_info->global_gop_counter);
     DEBUG_LOG("Found GOP counter = %u", gop_info->global_gop_counter);
-    data_ptr += read_16bits(data_ptr, &gop_info->num_sent);
+    data_ptr += sv_read_16bits(data_ptr, &gop_info->num_sent);
     DEBUG_LOG("Number of sent Bitstream Units = %u", gop_info->num_sent);
 
     for (int i = 0; i < SV_VERSION_BYTES; i++) {
@@ -196,15 +196,15 @@ legacy_decode_general(legacy_sv_t *self, const uint8_t *data, size_t data_size)
     if (self->authenticity) {
       code_version_str = self->authenticity->version_on_signing_side;
     }
-    bytes_to_version_str(self->code_version, code_version_str);
+    sv_bytes_to_version_str(self->code_version, code_version_str);
 
     if (version >= 2) {
       // Read bool flags
       uint8_t flags = 0;
-      data_ptr += read_8bits(data_ptr, &flags);
+      data_ptr += sv_read_8bits(data_ptr, &flags);
       gop_info->has_timestamp = flags & 0x01;
       if (gop_info->has_timestamp) {
-        data_ptr += read_64bits_signed(data_ptr, &gop_info->timestamp);
+        data_ptr += sv_read_64bits_signed(data_ptr, &gop_info->timestamp);
       }
       if (self->latest_validation) {
         self->latest_validation->has_timestamp = gop_info->has_timestamp;
@@ -430,7 +430,7 @@ legacy_decode_hash_list(legacy_sv_t *self, const uint8_t *data, size_t data_size
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
 #ifdef PRINT_DECODED_SEI
-    size_t hash_size = openssl_get_hash_size(self->crypto_handle);
+    size_t hash_size = sv_openssl_get_hash_size(self->crypto_handle);
     printf("\nHash list Tag\n");
     printf("             tag version: %u\n", version);
     printf("  hash list (%3zu hashes): \n", hash_list_size / hash_size);
@@ -461,7 +461,7 @@ legacy_decode_signature(legacy_sv_t *self, const uint8_t *data, size_t data_size
   size_t max_signature_size = 0;
 
   // Read true size of the signature.
-  data_ptr += read_16bits(data_ptr, &signature_size);
+  data_ptr += sv_read_16bits(data_ptr, &signature_size);
   // The rest of the value bytes should now be the allocated size for the signature.
   max_signature_size = data_size - (data_ptr - data);
 
@@ -512,15 +512,15 @@ legacy_decode_crypto_info(legacy_sv_t *self, const uint8_t *data, size_t data_si
   size_t hash_algo_encoded_oid_size = *data_ptr++;
   const unsigned char *hash_algo_encoded_oid = (const unsigned char *)data_ptr;
   char *hash_algo_name =
-      openssl_encoded_oid_to_str(hash_algo_encoded_oid, hash_algo_encoded_oid_size);
+      sv_openssl_encoded_oid_to_str(hash_algo_encoded_oid, hash_algo_encoded_oid_size);
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
     SV_THROW_IF(hash_algo_encoded_oid_size == 0, SV_AUTHENTICATION_ERROR);
-    SV_THROW(openssl_set_hash_algo_by_encoded_oid(
+    SV_THROW(sv_openssl_set_hash_algo_by_encoded_oid(
         self->crypto_handle, hash_algo_encoded_oid, hash_algo_encoded_oid_size));
-    self->verify_data->hash_size = openssl_get_hash_size(self->crypto_handle);
+    self->verify_data->hash_size = sv_openssl_get_hash_size(self->crypto_handle);
     data_ptr += hash_algo_encoded_oid_size;
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
@@ -582,7 +582,7 @@ legacy_decode_tlv_header(const uint8_t *data,
   *tag = tag_from_data;
 
   if (tlv.bytes_for_length == 2) {
-    data_ptr += read_16bits(data_ptr, (uint16_t *)length);
+    data_ptr += sv_read_16bits(data_ptr, (uint16_t *)length);
   } else {
     *length = *data_ptr++;
   }

@@ -366,10 +366,10 @@ check_and_copy_hash_to_hash_list(signed_video_t *signed_video,
     size_t hash_size);
 
 svrc_t
-hash_and_add(signed_video_t *self, const bu_info_t *bu);
+sv_hash_and_add(signed_video_t *self, const bu_info_t *bu);
 
 svrc_t
-update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size);
+sv_update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size);
 
 svrc_t
 hash_and_add_for_auth(signed_video_t *signed_video, bu_list_item_t *item);
@@ -385,10 +385,10 @@ void
 copy_bu_except_pointers(bu_info_t *dst_bu, const bu_info_t *src_bu);
 
 void
-update_hashable_data(bu_info_t *bu);
+sv_update_hashable_data(bu_info_t *bu);
 
 void
-bytes_to_version_str(const int *arr, char *str);
+sv_bytes_to_version_str(const int *arr, char *str);
 
 int64_t
 convert_unix_us_to_1601(int64_t timestamp);

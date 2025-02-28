@@ -34,7 +34,7 @@
 #include "sv_onvif.h"  // Stubs for ONVIF APIs and structs
 #endif
 #include "sv_openssl_internal.h"
-#include "sv_tlv.h"  // tlv_list_encode_or_get_size()
+#include "sv_tlv.h"  // sv_tlv_list_encode_or_get_size()
 
 static void
 bu_set_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDType uuid_type);
@@ -68,7 +68,7 @@ bu_set_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDType uu
       return;
   }
   for (int i = 0; i < UUID_LEN; i++) {
-    write_byte(&self->last_two_bytes, payload, uuid[i], true);
+    sv_write_byte(&self->last_two_bytes, payload, uuid[i], true);
   }
 }
 
@@ -186,8 +186,8 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
   size_t num_optional_tags = 0;
   size_t num_mandatory_tags = 0;
 
-  const sv_tlv_tag_t *optional_tags = get_optional_tags(&num_optional_tags);
-  const sv_tlv_tag_t *mandatory_tags = get_mandatory_tags(&num_mandatory_tags);
+  const sv_tlv_tag_t *optional_tags = sv_get_optional_tags(&num_optional_tags);
+  const sv_tlv_tag_t *mandatory_tags = sv_get_mandatory_tags(&num_mandatory_tags);
   const sv_tlv_tag_t gop_info_encoders[] = {
       SIGNATURE_TAG,
   };
@@ -213,12 +213,13 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
   SV_TRY()
     // Get the total payload size of all TLVs. Then compute the total size of the SEI to be
     // generated. Add extra space for potential emulation prevention bytes.
-    optional_tags_size = tlv_list_encode_or_get_size(self, optional_tags, num_optional_tags, NULL);
+    optional_tags_size =
+        sv_tlv_list_encode_or_get_size(self, optional_tags, num_optional_tags, NULL);
     if (self->using_golden_sei && !self->is_golden_sei) optional_tags_size = 0;
     mandatory_tags_size =
-        tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, NULL);
+        sv_tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, NULL);
     if (self->is_golden_sei) mandatory_tags_size = 0;
-    gop_info_size = tlv_list_encode_or_get_size(self, gop_info_encoders, num_gop_encoders, NULL);
+    gop_info_size = sv_tlv_list_encode_or_get_size(self, gop_info_encoders, num_gop_encoders, NULL);
 
     payload_size = gop_info_size + optional_tags_size + mandatory_tags_size;
     payload_size += UUID_LEN;  // UUID
@@ -229,7 +230,7 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
       payload_size -= mandatory_tags_size;
       self->gop_info->list_idx = -1;  // Reset hash list size to exclude it from TLV
       mandatory_tags_size =
-          tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, NULL);
+          sv_tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, NULL);
       payload_size += mandatory_tags_size;
     }
     // Compute total SEI data size.
@@ -273,25 +274,25 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
       *payload_ptr++ = 0x01;
 
       if (self->codec == SV_CODEC_H264) {
-        write_byte(last_two_bytes, &payload_ptr, 0x06, false);  // SEI NAL type
+        sv_write_byte(last_two_bytes, &payload_ptr, 0x06, false);  // SEI NAL type
       } else if (self->codec == SV_CODEC_H265) {
-        write_byte(last_two_bytes, &payload_ptr, 0x4E, false);  // SEI NAL type
+        sv_write_byte(last_two_bytes, &payload_ptr, 0x4E, false);  // SEI NAL type
         // nuh_layer_id and nuh_temporal_id_plus1
-        write_byte(last_two_bytes, &payload_ptr, 0x01, false);
+        sv_write_byte(last_two_bytes, &payload_ptr, 0x01, false);
       }
       // last_payload_type_byte : user_data_unregistered
-      write_byte(last_two_bytes, &payload_ptr, 0x05, false);
+      sv_write_byte(last_two_bytes, &payload_ptr, 0x05, false);
 
       // Payload size
       size_t size_left = payload_size;
       while (size_left >= 0xFF) {
-        write_byte(last_two_bytes, &payload_ptr, 0xFF, false);
+        sv_write_byte(last_two_bytes, &payload_ptr, 0xFF, false);
         size_left -= 0xFF;
       }
       // last_payload_size_byte - u(8)
-      write_byte(last_two_bytes, &payload_ptr, (uint8_t)size_left, false);
+      sv_write_byte(last_two_bytes, &payload_ptr, (uint8_t)size_left, false);
     } else {
-      write_byte(last_two_bytes, &payload_ptr, 0x2A, false);  // OBU header
+      sv_write_byte(last_two_bytes, &payload_ptr, 0x2A, false);  // OBU header
       // Write payload size
       size_t size_left = payload_size;
       while (size_left > 0) {
@@ -306,12 +307,13 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
           // No more bytes to come. Clear highest bit
           byte &= 0x7F;
         }
-        write_byte(last_two_bytes, &payload_ptr, byte, false);  // obu_size
+        sv_write_byte(last_two_bytes, &payload_ptr, byte, false);  // obu_size
       }
       // Write metadata_type
-      write_byte(last_two_bytes, &payload_ptr, METADATA_TYPE_USER_PRIVATE, false);  // metadata_type
+      sv_write_byte(
+          last_two_bytes, &payload_ptr, METADATA_TYPE_USER_PRIVATE, false);  // metadata_type
       // Intermediate trailing byte
-      write_byte(last_two_bytes, &payload_ptr, 0x80, false);  // trailing byte
+      sv_write_byte(last_two_bytes, &payload_ptr, 0x80, false);  // trailing byte
     }
 
     // User data unregistered UUID field
@@ -329,14 +331,14 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
     size_t written_size = 0;
     if (optional_tags_size > 0) {
       written_size =
-          tlv_list_encode_or_get_size(self, optional_tags, num_optional_tags, payload_ptr);
+          sv_tlv_list_encode_or_get_size(self, optional_tags, num_optional_tags, payload_ptr);
       SV_THROW_IF(written_size == 0, SV_MEMORY);
       payload_ptr += written_size;
     }
 
     if (mandatory_tags_size > 0) {
       written_size =
-          tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, payload_ptr);
+          sv_tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, payload_ptr);
       SV_THROW_IF(written_size == 0, SV_MEMORY);
       payload_ptr += written_size;
     }
@@ -344,16 +346,16 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
     // Up till now we have all the hashable data available. Before writing the signature TLV to the
     // payload we need to hash the BU as it is so far and update the |gop_hash|. Parse a fake BU
     // with the data so far and we will automatically get the pointers to the |hashable_data| and
-    // the size of it. Then we can use the hash_and_add() function.
+    // the size of it. Then we can use the sv_hash_and_add() function.
     {
       size_t fake_payload_size = (payload_ptr - *payload);
       // Force SEI to be hashable.
       bu_info_t bu_without_signature_data =
           parse_bu_info(*payload, fake_payload_size, self->codec, false, true);
       // Create a document hash.
-      SV_THROW(hash_and_add(self, &bu_without_signature_data));
-      // Note that the "add" part of the hash_and_add() operation above is actually only necessary
-      // for SV_AUTHENTICITY_LEVEL_GOP where we need to update the |gop_hash|. For
+      SV_THROW(sv_hash_and_add(self, &bu_without_signature_data));
+      // Note that the "add" part of the sv_hash_and_add() operation above is actually only
+      // necessary for SV_AUTHENTICITY_LEVEL_GOP where we need to update the |gop_hash|. For
       // SV_AUTHENTICITY_LEVEL_FRAME adding this hash to the |hash_list| is pointless, since we have
       // already encoded the |hash_list|. There is no harm done though, since the list will be reset
       // after generating the SEI. So, for simplicity, we use the same function for both
@@ -410,11 +412,11 @@ get_sign_and_complete_sei(signed_video_t *self, uint8_t **payload, uint8_t *payl
 
   const size_t num_gop_encoders = ARRAY_SIZE(gop_info_encoders);
   size_t written_size =
-      tlv_list_encode_or_get_size(self, gop_info_encoders, num_gop_encoders, payload_ptr);
+      sv_tlv_list_encode_or_get_size(self, gop_info_encoders, num_gop_encoders, payload_ptr);
   payload_ptr += written_size;
 
   // Stop bit (Trailing bit identical for both H.26x and AV1)
-  write_byte(last_two_bytes, &payload_ptr, 0x80, false);
+  sv_write_byte(last_two_bytes, &payload_ptr, 0x80, false);
 
 #ifdef SIGNED_VIDEO_DEBUG
   size_t data_filled_size = payload_ptr - *payload;
@@ -613,7 +615,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
         uint8_t *payload_signature_ptr = NULL;
 
         // If there are hashes added to the hash list, the |computed_gop_hash| can be finalized.
-        SV_THROW(openssl_finalize_hash(self->crypto_handle, gop_info->computed_gop_hash, true));
+        SV_THROW(sv_openssl_finalize_hash(self->crypto_handle, gop_info->computed_gop_hash, true));
         SV_THROW(generate_sei(self, &payload, &payload_signature_ptr));
         // Add |payload| to buffer. Will be picked up again when the signature has been generated.
         add_payload_to_buffer(self, payload, payload_signature_ptr);
@@ -622,7 +624,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       }
       self->sei_generation_enabled = true;
     }
-    SV_THROW(hash_and_add(self, &bu_info));
+    SV_THROW(sv_hash_and_add(self, &bu_info));
     // Increment frame counter after the incoming Bitstream Unit has been processed.
     if (bu_info.is_primary_slice && bu_info.is_last_bu_part) {
       gop_info->num_frames_in_partial_gop++;
@@ -669,8 +671,8 @@ get_signature_complete_sei_and_add_to_prepend(signed_video_t *self)
       // Verify the just signed hash.
       int verified = -1;
       SV_THROW_WITH_MSG(
-          openssl_verify_hash(&verify_data, &verified), "Verification test had errors");
-      openssl_free_key(verify_data.key);
+          sv_openssl_verify_hash(&verify_data, &verified), "Verification test had errors");
+      sv_openssl_free_key(verify_data.key);
       if (!self->using_golden_sei) {
         SV_THROW_IF_WITH_MSG(verified != 1, SV_EXTERNAL_ERROR, "Verification test failed");
       }
@@ -873,7 +875,7 @@ signed_video_set_private_key(signed_video_t *self, const char *private_key, size
   SV_DONE(status)
 
   // Free the EVP_PKEY since it is no longer needed. It is handled by the signing plugin.
-  openssl_free_key(self->sign_data->key);
+  sv_openssl_free_key(self->sign_data->key);
   self->sign_data->key = NULL;
 
   return status;
@@ -981,8 +983,8 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid)
   size_t hash_size = 0;
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SV_THROW(openssl_set_hash_algo(self->crypto_handle, name_or_oid));
-    hash_size = openssl_get_hash_size(self->crypto_handle);
+    SV_THROW(sv_openssl_set_hash_algo(self->crypto_handle, name_or_oid));
+    hash_size = sv_openssl_get_hash_size(self->crypto_handle);
     SV_THROW_IF(hash_size == 0 || hash_size > MAX_HASH_SIZE, SV_NOT_SUPPORTED);
 
     self->sign_data->hash_size = hash_size;

@@ -24,9 +24,9 @@
 #include "legacy/legacy_bu_list.h"  // legacy_bu_list_create()
 #include "legacy/legacy_internal.h"  // Has public declarations
 #include "legacy_validation.h"  // Has public declarations
-#include "sv_authenticity.h"  // latest_validation_init()
-#include "sv_openssl_internal.h"  // openssl_hash_data
-#include "sv_tlv.h"  // read_32bits(), read_byte()
+#include "sv_authenticity.h"  // sv_latest_validation_init()
+#include "sv_openssl_internal.h"  // sv_openssl_hash_data
+#include "sv_tlv.h"  // sv_read_32bits(), sv_read_byte()
 
 // The salt added to the recursive hash to get the final gop_hash
 #define GOP_HASH_SALT 1
@@ -161,7 +161,7 @@ legacy_reset_gop_hash(legacy_sv_t *self)
   assert(gop_info);
 
   gop_info->num_in_gop_hash = 0;
-  return openssl_hash_data(self->crypto_handle, &gop_info->gop_hash_init, 1, gop_info->gop_hash);
+  return sv_openssl_hash_data(self->crypto_handle, &gop_info->gop_hash_init, 1, gop_info->gop_hash);
 }
 
 static size_t
@@ -493,7 +493,7 @@ legacy_remove_epb_from_sei_payload(legacy_bu_info_t *bu)
     // prevention bytes removed.
     const uint8_t *hashable_data_ptr = bu->hashable_data;
     for (size_t i = 0; i < data_size; i++) {
-      bu->nalu_data_wo_epb[i] = read_byte(&last_two_bytes, &hashable_data_ptr, true);
+      bu->nalu_data_wo_epb[i] = sv_read_byte(&last_two_bytes, &hashable_data_ptr, true);
     }
     // Point |tlv_data| to the first byte of the TLV part in |nalu_data_wo_epb|.
     bu->tlv_data = &bu->nalu_data_wo_epb[data_size - bu->payload_size + UUID_LEN];
@@ -548,7 +548,7 @@ legacy_parse_bu_info(const uint8_t *bu_data,
 
   if (codec != SV_CODEC_AV1) {
     // There is no start code for AV1.
-    read_bytes = read_32bits(bu_data, &start_code);
+    read_bytes = sv_read_32bits(bu_data, &start_code);
     if (start_code != kStartCode) {
       // Check if this is a 3 byte Start Code.
       read_bytes = 3;
@@ -728,12 +728,13 @@ legacy_update_gop_hash(void *crypto_handle, legacy_gop_info_t *gop_info)
 {
   if (!gop_info) return SV_INVALID_PARAMETER;
 
-  size_t hash_size = openssl_get_hash_size(crypto_handle);
+  size_t hash_size = sv_openssl_get_hash_size(crypto_handle);
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Update the gop_hash, that is, hash the memory (both hashes) in hashes = [gop_hash, latest
     // bu_hash] and replace the gop_hash part with the new hash.
-    SV_THROW(openssl_hash_data(crypto_handle, gop_info->hashes, 2 * hash_size, gop_info->gop_hash));
+    SV_THROW(
+        sv_openssl_hash_data(crypto_handle, gop_info->hashes, 2 * hash_size, gop_info->gop_hash));
 
 #ifdef SIGNED_VIDEO_DEBUG
     printf("Latest BU hash ");
@@ -790,7 +791,7 @@ legacy_update_hash(legacy_sv_t *self,
   const uint8_t *hashable_data = bu->hashable_data;
   size_t hashable_data_size = bu->hashable_data_size;
 
-  return openssl_update_hash(self->crypto_handle, hashable_data, hashable_data_size, false);
+  return sv_openssl_update_hash(self->crypto_handle, hashable_data, hashable_data_size, false);
 }
 
 /* simply_hash()
@@ -806,12 +807,12 @@ legacy_simply_hash(legacy_sv_t *self, const legacy_bu_info_t *bu, uint8_t *hash,
 
   if (bu->is_first_bu_part) {
     // Entire BU can be hashed in one part.
-    return openssl_hash_data(self->crypto_handle, hashable_data, hashable_data_size, hash);
+    return sv_openssl_hash_data(self->crypto_handle, hashable_data, hashable_data_size, hash);
   } else {
     svrc_t status = legacy_update_hash(self, bu, hash, hash_size);
     if (status == SV_OK) {
       // Finalize the ongoing hash of BU parts.
-      status = openssl_finalize_hash(self->crypto_handle, hash, false);
+      status = sv_openssl_finalize_hash(self->crypto_handle, hash, false);
       // For the first BU in a GOP, the hash is used twice. Once for linking and once as reference
       // for the future. Store the |bu_hash| in |tmp_hash| to be copied for its second use, since
       // it is not possible to recompute the hash from partial BU data.
@@ -890,8 +891,8 @@ legacy_hash_with_reference(legacy_sv_t *self,
     // Hash BU data and store as |bu_hash|.
     SV_THROW(legacy_simply_hash(self, bu, bu_hash, hash_size));
     // Hash reference hash together with the |bu_hash| and store in |buddy_hash|.
-    SV_THROW(
-        openssl_hash_data(self->crypto_handle, gop_info->hash_buddies, hash_size * 2, buddy_hash));
+    SV_THROW(sv_openssl_hash_data(
+        self->crypto_handle, gop_info->hash_buddies, hash_size * 2, buddy_hash));
   SV_CATCH()
   SV_DONE(status)
 
@@ -1030,12 +1031,12 @@ legacy_sv_reset(legacy_sv_t *self)
 
     legacy_gop_state_reset(&(self->gop_state));
     legacy_validation_flags_init(&(self->validation_flags));
-    latest_validation_init(self->latest_validation);
-    accumulated_validation_init(self->accumulated_validation);
+    sv_latest_validation_init(self->latest_validation);
+    sv_accumulated_validation_init(self->accumulated_validation);
     // Empty the |bu_list|.
     legacy_bu_list_free_items(self->bu_list);
 
-    SV_THROW(openssl_init_hash(self->crypto_handle, false));
+    SV_THROW(sv_openssl_init_hash(self->crypto_handle, false));
 
     SV_THROW(legacy_reset_gop_hash(self));
   SV_CATCH()

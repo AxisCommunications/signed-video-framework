@@ -257,44 +257,44 @@ encode_general(signed_video_t *self, uint8_t *data)
   bool epb = self->sei_epb;
 
   // Version
-  write_byte(last_two_bytes, &data_ptr, version, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, version, epb);
   // GOP counter; 4 bytes
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter >> 24) & 0x000000ff), epb);
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter >> 16) & 0x000000ff), epb);
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter >> 8) & 0x000000ff), epb);
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter)&0x000000ff), epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter >> 24) & 0x000000ff), epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter >> 16) & 0x000000ff), epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter >> 8) & 0x000000ff), epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter)&0x000000ff), epb);
   // Write num_in_partial_gop; 2 bytes
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)((num_in_partial_gop >> 8) & 0x00ff), epb);
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)((num_in_partial_gop)&0x00ff), epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((num_in_partial_gop >> 8) & 0x00ff), epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((num_in_partial_gop)&0x00ff), epb);
 
   for (int i = 0; i < SV_VERSION_BYTES; i++) {
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)self->code_version[i], epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)self->code_version[i], epb);
   }
 
   // Write bool flags; 1 byte | xxxxxx | triggered_partial_gop | has_timestamp |
   flags |= (gop_info->has_timestamp << 0) & 0x01;
   flags |= (gop_info->triggered_partial_gop << 1) & 0x02;
-  write_byte(last_two_bytes, &data_ptr, flags, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, flags, epb);
   if (gop_info->has_timestamp) {
     // Write timestamp; 8 bytes
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 56) & 0x000000ff), epb);
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 48) & 0x000000ff), epb);
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 40) & 0x000000ff), epb);
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 32) & 0x000000ff), epb);
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 24) & 0x000000ff), epb);
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 16) & 0x000000ff), epb);
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 8) & 0x000000ff), epb);
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp)&0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 56) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 48) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 40) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 32) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 24) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 16) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 8) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp)&0x000000ff), epb);
   }
 
   // Write linked hash; hash_size bytes
   for (size_t i = 0; i < self->sign_data->hash_size; i++) {
-    write_byte(last_two_bytes, &data_ptr, gop_info->linked_hashes[i], epb);
+    sv_write_byte(last_two_bytes, &data_ptr, gop_info->linked_hashes[i], epb);
   }
 
   // Write GOP hash; hash_size bytes
   for (size_t i = 0; i < self->sign_data->hash_size; i++) {
-    write_byte(last_two_bytes, &data_ptr, gop_info->computed_gop_hash[i], epb);
+    sv_write_byte(last_two_bytes, &data_ptr, gop_info->computed_gop_hash[i], epb);
   }
 
   gop_info->current_partial_gop = gop_counter;
@@ -322,9 +322,9 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
   SV_TRY()
     SV_THROW_IF(version < 1 || version > 3, SV_INCOMPATIBLE_VERSION);
 
-    data_ptr += read_32bits(data_ptr, &gop_info->current_partial_gop);
+    data_ptr += sv_read_32bits(data_ptr, &gop_info->current_partial_gop);
     DEBUG_LOG("Found GOP counter = %u", gop_info->current_partial_gop);
-    data_ptr += read_16bits(data_ptr, &gop_info->num_sent);
+    data_ptr += sv_read_16bits(data_ptr, &gop_info->num_sent);
     DEBUG_LOG("Number of sent Bitstream Units = %u", gop_info->num_sent);
 
     for (int i = 0; i < SV_VERSION_BYTES; i++) {
@@ -333,15 +333,15 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
     if (self->authenticity) {
       code_version_str = self->authenticity->version_on_signing_side;
     }
-    bytes_to_version_str(self->code_version, code_version_str);
+    sv_bytes_to_version_str(self->code_version, code_version_str);
 
     if (version >= 2) {
       // Read bool flags
-      data_ptr += read_8bits(data_ptr, &flags);
+      data_ptr += sv_read_8bits(data_ptr, &flags);
       gop_info->has_timestamp = flags & 0x01;
       gop_info->triggered_partial_gop = !!(flags & 0x02);
       if (gop_info->has_timestamp) {
-        data_ptr += read_64bits_signed(data_ptr, &gop_info->timestamp);
+        data_ptr += sv_read_64bits_signed(data_ptr, &gop_info->timestamp);
       }
       if (self->latest_validation) {
         self->latest_validation->has_timestamp = gop_info->has_timestamp;
@@ -438,33 +438,34 @@ encode_product_info(signed_video_t *self, uint8_t *data)
   uint16_t *last_two_bytes = &self->last_two_bytes;
   bool epb = self->sei_epb;
   // Version
-  write_byte(last_two_bytes, &data_ptr, version, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, version, epb);
 
   // Write |hardware_id|, i.e., size + string.
-  write_byte(last_two_bytes, &data_ptr, hardware_id_size, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, hardware_id_size, epb);
   // Write all but the null-terminated character.
-  write_byte_many(&data_ptr, product_info->hardware_id, hardware_id_size, last_two_bytes, epb);
+  sv_write_byte_many(&data_ptr, product_info->hardware_id, hardware_id_size, last_two_bytes, epb);
 
   // Write |firmware_version|, i.e., size + string.
-  write_byte(last_two_bytes, &data_ptr, firmware_version_size, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, firmware_version_size, epb);
   // Write all but the null-terminated character.
-  write_byte_many(
+  sv_write_byte_many(
       &data_ptr, product_info->firmware_version, firmware_version_size, last_two_bytes, epb);
 
   // Write |serial_number|, i.e., size + string.
-  write_byte(last_two_bytes, &data_ptr, serial_number_size, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, serial_number_size, epb);
   // Write all but the null-terminated character.
-  write_byte_many(&data_ptr, product_info->serial_number, serial_number_size, last_two_bytes, epb);
+  sv_write_byte_many(
+      &data_ptr, product_info->serial_number, serial_number_size, last_two_bytes, epb);
 
   // Write |manufacturer|, i.e., size + string.
-  write_byte(last_two_bytes, &data_ptr, manufacturer_size, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, manufacturer_size, epb);
   // Write all but the null-terminated character.
-  write_byte_many(&data_ptr, product_info->manufacturer, manufacturer_size, last_two_bytes, epb);
+  sv_write_byte_many(&data_ptr, product_info->manufacturer, manufacturer_size, last_two_bytes, epb);
 
   // Write |address|, i.e., size + string.
-  write_byte(last_two_bytes, &data_ptr, address_size, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, address_size, epb);
   // Write all but the null-terminated character.
-  write_byte_many(&data_ptr, product_info->address, address_size, last_two_bytes, epb);
+  sv_write_byte_many(&data_ptr, product_info->address, address_size, last_two_bytes, epb);
 
   return (data_ptr - data);
 }
@@ -560,10 +561,10 @@ encode_arbitrary_data(signed_video_t *self, uint8_t *data)
   uint16_t *last_two_bytes = &self->last_two_bytes;
   bool epb = self->sei_epb;
   // Version
-  write_byte(last_two_bytes, &data_ptr, version, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, version, epb);
 
   for (size_t ii = 0; ii < self->arbitrary_data_size; ++ii) {
-    write_byte(last_two_bytes, &data_ptr, self->arbitrary_data[ii], epb);
+    sv_write_byte(last_two_bytes, &data_ptr, self->arbitrary_data[ii], epb);
   }
 
   return (data_ptr - data);
@@ -641,11 +642,11 @@ encode_public_key(signed_video_t *self, uint8_t *data)
   uint8_t *public_key = (uint8_t *)pem_public_key->key;
 
   // Version
-  write_byte(last_two_bytes, &data_ptr, version, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, version, epb);
 
   // public_key; public_key_size bytes
   for (size_t ii = 0; ii < pem_public_key->key_size; ++ii) {
-    write_byte(last_two_bytes, &data_ptr, public_key[ii], epb);
+    sv_write_byte(last_two_bytes, &data_ptr, public_key[ii], epb);
   }
 
   return (data_ptr - data);
@@ -748,10 +749,10 @@ encode_hash_list(signed_video_t *self, uint8_t *data)
   uint16_t *last_two_bytes = &self->last_two_bytes;
   bool epb = self->sei_epb;
   // Write version
-  write_byte(last_two_bytes, &data_ptr, version, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, version, epb);
   // Write hash_list data
   for (int i = 0; i < gop_info->list_idx; i++) {
-    write_byte(last_two_bytes, &data_ptr, gop_info->hash_list[i], epb);
+    sv_write_byte(last_two_bytes, &data_ptr, gop_info->hash_list[i], epb);
   }
 
   return (data_ptr - data);
@@ -779,7 +780,7 @@ decode_hash_list(signed_video_t *self, const uint8_t *data, size_t data_size)
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
 #ifdef PRINT_DECODED_SEI
-    size_t hash_size = openssl_get_hash_size(self->crypto_handle);
+    size_t hash_size = sv_openssl_get_hash_size(self->crypto_handle);
     printf("\nHash list Tag\n");
     printf("             tag version: %u\n", version);
     printf("  hash list (%3zu hashes): \n", hash_list_size / hash_size);
@@ -826,21 +827,21 @@ encode_signature(signed_video_t *self, uint8_t *data)
   bool epb = self->sei_epb;
   uint16_t signature_size = (uint16_t)sign_data->signature_size;
   // Write version
-  write_byte(last_two_bytes, &data_ptr, version, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, version, epb);
   // Write info field
-  write_byte(last_two_bytes, &data_ptr, gop_info->encoding_status, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, gop_info->encoding_status, epb);
   // Write hash type
   // Write actual signature size (2 bytes)
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)((signature_size >> 8) & 0x00ff), epb);
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)((signature_size)&0x00ff), epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((signature_size >> 8) & 0x00ff), epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((signature_size)&0x00ff), epb);
   // Write signature
   size_t i = 0;
   for (; i < signature_size; i++) {
-    write_byte(last_two_bytes, &data_ptr, sign_data->signature[i], epb);
+    sv_write_byte(last_two_bytes, &data_ptr, sign_data->signature[i], epb);
   }
   for (; i < sign_data->max_signature_size; i++) {
     // Write 1's in the unused bytes to avoid emulation prevention bytes.
-    write_byte(last_two_bytes, &data_ptr, 1, epb);
+    sv_write_byte(last_two_bytes, &data_ptr, 1, epb);
   }
 
   return (data_ptr - data);
@@ -866,7 +867,7 @@ decode_signature(signed_video_t *self, const uint8_t *data, size_t data_size)
   size_t max_signature_size = 0;
 
   // Read true size of the signature.
-  data_ptr += read_16bits(data_ptr, &signature_size);
+  data_ptr += sv_read_16bits(data_ptr, &signature_size);
   // The rest of the value bytes should now be the allocated size for the signature.
   max_signature_size = data_size - (data_ptr - data);
 
@@ -912,7 +913,7 @@ encode_crypto_info(signed_video_t *self, uint8_t *data)
 {
   size_t hash_algo_encoded_oid_size = 0;
   const unsigned char *hash_algo_encoded_oid =
-      openssl_get_hash_algo_encoded_oid(self->crypto_handle, &hash_algo_encoded_oid_size);
+      sv_openssl_get_hash_algo_encoded_oid(self->crypto_handle, &hash_algo_encoded_oid_size);
   size_t data_size = 0;
   const uint8_t version = 1;
 
@@ -936,13 +937,13 @@ encode_crypto_info(signed_video_t *self, uint8_t *data)
   bool epb = self->sei_epb;
 
   // Version
-  write_byte(last_two_bytes, &data_ptr, version, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, version, epb);
   // OID size
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)hash_algo_encoded_oid_size, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)hash_algo_encoded_oid_size, epb);
 
   // OID data; hash_algo_encoded_oid_size bytes
   for (size_t ii = 0; ii < hash_algo_encoded_oid_size; ++ii) {
-    write_byte(last_two_bytes, &data_ptr, hash_algo_encoded_oid[ii], epb);
+    sv_write_byte(last_two_bytes, &data_ptr, hash_algo_encoded_oid[ii], epb);
   }
 
   return (data_ptr - data);
@@ -959,16 +960,16 @@ decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
   size_t hash_algo_encoded_oid_size = *data_ptr++;
   const unsigned char *hash_algo_encoded_oid = (const unsigned char *)data_ptr;
   char *hash_algo_name =
-      openssl_encoded_oid_to_str(hash_algo_encoded_oid, hash_algo_encoded_oid_size);
+      sv_openssl_encoded_oid_to_str(hash_algo_encoded_oid, hash_algo_encoded_oid_size);
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_IF(version != 1, SV_INCOMPATIBLE_VERSION);
     SV_THROW_IF(hash_algo_encoded_oid_size == 0, SV_AUTHENTICATION_ERROR);
-    SV_THROW(openssl_set_hash_algo_by_encoded_oid(
+    SV_THROW(sv_openssl_set_hash_algo_by_encoded_oid(
         self->crypto_handle, hash_algo_encoded_oid, hash_algo_encoded_oid_size));
     self->validation_flags.hash_algo_known = true;
-    self->verify_data->hash_size = openssl_get_hash_size(self->crypto_handle);
+    self->verify_data->hash_size = sv_openssl_get_hash_size(self->crypto_handle);
     data_ptr += hash_algo_encoded_oid_size;
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
@@ -1070,12 +1071,12 @@ tlv_encode_or_get_size_generic(signed_video_t *self, const sv_tlv_tuple_t tlv, u
   uint16_t *last_two_bytes = &self->last_two_bytes;
   bool epb = self->sei_epb;
   // Write Tag
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)tlv.tag, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)tlv.tag, epb);
   // Write length
   if (tlv.bytes_for_length == 2) {
-    write_byte(last_two_bytes, &data_ptr, (uint8_t)((v_size >> 8) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((v_size >> 8) & 0x000000ff), epb);
   }
-  write_byte(last_two_bytes, &data_ptr, (uint8_t)(v_size & 0x000000ff), epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)(v_size & 0x000000ff), epb);
 
   // Write value, i.e., the actual data of the TLV
   size_t v_size_written = tlv.encoder(self, data_ptr);
@@ -1090,7 +1091,7 @@ tlv_encode_or_get_size_generic(signed_video_t *self, const sv_tlv_tuple_t tlv, u
 }
 
 size_t
-tlv_list_encode_or_get_size(signed_video_t *self,
+sv_tlv_list_encode_or_get_size(signed_video_t *self,
     const sv_tlv_tag_t *tags,
     size_t num_tags,
     uint8_t *data)
@@ -1135,7 +1136,7 @@ decode_tlv_header(const uint8_t *data, size_t *data_bytes_read, sv_tlv_tag_t *ta
   *tag = tag_from_data;
 
   if (tlv.bytes_for_length == 2) {
-    data_ptr += read_16bits(data_ptr, (uint16_t *)length);
+    data_ptr += sv_read_16bits(data_ptr, (uint16_t *)length);
   } else {
     *length = *data_ptr++;
   }
@@ -1146,7 +1147,7 @@ decode_tlv_header(const uint8_t *data, size_t *data_bytes_read, sv_tlv_tag_t *ta
 }
 
 svrc_t
-tlv_decode(signed_video_t *self, const uint8_t *data, size_t data_size)
+sv_tlv_decode(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
   svrc_t status = SV_INVALID_PARAMETER;
   const uint8_t *data_ptr = data;
@@ -1177,7 +1178,7 @@ tlv_decode(signed_video_t *self, const uint8_t *data, size_t data_size)
 }
 
 const uint8_t *
-tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bool with_ep)
+sv_tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bool with_ep)
 {
   const uint8_t *tlv_data_ptr = tlv_data;
   const uint8_t *latest_tag_location = NULL;
@@ -1188,21 +1189,21 @@ tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bo
   while (tlv_data_ptr < tlv_data + tlv_data_size) {
     latest_tag_location = tlv_data_ptr;
     // Read the tag
-    sv_tlv_tag_t this_tag = read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
+    sv_tlv_tag_t this_tag = sv_read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
     if (this_tag == tag) {
       return latest_tag_location;
     }
 
     // Read the length
-    uint16_t length = read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
+    uint16_t length = sv_read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
     sv_tlv_tuple_t tlv = get_tlv_tuple(this_tag);
     if (tlv.bytes_for_length == 2) {
       length <<= 8;
-      length |= read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
+      length |= sv_read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
     }
     // Scan past the data
     for (int i = 0; i < length; i++) {
-      read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
+      sv_read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
     }
   }
 
@@ -1210,7 +1211,7 @@ tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bo
 }
 
 bool
-tlv_find_and_decode_optional_tags(signed_video_t *self,
+sv_tlv_find_and_decode_optional_tags(signed_video_t *self,
     const uint8_t *tlv_data,
     size_t tlv_data_size)
 {
@@ -1246,21 +1247,21 @@ tlv_find_and_decode_optional_tags(signed_video_t *self,
 }
 
 const sv_tlv_tag_t *
-get_optional_tags(size_t *num_of_optional_tags)
+sv_get_optional_tags(size_t *num_of_optional_tags)
 {
   *num_of_optional_tags = ARRAY_SIZE(optional_tags);
   return optional_tags;
 }
 
 const sv_tlv_tag_t *
-get_mandatory_tags(size_t *num_of_mandatory_tags)
+sv_get_mandatory_tags(size_t *num_of_mandatory_tags)
 {
   *num_of_mandatory_tags = ARRAY_SIZE(mandatory_tags);
   return mandatory_tags;
 }
 
 size_t
-read_64bits(const uint8_t *p, uint64_t *val)
+sv_read_64bits(const uint8_t *p, uint64_t *val)
 {
   if (!p || !val) return 0;
   *val = ((uint64_t)p[0]) << 56;
@@ -1276,16 +1277,16 @@ read_64bits(const uint8_t *p, uint64_t *val)
 }
 
 size_t
-read_64bits_signed(const uint8_t *p, int64_t *val)
+sv_read_64bits_signed(const uint8_t *p, int64_t *val)
 {
   uint64_t tmp_val = 0;
-  size_t bytes_read = read_64bits(p, &tmp_val);
+  size_t bytes_read = sv_read_64bits(p, &tmp_val);
   *val = (int64_t)tmp_val;
   return bytes_read;
 }
 
 size_t
-read_32bits(const uint8_t *p, uint32_t *val)
+sv_read_32bits(const uint8_t *p, uint32_t *val)
 {
   if (!p || !val) return 0;
   *val = ((uint32_t)p[0]) << 24;
@@ -1297,7 +1298,7 @@ read_32bits(const uint8_t *p, uint32_t *val)
 }
 
 size_t
-read_16bits(const uint8_t *p, uint16_t *val)
+sv_read_16bits(const uint8_t *p, uint16_t *val)
 {
   if (!p || !val) return 0;
   *val = ((uint16_t)p[0]) << 8;
@@ -1307,7 +1308,7 @@ read_16bits(const uint8_t *p, uint16_t *val)
 }
 
 size_t
-read_8bits(const uint8_t *p, uint8_t *val)
+sv_read_8bits(const uint8_t *p, uint8_t *val)
 {
   if (!p || !val) return 0;
   *val = *p;
@@ -1316,7 +1317,7 @@ read_8bits(const uint8_t *p, uint8_t *val)
 }
 
 uint8_t
-read_byte(uint16_t *last_two_bytes, const uint8_t **data, bool do_emulation_prevention)
+sv_read_byte(uint16_t *last_two_bytes, const uint8_t **data, bool do_emulation_prevention)
 {
   uint8_t curr_byte = **data;
   if (do_emulation_prevention && curr_byte == 0x03 && *last_two_bytes == 0) {
@@ -1335,7 +1336,7 @@ read_byte(uint16_t *last_two_bytes, const uint8_t **data, bool do_emulation_prev
 }
 
 void
-write_byte(uint16_t *last_two_bytes,
+sv_write_byte(uint16_t *last_two_bytes,
     uint8_t **data,
     uint8_t curr_byte,
     bool do_emulation_prevention)
@@ -1355,7 +1356,7 @@ write_byte(uint16_t *last_two_bytes,
 }
 
 void
-write_byte_many(uint8_t **dst,
+sv_write_byte_many(uint8_t **dst,
     char *src,
     size_t size,
     uint16_t *last_two_bytes,
@@ -1365,6 +1366,6 @@ write_byte_many(uint8_t **dst,
 
   for (size_t ii = 0; ii < size; ++ii) {
     uint8_t ch = src[ii];
-    write_byte(last_two_bytes, dst, ch, do_emulation_prevention);
+    sv_write_byte(last_two_bytes, dst, ch, do_emulation_prevention);
   }
 }
