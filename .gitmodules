@@ -1,0 +1,3 @@
+[submodule "media-signing-framework"]
+	path = media-signing-framework
+	url = https://github.com/onvif/media-signing-framework.git
