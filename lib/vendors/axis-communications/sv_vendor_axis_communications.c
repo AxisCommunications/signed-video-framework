@@ -586,15 +586,15 @@ encode_axis_communications_handle(void *handle, uint16_t *last_two_bytes, bool e
   uint8_t *attestation = self->attestation;
 
   // Write version.
-  write_byte(last_two_bytes, &data_ptr, version, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, version, epb);
   // Write |attestation_size|.
-  write_byte(last_two_bytes, &data_ptr, self->attestation_size, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, self->attestation_size, epb);
   // Write |attestation|.
   for (size_t jj = 0; jj < self->attestation_size; ++jj) {
-    write_byte(last_two_bytes, &data_ptr, attestation[jj], epb);
+    sv_write_byte(last_two_bytes, &data_ptr, attestation[jj], epb);
   }
   // Write |certificate_chain|.
-  write_byte_many(
+  sv_write_byte_many(
       &data_ptr, self->certificate_chain, certificate_chain_encode_size, last_two_bytes, epb);
 
   return (data_ptr - data);

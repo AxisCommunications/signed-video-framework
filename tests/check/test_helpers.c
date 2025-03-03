@@ -33,7 +33,7 @@
 
 #include "includes/signed_video_openssl.h"
 #include "sv_internal.h"  // parse_bu_info(), kUuidSignedVideo
-#include "sv_tlv.h"  // tlv_find_tag()
+#include "sv_tlv.h"  // sv_tlv_find_tag()
 
 #define RSA_PRIVATE_KEY_ALLOC_BYTES 2000
 #define ECDSA_PRIVATE_KEY_ALLOC_BYTES 1000
@@ -545,7 +545,7 @@ tag_is_present(const test_stream_item_t *item, SignedVideoCodec codec, sv_tlv_ta
   bu_info_t bu = parse_bu_info(item->data, item->data_size, codec, false, true);
   if (!bu.is_sv_sei) return false;
 
-  void *tag_ptr = (void *)tlv_find_tag(bu.tlv_data, bu.tlv_size, tag, false);
+  void *tag_ptr = (void *)sv_tlv_find_tag(bu.tlv_data, bu.tlv_size, tag, false);
   found_tag = (tag_ptr != NULL);
   // Free temporary data slot used if emulation prevention bytes are present.
   free(bu.nalu_data_wo_epb);
@@ -558,9 +558,9 @@ tlv_has_optional_tags(const uint8_t *tlv_data, size_t tlv_data_size)
 {
   bool has_optional_tags = false;
   size_t num_tags = 0;
-  const sv_tlv_tag_t *tags = get_optional_tags(&num_tags);
+  const sv_tlv_tag_t *tags = sv_get_optional_tags(&num_tags);
   for (size_t ii = 0; ii < num_tags; ii++) {
-    const uint8_t *this_tag = tlv_find_tag(tlv_data, tlv_data_size, tags[ii], false);
+    const uint8_t *this_tag = sv_tlv_find_tag(tlv_data, tlv_data_size, tags[ii], false);
     has_optional_tags |= (this_tag != NULL);
   }
   return has_optional_tags;
@@ -571,9 +571,9 @@ tlv_has_mandatory_tags(const uint8_t *tlv_data, size_t tlv_data_size)
 {
   bool has_mandatory_tags = false;
   size_t num_tags = 0;
-  const sv_tlv_tag_t *tags = get_mandatory_tags(&num_tags);
+  const sv_tlv_tag_t *tags = sv_get_mandatory_tags(&num_tags);
   for (size_t ii = 0; ii < num_tags; ii++) {
-    const uint8_t *this_tag = tlv_find_tag(tlv_data, tlv_data_size, tags[ii], false);
+    const uint8_t *this_tag = sv_tlv_find_tag(tlv_data, tlv_data_size, tags[ii], false);
     has_mandatory_tags |= (this_tag != NULL);
   }
   return has_mandatory_tags;

@@ -20,8 +20,8 @@
  */
 
 /**
- * This signing plugin calls openssl_sign_hash() and stores the generated signature before return.
- * This signature is then copied to the user when sv_signing_plugin_get_signature().
+ * This signing plugin calls sv_openssl_sign_hash() and stores the generated signature before
+ * return. This signature is then copied to the user when sv_signing_plugin_get_signature().
  */
 #include <assert.h>  // assert
 #include <stdlib.h>  // calloc, memcpy
@@ -94,7 +94,7 @@ unthreaded_openssl_sign_hash(sv_unthreaded_plugin_t *self, const uint8_t *hash, 
   }
 
   // Perform the signing operation.
-  status = openssl_sign_hash(&self->sign_data);
+  status = sv_openssl_sign_hash(&self->sign_data);
   if (status != SV_OK) goto done;
 
   // Check if a valid signature was generated.
@@ -196,7 +196,7 @@ sv_signing_plugin_session_teardown(void *handle)
   if (!self) return;
 
   out_buffer_teardown(self);
-  openssl_free_key(self->sign_data.key);
+  sv_openssl_free_key(self->sign_data.key);
   free(self->sign_data.signature);
   free(self);
 }

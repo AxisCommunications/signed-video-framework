@@ -27,7 +27,7 @@
 #include "includes/signed_video_auth.h"
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "legacy_validation.h"
-#include "sv_authenticity.h"  // create_local_authenticity_report_if_needed()
+#include "sv_authenticity.h"  // sv_create_local_authenticity_report_if_needed()
 #include "sv_bu_list.h"  // bu_list_append()
 #include "sv_defines.h"  // svrc_t
 #include "sv_internal.h"  // gop_info_t, validation_flags_t
@@ -35,7 +35,7 @@
 #include "sv_onvif.h"  // Stubs for ONVIF APIs and structs
 #endif
 #include "sv_openssl_internal.h"  // openssl_{verify_hash, public_key_malloc}()
-#include "sv_tlv.h"  // tlv_find_tag()
+#include "sv_tlv.h"  // sv_tlv_find_tag()
 
 static svrc_t
 decode_sei_data(signed_video_t *signed_video, const uint8_t *payload, size_t payload_size);
@@ -91,7 +91,7 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
       self->gop_info->latest_validated_gop + 1);
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SV_THROW_WITH_MSG(tlv_decode(self, payload, payload_size), "Failed decoding SEI payload");
+    SV_THROW_WITH_MSG(sv_tlv_decode(self, payload, payload_size), "Failed decoding SEI payload");
     detect_lost_sei(self);
   SV_CATCH()
   SV_DONE(status)
@@ -168,7 +168,7 @@ update_link_hash_for_auth(signed_video_t *self)
   while (item) {
     if (item->used_in_gop_hash) {
       if (!item->used_for_linked_hash) {
-        update_linked_hash(self, item->hash, hash_size);
+        sv_update_linked_hash(self, item->hash, hash_size);
         item->used_for_linked_hash = true;
       }
       break;
@@ -218,7 +218,7 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
   SV_TRY()
     // At the start of the GOP, initialize the |crypto_handle| to enable
     // sequentially updating the hash with more BUs.
-    SV_THROW(openssl_init_hash(self->crypto_handle, true));
+    SV_THROW(sv_openssl_init_hash(self->crypto_handle, true));
     int num_i_frames = 0;
     // Iterate through the BU list until the end of the current GOP or SEI item is found.
     while (item) {
@@ -247,13 +247,14 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
         break;
       }
       // Since the GOP hash is initialized, it can be updated with each incoming BU hash.
-      SV_THROW(openssl_update_hash(self->crypto_handle, item->hash, hash_size, true));
+      SV_THROW(sv_openssl_update_hash(self->crypto_handle, item->hash, hash_size, true));
       item->used_in_gop_hash = true;  // Mark the item as used in the GOP hash
       num_in_partial_gop++;
 
       item = item->next;
     }
-    SV_THROW(openssl_finalize_hash(self->crypto_handle, self->gop_info->computed_gop_hash, true));
+    SV_THROW(
+        sv_openssl_finalize_hash(self->crypto_handle, self->gop_info->computed_gop_hash, true));
 #ifdef SIGNED_VIDEO_DEBUG
     sv_print_hex_data(self->gop_info->computed_gop_hash, hash_size, "Computed gop_hash ");
     sv_print_hex_data(self->received_gop_hash, hash_size, "Received gop_hash ");
@@ -989,7 +990,7 @@ prepare_for_validation(signed_video_t *self)
 
     // If we have received a SEI there is a signature to use for verification.
     if (sei) {
-      SV_THROW(openssl_verify_hash(verify_data, &self->gop_info->verified_signature_hash));
+      SV_THROW(sv_openssl_verify_hash(verify_data, &self->gop_info->verified_signature_hash));
     }
 
   SV_CATCH()
@@ -1013,7 +1014,7 @@ is_recurrent_data_decoded(signed_video_t *self)
     if (item->bu && item->bu->is_sv_sei && item->tmp_validation_status == 'P') {
       const uint8_t *tlv_data = item->bu->tlv_data;
       size_t tlv_size = item->bu->tlv_size;
-      recurrent_data_decoded = tlv_find_and_decode_optional_tags(self, tlv_data, tlv_size);
+      recurrent_data_decoded = sv_tlv_find_and_decode_optional_tags(self, tlv_data, tlv_size);
     }
     item = item->next;
   }
@@ -1230,7 +1231,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
  * In this function we update the bu_info_t member |hashable_data_size| w.r.t. that. The pointer
  * to the start is still the same. */
 void
-update_hashable_data(bu_info_t *bu)
+sv_update_hashable_data(bu_info_t *bu)
 {
   assert(bu && (bu->is_valid > 0));
   if (!bu->is_hashable || !bu->is_sv_sei) return;
@@ -1241,7 +1242,7 @@ update_hashable_data(bu_info_t *bu)
   // emulation prevention bytes) coresponding to that tag. This is done by scanning the TLV for that
   // tag.
   const uint8_t *signature_tag_ptr =
-      tlv_find_tag(bu->tlv_start_in_bu_data, bu->tlv_size, SIGNATURE_TAG, bu->with_epb);
+      sv_tlv_find_tag(bu->tlv_start_in_bu_data, bu->tlv_size, SIGNATURE_TAG, bu->with_epb);
 
   if (signature_tag_ptr) bu->hashable_data_size = signature_tag_ptr - bu->hashable_data;
 }
@@ -1255,7 +1256,7 @@ register_bu(signed_video_t *self, bu_list_item_t *item)
 
   if (bu->is_valid == 0) return SV_OK;
 
-  update_hashable_data(bu);
+  sv_update_hashable_data(bu);
   return hash_and_add_for_auth(self, item);
 }
 
@@ -1417,7 +1418,7 @@ add_bitstream_unit(signed_video_t *self, const uint8_t *bu_data, size_t bu_data_
       if (validation_flags->signing_present && (!(bu.reserved_byte & 0x30) && !bu.is_golden_sei)) {
         self->legacy_sv = legacy_sv_create(self);
         SV_THROW_IF(!self->legacy_sv, SV_MEMORY);
-        accumulated_validation_init(self->accumulated_validation);
+        sv_accumulated_validation_init(self->accumulated_validation);
       }
       SV_THROW(reregister_bu(self));
     }
@@ -1479,10 +1480,10 @@ signed_video_add_nalu_and_authenticate(signed_video_t *self,
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SV_THROW(create_local_authenticity_report_if_needed(self));
+    SV_THROW(sv_create_local_authenticity_report_if_needed(self));
     SV_THROW(add_bitstream_unit(self, bu_data, bu_data_size));
     if (self->validation_flags.has_auth_result) {
-      update_authenticity_report(self);
+      sv_update_authenticity_report(self);
       if (authenticity) *authenticity = signed_video_get_authenticity_report(self);
       // Reset the timestamp for the next report.
       self->latest_validation->has_timestamp = false;

@@ -42,7 +42,7 @@
  * @return The size of the data encoded.
  */
 size_t
-tlv_list_encode_or_get_size(signed_video_t *signed_video,
+sv_tlv_list_encode_or_get_size(signed_video_t *signed_video,
     const sv_tlv_tag_t *tags,
     size_t num_tags,
     uint8_t *data);
@@ -60,7 +60,7 @@ tlv_list_encode_or_get_size(signed_video_t *signed_video,
  * @return SV_OK if decoding was successful, otherwise an error code.
  */
 svrc_t
-tlv_decode(signed_video_t *signed_video, const uint8_t *data, size_t data_size);
+sv_tlv_decode(signed_video_t *signed_video, const uint8_t *data, size_t data_size);
 
 /**
  * @brief Scans the TLV part of a SEI payload and stops when a given tag is detected.
@@ -77,7 +77,7 @@ tlv_decode(signed_video_t *signed_video, const uint8_t *data, size_t data_size);
  * @return A pointer to the location of the tag to scan for. Returns NULL if the tag was not found.
  */
 const uint8_t *
-tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bool with_ep);
+sv_tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bool with_ep);
 
 /**
  * @brief Reads bits from p into val.
@@ -85,15 +85,15 @@ tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag, bo
  * @return Number of bytes read.
  */
 size_t
-read_64bits_signed(const uint8_t *p, int64_t *val);
+sv_read_64bits_signed(const uint8_t *p, int64_t *val);
 size_t
-read_64bits(const uint8_t *p, uint64_t *val);
+sv_read_64bits(const uint8_t *p, uint64_t *val);
 size_t
-read_32bits(const uint8_t *p, uint32_t *val);
+sv_read_32bits(const uint8_t *p, uint32_t *val);
 size_t
-read_16bits(const uint8_t *p, uint16_t *val);
+sv_read_16bits(const uint8_t *p, uint16_t *val);
 size_t
-read_8bits(const uint8_t *p, uint8_t *val);
+sv_read_8bits(const uint8_t *p, uint8_t *val);
 
 /**
  * @brief Writes many bytes to payload w/wo emulation prevention
@@ -104,7 +104,7 @@ read_8bits(const uint8_t *p, uint8_t *val);
  * @param last_two_bytes For emulation prevention
  */
 void
-write_byte_many(uint8_t **dst,
+sv_write_byte_many(uint8_t **dst,
     char *src,
     size_t size,
     uint16_t *last_two_bytes,
@@ -119,7 +119,10 @@ write_byte_many(uint8_t **dst,
  * @param do_emulation_prevention If emulation prevention
  */
 void
-write_byte(uint16_t *last_two_bytes, uint8_t **payload, uint8_t byte, bool do_emulation_prevention);
+sv_write_byte(uint16_t *last_two_bytes,
+    uint8_t **payload,
+    uint8_t byte,
+    bool do_emulation_prevention);
 
 /**
  * @brief Reads a byte from payload w/wo emulation prevention
@@ -127,7 +130,7 @@ write_byte(uint16_t *last_two_bytes, uint8_t **payload, uint8_t byte, bool do_em
  * @return The byte read.
  */
 uint8_t
-read_byte(uint16_t *last_two_bytes, const uint8_t **payload, bool do_emulation_prevention);
+sv_read_byte(uint16_t *last_two_bytes, const uint8_t **payload, bool do_emulation_prevention);
 
 /**
  * @brief Scans the TLV part of a SEI payload and decodes all recurrent tags
@@ -142,7 +145,7 @@ read_byte(uint16_t *last_two_bytes, const uint8_t **payload, bool do_emulation_p
  * @return True if find and decoding tag was successful.
  */
 bool
-tlv_find_and_decode_optional_tags(signed_video_t *self,
+sv_tlv_find_and_decode_optional_tags(signed_video_t *self,
     const uint8_t *tlv_data,
     size_t tlv_data_size);
 
@@ -155,7 +158,7 @@ tlv_find_and_decode_optional_tags(signed_video_t *self,
  * @return Array that contains all optional tags.
  */
 const sv_tlv_tag_t *
-get_optional_tags(size_t *num_of_optional_tags);
+sv_get_optional_tags(size_t *num_of_optional_tags);
 
 /**
  * @brief Helper to get only the mandatory tags as an array
@@ -166,6 +169,6 @@ get_optional_tags(size_t *num_of_optional_tags);
  * @return Array that contains all mandatory tags.
  */
 const sv_tlv_tag_t *
-get_mandatory_tags(size_t *num_of_mandatory_tags);
+sv_get_mandatory_tags(size_t *num_of_mandatory_tags);
 
 #endif  // __SV_TLV_H__
