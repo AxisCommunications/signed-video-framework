@@ -827,9 +827,6 @@ get_axis_communications_certificate_chain(void *handle)
 
   sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
 
-  // Check if certificate chain exists
-  if (!self->certificate_chain) return NULL;
-
   // Return the certificate chain
   return self->certificate_chain;
 }
@@ -888,17 +885,17 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
       sv->onvif = onvif_media_signing_create(sv_codec_to_ms_codec(sv->codec));
     }
   }
+  // Set the signing key pair if sign_data is available
   if (sv->sign_data && sv->onvif) {
-    // Set the signing key pair if sign_data is available
-    SignedVideoReturnCode status = port_settings_to_onvif(self);
-    if (status != SV_OK) return status;
-
+    SignedVideoReturnCode status = port_settings_to_onvif(sv);
+    if (status != SV_OK) goto catch_error;  // Cleanup on failure
     char *private_key = get_private_key_from_sv(sv);
-    if (!private_key) goto catch_error;
+    if (!private_key) goto catch_error;  // Ensure cleanup
     size_t private_key_size = strlen(private_key);
-    SignedVideoReturnCode status = msrc_to_svrc(onvif_media_signing_set_signing_key_pair(
+    status = msrc_to_svrc(onvif_media_signing_set_signing_key_pair(
         sv->onvif, private_key, private_key_size, certificate_chain, certificate_chain_size, true));
     free(private_key);
+    if (status != SV_OK) goto catch_error;  // Cleanup on failure
     return status;
   }
   return SV_OK;

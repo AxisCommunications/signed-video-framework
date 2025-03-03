@@ -23,6 +23,9 @@
 #include <stdlib.h>  // free, malloc
 #include <string.h>  // size_t, strncpy
 
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
+#include "axis-communications/sv_vendor_axis_communications_internal.h"
+#endif
 #include "includes/signed_video_openssl.h"  // pem_pkey_t
 #include "includes/signed_video_sign.h"
 #include "includes/signed_video_signing_plugin.h"
@@ -31,7 +34,6 @@
 #include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
 #include "sv_internal.h"  // gop_info_t
 #ifndef HAS_ONVIF
-#include "axis-communications/sv_vendor_axis_communications_internal.h"
 #include "sv_onvif.h"  // Stubs for ONVIF APIs and structs
 #endif
 #include "sv_openssl_internal.h"
@@ -869,10 +871,13 @@ signed_video_set_private_key(signed_video_t *self, const char *private_key, size
     assert(certificate_chain);
     size_t certificate_chain_size = strlen(certificate_chain);
     status = port_settings_to_onvif(self);
-    if (status != SV_OK) return status;
-
-    return msrc_to_svrc(onvif_media_signing_set_signing_key_pair(self->onvif, private_key,
-        private_key_size, certificate_chain, certificate_chain_size, true));
+    if (status == SV_OK) {
+      return msrc_to_svrc(onvif_media_signing_set_signing_key_pair(self->onvif, private_key,
+          private_key_size, certificate_chain, certificate_chain_size, true));
+      ;
+    } else {
+      onvif_media_signing_free(self->onvif);
+    }
   }
   SV_TRY()
     // Temporally turn the PEM |private_key| into an EVP_PKEY and allocate memory for signatures.
