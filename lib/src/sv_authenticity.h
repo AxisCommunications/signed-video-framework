@@ -24,8 +24,16 @@
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
 #include "sv_defines.h"  // svrc_t
 #include "sv_internal.h"
-#ifndef HAS_ONVIF
+
+// Include ONVIF Media Signing
+#if defined(NO_ONVIF_MEDIA_SIGNING)
 #include "sv_onvif.h"  // Stubs for ONVIF APIs and structs
+#elif defined(ONVIF_MEDIA_SIGNING_INSTALLED)
+// ONVIF Media Signing is installed separately; Camera
+#include <media-signing-framework/onvif_media_signing_validator.h>
+#else
+// ONVIF Media Signing is dragged in as a submodule; FilePlayer
+#include "includes/onvif_media_signing_validator.h"
 #endif
 
 /**

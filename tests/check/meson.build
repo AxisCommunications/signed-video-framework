@@ -49,7 +49,7 @@ test_env.append('G_DEBUG', 'gc-friendly')
 foreach t : tests
   testexe = executable(t[0],
                        t[1],
-                       include_directories : [ configinc, svsrcinc, testinc ],
+                       include_directories : [ configinc, svsrcinc, testinc, omssrcinc ],
                        dependencies : [ check_dep ],
                        link_with : signedvideoframework)
   # run tests in own directories

@@ -30,11 +30,21 @@
 #include "sv_codec_internal.h"  // METADATA_TYPE_USER_PRIVATE
 #include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
 #include "sv_internal.h"  // gop_info_t
-#ifndef HAS_ONVIF
-#include "sv_onvif.h"  // Stubs for ONVIF APIs and structs
-#endif
 #include "sv_openssl_internal.h"
 #include "sv_tlv.h"  // sv_tlv_list_encode_or_get_size()
+
+// Include ONVIF Media Signing
+#if defined(NO_ONVIF_MEDIA_SIGNING)
+#include "sv_onvif.h"  // Stubs for ONVIF APIs and structs
+#elif defined(ONVIF_MEDIA_SIGNING_INSTALLED)
+// ONVIF Media Signing is installed separately; Camera
+#include <media-signing-framework/onvif_media_signing_common.h>
+#include <media-signing-framework/onvif_media_signing_signer.h>
+#else
+// ONVIF Media Signing is dragged in as a submodule; FilePlayer
+#include "includes/onvif_media_signing_common.h"
+#include "includes/onvif_media_signing_signer.h"
+#endif
 
 static void
 bu_set_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDType uuid_type);
