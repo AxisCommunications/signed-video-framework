@@ -59,6 +59,9 @@ static const uint8_t p_nalu_h264[DUMMY_NALU_SIZE] = {0x01, 0x00, 0xff, 0x00, 0x8
 static const uint8_t pps_nalu_h264[DUMMY_NALU_SIZE] = {0x28, 0x00, 0xff, 0x00, 0x80};
 static const uint8_t sei_nalu_h264[DUMMY_SEI_SIZE] = {0x06, 0x05, 0x12, 0xaa, 0xaa, 0xaa, 0xaa,
     0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, 0x80};
+static const uint8_t oms_sei_nalu_h264[DUMMY_SEI_SIZE] = {0x06, 0x05, 0x12, 0x00, 0x5b, 0xc9, 0x3f,
+    0x2d, 0x71, 0x5e, 0x95, 0xad, 0xa4, 0x79, 0x6f, 0x90, 0x87, 0x7a, 0x6f, 0x00, 0x00, 0x80};
+
 /* The H.265 pattern is as follows:
  *
  *  non-SEI
@@ -77,6 +80,8 @@ static const uint8_t p_nalu_h265[DUMMY_NALU_SIZE] = {0x02, 0x01, 0x00, 0x00, 0x8
 static const uint8_t pps_nalu_h265[DUMMY_NALU_SIZE] = {0x44, 0x01, 0x00, 0x00, 0x80};
 static const uint8_t sei_nalu_h265[DUMMY_SEI_SIZE] = {0x4e, 0x01, 0x05, 0x11, 0xaa, 0xaa, 0xaa,
     0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x80};
+static const uint8_t oms_sei_nalu_h265[DUMMY_SEI_SIZE] = {0x4e, 0x01, 0x05, 0x11, 0x00, 0x5b, 0xc9,
+    0x3f, 0x2d, 0x71, 0x5e, 0x95, 0xad, 0xa4, 0x79, 0x6f, 0x90, 0x87, 0x7a, 0x6f, 0x00, 0x80};
 /* The AV1 pattern is as follows:
  *
  *  general OBU
@@ -116,7 +121,9 @@ get_type_char(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
       type = 'V';
       break;
     case BU_TYPE_SEI: {
-      if (!bu.is_sv_sei)
+      if (bu.uuid_type == UUID_TYPE_ONVIF_MEDIA_SIGNING)
+        type = 'O';
+      else if (!bu.is_sv_sei)
         type = 'Z';
       else if (bu.is_golden_sei)
         type = 'G';
@@ -192,6 +199,11 @@ test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec)
       bu_data = codec == SV_CODEC_H264 ? p_nalu_h264
                                        : (codec == SV_CODEC_H265 ? p_nalu_h265 : invalid_av1);
       break;
+    case 'O':
+      bu_data = codec == SV_CODEC_H264 ? oms_sei_nalu_h264
+                                       : (codec == SV_CODEC_H265 ? oms_sei_nalu_h265 : NULL);
+      bu_data_size = (codec != SV_CODEC_AV1) ? DUMMY_SEI_SIZE : 0;
+      break;
     case 'Z':
       bu_data = codec == SV_CODEC_H264 ? sei_nalu_h264
                                        : (codec == SV_CODEC_H265 ? sei_nalu_h265 : sei_av1);
@@ -208,6 +220,9 @@ test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec)
       break;
   }
 
+  if (!bu_data) {
+    return NULL;
+  }
   size_t bu_size = 0;
   if (codec != SV_CODEC_AV1) {
     bu = generate_nalu(start_code, bu_data, bu_data_size, id, &bu_size);
