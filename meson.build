@@ -64,6 +64,9 @@ configinc = include_directories('.')
 # Fetch ONVIF Media Signing files if submodule is populated
 if populated_media_signing_submodule
   subdir('media-signing-framework/lib')
+else
+  # No ONVIF include files, add current directory
+  omssrcinc = include_directories('.')
 endif
 
 # Propagate through the file structure
