@@ -863,6 +863,17 @@ signed_video_set_private_key(signed_video_t *self, const char *private_key, size
   if (!self || !private_key || private_key_size == 0) return SV_INVALID_PARAMETER;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
+  // If ONVIF is available, call its function and map the return code
+  if (self->onvif) {
+    const char *certificate_chain = get_axis_communications_certificate_chain(self->vendor_handle);
+    assert(certificate_chain);
+    size_t certificate_chain_size = strlen(certificate_chain);
+    status = port_settings_to_onvif(self);
+    if (status != SV_OK) return status;
+
+    return msrc_to_svrc(onvif_media_signing_set_signing_key_pair(self->onvif, private_key,
+        private_key_size, certificate_chain, certificate_chain_size, true));
+  }
   SV_TRY()
     // Temporally turn the PEM |private_key| into an EVP_PKEY and allocate memory for signatures.
     SV_THROW(openssl_private_key_malloc(self->sign_data, private_key, private_key_size));
@@ -872,14 +883,6 @@ signed_video_set_private_key(signed_video_t *self, const char *private_key, size
     SV_THROW_IF(!self->plugin_handle, SV_EXTERNAL_ERROR);
   SV_CATCH()
   SV_DONE(status)
-  // If ONVIF is available, call its function and map the return code
-  if (self->onvif) {
-    const char *certificate_chain = get_axis_communications_certificate_chain(self->vendor_handle);
-    assert(certificate_chain);
-    size_t certificate_chain_size = strlen(certificate_chain);
-    return msrc_to_svrc(onvif_media_signing_set_signing_key_pair(self->onvif, private_key,
-        private_key_size, certificate_chain, certificate_chain_size, true));
-  }
 
   return status;
 }

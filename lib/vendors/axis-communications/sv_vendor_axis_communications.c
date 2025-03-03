@@ -890,13 +890,16 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
   }
   if (sv->sign_data && sv->onvif) {
     // Set the signing key pair if sign_data is available
+    SignedVideoReturnCode status = port_settings_to_onvif(self);
+    if (status != SV_OK) return status;
+
     char *private_key = get_private_key_from_sv(sv);
     if (!private_key) goto catch_error;
     size_t private_key_size = strlen(private_key);
-    MediaSigningReturnCode onvif_status = onvif_media_signing_set_signing_key_pair(
-        sv->onvif, private_key, private_key_size, certificate_chain, certificate_chain_size, true);
+    SignedVideoReturnCode status = msrc_to_svrc(onvif_media_signing_set_signing_key_pair(
+        sv->onvif, private_key, private_key_size, certificate_chain, certificate_chain_size, true));
     free(private_key);
-    return msrc_to_svrc(onvif_status);
+    return status;
   }
   return SV_OK;
 
