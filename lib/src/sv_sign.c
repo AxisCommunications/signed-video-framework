@@ -475,9 +475,9 @@ static onvif_media_signing_vendor_info_t
 convert_product_info(const signed_video_product_info_t *product_info)
 {
   onvif_media_signing_vendor_info_t vendor_info = {0};
-  strncpy(vendor_info.firmware_version, product_info->firmware_version, 255);
-  strncpy(vendor_info.serial_number, product_info->serial_number, 255);
-  strncpy(vendor_info.manufacturer, product_info->manufacturer, 255);
+  memcpy(vendor_info.firmware_version, product_info->firmware_version, 255);
+  memcpy(vendor_info.serial_number, product_info->serial_number, 255);
+  memcpy(vendor_info.manufacturer, product_info->manufacturer, 255);
 
   return vendor_info;
 }
