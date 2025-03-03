@@ -157,6 +157,6 @@ get_axis_communications_trusted_certificate(void);
  * @return The certificate chain as a null-terminated string, or NULL on failure.
  */
 const char *
-get_certificate_chain(signed_video_t *sv);
+get_axis_communications_certificate_chain(void *handle);
 
 #endif  // __SV_VENDOR_AXIS_COMMUNICATIONS_INTERNAL_H__

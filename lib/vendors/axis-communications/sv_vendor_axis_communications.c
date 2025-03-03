@@ -29,8 +29,7 @@
 #include <stdbool.h>
 #include <stdlib.h>  // malloc, memcpy, calloc, free
 
-#include "includes/signed_video_common.h"
-#include "sv_internal.h"  // signed_video_t
+#include "sv_internal.h"  // signed_video_t, onvif_media_signing_set_signing_key_pair()
 #include "sv_tlv.h"
 #include "sv_vendor_axis_communications_internal.h"
 
@@ -818,16 +817,15 @@ get_axis_communications_supplemental_authenticity(void *handle,
 
   return status;
 }
+
 /**
  * Retrieves the certificate chain from the vendor handle. */
 const char *
-get_certificate_chain(signed_video_t *sv)
+get_axis_communications_certificate_chain(void *handle)
 {
-  // Basic input validation
-  if (!sv || !sv->vendor_handle) return NULL;
+  if (!handle) return NULL;
 
-  // Cast vendor handle to access the certificate chain
-  sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)sv->vendor_handle;
+  sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
 
   // Check if certificate chain exists
   if (!self->certificate_chain) return NULL;
@@ -890,16 +888,15 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
       sv->onvif = onvif_media_signing_create(sv_codec_to_ms_codec(sv->codec));
     }
   }
-  if (sv->sign_data) {
-    if (sv->onvif) {
-      // Set the signing key pair if sign_data is not available
-      char *private_key = get_private_key_from_sv(sv);
-      size_t private_key_size = strlen(private_key);
-      MediaSigningReturnCode onvif_status = onvif_media_signing_set_signing_key_pair(sv->onvif,
-          private_key, private_key_size, certificate_chain, certificate_chain_size, true);
-      free(private_key);
-      return msrc_to_svrc(onvif_status);
-    }
+  if (sv->sign_data && sv->onvif) {
+    // Set the signing key pair if sign_data is available
+    char *private_key = get_private_key_from_sv(sv);
+    if (!private_key) goto catch_error;
+    size_t private_key_size = strlen(private_key);
+    MediaSigningReturnCode onvif_status = onvif_media_signing_set_signing_key_pair(
+        sv->onvif, private_key, private_key_size, certificate_chain, certificate_chain_size, true);
+    free(private_key);
+    return msrc_to_svrc(onvif_status);
   }
   return SV_OK;
 
