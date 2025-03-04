@@ -21,6 +21,8 @@
 #ifndef __SV_ONVIF_H__
 #define __SV_ONVIF_H__
 
+#ifdef NO_ONVIF_MEDIA_SIGNING
+
 #include <stdbool.h>  // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint8_t, int64_t
@@ -188,5 +190,6 @@ onvif_media_signing_set_trusted_certificate(onvif_media_signing_t *self,
     const char *trusted_certificate,
     size_t trusted_certificate_size,
     bool user_provisioned);
+#endif  // NO_ONVIF_MEDIA_SIGNING
 
 #endif  // __SV_ONVIF_H__

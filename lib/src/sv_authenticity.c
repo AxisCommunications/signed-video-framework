@@ -164,7 +164,7 @@ transfer_authenticity(signed_video_authenticity_t *dst, const signed_video_authe
  */
 
 void
-latest_validation_init(signed_video_latest_validation_t *self)
+sv_latest_validation_init(signed_video_latest_validation_t *self)
 {
   // This call can be made before an authenticity report exists, e.g., if a reset is done right
   // after creating a session, or done on the signing side.
@@ -186,7 +186,7 @@ latest_validation_init(signed_video_latest_validation_t *self)
 }
 
 void
-accumulated_validation_init(signed_video_accumulated_validation_t *self)
+sv_accumulated_validation_init(signed_video_accumulated_validation_t *self)
 {
   // This call can be made before an authenticity report exists, e.g., if a reset is done right
   // after creating a session, or done on the signing side.
@@ -211,9 +211,10 @@ authenticity_report_init(signed_video_authenticity_t *authenticity_report)
   assert(!authenticity_report->this_version);
   authenticity_report->version_on_signing_side = calloc(1, SV_VERSION_MAX_STRLEN);
   authenticity_report->this_version = calloc(1, SV_VERSION_MAX_STRLEN);
+  strcpy(authenticity_report->this_version, SIGNED_VIDEO_VERSION);
 
-  latest_validation_init(&authenticity_report->latest_validation);
-  accumulated_validation_init(&authenticity_report->accumulated_validation);
+  sv_latest_validation_init(&authenticity_report->latest_validation);
+  sv_accumulated_validation_init(&authenticity_report->accumulated_validation);
 }
 
 void
@@ -248,7 +249,7 @@ update_accumulated_validation(const signed_video_latest_validation_t *latest,
 }
 
 void
-update_authenticity_report(signed_video_t *self)
+sv_update_authenticity_report(signed_video_t *self)
 {
   assert(self && self->authenticity);
 
@@ -350,7 +351,7 @@ signed_video_get_authenticity_report(signed_video_t *self)
  */
 
 svrc_t
-create_local_authenticity_report_if_needed(signed_video_t *self)
+sv_create_local_authenticity_report_if_needed(signed_video_t *self)
 {
   if (!self) return SV_INVALID_PARAMETER;
 

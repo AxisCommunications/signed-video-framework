@@ -67,7 +67,7 @@ typedef struct _pem_pkey_t {
  *         SV_EXTERNAL_ERROR Failure in OpenSSL.
  */
 SignedVideoReturnCode
-openssl_sign_hash(sign_or_verify_data_t *sign_data);
+sv_openssl_sign_hash(sign_or_verify_data_t *sign_data);
 
 /**
  * @brief Turns a private key on PEM form to EVP_PKEY form
@@ -75,7 +75,7 @@ openssl_sign_hash(sign_or_verify_data_t *sign_data);
  * and allocates memory for a signature
  *
  * The function allocates enough memory for a signature given the |private_key|.
- * Use openssl_free_key() to free the key context.
+ * Use sv_openssl_free_key() to free the key context.
  *
  * @param sign_data A pointer to the struct that holds all necessary information for signing.
  * @param private_key The content of the private key PEM file.
@@ -99,7 +99,7 @@ openssl_private_key_malloc(sign_or_verify_data_t *sign_data,
  * @param key A pointer to the key context which memory to free
  */
 void
-openssl_free_key(void *key);
+sv_openssl_free_key(void *key);
 
 /**
  * @brief Helper function to generate a private key

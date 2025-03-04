@@ -39,7 +39,7 @@ legacy_sources = files(
   'legacy/legacy_tlv.h',
 )
 
-# Until plugin management is in place the plugin file(s) are added to the sources.
+# Add source files from plugins, vendors, legacy code
 signedvideoframework_sources += plugin_sources
 signedvideoframework_sources += vendor_sources
 signedvideoframework_sources += legacy_sources
@@ -47,6 +47,11 @@ signedvideoframework_sources += legacy_sources
 # Add vendor specific public headers
 if build_with_axis
   signedvideoframework_public_headers += files('includes/sv_vendor_axis_communications.h')
+endif
+# Add ONVIF Media Signing source files and public headers
+if populated_media_signing_submodule
+  signedvideoframework_sources += mediasigningframework_sources
+  signedvideoframework_public_headers += mediasigningframework_public_headers
 endif
 
 svsrcinc = include_directories('.')

@@ -35,13 +35,13 @@
 #include "includes/signed_video_helpers.h"  // onvif_media_signing_parse_sei()
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "includes/signed_video_signing_plugin.h"
-#include "sv_authenticity.h"  // latest_validation_init()
+#include "sv_authenticity.h"  // sv_latest_validation_init()
 #include "sv_bu_list.h"  // bu_list_create(), bu_list_free()
 #include "sv_codec_internal.h"  // parse_h264_nalu_header(), parse_av1_obu_header()
 #include "sv_defines.h"  // svrc_t
 #include "sv_internal.h"  // gop_info_t, validation_flags_t, MAX_HASH_SIZE, DEFAULT_HASH_SIZE
 #include "sv_openssl_internal.h"
-#include "sv_tlv.h"  // read_32bits()
+#include "sv_tlv.h"  // sv_read_32bits()
 
 #define USER_DATA_UNREGISTERED 5
 #define H264_NALU_HEADER_LEN 1  // length of forbidden_zero_bit, nal_ref_idc and nal_unit_type
@@ -198,7 +198,7 @@ sign_or_verify_data_free(sign_or_verify_data_t *self)
 {
   if (!self) return;
 
-  openssl_free_key(self->key);
+  sv_openssl_free_key(self->key);
   free(self->hash);
   free(self->signature);
   free(self);
@@ -234,7 +234,7 @@ version_str_to_bytes(int *arr, const char *str)
 
 /* Puts Major, Minor and Patch from a version array to a version string */
 void
-bytes_to_version_str(const int *arr, char *str)
+sv_bytes_to_version_str(const int *arr, char *str)
 {
   if (!arr || !str) return;
   sprintf(str, "v%d.%d.%d", arr[0], arr[1], arr[2]);
@@ -400,7 +400,7 @@ remove_epb_from_sei_payload(bu_info_t *bu)
     // prevention bytes removed.
     const uint8_t *hashable_data_ptr = bu->hashable_data;
     for (size_t i = 0; i < data_size; i++) {
-      bu->nalu_data_wo_epb[i] = read_byte(&last_two_bytes, &hashable_data_ptr, true);
+      bu->nalu_data_wo_epb[i] = sv_read_byte(&last_two_bytes, &hashable_data_ptr, true);
     }
     // Point |tlv_data| to the first byte of the TLV part in |nalu_data_wo_epb|.
     bu->tlv_data = &bu->nalu_data_wo_epb[data_size - bu->payload_size + UUID_LEN];
@@ -455,7 +455,7 @@ parse_bu_info(const uint8_t *bu_data,
 
   if (codec != SV_CODEC_AV1) {
     // There is no start code for AV1.
-    read_bytes = read_32bits(bu_data, &start_code);
+    read_bytes = sv_read_32bits(bu_data, &start_code);
     if (start_code != kStartCode) {
       // Check if this is a 3 byte Start Code.
       read_bytes = 3;
@@ -675,7 +675,7 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
   // If this is the start of the GOP, initialize |crypto_handle| to enable
   // updating the hash with each received BU.
   if (*list_idx == 0) {
-    openssl_init_hash(self->crypto_handle, true);
+    sv_openssl_init_hash(self->crypto_handle, true);
   }
   // If the upcoming hash doesn't fit in the hash list buffer, set *list_idx to -1
   // to indicate that the hash list is full, and the hash list is no longer accessible.
@@ -688,7 +688,7 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
     memcpy(&hash_list[*list_idx], hash, hash_size);
     *list_idx += (int)hash_size;
   }
-  openssl_update_hash(self->crypto_handle, hash, hash_size, true);
+  sv_openssl_update_hash(self->crypto_handle, hash, hash_size, true);
 }
 
 /*
@@ -697,7 +697,7 @@ check_and_copy_hash_to_hash_list(signed_video_t *self, const uint8_t *hash, size
  * previous hash moved to the first slot.
  */
 svrc_t
-update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
+sv_update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size)
 {
   if (!self || !hash) return SV_INVALID_PARAMETER;
   if (self->authentication_started) {
@@ -755,7 +755,7 @@ update_hash(signed_video_t *self,
   const uint8_t *hashable_data = bu->hashable_data;
   size_t hashable_data_size = bu->hashable_data_size;
 
-  return openssl_update_hash(self->crypto_handle, hashable_data, hashable_data_size, false);
+  return sv_openssl_update_hash(self->crypto_handle, hashable_data, hashable_data_size, false);
 }
 
 /* simply_hash()
@@ -772,12 +772,12 @@ simply_hash(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t has
 
   if (bu->is_first_bu_part) {
     // Entire BU can be hashed in one part.
-    return openssl_hash_data(self->crypto_handle, hashable_data, hashable_data_size, hash);
+    return sv_openssl_hash_data(self->crypto_handle, hashable_data, hashable_data_size, hash);
   } else {
     svrc_t status = update_hash(self, bu, hash, hash_size);
     if (status == SV_OK) {
       // Finalize the ongoing hash of BU parts.
-      status = openssl_finalize_hash(self->crypto_handle, hash, false);
+      status = sv_openssl_finalize_hash(self->crypto_handle, hash, false);
     }
     return status;
   }
@@ -805,7 +805,7 @@ hash_and_copy_to_ref(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, s
     memcpy(reference_hash, hash, hash_size);
     // Update |linked_hash| with |reference_hash| if applied on the signing side.
     if (!self->authentication_started) {
-      update_linked_hash(self, reference_hash, hash_size);
+      sv_update_linked_hash(self, reference_hash, hash_size);
     }
   SV_CATCH()
   SV_DONE(status)
@@ -840,12 +840,12 @@ hash_with_reference(signed_video_t *self,
     // Hash BU data and store as |bu_hash|.
     SV_THROW(simply_hash(self, bu, bu_hash, hash_size));
     // Hash reference hash together with the |bu_hash| and store in |buddy_hash|.
-    SV_THROW(
-        openssl_hash_data(self->crypto_handle, gop_info->hash_buddies, hash_size * 2, buddy_hash));
+    SV_THROW(sv_openssl_hash_data(
+        self->crypto_handle, gop_info->hash_buddies, hash_size * 2, buddy_hash));
     // Copy |buddy_hash| to |linked_hash| queue if signing is triggered. Only applies on
     // the signing side.
     if (gop_info->triggered_partial_gop && !self->authentication_started) {
-      update_linked_hash(self, buddy_hash, hash_size);
+      sv_update_linked_hash(self, buddy_hash, hash_size);
     }
   SV_CATCH()
   SV_DONE(status)
@@ -854,7 +854,7 @@ hash_with_reference(signed_video_t *self,
 }
 
 svrc_t
-hash_and_add(signed_video_t *self, const bu_info_t *bu)
+sv_hash_and_add(signed_video_t *self, const bu_info_t *bu)
 {
   if (!self || !bu) return SV_INVALID_PARAMETER;
 
@@ -873,7 +873,7 @@ hash_and_add(signed_video_t *self, const bu_info_t *bu)
     if (bu->is_first_bu_part && !bu->is_last_bu_part) {
       // If this is the first part of a non-complete BU, initialize the |crypto_handle| to
       // enable sequentially updating the hash with more parts.
-      SV_THROW(openssl_init_hash(self->crypto_handle, false));
+      SV_THROW(sv_openssl_init_hash(self->crypto_handle, false));
     }
     // Select hash function, hash the BU and store as 'latest hash'
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, bu);
@@ -980,7 +980,7 @@ signed_video_create(SignedVideoCodec codec)
     self->codec = codec;
 
     // Setup crypto handle.
-    self->crypto_handle = openssl_create_handle();
+    self->crypto_handle = sv_openssl_create_handle();
     SV_THROW_IF(!self->crypto_handle, SV_EXTERNAL_ERROR);
 
     self->gop_info = gop_info_create();
@@ -1001,7 +1001,7 @@ signed_video_create(SignedVideoCodec codec)
     self->sei_epb = codec != SV_CODEC_AV1;
     self->signing_started = false;
     self->sign_data = sign_or_verify_data_create();
-    self->sign_data->hash_size = openssl_get_hash_size(self->crypto_handle);
+    self->sign_data->hash_size = sv_openssl_get_hash_size(self->crypto_handle);
     // Make sure the hash size matches the default hash size.
     SV_THROW_IF(self->sign_data->hash_size != DEFAULT_HASH_SIZE, SV_EXTERNAL_ERROR);
 
@@ -1025,7 +1025,7 @@ signed_video_create(SignedVideoCodec codec)
     self->has_public_key = false;
 
     self->verify_data = sign_or_verify_data_create();
-    self->verify_data->hash_size = openssl_get_hash_size(self->crypto_handle);
+    self->verify_data->hash_size = sv_openssl_get_hash_size(self->crypto_handle);
   SV_CATCH()
   {
     signed_video_free(self);
@@ -1058,15 +1058,15 @@ signed_video_reset(signed_video_t *self)
     gop_info_reset(self->gop_info);
 
     validation_flags_init(&(self->validation_flags));
-    latest_validation_init(self->latest_validation);
-    accumulated_validation_init(self->accumulated_validation);
+    sv_latest_validation_init(self->latest_validation);
+    sv_accumulated_validation_init(self->accumulated_validation);
     // Empty the |bu_list|.
     bu_list_free_items(self->bu_list);
 
     memset(self->gop_info->linked_hashes, 0, sizeof(self->gop_info->linked_hashes));
     memset(self->last_bu, 0, sizeof(bu_info_t));
     self->last_bu->is_last_bu_part = true;
-    SV_THROW(openssl_init_hash(self->crypto_handle, false));
+    SV_THROW(sv_openssl_init_hash(self->crypto_handle, false));
 
     self->gop_info->num_in_partial_gop = 0;
   SV_CATCH()
@@ -1085,8 +1085,6 @@ signed_video_free(signed_video_t *self)
   onvif_media_signing_free(self->onvif);
   // Free the legacy validation if present.
   legacy_sv_free(self->legacy_sv);
-  // Free the onvif object if present.
-  onvif_media_signing_free(self->onvif);
 
   // Teardown the plugin before closing.
   sv_signing_plugin_session_teardown(self->plugin_handle);
@@ -1095,7 +1093,7 @@ signed_video_free(signed_video_t *self)
   sv_vendor_axis_communications_teardown(self->vendor_handle);
 #endif
   // Teardown the crypto handle.
-  openssl_free_handle(self->crypto_handle);
+  sv_openssl_free_handle(self->crypto_handle);
 
   // Free any pending SEIs
   free_sei_data_buffer(self->sei_data_buffer);
@@ -1131,7 +1129,7 @@ signed_video_compare_versions(const char *version1, const char *version2)
 
   int result = 0;
   int j = 0;
-  while (result == 0 && j < SV_VERSION_BYTES) {
+  while (result == 0 && j < SV_VERSION_BYTES - 1) {  // Skip patch number
     result = arr1[j] - arr2[j];
     j++;
   }
@@ -1174,7 +1172,7 @@ signed_video_parse_sei(uint8_t *bu, size_t bu_size, SignedVideoCodec codec)
     }
     printf("\n");
     signed_video_t *self = signed_video_create(codec);
-    tlv_decode(self, bu_info.tlv_data, bu_info.tlv_size);
+    sv_tlv_decode(self, bu_info.tlv_data, bu_info.tlv_size);
     signed_video_free(self);
   }
 

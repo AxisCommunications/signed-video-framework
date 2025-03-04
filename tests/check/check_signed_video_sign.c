@@ -459,6 +459,11 @@ START_TEST(factory_provisioned_key)
   struct sv_setting setting = settings[_i];
   // Only EC keys are tested.
   if (!setting.ec_key) return;
+    // If the test has been built with ONVIF Media Signing, factory provisioned keys will
+    // use Media Signing for H.264 and H.265.
+#ifndef NO_ONVIF_MEDIA_SIGNING
+  if (setting.codec != SV_CODEC_AV1) return;
+#endif
 
   signed_video_t *sv = get_initialized_signed_video(setting, false);
   ck_assert(sv);
@@ -822,7 +827,7 @@ START_TEST(w_wo_emulation_prevention_bytes)
     ck_assert(seis[ii]);
     sei_sizes[ii] = sei_size;
     bu[ii] = parse_bu_info(seis[ii], sei_sizes[ii], codec, false, true);
-    update_hashable_data(&bu[ii]);
+    sv_update_hashable_data(&bu[ii]);
     signed_video_free(sv);
     sv = NULL;
   }

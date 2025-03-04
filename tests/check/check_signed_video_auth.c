@@ -32,7 +32,7 @@
 #endif
 #include "sv_internal.h"  // set_hash_list_size()
 #include "sv_openssl_internal.h"  // openssl_read_pubkey_from_private_key()
-#include "sv_tlv.h"  // write_byte_many()
+#include "sv_tlv.h"  // sv_write_byte_many()
 #include "test_helpers.h"  // sv_setting, create_signed_stream()
 #include "test_stream.h"  // test_stream_create()
 
@@ -1432,6 +1432,42 @@ START_TEST(file_export_with_two_useless_seis)
 END_TEST
 
 /* Test description
+ * Verify that we do not get any authentication if the stream has onvif SEIs.
+ */
+START_TEST(onvif_seis)
+{
+  test_stream_t *list = test_stream_create("IPIOPIOP", settings[_i].codec);
+  if (settings[_i].codec == SV_CODEC_AV1) {
+    // ONVIF Media Signing is not supported for AV1.
+    test_stream_check_types(list, "IPIPIP");
+  } else {
+    test_stream_check_types(list, "IPIOPIOP");
+  }
+
+  signed_video_t *sv = signed_video_create(settings[_i].codec);
+  ck_assert(sv);
+
+  test_stream_item_t *item = list->first_item;
+  while (item) {
+    SignedVideoReturnCode sv_rc =
+        signed_video_add_nalu_and_authenticate(sv, item->data, item->data_size, NULL);
+#ifdef NO_ONVIF_MEDIA_SIGNING
+    // If the current item's type corresponds to 'O', expect SV_EXTERNAL_ERROR.
+    ck_assert_int_eq(sv_rc, item->type == 'O' ? SV_EXTERNAL_ERROR : SV_OK);
+#else
+    // If ONVIF Media Signing code is present there should not be any errors.
+    ck_assert_int_eq(sv_rc, SV_OK);
+#endif
+    // Move to the next item in the list
+    item = item->next;
+  }
+
+  signed_video_free(sv);
+  test_stream_free(list);
+}
+END_TEST
+
+/* Test description
  * Verify that we do not get any authentication if the stream has no signature
  */
 START_TEST(no_signature)
@@ -1624,6 +1660,11 @@ START_TEST(factory_provisioned_key)
 
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = setting.codec;
+  // If the test has been built with ONVIF Media Signing, factory provisioned keys will
+  // use Media Signing for H.264 and H.265.
+#ifndef NO_ONVIF_MEDIA_SIGNING
+  if (codec != SV_CODEC_AV1) return;
+#endif
   test_stream_item_t *i_item = test_stream_item_create_from_type('I', 0, codec);
   test_stream_item_t *p_item = test_stream_item_create_from_type('P', 1, codec);
   test_stream_item_t *i_item_2 = test_stream_item_create_from_type('I', 2, codec);
@@ -1891,7 +1932,7 @@ START_TEST(test_public_key_scenarios)
     signed_video_free(sv_camera);
     signed_video_free(sv_vms);
     free(tmp_private_key);
-    openssl_free_key(sign_data_wrong_key.key);
+    sv_openssl_free_key(sign_data_wrong_key.key);
     free(sign_data_wrong_key.signature);
     free(wrong_public_key.key);
     test_stream_item_free(sei);
@@ -1958,7 +1999,7 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   signed_video_free(sv_vms);
   signed_video_free(sv_camera);
   free(tmp_private_key);
-  openssl_free_key(sign_data.key);
+  sv_openssl_free_key(sign_data.key);
   free(sign_data.signature);
   free(wrong_public_key.key);
 }
@@ -2021,7 +2062,7 @@ START_TEST(no_emulation_prevention_bytes)
   sei_p += 4;  // Move past the start code to avoid an incorrect emulation prevention byte.
   char *src = (char *)(sei + 4);
   size_t src_size = sei_size - 4;
-  write_byte_many(&sei_p, src, src_size, &last_two_bytes, true);
+  sv_write_byte_many(&sei_p, src, src_size, &last_two_bytes, true);
   size_t sei_with_epb_size = sei_p - sei_with_epb;
   free(sei);
 
@@ -2708,6 +2749,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, fast_forward_stream_with_delayed_seis, s, e);
   tcase_add_loop_test(tc, file_export_with_dangling_end, s, e);
   tcase_add_loop_test(tc, file_export_with_two_useless_seis, s, e);
+  tcase_add_loop_test(tc, onvif_seis, s, e);
   tcase_add_loop_test(tc, no_signature, s, e);
   tcase_add_loop_test(tc, multislice_no_signature, s, e);
   tcase_add_loop_test(tc, test_public_key_scenarios, s, e);

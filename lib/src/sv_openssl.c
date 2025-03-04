@@ -86,7 +86,7 @@ static const int gop_hash_salt = 1;
 
 /* Frees a key represented by an EVP_PKEY_CTX object. */
 void
-openssl_free_key(void *key)
+sv_openssl_free_key(void *key)
 {
   EVP_PKEY_CTX_free((EVP_PKEY_CTX *)key);
 }
@@ -288,7 +288,7 @@ openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_
 
 /* Signs a hash. */
 SignedVideoReturnCode
-openssl_sign_hash(sign_or_verify_data_t *sign_data)
+sv_openssl_sign_hash(sign_or_verify_data_t *sign_data)
 {
   // Sanity check input
   if (!sign_data) return SV_INVALID_PARAMETER;
@@ -328,7 +328,7 @@ openssl_sign_hash(sign_or_verify_data_t *sign_data)
 
 /* Verifies the |signature|. */
 svrc_t
-openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_result)
+sv_openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_result)
 {
   if (!verify_data || !verified_result) return SV_INVALID_PARAMETER;
 
@@ -361,7 +361,7 @@ openssl_verify_hash(const sign_or_verify_data_t *verify_data, int *verified_resu
 
 /* Hashes the data using |hash_algo.type|. */
 svrc_t
-openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *hash)
+sv_openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *hash)
 {
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
 
@@ -376,7 +376,7 @@ openssl_hash_data(void *handle, const uint8_t *data, size_t data_size, uint8_t *
 
 /* Initializes a EVP_MD_CTX in |handle| with |hash_algo.type|. */
 svrc_t
-openssl_init_hash(void *handle, bool use_primary_ctx)
+sv_openssl_init_hash(void *handle, bool use_primary_ctx)
 {
   if (!handle) return SV_INVALID_PARAMETER;
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
@@ -402,7 +402,7 @@ openssl_init_hash(void *handle, bool use_primary_ctx)
 
 /* Updates a EVP_MD_CTX in |handle| with |data|. */
 svrc_t
-openssl_update_hash(void *handle, const uint8_t *data, size_t data_size, bool use_primary_ctx)
+sv_openssl_update_hash(void *handle, const uint8_t *data, size_t data_size, bool use_primary_ctx)
 {
   if (!data || data_size == 0 || !handle) return SV_INVALID_PARAMETER;
 
@@ -418,7 +418,7 @@ openssl_update_hash(void *handle, const uint8_t *data, size_t data_size, bool us
 
 /* Finalizes a EVP_MD_CTX in |handle| and writes result to |hash|. */
 svrc_t
-openssl_finalize_hash(void *handle, uint8_t *hash, bool use_primary_ctx)
+sv_openssl_finalize_hash(void *handle, uint8_t *hash, bool use_primary_ctx)
 {
   if (!hash || !handle) return SV_INVALID_PARAMETER;
 
@@ -492,7 +492,7 @@ obj_to_oid_and_type(message_digest_t *self, const ASN1_OBJECT *obj)
 }
 
 svrc_t
-openssl_set_hash_algo(void *handle, const char *name_or_oid)
+sv_openssl_set_hash_algo(void *handle, const char *name_or_oid)
 {
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   if (!self) return SV_INVALID_PARAMETER;
@@ -513,7 +513,7 @@ openssl_set_hash_algo(void *handle, const char *name_or_oid)
     EVP_MD_CTX_free(self->secondary_ctx);
     self->secondary_ctx = NULL;
 
-    SV_THROW(openssl_init_hash(self, false));
+    SV_THROW(sv_openssl_init_hash(self, false));
     DEBUG_LOG("Setting hash algo %s that has ASN.1/DER coded OID length %zu", name_or_oid,
         self->hash_algo.encoded_oid_size);
   SV_CATCH()
@@ -523,7 +523,7 @@ openssl_set_hash_algo(void *handle, const char *name_or_oid)
 }
 
 svrc_t
-openssl_set_hash_algo_by_encoded_oid(void *handle,
+sv_openssl_set_hash_algo_by_encoded_oid(void *handle,
     const unsigned char *encoded_oid,
     size_t encoded_oid_size)
 {
@@ -556,7 +556,7 @@ openssl_set_hash_algo_by_encoded_oid(void *handle,
 }
 
 const unsigned char *
-openssl_get_hash_algo_encoded_oid(void *handle, size_t *encoded_oid_size)
+sv_openssl_get_hash_algo_encoded_oid(void *handle, size_t *encoded_oid_size)
 {
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   if (!self || encoded_oid_size == 0) return NULL;
@@ -566,7 +566,7 @@ openssl_get_hash_algo_encoded_oid(void *handle, size_t *encoded_oid_size)
 }
 
 char *
-openssl_encoded_oid_to_str(const unsigned char *encoded_oid, size_t encoded_oid_size)
+sv_openssl_encoded_oid_to_str(const unsigned char *encoded_oid, size_t encoded_oid_size)
 {
   ASN1_OBJECT *obj = NULL;
   char *algo_name = calloc(1, 50);
@@ -594,11 +594,12 @@ openssl_get_hash_algo(const void *handle)
   if (!self) {
     return NULL;
   }
-  return openssl_encoded_oid_to_str(self->hash_algo.encoded_oid, self->hash_algo.encoded_oid_size);
+  return sv_openssl_encoded_oid_to_str(
+      self->hash_algo.encoded_oid, self->hash_algo.encoded_oid_size);
 }
 
 size_t
-openssl_get_hash_size(void *handle)
+sv_openssl_get_hash_size(void *handle)
 {
   if (!handle) return 0;
 
@@ -607,13 +608,13 @@ openssl_get_hash_size(void *handle)
 
 /* Creates a |handle| with a EVP_MD_CTX and hash algo. */
 void *
-openssl_create_handle(void)
+sv_openssl_create_handle(void)
 {
   openssl_crypto_t *self = (openssl_crypto_t *)calloc(1, sizeof(openssl_crypto_t));
   if (!self) return NULL;
 
-  if (openssl_set_hash_algo(self, DEFAULT_HASH_ALGO) != SV_OK) {
-    openssl_free_handle(self);
+  if (sv_openssl_set_hash_algo(self, DEFAULT_HASH_ALGO) != SV_OK) {
+    sv_openssl_free_handle(self);
     self = NULL;
   }
 
@@ -622,7 +623,7 @@ openssl_create_handle(void)
 
 /* Frees the |handle|. */
 void
-openssl_free_handle(void *handle)
+sv_openssl_free_handle(void *handle)
 {
   openssl_crypto_t *self = (openssl_crypto_t *)handle;
   if (!self) return;
