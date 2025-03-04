@@ -153,7 +153,7 @@ get_axis_communications_trusted_certificate(void);
 /**
  * @brief Retrieves the certificate chain from the vendor handle.
  *
- * @param handle The handle containing certificate chain.
+ * @param handle The handle to Axis Communications specific information.
  * @return The certificate chain as a null-terminated string, or NULL on failure.
  */
 const char *

@@ -933,6 +933,33 @@ hash_and_add_for_auth(signed_video_t *self, bu_list_item_t *item)
   return status;
 }
 
+/*
+ * This function initializes ONVIF settings by porting all the settings,
+ * retrieving the private key and certificate chain from the signed video object,
+ * and setting the ONVIF signing key pair.
+ */
+svrc_t
+initialize_onvif(signed_video_t *self)
+{
+  // Convert port settings to ONVIF settings
+  svrc_t status = port_settings_to_onvif(self);
+  if (status != SV_OK) return SV_NOT_SUPPORTED;  // Cleanup on failure
+
+  // Retrieve the private key
+  const char *private_key = get_private_key_from_sv(self);
+  assert(private_key);
+  size_t private_key_size = strlen(private_key);
+  // Retrieve the certificate chain
+  const char *certificate_chain = get_axis_communications_certificate_chain(self->vendor_handle);
+  assert(certificate_chain);
+  size_t certificate_chain_size = strlen(certificate_chain);
+  // Set the signing key pair for ONVIF media signing
+  status = msrc_to_svrc(onvif_media_signing_set_signing_key_pair(
+      self->onvif, private_key, private_key_size, certificate_chain, certificate_chain_size, true));
+
+  return status;
+}
+
 /* Public signed_video_common.h APIs */
 signed_video_t *
 signed_video_create(SignedVideoCodec codec)

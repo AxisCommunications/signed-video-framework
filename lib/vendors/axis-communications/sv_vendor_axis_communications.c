@@ -29,7 +29,7 @@
 #include <stdbool.h>
 #include <stdlib.h>  // malloc, memcpy, calloc, free
 
-#include "sv_internal.h"  // signed_video_t, onvif_media_signing_set_signing_key_pair()
+#include "sv_internal.h"  // signed_video_t, port_settings_to_onvif()
 #include "sv_tlv.h"
 #include "sv_vendor_axis_communications_internal.h"
 
@@ -885,18 +885,13 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
       sv->onvif = onvif_media_signing_create(sv_codec_to_ms_codec(sv->codec));
     }
   }
-  // Set the signing key pair if sign_data is available
+  // Initialize Onvif if private key is set before.
   if (sv->sign_data && sv->onvif) {
-    SignedVideoReturnCode status = port_settings_to_onvif(sv);
-    if (status != SV_OK) goto catch_error;  // Cleanup on failure
-    char *private_key = get_private_key_from_sv(sv);
-    if (!private_key) goto catch_error;  // Ensure cleanup
-    size_t private_key_size = strlen(private_key);
-    status = msrc_to_svrc(onvif_media_signing_set_signing_key_pair(
-        sv->onvif, private_key, private_key_size, certificate_chain, certificate_chain_size, true));
-    free(private_key);
-    if (status != SV_OK) goto catch_error;  // Cleanup on failure
-    return status;
+    SignedVideoReturnCode status = initialize_onvif(sv);
+    if (status == SV_OK) {
+      return status;
+    }
+    onvif_media_signing_free(sv->onvif);
   }
   return SV_OK;
 

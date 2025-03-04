@@ -449,6 +449,14 @@ sv_codec_to_ms_codec(SignedVideoCodec sv_codec);
 svrc_t
 port_settings_to_onvif(signed_video_t *self);
 
+/*
+ * This function initializes ONVIF settings by porting all the settings,
+ * retrieving the private key and certificate chain from the signed video object,
+ * and setting the ONVIF signing key pair.
+ */
+svrc_t
+initialize_onvif(signed_video_t *self);
+
 /**
  * Deprecated public API which is still handy in tests. */
 SignedVideoReturnCode

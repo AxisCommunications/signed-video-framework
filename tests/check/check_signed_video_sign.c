@@ -934,7 +934,7 @@ START_TEST(sign_with_reconstructed_private_key)
   ck_assert_int_eq(strlen(reconstructed_private_key), private_key_size);
   signed_video_free(sv);
 
-  // Create a new signed video object  and reuse the reconstructed private key
+  // Create a new signed video object and reuse the reconstructed private key
   sv = signed_video_create(codec);
   private_key_size = strlen(reconstructed_private_key);
   ck_assert(sv);
