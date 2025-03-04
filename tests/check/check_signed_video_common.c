@@ -100,8 +100,11 @@ START_TEST(correct_version)
   const char *kVer1 = "v0.1.0";
   const char *kVer2 = "v0.10.0";
   const char *kVer3 = "R0.1.0";
+  const char *kVer4 = "v0.1.1";
   int check = 0;
   check = signed_video_compare_versions(kVer1, kVer1);
+  ck_assert_int_eq(check, 0);
+  check = signed_video_compare_versions(kVer1, kVer4);
   ck_assert_int_eq(check, 0);
   check = signed_video_compare_versions(kVer2, kVer1);
   ck_assert_int_eq(check, 1);

@@ -121,6 +121,9 @@ signed_video_get_version();
 /**
  * @brief Compares two Signed Video versions
  *
+ * The comparison is only done on major and minor, hence leaves out patch number. A patch
+ * update should not affect the validation. If so, the change should be made to minor.
+ *
  * @param version1 Version string to compare against |version2|
  * @param version2 Version string to compare against |version1|
  *
