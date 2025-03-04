@@ -1273,7 +1273,6 @@ static svrc_t
 reregister_bu(signed_video_t *self)
 {
   assert(self);
-  assert(self->validation_flags.hash_algo_known);
 
   bu_list_t *bu_list = self->bu_list;
   bu_list_item_t *item = bu_list->first_item;
