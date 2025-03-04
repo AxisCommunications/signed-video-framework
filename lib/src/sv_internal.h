@@ -466,6 +466,13 @@ svrc_t
 initialize_onvif(signed_video_t *self);
 
 /**
+ * This function retrieves the private key stored within the `sign_data` structure
+ * and returns it as a dynamically allocated null-terminated string in PEM format.
+ */
+char *
+get_private_key_from_sign_data(sign_or_verify_data_t *sign_data);
+
+/**
  * Deprecated public API which is still handy in tests. */
 SignedVideoReturnCode
 signed_video_add_nalu_for_signing(signed_video_t *self,

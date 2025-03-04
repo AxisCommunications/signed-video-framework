@@ -914,34 +914,32 @@ END_TEST
 
 /**
  * This test ensures that a reconstructed private key can be used to sign a stream again.
- * It sets a private key, retrieves it, verifies its size, and then uses it in a new instance
- * to sign and validate a stream.
+ * It sets a private key, retrieves it, verifies its size, and then uses it to sign and
+ * validate a stream.
  */
 
 START_TEST(sign_with_reconstructed_private_key)
 {
   SignedVideoCodec codec = settings[_i].codec;
-
-  // Create a signed video
-  signed_video_t *sv = signed_video_create(codec);
-  ck_assert(sv);
+  SignedVideoReturnCode sv_rc;
+  // Create a sign_data
+  sign_or_verify_data_t sign_data = {0};
 
   char *private_key = NULL;
   size_t private_key_size = 0;
 
   // Read and set the private key
   ck_assert(read_test_private_key(settings[_i].ec_key, &private_key, &private_key_size, false));
-  signed_video_set_private_key(sv, private_key, private_key_size);
+  sv_rc = openssl_private_key_malloc(&sign_data, private_key, private_key_size);
+  ck_assert_int_eq(sv_rc, SV_OK);
   free(private_key);
-  // Retrieve the private key from the sv
-  const char *reconstructed_private_key = get_private_key_from_sv(sv);
+  // Retrieve the private key from the sign_data
+  const char *reconstructed_private_key = get_private_key_from_sign_data(&sign_data);
   // Verify the key size matches the original
   ck_assert_int_eq(strlen(reconstructed_private_key), private_key_size);
-  signed_video_free(sv);
 
   // Create a new signed video object and reuse the reconstructed private key
-  sv = signed_video_create(codec);
-  private_key_size = strlen(reconstructed_private_key);
+  signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
   signed_video_set_private_key(sv, reconstructed_private_key, private_key_size);
 

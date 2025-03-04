@@ -254,17 +254,4 @@ openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_
 svrc_t
 openssl_public_key_malloc(sign_or_verify_data_t *verify_data, pem_pkey_t *pem_public_key);
 
-/**
- * @brief Extracts the private key from the signing data structure.
- *
- * This function retrieves the private key stored within the `sign_data` structure
- * and returns it as a dynamically allocated null-terminated string in PEM format.
- *
- * @param sign_data A pointer to the `sign_or_verify_data_t` structure containing the key.
- * @return A dynamically allocated string containing the private key in PEM format,
- *         or NULL if an error occurs. The caller is responsible for freeing the memory.
- */
-char *
-get_private_key_from_sign_data(sign_or_verify_data_t *sign_data);
-
 #endif  // __SV_OPENSSL_INTERNAL__
