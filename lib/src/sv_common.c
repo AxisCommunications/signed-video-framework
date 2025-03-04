@@ -1097,7 +1097,7 @@ signed_video_compare_versions(const char *version1, const char *version2)
 
   int result = 0;
   int j = 0;
-  while (result == 0 && j < SV_VERSION_BYTES) {
+  while (result == 0 && j < SV_VERSION_BYTES - 1) {  // Skip patch number
     result = arr1[j] - arr2[j];
     j++;
   }
