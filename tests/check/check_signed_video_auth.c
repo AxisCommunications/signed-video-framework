@@ -1451,9 +1451,13 @@ START_TEST(onvif_seis)
   while (item) {
     SignedVideoReturnCode sv_rc =
         signed_video_add_nalu_and_authenticate(sv, item->data, item->data_size, NULL);
-    // If the current item's type corresponds to 'O', expect SV_EXTERNAL_ERROR
+#ifdef NO_ONVIF_MEDIA_SIGNING
+    // If the current item's type corresponds to 'O', expect SV_EXTERNAL_ERROR.
     ck_assert_int_eq(sv_rc, item->type == 'O' ? SV_EXTERNAL_ERROR : SV_OK);
-
+#else
+    // If ONVIF Media Signing code is present there should not be any errors.
+    ck_assert_int_eq(sv_rc, SV_OK);
+#endif
     // Move to the next item in the list
     item = item->next;
   }

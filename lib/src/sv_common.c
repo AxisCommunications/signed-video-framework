@@ -1051,8 +1051,6 @@ signed_video_free(signed_video_t *self)
   onvif_media_signing_free(self->onvif);
   // Free the legacy validation if present.
   legacy_sv_free(self->legacy_sv);
-  // Free the onvif object if present.
-  onvif_media_signing_free(self->onvif);
 
   // Teardown the plugin before closing.
   sv_signing_plugin_session_teardown(self->plugin_handle);
