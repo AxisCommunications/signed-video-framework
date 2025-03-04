@@ -211,6 +211,7 @@ authenticity_report_init(signed_video_authenticity_t *authenticity_report)
   assert(!authenticity_report->this_version);
   authenticity_report->version_on_signing_side = calloc(1, SV_VERSION_MAX_STRLEN);
   authenticity_report->this_version = calloc(1, SV_VERSION_MAX_STRLEN);
+  strcpy(authenticity_report->this_version, SIGNED_VIDEO_VERSION);
 
   sv_latest_validation_init(&authenticity_report->latest_validation);
   sv_accumulated_validation_init(&authenticity_report->accumulated_validation);
