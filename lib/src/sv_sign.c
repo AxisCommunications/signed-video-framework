@@ -890,9 +890,6 @@ signed_video_set_private_key(signed_video_t *self, const char *private_key, size
   if (self->onvif) {
     status = initialize_onvif(self);
   }
-  // Free the EVP_PKEY since it is no longer needed. It is handled by the signing plugin.
-  sv_openssl_free_key(self->sign_data->key);
-  self->sign_data->key = NULL;
 
   return status;
 }
