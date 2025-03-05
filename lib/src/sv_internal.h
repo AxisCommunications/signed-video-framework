@@ -382,9 +382,6 @@ sv_update_linked_hash(signed_video_t *self, uint8_t *hash, size_t hash_size);
 svrc_t
 hash_and_add_for_auth(signed_video_t *signed_video, bu_list_item_t *item);
 
-char *
-get_private_key_from_sv(signed_video_t *signed_video);
-
 bu_info_t
 parse_bu_info(const uint8_t *bu_data,
     size_t bu_data_size,
@@ -470,7 +467,7 @@ initialize_onvif(signed_video_t *self);
  * and returns it as a dynamically allocated null-terminated string in PEM format.
  */
 char *
-get_private_key_from_sign_data(sign_or_verify_data_t *sign_data);
+openssl_extract_private_key(sign_or_verify_data_t *sign_data);
 
 /**
  * Deprecated public API which is still handy in tests. */

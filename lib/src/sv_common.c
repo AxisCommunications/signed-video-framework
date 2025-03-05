@@ -28,6 +28,18 @@
 #include <stdlib.h>  // free, calloc, malloc
 #include <string.h>  // size_t
 
+// Include ONVIF Media Signing
+#if defined(NO_ONVIF_MEDIA_SIGNING)
+#include "sv_onvif.h"  // Stubs for ONVIF APIs and structs
+#elif defined(ONVIF_MEDIA_SIGNING_INSTALLED)
+// ONVIF Media Signing is installed separately; Camera
+#include <media-signing-framework/onvif_media_signing_common.h>
+#include <media-signing-framework/onvif_media_signing_signer.h>
+#else
+// ONVIF Media Signing is dragged in as a submodule; FilePlayer
+#include "includes/onvif_media_signing_common.h"
+#include "includes/onvif_media_signing_signer.h"
+#endif
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "axis-communications/sv_vendor_axis_communications_internal.h"
 #endif
@@ -563,13 +575,6 @@ parse_bu_info(const uint8_t *bu_data,
   return bu;
 }
 
-char *
-get_private_key_from_sv(signed_video_t *self)
-{
-  if (!self) return NULL;
-  return get_private_key_from_sign_data(self->sign_data);
-}
-
 /**
  * @brief Copy a Bitstream Unit Information struct (bu_info_t)
  *
@@ -929,33 +934,6 @@ hash_and_add_for_auth(signed_video_t *self, bu_list_item_t *item)
 #endif
   SV_CATCH()
   SV_DONE(status)
-
-  return status;
-}
-
-/*
- * This function initializes ONVIF settings by porting all the settings,
- * retrieving the private key and certificate chain from the signed video object,
- * and setting the ONVIF signing key pair.
- */
-svrc_t
-initialize_onvif(signed_video_t *self)
-{
-  // Convert port settings to ONVIF settings
-  svrc_t status = port_settings_to_onvif(self);
-  if (status != SV_OK) return SV_NOT_SUPPORTED;  // Cleanup on failure
-
-  // Retrieve the private key
-  const char *private_key = get_private_key_from_sv(self);
-  assert(private_key);
-  size_t private_key_size = strlen(private_key);
-  // Retrieve the certificate chain
-  const char *certificate_chain = get_axis_communications_certificate_chain(self->vendor_handle);
-  assert(certificate_chain);
-  size_t certificate_chain_size = strlen(certificate_chain);
-  // Set the signing key pair for ONVIF media signing
-  status = msrc_to_svrc(onvif_media_signing_set_signing_key_pair(
-      self->onvif, private_key, private_key_size, certificate_chain, certificate_chain_size, true));
 
   return status;
 }

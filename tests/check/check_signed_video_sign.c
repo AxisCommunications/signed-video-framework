@@ -928,17 +928,18 @@ START_TEST(sign_with_reconstructed_private_key)
   char *private_key = NULL;
   size_t private_key_size = 0;
 
-  // Read and set the private key
+  // Read the private key
   ck_assert(read_test_private_key(settings[_i].ec_key, &private_key, &private_key_size, false));
   sv_rc = openssl_private_key_malloc(&sign_data, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
   free(private_key);
+
   // Retrieve the private key from the sign_data
-  const char *reconstructed_private_key = get_private_key_from_sign_data(&sign_data);
+  const char *reconstructed_private_key = openssl_extract_private_key(&sign_data);
   // Verify the key size matches the original
   ck_assert_int_eq(strlen(reconstructed_private_key), private_key_size);
 
-  // Create a new signed video object and reuse the reconstructed private key
+  // Create a signed video object and set the reconstructed private key
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
   signed_video_set_private_key(sv, reconstructed_private_key, private_key_size);
@@ -947,6 +948,8 @@ START_TEST(sign_with_reconstructed_private_key)
   test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIPPIP", false, false);
   test_stream_check_types(list, "IPPISPPISP");
 
+  sv_openssl_free_key(sign_data.key);
+  free(sign_data.signature);
   test_stream_free(list);
   signed_video_free(sv);
   free((char *)reconstructed_private_key);

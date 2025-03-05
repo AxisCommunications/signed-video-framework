@@ -148,48 +148,61 @@ openssl_private_key_malloc(sign_or_verify_data_t *sign_data,
 }
 
 /**
- * Extracts the private key from the signing data structure.
  * This function retrieves the private key stored within the `sign_data` structure
  * and returns it as a dynamically allocated null-terminated string in PEM format.
  */
 char *
-get_private_key_from_sign_data(sign_or_verify_data_t *sign_data)
+openssl_extract_private_key(sign_or_verify_data_t *sign_data)
 {
-  if (!sign_data || !sign_data->key) return NULL;
+  char *private_key = NULL;
+  BIO *bio = NULL;
+  BUF_MEM *buf_mem = NULL;
+  EVP_PKEY *pkey = NULL;
 
-  BIO *bio = BIO_new(BIO_s_mem());
-  if (!bio) return NULL;
-
-  // Create a new BIO memory buffer for storing the private key
-  EVP_PKEY *pkey = EVP_PKEY_CTX_get0_pkey(sign_data->key);
-  if (!pkey) {
-    BIO_free(bio);
+  if (!sign_data || !sign_data->key) {
     return NULL;
   }
   // Retrieve the EVP_PKEY object from the signing context
-  if (!PEM_write_bio_PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL)) {
-    BIO_free(bio);
-    return NULL;
+  pkey = EVP_PKEY_CTX_get0_pkey(sign_data->key);
+  if (!pkey) {
+    goto cleanup;
+  }
+  // Create a new BIO memory buffer
+  bio = BIO_new(BIO_s_mem());
+  if (!bio) {
+    goto cleanup;
   }
   // Write the private key to the BIO buffer in PEM format
-  BUF_MEM *buf_mem = NULL;
+  if (!PEM_write_bio_PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL)) {
+    goto cleanup;
+  }
+  // Get memory pointer from BIO
   BIO_get_mem_ptr(bio, &buf_mem);
   if (!buf_mem || buf_mem->length == 0) {
-    BIO_free(bio);
-    return NULL;
+    goto cleanup;
   }
-  // Allocate memory to store the private key string
-  char *private_key = (char *)malloc(buf_mem->length + 1);
+  // Allocate memory for the private key
+  private_key = (char *)malloc(buf_mem->length + 1);
   if (!private_key) {
-    BIO_free(bio);
-    return NULL;
+    goto cleanup;
   }
-
+  // Copy the private key and null-terminate it
   memcpy(private_key, buf_mem->data, buf_mem->length);
   private_key[buf_mem->length] = '\0';
 
+  // Free BIO and return success
   BIO_free(bio);
   return private_key;
+
+cleanup:
+  // Free allocated resources on failure
+  if (bio) {
+    BIO_free(bio);
+  }
+  if (private_key) {
+    free(private_key);
+  }
+  return NULL;
 }
 
 /* Reads the |pem_public_key| which is expected to be on PEM form and creates an EVP_PKEY

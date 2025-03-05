@@ -29,7 +29,7 @@
 #include <stdbool.h>
 #include <stdlib.h>  // malloc, memcpy, calloc, free
 
-#include "sv_internal.h"  // signed_video_t, port_settings_to_onvif()
+#include "sv_internal.h"  // signed_video_t
 #include "sv_tlv.h"
 #include "sv_vendor_axis_communications_internal.h"
 

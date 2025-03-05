@@ -771,6 +771,44 @@ signed_video_get_sei(signed_video_t *self,
   return SV_OK;
 }
 
+/*
+ * This function initializes the ONVIF Media Signing session by porting
+ * the current settings from Signed Video and setting the signing key pair.
+ */
+svrc_t
+initialize_onvif(signed_video_t *self)
+{
+  char *private_key = NULL;
+  const char *certificate_chain = NULL;
+  svrc_t status = SV_UNKNOWN_FAILURE;
+
+  SV_TRY()
+    // Convert port settings to ONVIF settings
+    SV_THROW(port_settings_to_onvif(self));
+    // Retrieve the private key
+    private_key = openssl_extract_private_key(self->sign_data);
+    SV_THROW_IF(!private_key, SV_MEMORY);
+    size_t private_key_size = strlen(private_key);
+    // Retrieve the certificate chain
+    certificate_chain = get_axis_communications_certificate_chain(self->vendor_handle);
+    SV_THROW_IF(!certificate_chain, SV_MEMORY);
+    size_t certificate_chain_size = strlen(certificate_chain);
+    // Set the signing key pair for ONVIF media signing
+    SV_THROW(msrc_to_svrc(onvif_media_signing_set_signing_key_pair(self->onvif, private_key,
+        private_key_size, certificate_chain, certificate_chain_size, false)));
+  SV_CATCH()
+  {
+    // Cleanup on failure
+    onvif_media_signing_free(self->onvif);
+    self->onvif = NULL;
+  }
+  SV_DONE(status);
+  // Free allocated memory
+  free(private_key);
+
+  return status;
+}
+
 // Note that this API only works for a plugin that blocks the worker thread.
 SignedVideoReturnCode
 signed_video_set_end_of_stream(signed_video_t *self)
@@ -887,7 +925,7 @@ signed_video_set_private_key(signed_video_t *self, const char *private_key, size
   SV_CATCH()
   SV_DONE(status)
   // If ONVIF is available, call initialize Onvif.
-  if (self->onvif) {
+  if (self->onvif && status == SV_OK) {
     status = initialize_onvif(self);
   }
 

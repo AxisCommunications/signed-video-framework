@@ -153,6 +153,8 @@ get_axis_communications_trusted_certificate(void);
 /**
  * @brief Retrieves the certificate chain from the vendor handle.
  *
+ * This function returns a pointer to an internally managed certificate chain.
+ *
  * @param handle The handle to Axis Communications specific information.
  * @return The certificate chain as a null-terminated string, or NULL on failure.
  */
