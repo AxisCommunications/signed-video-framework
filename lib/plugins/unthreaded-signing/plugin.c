@@ -26,7 +26,7 @@
 #include <assert.h>  // assert
 #include <stdlib.h>  // calloc, memcpy
 
-#include "includes/signed_video_openssl.h"
+#include "includes/signed_video_openssl.h"  // sign_or_verify_data_t
 #include "includes/signed_video_signing_plugin.h"
 
 #define MAX_BUFFER_LENGTH 60  // Maximum length of the signature buffer
@@ -42,16 +42,16 @@
 /**
  * Structure to store the signature information.
  */
-typedef struct _signature_data_t {
+typedef struct _sv_signature_data_t {
   uint8_t *signature;  // The signature of the |hash|.
   size_t signature_size;  // The size of the |signature|.
-} signature_data_t;
+} sv_signature_data_t;
 
 // Plugin handle to store the signature, etc.
 typedef struct _sv_unthreaded_plugin_t {
   sign_or_verify_data_t sign_data;
   int out_buffer_idx;
-  signature_data_t out_buffer[MAX_BUFFER_LENGTH];  // Buffer to store signature information
+  sv_signature_data_t out_buffer[MAX_BUFFER_LENGTH];  // Buffer to store signature information
 } sv_unthreaded_plugin_t;
 
 /**
@@ -103,7 +103,7 @@ unthreaded_openssl_sign_hash(sv_unthreaded_plugin_t *self, const uint8_t *hash, 
     goto done;
   }
 
-  signature_data_t *out = &self->out_buffer[idx];
+  sv_signature_data_t *out = &self->out_buffer[idx];
   // Allocate memory for the signature if not already allocated.
   if (!out->signature) {
     out->signature = calloc(1, self->sign_data.max_signature_size);
