@@ -33,6 +33,7 @@
 #endif
 #include "sv_codec_internal.h"  // bu_info_t, kUuidSignedVideo
 #include "sv_internal.h"  // set_hash_list_size(), UUID_LEN
+#include "sv_openssl_internal.h"  // openssl_extract_private_key()
 #include "sv_tlv.h"  // tlv_has_{optional, mandatory}_tags()
 #include "test_helpers.h"
 #include "test_stream.h"
@@ -935,7 +936,7 @@ START_TEST(sign_with_reconstructed_private_key)
   free(private_key);
 
   // Retrieve the private key from the sign_data
-  const char *reconstructed_private_key = openssl_extract_private_key(&sign_data);
+  char *reconstructed_private_key = openssl_extract_private_key(&sign_data);
   // Verify the key size matches the original
   ck_assert_int_eq(strlen(reconstructed_private_key), private_key_size);
 

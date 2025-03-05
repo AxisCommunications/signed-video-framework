@@ -457,19 +457,11 @@ port_settings_to_onvif(signed_video_t *self);
 /*
  * This function initializes ONVIF settings by porting all the settings,
  * retrieving the private key and certificate chain from the signed video object,
- * and setting the ONVIF signing key pair.
+ * and setting the ONVIF signing key pair. The function will free the ONVIF object
+ * on failure, allowing the framework to continue with the signed video.
  */
 svrc_t
 initialize_onvif(signed_video_t *self);
-
-/**
- * This function retrieves the private key stored within the `sign_data` structure
- * and returns it as a dynamically allocated null-terminated string in PEM format.
- * Ownership of the allocated memory is transferred and must be freed when no longer
- * needed.
- */
-char *
-openssl_extract_private_key(sign_or_verify_data_t *sign_data);
 
 /**
  * Deprecated public API which is still handy in tests. */

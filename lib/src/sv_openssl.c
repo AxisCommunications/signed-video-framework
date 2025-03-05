@@ -182,7 +182,7 @@ openssl_extract_private_key(sign_or_verify_data_t *sign_data)
     goto cleanup;
   }
   // Allocate memory for the private key
-  private_key = (char *)calloc(buf_mem->length + 1, sizeof(char));
+  private_key = calloc(1, buf_mem->length + 1);
   if (!private_key) {
     goto cleanup;
   }

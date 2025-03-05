@@ -238,6 +238,20 @@ svrc_t
 openssl_read_pubkey_from_private_key(sign_or_verify_data_t *sign_data, pem_pkey_t *pem_pkey);
 
 /**
+ * @brief Retrieves the private key from the `sign_data` structure in PEM format.
+ *
+ * This function retrieves the private key stored within the `sign_data` structure
+ * and returns it as a dynamically allocated null-terminated string in PEM format.
+ * Ownership of the allocated memory is transferred and must be freed when no longer
+ * needed.
+ *
+ * @param sign_data A pointer to the signing data structure containing the private key.
+ * @return A dynamically allocated null-terminated string in PEM format, or NULL on failure
+ */
+char *
+openssl_extract_private_key(sign_or_verify_data_t *sign_data);
+
+/**
  * @brief Turns a public key on PEM form to EVP_PKEY form
  *
  * The function takes the public key as a pem_pkey_t and stores it as |public_key| in
