@@ -465,6 +465,8 @@ initialize_onvif(signed_video_t *self);
 /**
  * This function retrieves the private key stored within the `sign_data` structure
  * and returns it as a dynamically allocated null-terminated string in PEM format.
+ * Ownership of the allocated memory is transferred and must be freed when no longer
+ * needed.
  */
 char *
 openssl_extract_private_key(sign_or_verify_data_t *sign_data);

@@ -182,13 +182,12 @@ openssl_extract_private_key(sign_or_verify_data_t *sign_data)
     goto cleanup;
   }
   // Allocate memory for the private key
-  private_key = (char *)malloc(buf_mem->length + 1);
+  private_key = (char *)calloc(buf_mem->length + 1, sizeof(char));
   if (!private_key) {
     goto cleanup;
   }
   // Copy the private key and null-terminate it
   memcpy(private_key, buf_mem->data, buf_mem->length);
-  private_key[buf_mem->length] = '\0';
 
   // Free BIO and return success
   BIO_free(bio);
@@ -196,12 +195,8 @@ openssl_extract_private_key(sign_or_verify_data_t *sign_data)
 
 cleanup:
   // Free allocated resources on failure
-  if (bio) {
-    BIO_free(bio);
-  }
-  if (private_key) {
-    free(private_key);
-  }
+  BIO_free(bio);
+  free(private_key);
   return NULL;
 }
 

@@ -28,18 +28,6 @@
 #include <stdlib.h>  // free, calloc, malloc
 #include <string.h>  // size_t
 
-// Include ONVIF Media Signing
-#if defined(NO_ONVIF_MEDIA_SIGNING)
-#include "sv_onvif.h"  // Stubs for ONVIF APIs and structs
-#elif defined(ONVIF_MEDIA_SIGNING_INSTALLED)
-// ONVIF Media Signing is installed separately; Camera
-#include <media-signing-framework/onvif_media_signing_common.h>
-#include <media-signing-framework/onvif_media_signing_signer.h>
-#else
-// ONVIF Media Signing is dragged in as a submodule; FilePlayer
-#include "includes/onvif_media_signing_common.h"
-#include "includes/onvif_media_signing_signer.h"
-#endif
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "axis-communications/sv_vendor_axis_communications_internal.h"
 #endif

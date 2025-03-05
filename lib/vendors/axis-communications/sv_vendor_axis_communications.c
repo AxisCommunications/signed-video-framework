@@ -886,7 +886,7 @@ sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
     }
   }
   // Initialize Onvif if private key is set before.
-  if (sv->sign_data && sv->onvif) {
+  if (sv->sign_data->key && sv->onvif) {
     SignedVideoReturnCode status = initialize_onvif(sv);
     if (status == SV_OK) {
       return status;
