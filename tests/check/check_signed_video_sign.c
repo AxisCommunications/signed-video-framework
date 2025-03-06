@@ -33,7 +33,6 @@
 #endif
 #include "sv_codec_internal.h"  // bu_info_t, kUuidSignedVideo
 #include "sv_internal.h"  // set_hash_list_size(), UUID_LEN
-#include "sv_openssl_internal.h"  // openssl_extract_private_key()
 #include "sv_tlv.h"  // tlv_has_{optional, mandatory}_tags()
 #include "test_helpers.h"
 #include "test_stream.h"
@@ -913,50 +912,6 @@ START_TEST(signing_mulitslice_stream_partial_gops)
 }
 END_TEST
 
-/**
- * This test ensures that a reconstructed private key can be used to sign a stream again.
- * It sets a private key, retrieves it, verifies its size, and then uses it to sign and
- * validate a stream.
- */
-
-START_TEST(sign_with_reconstructed_private_key)
-{
-  SignedVideoCodec codec = settings[_i].codec;
-  SignedVideoReturnCode sv_rc;
-  // Create a sign_data
-  sign_or_verify_data_t sign_data = {0};
-
-  char *private_key = NULL;
-  size_t private_key_size = 0;
-
-  // Read the private key
-  ck_assert(read_test_private_key(settings[_i].ec_key, &private_key, &private_key_size, false));
-  sv_rc = openssl_private_key_malloc(&sign_data, private_key, private_key_size);
-  ck_assert_int_eq(sv_rc, SV_OK);
-  free(private_key);
-
-  // Retrieve the private key from the sign_data
-  char *reconstructed_private_key = openssl_extract_private_key(&sign_data);
-  // Verify the key size matches the original
-  ck_assert_int_eq(strlen(reconstructed_private_key), private_key_size);
-
-  // Create a signed video object and set the reconstructed private key
-  signed_video_t *sv = signed_video_create(codec);
-  ck_assert(sv);
-  signed_video_set_private_key(sv, reconstructed_private_key, private_key_size);
-
-  // Sign and verify the stream using the reconstructed key
-  test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIPPIP", false, false);
-  test_stream_check_types(list, "IPPISPPISP");
-
-  sv_openssl_free_key(sign_data.key);
-  free(sign_data.signature);
-  test_stream_free(list);
-  signed_video_free(sv);
-  free((char *)reconstructed_private_key);
-}
-END_TEST
-
 static Suite *
 signed_video_suite(void)
 {
@@ -992,7 +947,6 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, limited_sei_payload_size, s, e);
   tcase_add_loop_test(tc, signing_partial_gops, s, e);
   tcase_add_loop_test(tc, signing_mulitslice_stream_partial_gops, s, e);
-  tcase_add_loop_test(tc, sign_with_reconstructed_private_key, s, e);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);

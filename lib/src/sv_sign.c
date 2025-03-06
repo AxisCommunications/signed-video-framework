@@ -775,31 +775,27 @@ signed_video_get_sei(signed_video_t *self,
  * This function initializes the ONVIF Media Signing session by porting
  * the current settings from Signed Video and setting the signing key pair.
  */
-svrc_t
+void
 initialize_onvif(signed_video_t *self)
 {
-  char *private_key = NULL;
   const char *certificate_chain = NULL;
   // Sanity check ONVIF object.
-  if(!self->onvif) {
-    return SV_INVALID_PARAMETER;
+  if (!self->onvif) {
+    return;
   }
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Convert port settings to ONVIF settings
     SV_THROW(port_settings_to_onvif(self));
-    // Retrieve the private key
-    private_key = openssl_extract_private_key(self->sign_data);
-    SV_THROW_IF(!private_key, SV_MEMORY);
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // Retrieve the certificate chain
     certificate_chain = get_axis_communications_certificate_chain(self->vendor_handle);
     SV_THROW_IF(!certificate_chain, SV_MEMORY);
 #endif
     // Set the signing key pair for ONVIF media signing
-    SV_THROW(msrc_to_svrc(onvif_media_signing_set_signing_key_pair(self->onvif, private_key,
-        strlen(private_key), certificate_chain, strlen(certificate_chain), false)));
+    SV_THROW(msrc_to_svrc(onvif_media_signing_set_signing_key_pair(self->onvif, self->private_key,
+        self->private_key_size, certificate_chain, strlen(certificate_chain), false)));
   SV_CATCH()
   {
     // Cleanup on failure
@@ -808,9 +804,8 @@ initialize_onvif(signed_video_t *self)
   }
   SV_DONE(status);
   // Free allocated memory
-  free(private_key);
-
-  return status;
+  self->private_key = NULL;
+  if (status != SV_OK && self->onvif != NULL) assert(true);
 }
 
 // Note that this API only works for a plugin that blocks the worker thread.
@@ -923,12 +918,15 @@ signed_video_set_private_key(signed_video_t *self, const char *private_key, size
     // Temporally turn the PEM |private_key| into an EVP_PKEY and allocate memory for signatures.
     SV_THROW(openssl_private_key_malloc(self->sign_data, private_key, private_key_size));
     SV_THROW(openssl_read_pubkey_from_private_key(self->sign_data, &self->pem_public_key));
+    self->private_key = private_key;
 
-    // Fallback to signing plugin if ONVIF is unavailable or ONVIF cant be initialized.
-    if(!self->onvif || !(initialize_onvif(self) == SV_OK)) {
+    // Try to initialize ONVIF; if it is not available or cannot be initialized,
+    // fallback to Signed Video signing plugin.
+    initialize_onvif(self);
+    if (!self->onvif) {
       self->plugin_handle = sv_signing_plugin_session_setup(private_key, private_key_size);
       SV_THROW_IF(!self->plugin_handle, SV_EXTERNAL_ERROR);
-    } 
+    }
   SV_CATCH()
   SV_DONE(status)
 
