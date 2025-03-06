@@ -42,6 +42,26 @@
 #include "includes/signed_video_openssl.h"
 #include "includes/signed_video_signing_plugin.h"
 
+// Include ONVIF Media Signing if present/installed
+#ifdef ONVIF_MEDIA_SIGNING_INSTALLED
+// ONVIF Media Signing is installed separately; Camera
+#include <media-signing-framework/onvif_media_signing_common.h>
+#include <media-signing-framework/onvif_media_signing_plugin.h>
+#else
+// ONVIF Media Signing is dragged in as a submodule; FilePlayer
+#include "includes/onvif_media_signing_common.h"
+#include "includes/onvif_media_signing_plugin.h"
+#endif
+
+// If ONVIF Media Signing is known (installed or present in the submodule) the threaded
+// signing plugin should pass on all operations to the threaded plugin in
+// media-signing-framework. This ensures that only one thread for signing is setup, and
+// that thread is "controlled" from media-signing-framework.
+// NOTE: that using the plugin in media-signing-framework has nothing to do whether the
+// stream has been signed with ONVIF Media Signing format or not.
+
+#ifdef NO_ONVIF_MEDIA_SIGNING
+
 // This means that the signing plugin can handle a blocked signing hardware up to, for example, 60
 // seconds if the GOP length is 1 second
 #define MAX_BUFFER_LENGTH 60
@@ -890,3 +910,89 @@ sv_signing_plugin_exit(void *user_data)
 
   local_teardown_locked(&central);
 }
+
+#else
+
+// Define a mapping between return codes. There is an internal function for this as well,
+// but the signing plugins should be independent of the code in src, hence make a copy.
+static SignedVideoReturnCode
+omsrc_to_svrc(MediaSigningReturnCode code)
+{
+  switch (code) {
+    case OMS_OK:
+      return SV_OK;
+    case OMS_MEMORY:
+      return SV_MEMORY;
+    case OMS_INVALID_PARAMETER:
+      return SV_INVALID_PARAMETER;
+    case OMS_NOT_SUPPORTED:
+      return SV_NOT_SUPPORTED;
+    case OMS_INCOMPATIBLE_VERSION:
+      return SV_INCOMPATIBLE_VERSION;
+    case OMS_EXTERNAL_ERROR:
+      return SV_EXTERNAL_ERROR;
+    case OMS_AUTHENTICATION_ERROR:
+      return SV_AUTHENTICATION_ERROR;
+    case OMS_UNKNOWN_FAILURE:
+      return SV_UNKNOWN_FAILURE;
+    default:
+      return SV_UNKNOWN_FAILURE;  // Default for unmapped values
+  }
+}
+
+SignedVideoReturnCode
+sv_signing_plugin_sign(void *handle, const uint8_t *hash, size_t hash_size)
+{
+  return omsrc_to_svrc(onvif_media_signing_plugin_sign(handle, hash, hash_size));
+}
+
+bool
+sv_signing_plugin_get_signature(void *handle,
+    uint8_t *signature,
+    size_t max_signature_size,
+    size_t *written_signature_size,
+    SignedVideoReturnCode *error)
+{
+  if (error) {
+    MediaSigningReturnCode msrc_error;
+    bool ret_val = onvif_media_signing_plugin_get_signature(
+        handle, signature, max_signature_size, written_signature_size, &msrc_error);
+    *error = omsrc_to_svrc(msrc_error);
+    return ret_val;
+  } else {
+    return onvif_media_signing_plugin_get_signature(
+        handle, signature, max_signature_size, written_signature_size, NULL);
+  }
+}
+
+void *
+sv_signing_plugin_session_setup(const void *private_key, size_t private_key_size)
+{
+  return onvif_media_signing_plugin_session_setup(private_key, private_key_size);
+}
+
+void
+sv_signing_plugin_session_teardown(void *handle)
+{
+  onvif_media_signing_plugin_session_teardown(handle);
+}
+
+int
+sv_signing_plugin_init(void *user_data)
+{
+  pem_pkey_t *pem_private_key = (pem_pkey_t *)user_data;
+  key_data_t onvif_signing = {0};
+  onvif_signing.key = pem_private_key->key;
+  onvif_signing.key_size = pem_private_key->key_size;
+  onvif_signing.user_provisioned = false;
+
+  return onvif_media_signing_plugin_init((void *)(&onvif_signing));
+}
+
+void
+sv_signing_plugin_exit(void *user_data)
+{
+  onvif_media_signing_plugin_exit(user_data);
+}
+
+#endif  // NO_ONVIF_MEDIA_SIGNING
