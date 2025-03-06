@@ -47,7 +47,7 @@
 // ONVIF Media Signing is installed separately; Camera
 #include <media-signing-framework/onvif_media_signing_common.h>
 #include <media-signing-framework/onvif_media_signing_plugin.h>
-#else
+#elif !defined(NO_ONVIF_MEDIA_SIGNING)
 // ONVIF Media Signing is dragged in as a submodule; FilePlayer
 #include "includes/onvif_media_signing_common.h"
 #include "includes/onvif_media_signing_plugin.h"
