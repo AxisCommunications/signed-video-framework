@@ -459,7 +459,7 @@ svrc_t
 port_settings_to_onvif(signed_video_t *self);
 
 /*
- * This function initializes ONVIF settings by porting all the settings,
+ * This function initializes the ONVIF session by porting all the settings,
  * retrieving the private key and certificate chain from the signed video object,
  * and setting the ONVIF signing key pair. The function will free the ONVIF object
  * on failure, allowing the framework to continue with the signed video.
