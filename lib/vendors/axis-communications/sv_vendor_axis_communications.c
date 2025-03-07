@@ -827,7 +827,6 @@ get_axis_communications_certificate_chain(void *handle)
 
   sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
 
-  // Return the certificate chain
   return self->certificate_chain;
 }
 
