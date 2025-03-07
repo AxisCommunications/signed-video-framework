@@ -23,6 +23,9 @@
 #include <stdlib.h>  // free, malloc
 #include <string.h>  // size_t, strncpy
 
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
+#include "axis-communications/sv_vendor_axis_communications_internal.h"
+#endif
 #include "includes/signed_video_openssl.h"  // pem_pkey_t
 #include "includes/signed_video_sign.h"
 #include "includes/signed_video_signing_plugin.h"
@@ -770,6 +773,46 @@ signed_video_get_sei(signed_video_t *self,
   return SV_OK;
 }
 
+/*
+ * This function initializes the ONVIF Media Signing session by porting
+ * the current settings from Signed Video and setting the signing key pair.
+ */
+void
+initialize_onvif(signed_video_t *self)
+{
+  const char *certificate_chain = NULL;
+  // Sanity check ONVIF object and the private key.
+  if (!self->onvif || !self->private_key) {
+    return;
+  }
+
+  svrc_t status = SV_UNKNOWN_FAILURE;
+  SV_TRY()
+    // Port settings to ONVIF
+    SV_THROW(port_settings_to_onvif(self));
+#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
+    // Retrieve the certificate chain
+    certificate_chain = get_axis_communications_certificate_chain(self->vendor_handle);
+    SV_THROW_IF(!certificate_chain, SV_MEMORY);
+#endif
+    // Set the signing key pair for ONVIF media signing
+    SV_THROW(msrc_to_svrc(onvif_media_signing_set_signing_key_pair(self->onvif, self->private_key,
+        self->private_key_size, certificate_chain, strlen(certificate_chain), false)));
+  SV_CATCH()
+  {
+    // Cleanup on failure. This will ensure falling back to using Signed Video instead.
+    onvif_media_signing_free(self->onvif);
+    self->onvif = NULL;
+  }
+  SV_DONE(status);
+
+  // Release the private key placeholder since it is no longer needed.
+  self->private_key = NULL;
+  if ((status != SV_OK && self->onvif) || (status == SV_OK && !self->onvif)) {
+    assert(false);
+  }
+}
+
 // Note that this API only works for a plugin that blocks the worker thread.
 SignedVideoReturnCode
 signed_video_set_end_of_stream(signed_video_t *self)
@@ -885,6 +928,7 @@ signed_video_set_private_key(signed_video_t *self, const char *private_key, size
 
     self->plugin_handle = sv_signing_plugin_session_setup(private_key, private_key_size);
     SV_THROW_IF(!self->plugin_handle, SV_EXTERNAL_ERROR);
+    initialize_onvif(self);
   SV_CATCH()
   SV_DONE(status)
 
