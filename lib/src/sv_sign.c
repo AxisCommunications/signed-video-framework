@@ -555,6 +555,8 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     DEBUG_LOG("Invalid input parameters: (%p, %p, %zu)", self, bu_data, bu_data_size);
     return SV_INVALID_PARAMETER;
   }
+  // The placeholder for the |private_key| is no longer valid.
+  self->private_key = NULL;
 
   if (self->onvif && timestamp) {
     int64_t onvif_timestamp = convert_unix_us_to_1601(*timestamp);
