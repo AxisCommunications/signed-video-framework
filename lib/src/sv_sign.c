@@ -878,6 +878,8 @@ signed_video_set_private_key(signed_video_t *self, const char *private_key, size
     // Temporally turn the PEM |private_key| into an EVP_PKEY and allocate memory for signatures.
     SV_THROW(openssl_private_key_malloc(self->sign_data, private_key, private_key_size));
     SV_THROW(openssl_read_pubkey_from_private_key(self->sign_data, &self->pem_public_key));
+    self->private_key = private_key;
+    self->private_key_size = private_key_size;
 
     self->plugin_handle = sv_signing_plugin_session_setup(private_key, private_key_size);
     SV_THROW_IF(!self->plugin_handle, SV_EXTERNAL_ERROR);
