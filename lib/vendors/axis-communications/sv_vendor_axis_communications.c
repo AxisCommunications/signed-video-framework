@@ -818,6 +818,18 @@ get_axis_communications_supplemental_authenticity(void *handle,
   return status;
 }
 
+/**
+ * Retrieves the certificate chain from the vendor handle. */
+const char *
+get_axis_communications_certificate_chain(void *handle)
+{
+  if (!handle) return NULL;
+
+  sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
+
+  return (const char *)self->certificate_chain;
+}
+
 // Definitions of public APIs declared in sv_vendor_axis_communications.h.
 
 SignedVideoReturnCode
