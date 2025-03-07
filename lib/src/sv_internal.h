@@ -304,6 +304,8 @@ struct _signed_video_t {
   // For signing plugin
   void *plugin_handle;
   sign_or_verify_data_t *sign_data;  // Pointer to all necessary information to sign in a plugin.
+  // Placeholder for the private key used during ONVIF initialization.  
+  // This will not exist after the session ends.
   const char *private_key;
   size_t private_key_size;
 
