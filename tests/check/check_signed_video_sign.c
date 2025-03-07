@@ -462,7 +462,7 @@ START_TEST(factory_provisioned_key)
     // If the test has been built with ONVIF Media Signing, factory provisioned keys will
     // use Media Signing for H.264 and H.265.
 #ifndef NO_ONVIF_MEDIA_SIGNING
-  if (setting.codec != SV_CODEC_AV1) return;
+  if (setting.codec == SV_CODEC_AV1) return;
 #endif
 
   signed_video_t *sv = get_initialized_signed_video(setting, false);
@@ -479,7 +479,11 @@ START_TEST(factory_provisioned_key)
 
   // Generate a GOP to trigger a SEI.
   test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIP", false, 0);
+#ifdef NO_ONVIF_MEDIA_SIGNING
   test_stream_check_types(list, "IPPISP");
+#else
+  test_stream_check_types(list, "IPPIOP");
+#endif
   verify_seis(list, setting);
 
   test_stream_free(list);
