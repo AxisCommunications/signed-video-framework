@@ -827,7 +827,7 @@ get_axis_communications_certificate_chain(void *handle)
 
   sv_vendor_axis_communications_t *self = (sv_vendor_axis_communications_t *)handle;
 
-  return self->certificate_chain;
+  return (const char *)self->certificate_chain;
 }
 
 // Definitions of public APIs declared in sv_vendor_axis_communications.h.
