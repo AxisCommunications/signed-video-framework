@@ -788,7 +788,7 @@ initialize_onvif(signed_video_t *self)
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    // Convert port settings to ONVIF settings
+    // Port settings to ONVIF
     SV_THROW(port_settings_to_onvif(self));
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // Retrieve the certificate chain
@@ -800,14 +800,17 @@ initialize_onvif(signed_video_t *self)
         self->private_key_size, certificate_chain, strlen(certificate_chain), false)));
   SV_CATCH()
   {
-    // Cleanup on failure
+    // Cleanup on failure. This will ensure falling back to using Signed Video instead.
     onvif_media_signing_free(self->onvif);
     self->onvif = NULL;
   }
   SV_DONE(status);
-  // Free allocated memory
+
+  // Release the private key placeholder since it is no longer needed.
   self->private_key = NULL;
-  if (status != SV_OK && self->onvif != NULL) assert(true);
+  if ((status != SV_OK && self->onvif) || (status == SV_OK && !self->onvif)) {
+    assert(false);
+  }
 }
 
 // Note that this API only works for a plugin that blocks the worker thread.
@@ -923,11 +926,9 @@ signed_video_set_private_key(signed_video_t *self, const char *private_key, size
     self->private_key = private_key;
     self->private_key_size = private_key_size;
 
-    // Try to initialize ONVIF; if it is not available or cannot be initialized,
-    // fallback to Signed Video signing plugin.
-    initialize_onvif(self);
     self->plugin_handle = sv_signing_plugin_session_setup(private_key, private_key_size);
     SV_THROW_IF(!self->plugin_handle, SV_EXTERNAL_ERROR);
+    initialize_onvif(self);
   SV_CATCH()
   SV_DONE(status)
 
