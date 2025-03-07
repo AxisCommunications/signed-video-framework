@@ -304,7 +304,7 @@ struct _signed_video_t {
   // For signing plugin
   void *plugin_handle;
   sign_or_verify_data_t *sign_data;  // Pointer to all necessary information to sign in a plugin.
-  // Placeholder for the private key used during ONVIF initialization.  
+  // Placeholder for the private key used during ONVIF initialization.
   // This will cease to exist when the session starts.
   const char *private_key;
   size_t private_key_size;
@@ -457,6 +457,15 @@ sv_codec_to_ms_codec(SignedVideoCodec sv_codec);
  * Goes through all Signed Video settings and ports them to ONVIF Media Signing. */
 svrc_t
 port_settings_to_onvif(signed_video_t *self);
+
+/*
+ * This function initializes ONVIF settings by porting all the settings,
+ * retrieving the private key and certificate chain from the signed video object,
+ * and setting the ONVIF signing key pair. The function will free the ONVIF object
+ * on failure, allowing the framework to continue with the signed video.
+ */
+void
+initialize_onvif(signed_video_t *self);
 
 /**
  * Deprecated public API which is still handy in tests. */
