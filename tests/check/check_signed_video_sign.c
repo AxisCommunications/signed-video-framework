@@ -479,11 +479,11 @@ START_TEST(factory_provisioned_key)
 
   // Generate a GOP to trigger a SEI.
   test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIP", false, 0);
-#ifdef NO_ONVIF_MEDIA_SIGNING
-  test_stream_check_types(list, "IPPISP");
-#else
-  test_stream_check_types(list, "IPPIOP");
-#endif
+  if (setting.codec == SV_CODEC_AV1) {
+    test_stream_check_types(list, "IPPISP");
+  } else {
+    test_stream_check_types(list, "IPPIOP");
+  }
   verify_seis(list, setting);
 
   test_stream_free(list);

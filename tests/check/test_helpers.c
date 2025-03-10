@@ -293,7 +293,8 @@ pull_seis(signed_video_t *sv, test_stream_item_t **item, bool apply_ep, unsigned
   }
 
   while (sv_rc == SV_OK && sei_size != 0 && no_delay) {
-    // Check that the SEI payload starts with the Signed Video UUID.
+    // Check that the SEI payload starts with the Signed Video UUID or ONVIF Media Signing
+    // UUID.
     if (sv->onvif) {
       ck_assert_int_eq(memcmp(sei + payload_offset, kUuidOnvifMediaSigning, UUID_LEN), 0);
     } else {
