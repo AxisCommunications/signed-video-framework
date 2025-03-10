@@ -2824,9 +2824,7 @@ signed_video_suite(void)
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
   tcase_add_loop_test(tc, factory_provisioned_key, s, e);
-#ifndef NO_ONVIF_MEDIA_SIGNING
   tcase_add_loop_test(tc, onvif_intact_stream, s, e);
-#endif
 #endif
   tcase_add_loop_test(tc, no_emulation_prevention_bytes, s, e);
   tcase_add_loop_test(tc, with_blocked_signing, s, e);
