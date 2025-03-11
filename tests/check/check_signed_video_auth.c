@@ -1761,10 +1761,7 @@ END_TEST
  */
 START_TEST(onvif_intact_stream)
 {
-#ifdef GENERATE_TEST_KEYS
-  return;
-#endif
-#ifdef NO_ONVIF_MEDIA_SIGNING
+#if defined(GENERATE_TEST_KEYS) || defined(NO_ONVIF_MEDIA_SIGNING)
   return;
 #endif
 
@@ -2779,9 +2776,6 @@ signed_video_suite(void)
 
   // Add tests
   tcase_add_loop_test(tc, invalid_api_inputs, s, e);
-#ifndef NO_ONVIF_MEDIA_SIGNING
-
-#endif
   tcase_add_loop_test(tc, intact_stream, s, e);
   tcase_add_loop_test(tc, intact_multislice_stream, s, e);
   tcase_add_loop_test(tc, intact_stream_with_splitted_bu, s, e);
