@@ -171,11 +171,14 @@ validate_stream(signed_video_t *sv,
       // Check if product_info has been received and set correctly.
       if ((latest->authenticity != SV_AUTH_RESULT_NOT_SIGNED) &&
           (latest->authenticity != SV_AUTH_RESULT_SIGNATURE_PRESENT)) {
+#ifdef NO_ONVIF_MEDIA_SIGNING
         ck_assert_int_eq(strcmp(auth_report->product_info.hardware_id, HW_ID), 0);
+        ck_assert_int_eq(strcmp(auth_report->product_info.address, ADDR), 0);
+#endif
         ck_assert_int_eq(strcmp(auth_report->product_info.firmware_version, FW_VER), 0);
         ck_assert_int_eq(strcmp(auth_report->product_info.serial_number, SER_NO), 0);
         ck_assert_int_eq(strcmp(auth_report->product_info.manufacturer, MANUFACT), 0);
-        ck_assert_int_eq(strcmp(auth_report->product_info.address, ADDR), 0);
+
         // Check if code version used when signing the video is equal to the code version used when
         // validating the authenticity.
         if (check_version && strlen(auth_report->version_on_signing_side) != 0) {
@@ -1751,6 +1754,62 @@ START_TEST(factory_provisioned_key)
   signed_video_free(sv);
 }
 END_TEST
+
+/**
+ * Verify that a valid stream signed in the ONVIF way can be correctly validated.
+ * Follows the ONVIF signing approach by using EC keys and avoiding unsupported codecs.
+ */
+START_TEST(onvif_intact_stream)
+{
+#if defined(GENERATE_TEST_KEYS) || defined(NO_ONVIF_MEDIA_SIGNING)
+  return;
+#endif
+
+  SignedVideoReturnCode sv_rc;
+  struct sv_setting setting = settings[_i];
+
+  // Only EC keys are tested.
+  if (!setting.ec_key) return;
+
+  // Initialize signed video instance.
+  signed_video_t *sv = get_initialized_signed_video(setting, false);
+  ck_assert(sv);
+
+  char *certificate_chain = NULL;
+  ck_assert(read_test_certificate_chain(&certificate_chain));
+
+  // Setting the certificate chain for validation.
+  sv_rc = sv_vendor_axis_communications_set_attestation_report(sv, NULL, 0, certificate_chain);
+  ck_assert_int_eq(sv_rc, SV_OK);
+
+  // Signal that Axis vendor specifics have been added, particularly factory provisioning.
+  setting.vendor_axis_mode = 2;
+
+  // Create a signed video stream with SV.
+  test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIPPIPPIPPIPPIPPIP", false, 0);
+
+  // Define expected validation results.
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 26, 23, 3, SV_PUBKEY_VALIDATION_NOT_OK, true, 0, 0};
+  struct validation_stats expected = {
+      .valid_gops = 6, .pending_bu = 6, .final_validation = &final_validation};
+
+  // ONVIF does not support AV1, so signing will be done using Signed Video instead.
+  // Other codecs can be signed using the ONVIF signing approach.
+  if (setting.codec == SV_CODEC_AV1) {
+    test_stream_check_types(list, "IPPISPPISPPISPPISPPISPPISP");
+    expected.final_validation->public_key_validation = SV_PUBKEY_VALIDATION_NOT_FEASIBLE;
+  } else {
+    test_stream_check_types(list, "IPPIOPPIOPPIOPPIOPPIOPPIOP");
+  }
+
+  // Validate the signed stream.
+  validate_stream(NULL, list, expected, false);
+
+  // Free allocated resources.
+  test_stream_free(list);
+}
+END_TEST
 #endif
 
 static signed_video_t *
@@ -2759,6 +2818,7 @@ signed_video_suite(void)
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
   tcase_add_loop_test(tc, factory_provisioned_key, s, e);
+  tcase_add_loop_test(tc, onvif_intact_stream, s, e);
 #endif
   tcase_add_loop_test(tc, no_emulation_prevention_bytes, s, e);
   tcase_add_loop_test(tc, with_blocked_signing, s, e);
