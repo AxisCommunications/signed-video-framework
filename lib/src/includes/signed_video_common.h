@@ -63,6 +63,7 @@ typedef enum {
   SV_CODEC_H264 = 0,
   SV_CODEC_H265 = 1,
   SV_CODEC_AV1 = 2,
+  SV_CODEC_AAC = 3,
   SV_CODEC_NUM
 } SignedVideoCodec;
 
