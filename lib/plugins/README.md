@@ -25,7 +25,7 @@ initialized using `sv_signing_plugin_init_new(user_data)` a central thread is sp
 [signed_video_openssl.h](../src/includes/signed_video_openssl.h)) and should include the signing key
 to use. If the user runs multiple sessions they share the same input and output buffers.
 If the plugin is not initialized signing is done from a local thread in each session. This can cause
-quite some threads if multiple streams are signed. The implementation requires glib-2.0.
+quite some threads if multiple streams are signed. The implementation requires GLib 2.0.
 
 ## Selecting a plugin
 Through the meson option `signingplugin`, one of them can be selected and the source file is added

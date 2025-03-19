@@ -1329,7 +1329,7 @@ detect_onvif_media_signing(signed_video_t *self, const bu_info_t *bu)
   // Create an ONVIF Media Signing session for validation if and only if a SEI of type
   // ONVIF Media Signing has been detected AND the library has been build for Axis
   // Communications (|vendor_handle| exists).
-  if (bu->uuid_type != UUID_TYPE_ONVIF_MEDIA_SIGNING && self->vendor_handle) {
+  if (bu->uuid_type != UUID_TYPE_ONVIF_MEDIA_SIGNING || !self->vendor_handle) {
     return SV_OK;
   }
 
