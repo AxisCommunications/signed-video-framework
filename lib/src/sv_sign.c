@@ -494,15 +494,6 @@ prepare_for_signing(signed_video_t *self)
     // Mark the start of signing when the first Bitstream Unit is passed in and a signing
     // key has been set.
     self->signing_started = true;
-    // Check if we have BUs to prepend waiting to be pulled. If we have one item only, this is an
-    // empty list item, the pull action has no impact. We can therefore silently remove it and
-    // proceed. But if there are vital SEIs waiting to be pulled we return an error message
-    // (SV_NOT_SUPPORTED).
-
-    if (!self->avoid_checking_available_seis) {
-      SV_THROW_IF_WITH_MSG(
-          self->num_of_completed_seis > 0, SV_NOT_SUPPORTED, "There are remaining SEIs.");
-    }
   SV_CATCH()
   SV_DONE(status)
 
@@ -732,9 +723,6 @@ signed_video_get_sei(signed_video_t *self,
     // Only display a SEI if the |peek_bu| is a primary picture Bitstream Unit.
     if (!((bu_info.bu_type == BU_TYPE_I || bu_info.bu_type == BU_TYPE_P) &&
             bu_info.is_primary_slice)) {
-      // Flip the sanity check flag since there are pending SEIs, which could not be fetched without
-      // breaking the H.26x standard.
-      self->avoid_checking_available_seis = true;
       return SV_OK;
     }
   }
