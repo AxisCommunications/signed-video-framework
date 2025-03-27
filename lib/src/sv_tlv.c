@@ -1278,6 +1278,12 @@ sv_get_mandatory_tags(size_t *num_of_mandatory_tags)
   return mandatory_tags;
 }
 
+sv_tlv_tag_t
+sv_get_signature_tag()
+{
+  return SIGNATURE_TAG;
+}
+
 size_t
 sv_read_64bits(const uint8_t *p, uint64_t *val)
 {
