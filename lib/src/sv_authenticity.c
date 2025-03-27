@@ -117,7 +117,8 @@ transfer_latest_validation(signed_video_latest_validation_t *dst,
     dst->number_of_pending_picture_nalus = src->number_of_pending_picture_nalus;
     dst->public_key_validation = src->public_key_validation;
     dst->has_timestamp = src->has_timestamp;
-    dst->timestamp = src->timestamp;
+    dst->start_timestamp = src->start_timestamp;
+    dst->end_timestamp = src->end_timestamp;
   SV_CATCH()
   SV_DONE(status)
 
@@ -177,7 +178,8 @@ sv_latest_validation_init(signed_video_latest_validation_t *self)
   self->number_of_pending_picture_nalus = 0;
   self->public_key_validation = SV_PUBKEY_VALIDATION_NOT_FEASIBLE;
   self->has_timestamp = false;
-  self->timestamp = 0;
+  self->start_timestamp = -1;
+  self->end_timestamp = -1;
 
   free(self->nalu_str);
   self->nalu_str = NULL;
@@ -241,9 +243,9 @@ update_accumulated_validation(const signed_video_latest_validation_t *latest,
   if (latest->has_timestamp) {
     if (!accumulated->has_timestamp) {
       // No previous timestamp has been set.
-      accumulated->first_timestamp = latest->timestamp;
+      accumulated->first_timestamp = latest->start_timestamp;
     }
-    accumulated->last_timestamp = latest->timestamp;
+    accumulated->last_timestamp = latest->end_timestamp;
     accumulated->has_timestamp = true;
   }
 }
@@ -460,7 +462,9 @@ transfer_onvif_latest(signed_video_latest_validation_t *latest,
       break;
   }
   latest->has_timestamp = true;
-  latest->timestamp = convert_1601_to_unix_us(onvif_latest->timestamp);
+  latest->start_timestamp = convert_1601_to_unix_us(onvif_latest->timestamp);
+  // ONVIF Media Signing currently only has one timestamp.
+  latest->end_timestamp = latest->start_timestamp;
 }
 
 static void

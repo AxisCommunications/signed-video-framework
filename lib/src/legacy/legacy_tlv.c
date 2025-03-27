@@ -209,7 +209,8 @@ legacy_decode_general(legacy_sv_t *self, const uint8_t *data, size_t data_size)
       if (self->latest_validation) {
         self->latest_validation->has_timestamp = gop_info->has_timestamp;
         if (gop_info->has_timestamp) {
-          self->latest_validation->timestamp = gop_info->timestamp;
+          self->latest_validation->start_timestamp = gop_info->timestamp;
+          self->latest_validation->end_timestamp = gop_info->timestamp;
         }
       }
     }
