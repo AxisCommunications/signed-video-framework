@@ -333,6 +333,25 @@ signed_video_set_authenticity_level(signed_video_t *self,
     SignedVideoAuthenticityLevel authenticity_level);
 
 /**
+ * @brief Sets the signing frequency for this Signed Video session
+ *
+ * The default behavior of the Signed Video library is to sign and generate a SEI/OBU
+ * Metadata every GOP (Group Of Pictures). Due to hardware resource limitations and GOP
+ * length settings, signing every GOP can become infeasible in real-time. For example,
+ * when multiple streams are signed or if the GOP length is very short.
+ *
+ * This API allows the user to change the signing frequency at anytime during a session.
+ * The signing frequency is measured in number of GOPs.
+ *
+ * @param self              Pointer to the Signed Video session.
+ * @param signing_frequency Number of GOPs between signatures (default 1)
+ *
+ * @returns A Signed Video Return Code.
+ */
+SignedVideoReturnCode
+signed_video_set_signing_frequency(signed_video_t *self, unsigned signing_frequency);
+
+/**
  * @brief Sets the average recurrence interval for the signed video session in frames
  *
  * Metadata that is only needed once when validating the authenticity can be transmitted

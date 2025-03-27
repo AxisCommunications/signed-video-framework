@@ -127,8 +127,10 @@ get_type_char(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
         type = 'Z';
       else if (bu.is_golden_sei)
         type = 'G';
-      else
+      else if (bu.is_signed)
         type = 'S';
+      else
+        type = 's';
       break;
     }
     default:

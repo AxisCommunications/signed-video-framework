@@ -371,7 +371,7 @@ static void
 remove_epb_from_sei_payload(bu_info_t *bu)
 {
   assert(bu);
-  if (!bu->is_hashable || !bu->is_sv_sei || (bu->is_valid <= 0)) return;
+  if (!bu->is_sv_sei || (bu->is_valid <= 0)) return;
 
   // The UUID (16 bytes) has by definition no emulation prevention bytes. Hence, read the
   // |reserved_byte| and point to the start of the TLV part.
@@ -560,6 +560,13 @@ parse_bu_info(const uint8_t *bu_data,
     }
 
     remove_epb_from_sei_payload(&bu);
+    if (bu.emulation_prevention_bytes >= 0) {
+      // Check if a signature TLV tag exists. If number of computed emulation prevention
+      // bytes is negative, either the SEI is currupt or incomplete.
+      bu.is_signed = !!sv_tlv_find_tag(bu.tlv_data, bu.tlv_size, SIGNATURE_TAG, false);
+    }
+    // Update |is_hashable| w.r.t. signed or not.
+    bu.is_hashable |= bu.is_sv_sei && !bu.is_signed;
   }
 
   return bu;
@@ -968,6 +975,7 @@ signed_video_create(SignedVideoCodec codec)
     // Signing plugin is setup when the private key is set.
     self->authenticity_level = DEFAULT_AUTHENTICITY_LEVEL;
     self->signing_frequency = 1;
+    self->num_gops_until_signing = self->signing_frequency;
     self->recurrence = RECURRENCE_ALWAYS;
     self->add_public_key_to_sei = true;
     self->sei_epb = codec != SV_CODEC_AV1;
@@ -1022,6 +1030,7 @@ signed_video_reset(signed_video_t *self)
     if (self->onvif) {
       SV_THROW(msrc_to_svrc(onvif_media_signing_reset(self->onvif)));
     }
+    self->num_gops_until_signing = self->signing_frequency;
     self->signing_started = false;
     self->sei_generation_enabled = false;
     gop_info_reset(self->gop_info);

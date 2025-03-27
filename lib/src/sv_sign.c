@@ -148,13 +148,14 @@ shift_sei_buffer_at_index(signed_video_t *self, int index)
  * any Bitstream Unit (BU) hash and added to the gop_hash. For SV_AUTHENTICITY_LEVEL_FRAME we sign
  * this hash instead of the gop_hash, which is the traditional principle of signing. */
 static svrc_t
-generate_sei_and_add_to_buffer(signed_video_t *self, bool ATTR_UNUSED force_signature)
+generate_sei_and_add_to_buffer(signed_video_t *self, bool force_signature)
 {
   sign_or_verify_data_t *sign_data = self->sign_data;
   const size_t hash_size = sign_data->hash_size;
   size_t num_optional_tags = 0;
   size_t num_mandatory_tags = 0;
   uint8_t *sei = NULL;
+  bool sign_this_sei = (self->num_gops_until_signing == 0) || force_signature;
 
   const sv_tlv_tag_t *optional_tags = sv_get_optional_tags(&num_optional_tags);
   const sv_tlv_tag_t *mandatory_tags = sv_get_mandatory_tags(&num_mandatory_tags);
@@ -182,6 +183,9 @@ generate_sei_and_add_to_buffer(signed_video_t *self, bool ATTR_UNUSED force_sign
         sv_tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, NULL);
     if (self->is_golden_sei) mandatory_tags_size = 0;
     signature_size = sv_tlv_list_encode_or_get_size(self, &signature_tag, 1, NULL);
+    if (!sign_this_sei) {
+      signature_size = 0;
+    }
 
     payload_size = signature_size + optional_tags_size + mandatory_tags_size;
     payload_size += UUID_LEN;  // UUID
@@ -308,7 +312,7 @@ generate_sei_and_add_to_buffer(signed_video_t *self, bool ATTR_UNUSED force_sign
     // payload we need to hash the BU as it is so far and update the |gop_hash|. Parse a fake BU
     // with the data so far and we will automatically get the pointers to the |hashable_data| and
     // the size of it. Then we can use the sv_hash_and_add() function.
-    {
+    if (sign_this_sei) {
       size_t fake_payload_size = (sei_ptr - sei);
       // Force SEI to be hashable.
       bu_info_t bu_without_signature_data =
@@ -340,7 +344,12 @@ generate_sei_and_add_to_buffer(signed_video_t *self, bool ATTR_UNUSED force_sign
     // Reset the timestamp to avoid including a duplicate in the next SEI.
     gop_info->has_timestamp = false;
 
-    SV_THROW(sv_signing_plugin_sign(self->plugin_handle, sign_data->hash, sign_data->hash_size));
+    if (sign_this_sei) {
+      SV_THROW(sv_signing_plugin_sign(self->plugin_handle, sign_data->hash, sign_data->hash_size));
+    } else {
+      // If unsigned SEI, complete by adding Stop bit.
+      sv_write_byte(last_two_bytes, &sei_ptr, 0x80, false);
+    }
   SV_CATCH()
   {
     DEBUG_LOG("Failed to generate the SEI");
@@ -352,7 +361,7 @@ generate_sei_and_add_to_buffer(signed_video_t *self, bool ATTR_UNUSED force_sign
 
   // Add |sei| to buffer. Will be picked up again when the signature has been generated.
   // If the SEI is not signed mark it as complete at once.
-  add_sei_to_buffer(self, sei, sei_ptr, false);
+  add_sei_to_buffer(self, sei, sei_ptr, !sign_this_sei);
 
   return status;
 }
@@ -657,7 +666,14 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
         SV_THROW(sv_openssl_finalize_hash(self->crypto_handle, gop_info->computed_gop_hash, true));
         // The previous GOP is now completed. The gop_hash was reset right after signing and
         // adding it to the SEI.
-        SV_THROW(generate_sei_and_add_to_buffer(self, true));
+        SV_THROW(generate_sei_and_add_to_buffer(self, trigger_signing));
+        if (new_gop && (self->num_gops_until_signing == 0)) {
+          // Reset signing counter only upon new GOPs
+          self->num_gops_until_signing = self->signing_frequency;
+        }
+      }
+      if (new_gop) {
+        self->num_gops_until_signing--;
       }
       self->sei_generation_enabled = true;
     }
@@ -952,6 +968,20 @@ signed_video_set_authenticity_level(signed_video_t *self,
   SV_DONE(status)
 
   return status;
+}
+
+SignedVideoReturnCode
+signed_video_set_signing_frequency(signed_video_t *self, unsigned signing_frequency)
+{
+  if (!self || signing_frequency == 0) {
+    return SV_INVALID_PARAMETER;
+  }
+  self->signing_frequency = signing_frequency;
+  if (!self->signing_started) {
+    self->num_gops_until_signing = signing_frequency;
+  }
+
+  return SV_OK;
 }
 
 SignedVideoReturnCode
