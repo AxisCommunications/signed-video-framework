@@ -51,14 +51,10 @@
 
 static void
 bu_set_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDType uuid_type);
-static size_t
-get_sign_and_complete_sei(signed_video_t *self, uint8_t **payload, uint8_t *payload_signature_ptr);
 
 /* Functions for sei_data_buffer. */
 static void
 add_sei_to_buffer(signed_video_t *self, uint8_t *sei, uint8_t *write_position, bool is_complete);
-static svrc_t
-complete_sei_and_add_to_prepend(signed_video_t *self);
 
 /* Functions related to the list of BUs to prepend. */
 static svrc_t
@@ -67,6 +63,10 @@ static svrc_t
 prepare_for_signing(signed_video_t *self);
 static void
 shift_sei_buffer_at_index(signed_video_t *self, int index);
+static svrc_t
+complete_sei(signed_video_t *self);
+static svrc_t
+process_signature(signed_video_t *self, svrc_t signature_error);
 
 static void
 bu_set_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDType uuid_type)
@@ -120,56 +120,6 @@ add_sei_to_buffer(signed_video_t *self, uint8_t *sei, uint8_t *write_position, b
   self->sei_data_buffer[self->sei_data_buffer_idx].last_two_bytes = self->last_two_bytes;
   self->sei_data_buffer[self->sei_data_buffer_idx].completed_sei_size = sei_size;
   self->sei_data_buffer_idx += 1;
-}
-
-/* Picks the oldest payload from the |sei_data_buffer| and completes it with the generated signature
- * and the stop byte. If we have no signature the SEI payload is freed and not added to the
- * video session. */
-static svrc_t
-complete_sei_and_add_to_prepend(signed_video_t *self)
-{
-  assert(self);
-  if (self->sei_data_buffer_idx < 1) return SV_NOT_SUPPORTED;
-
-  // Get the oldest sei data
-  assert(self->sei_data_buffer_idx <= MAX_SEI_DATA_BUFFER);
-  svrc_t status = SV_UNKNOWN_FAILURE;
-  sei_data_t *sei_data = &(self->sei_data_buffer[self->num_of_completed_seis]);
-  // Transfer oldest pointer in |payload_buffer| to local |payload|
-  uint8_t *payload = sei_data->sei;
-  uint8_t *payload_signature_ptr = sei_data->write_position;
-  self->last_two_bytes = sei_data->last_two_bytes;
-
-  // If the signature could not be generated |signature_size| equals zero. Free the started SEI and
-  // move on. This is a valid operation. What will happen is that the video will have an unsigned
-  // GOP.
-  if (self->sign_data->signature_size == 0) {
-    free(payload);
-    status = SV_OK;
-    goto done;
-  } else if (!payload) {
-    // No more pending payloads. Already freed due to too many unsigned SEIs.
-    status = SV_OK;
-    goto done;
-  }
-
-  // Add the signature to the SEI payload.
-  sei_data->completed_sei_size = get_sign_and_complete_sei(self, &payload, payload_signature_ptr);
-  if (!sei_data->completed_sei_size) {
-    status = SV_UNKNOWN_FAILURE;
-    goto done;
-  }
-  self->num_of_completed_seis++;
-
-  // Unset flag when SEI is completed and prepended.
-  // Note: If signature could not be generated then |nalu_data| is freed. In this case the
-  // flag is still set and a SEI with all metadata is created next time.
-  self->has_recurrent_data = false;
-  return SV_OK;
-
-done:
-
-  return status;
 }
 
 /* Removes the specified index element from the SEI buffer of a `signed_video_t` structure by
@@ -408,36 +358,126 @@ generate_sei_and_add_to_buffer(signed_video_t *self, bool ATTR_UNUSED force_sign
 }
 
 static size_t
-get_sign_and_complete_sei(signed_video_t *self, uint8_t **payload, uint8_t *payload_signature_ptr)
+add_signature_to_sei(signed_video_t *self, uint8_t *sei, uint8_t *write_position)
 {
   const sv_tlv_tag_t signature_tag = sv_get_signature_tag();
-  uint16_t *last_two_bytes = &self->last_two_bytes;
-  uint8_t *payload_ptr = payload_signature_ptr;
-  if (!payload_ptr) {
-    DEBUG_LOG("No SEI to finalize");
+  uint8_t *sei_ptr = write_position;
+  if (!sei_ptr) {
+    // No SEI to finalize
     return 0;
   }
-  // TODO: Do we need to check if a signature is present before encoding it? Can it happen that we
-  // encode an old signature?
+  // TODO: Investigate if it can happen that an older signature could be added by
+  // accident.
 
-  size_t written_size = sv_tlv_list_encode_or_get_size(self, &signature_tag, 1, payload_ptr);
-  payload_ptr += written_size;
-
-  // Stop bit (Trailing bit identical for both H.26x and AV1)
-  sv_write_byte(last_two_bytes, &payload_ptr, 0x80, false);
-
-#ifdef SIGNED_VIDEO_DEBUG
-  size_t data_filled_size = payload_ptr - *payload;
-  size_t i = 0;
-  printf("\n SEI (%zu bytes):  ", data_filled_size);
-  for (i = 0; i < data_filled_size; ++i) {
-    printf(" %02x", (*payload)[i]);
+  size_t written_size = sv_tlv_list_encode_or_get_size(self, &signature_tag, 1, sei_ptr);
+  if (written_size == 0) {
+    DEBUG_LOG("Failed to write signature");
+    return 0;
   }
-  printf("\n");
+  sei_ptr += written_size;
+
+  // Add Stop bit
+  sv_write_byte(&self->last_two_bytes, &sei_ptr, 0x80, false);
+
+  // Return the total size of the completed SEI
+  return sei_ptr - sei;
+}
+
+/* Takes the oldest SEI from the |sei_data_buffer| and completes it with the generated
+ * signature + the stop byte. If there is no signature the SEI payload is freed and not
+ * added to the video session. */
+static svrc_t
+complete_sei(signed_video_t *self)
+{
+  assert(self);
+  // Sanity check the buffer index.
+  if (self->sei_data_buffer_idx < 1) {
+    return SV_NOT_SUPPORTED;
+  }
+  assert(self->sei_data_buffer_idx <= MAX_SEI_DATA_BUFFER);
+
+  svrc_t status = SV_UNKNOWN_FAILURE;
+  // Find the oldest non-completed SEI (has size = 0).
+  int idx = 0;
+  sei_data_t *sei_data = &(self->sei_data_buffer[idx]);
+  while (sei_data->completed_sei_size > 0 && idx < self->sei_data_buffer_idx) {
+    idx++;
+    sei_data = &(self->sei_data_buffer[idx]);
+  }
+  assert(sei_data->completed_sei_size == 0);
+  // Transfer oldest pointer in |sei_data_buffer| to local |sei|.
+  uint8_t *sei = sei_data->sei;
+  uint8_t *write_position = sei_data->write_position;
+  self->last_two_bytes = sei_data->last_two_bytes;
+
+  // If the signature could not be generated |signature_size| equals zero. Free the
+  // pending SEI and move on. This is a valid operation. What will happen is that the
+  // video will have an unsigned GOP.
+  if (self->sign_data->signature_size == 0) {
+    free(sei);
+    status = SV_OK;
+    goto done;
+  } else if (!sei) {
+    // No more pending payloads. Already freed due to too many unsigned SEIs.
+    status = SV_OK;
+    goto done;
+  }
+
+  // Add the signature to the SEI payload.
+  sei_data->completed_sei_size = add_signature_to_sei(self, sei, write_position);
+  if (!sei_data->completed_sei_size) {
+    status = SV_UNKNOWN_FAILURE;
+    goto done;
+  }
+  status = SV_OK;
+#ifdef SIGNED_VIDEO_DEBUG
+  SV_TRY()
+    // Hash the SEI
+    uint8_t test_hash[MAX_HASH_SIZE];
+    bu_info_t test_bu_info =
+        parse_bu_info(sei, sei_data->completed_sei_size, self->codec, false, true);
+    sv_update_hashable_data(&test_bu_info);
+    SV_THROW(sv_simply_hash(self, &test_bu_info, test_hash, self->sign_data->hash_size));
+    free(test_bu_info.nalu_data_wo_epb);
+    // Borrow hash and signature from |sign_data|.
+    sign_or_verify_data_t verify_data = {
+        .hash = test_hash,
+        .hash_size = self->sign_data->hash_size,
+        .key = NULL,
+        .signature = self->sign_data->signature,
+        .signature_size = self->sign_data->signature_size,
+        .max_signature_size = self->sign_data->max_signature_size,
+    };
+    // Pass in the Public key for verification. Normally done upon validation.
+    SV_THROW(openssl_public_key_malloc(&verify_data, &self->pem_public_key));
+    // Verify the just signed hash.
+    int verified = -1;
+    SV_THROW_WITH_MSG(
+        sv_openssl_verify_hash(&verify_data, &verified), "Verification test had errors");
+    sv_openssl_free_key(verify_data.key);
+    if (!self->using_golden_sei) {
+      SV_THROW_IF_WITH_MSG(verified != 1, SV_EXTERNAL_ERROR, "Verification test failed");
+    }
+  SV_CATCH()
+  SV_DONE(status)
 #endif
 
-  // Return payload size + extra space for emulation prevention
-  return payload_ptr - *payload;
+done:
+
+  return status;
+}
+
+static svrc_t
+process_signature(signed_video_t *self, svrc_t signature_error)
+{
+  svrc_t status = SV_UNKNOWN_FAILURE;
+  SV_TRY()
+    SV_THROW(signature_error);
+    SV_THROW(complete_sei(self));
+  SV_CATCH()
+  SV_DONE(status)
+
+  return status;
 }
 
 static svrc_t
@@ -644,53 +684,6 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
   return status;
 }
 
-/*
- * This function retrieves the complete SEI message containing the signature and adds it to the
- * prepend list for the current signed video context. It uses the signing plugin to obtain the
- * signature and performs optional debug verification of the signature.
- */
-static svrc_t
-get_signature_complete_sei_and_add_to_prepend(signed_video_t *self)
-{
-  svrc_t status = SV_UNKNOWN_FAILURE;
-
-  SV_TRY()
-    SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
-    sign_or_verify_data_t *sign_data = self->sign_data;
-    while (sv_signing_plugin_get_signature(self->plugin_handle, sign_data->signature,
-        sign_data->max_signature_size, &sign_data->signature_size, &signature_error)) {
-      SV_THROW(signature_error);
-#ifdef SIGNED_VIDEO_DEBUG
-      // TODO: This might not work for blocked signatures, that is if the hash in
-      // |sign_data| does not correspond to the copied |signature|.
-      // Borrow hash and signature from |sign_data|.
-      sign_or_verify_data_t verify_data = {
-          .hash = sign_data->hash,
-          .hash_size = sign_data->hash_size,
-          .key = NULL,
-          .signature = sign_data->signature,
-          .signature_size = sign_data->signature_size,
-          .max_signature_size = sign_data->max_signature_size,
-      };
-      // Convert the public key to EVP_PKEY for verification. Normally done upon validation.
-      SV_THROW(openssl_public_key_malloc(&verify_data, &self->pem_public_key));
-      // Verify the just signed hash.
-      int verified = -1;
-      SV_THROW_WITH_MSG(
-          sv_openssl_verify_hash(&verify_data, &verified), "Verification test had errors");
-      sv_openssl_free_key(verify_data.key);
-      if (!self->using_golden_sei) {
-        SV_THROW_IF_WITH_MSG(verified != 1, SV_EXTERNAL_ERROR, "Verification test failed");
-      }
-#endif
-      SV_THROW(complete_sei_and_add_to_prepend(self));
-    }
-
-  SV_CATCH()
-  SV_DONE(status)
-  return status;
-}
-
 SignedVideoReturnCode
 signed_video_get_sei(signed_video_t *self,
     uint8_t **sei,
@@ -719,11 +712,16 @@ signed_video_get_sei(signed_video_t *self,
     *num_pending_seis = self->sei_data_buffer_idx;
   }
 
-  svrc_t status = get_signature_complete_sei_and_add_to_prepend(self);
-  if (status != SV_OK) return status;
-  if (self->num_of_completed_seis < 1) {
-    DEBUG_LOG("There are no completed seis.");
-    return SV_OK;
+  // Fetch signatures and add them to the oldest not completed SEI.
+  sign_or_verify_data_t *sign_data = self->sign_data;
+  svrc_t status = SV_UNKNOWN_FAILURE;
+  SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
+  while (sv_signing_plugin_get_signature(self->plugin_handle, sign_data->signature,
+      sign_data->max_signature_size, &sign_data->signature_size, &signature_error)) {
+    status = process_signature(self, signature_error);
+    if (status != SV_OK) {
+      return status;
+    }
   }
 
   // If the user peek this Bitstream Unit, a SEI can only be fetched if it can prepend the
@@ -742,8 +740,23 @@ signed_video_get_sei(signed_video_t *self,
   }
 
   *sei_size = self->sei_data_buffer[0].completed_sei_size;
+  if (*sei_size == 0) {
+    return SV_OK;
+  }
+
   // Transfer the memory.
   *sei = self->sei_data_buffer[0].sei;
+#ifdef SIGNED_VIDEO_DEBUG
+  size_t i = 0;
+  printf("\n SEI (%zu bytes):  ", *sei_size);
+  for (i = 0; i < *sei_size; ++i) {
+    printf(" %02x", (*sei)[i]);
+  }
+  printf("\n");
+#endif
+
+  // Reset the fetched SEI information from the sei buffer.
+  shift_sei_buffer_at_index(self, 0);
 
   // Get the offset to the start of the SEI payload if requested.
   if (payload_offset) {
@@ -751,10 +764,6 @@ signed_video_get_sei(signed_video_t *self,
     free(bu_info.nalu_data_wo_epb);
     *payload_offset = (unsigned)(bu_info.payload - *sei);
   }
-
-  // Reset the fetched SEI information from the sei buffer.
-  --(self->num_of_completed_seis);
-  shift_sei_buffer_at_index(self, 0);
 
   // Update |num_pending_seis| in case SEIs were fetched.
   if (num_pending_seis) {
@@ -817,14 +826,7 @@ signed_video_set_end_of_stream(signed_video_t *self)
   SV_TRY()
     SV_THROW(prepare_for_signing(self));
     SV_THROW(generate_sei_and_add_to_buffer(self, true));
-    // Fetch the signature. If it is not ready we exit without generating the SEI.
-    sign_or_verify_data_t *sign_data = self->sign_data;
-    SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
-    while (sv_signing_plugin_get_signature(self->plugin_handle, sign_data->signature,
-        sign_data->max_signature_size, &sign_data->signature_size, &signature_error)) {
-      SV_THROW(signature_error);
-      SV_THROW(complete_sei_and_add_to_prepend(self));
-    }
+    // The user should fetch the generated SEI through signed_video_get_sei(...).
 
   SV_CATCH()
   SV_DONE(status)
