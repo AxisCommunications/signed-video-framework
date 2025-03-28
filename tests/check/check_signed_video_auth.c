@@ -165,8 +165,12 @@ validate_stream(signed_video_t *sv,
       has_timestamp |= latest->has_timestamp;
 
       if (latest->has_timestamp) {
-        ck_assert_int_eq(latest->start_timestamp, g_testTimestamp);
-        ck_assert_int_eq(latest->end_timestamp, g_testTimestamp);
+        if (sv->onvif || sv->legacy_sv) {
+          // Media Signing and Legacy code only have one timestamp
+          ck_assert_int_eq(latest->start_timestamp, latest->end_timestamp);
+        } else {
+          ck_assert_int_lt(latest->start_timestamp, latest->end_timestamp);
+        }
       }
 
       // Check if product_info has been received and set correctly.
