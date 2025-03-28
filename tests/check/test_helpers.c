@@ -377,16 +377,15 @@ create_signed_stream_with_sv(signed_video_t *sv, const char *str, bool split_bu,
 
   // Loop through the Bitstream Units and add for signing.
   while (item) {
+    if (item->type == 'I' || item->type == 'P') {
+      // Increment timestamp when there is a new primary slice. Prepended SEIs will get
+      // same timestamp as the primary slice.
+      timestamp += 400000;  // One frame if 25 fps.
+    }
     int pulled_seis = 0;
     // Pull all SEIs and add them into the test stream.
     if (!get_seis_at_end || (get_seis_at_end && item->next == NULL)) {
       pulled_seis = pull_seis(sv, &item, apply_ep, delay);
-    }
-    if (item->type == 'I' || item->type == 'P') {
-      // Increment timestamp when there is a new primary slice. This is not truly correct,
-      // for example, a (prepended) SEI will now get a different timestamp as the slice.
-      // For tests though, it serves its purpose.
-      timestamp += 400000;  // One frame if 25 fps.
     }
     // If the test uses Golden SEIs, they are currently present as the first item in the stream.
     if (!(!item->prev && sv->using_golden_sei)) {
