@@ -220,8 +220,9 @@ encode_general(signed_video_t *self, uint8_t *data)
   size_t data_size = 0;
   uint32_t gop_counter = gop_info->current_partial_gop + 1;
   uint16_t num_in_partial_gop = gop_info->num_in_partial_gop;
-  const uint8_t version = 3;
-  int64_t timestamp = self->gop_info->timestamp;
+  const uint8_t version = 4;
+  int64_t start_ts = gop_info->start_timestamp;
+  int64_t end_ts = gop_info->end_timestamp;
   uint8_t flags = 0;
 
   // Value fields:
@@ -230,7 +231,8 @@ encode_general(signed_video_t *self, uint8_t *data)
   //  - num_in_partial_gop (2 bytes)
   //  - signed video version (SV_VERSION_BYTES bytes)
   //  - flags (1 byte)
-  //  - timestamp (8 bytes) requires version 2+
+  //  - start_timestamp (8 bytes) requires version 2+
+  //  - end_timestamp (8 bytes) requires version 4+
   //  - linked_hash (hash_size bytes) requires version 3+
   //  - computed_gop_hash (hash_size bytes) requires version 3+
 
@@ -241,7 +243,7 @@ encode_general(signed_video_t *self, uint8_t *data)
   data_size += SV_VERSION_BYTES;
   data_size += sizeof(flags);
   if (gop_info->has_timestamp) {
-    data_size += sizeof(timestamp);
+    data_size += sizeof(start_ts) * 2;
   }
   data_size += self->sign_data->hash_size * 2;
 
@@ -276,15 +278,23 @@ encode_general(signed_video_t *self, uint8_t *data)
   flags |= (gop_info->triggered_partial_gop << 1) & 0x02;
   sv_write_byte(last_two_bytes, &data_ptr, flags, epb);
   if (gop_info->has_timestamp) {
-    // Write timestamp; 8 bytes
-    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 56) & 0x000000ff), epb);
-    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 48) & 0x000000ff), epb);
-    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 40) & 0x000000ff), epb);
-    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 32) & 0x000000ff), epb);
-    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 24) & 0x000000ff), epb);
-    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 16) & 0x000000ff), epb);
-    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp >> 8) & 0x000000ff), epb);
-    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((timestamp)&0x000000ff), epb);
+    // Write timestamps; 8 bytes each
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((start_ts >> 56) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((start_ts >> 48) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((start_ts >> 40) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((start_ts >> 32) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((start_ts >> 24) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((start_ts >> 16) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((start_ts >> 8) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((start_ts)&0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((end_ts >> 56) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((end_ts >> 48) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((end_ts >> 40) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((end_ts >> 32) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((end_ts >> 24) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((end_ts >> 16) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((end_ts >> 8) & 0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((end_ts)&0x000000ff), epb);
   }
 
   // Write linked hash; hash_size bytes
@@ -320,7 +330,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SV_THROW_IF(version < 1 || version > 3, SV_INCOMPATIBLE_VERSION);
+    SV_THROW_IF(version < 1 || version > 4, SV_INCOMPATIBLE_VERSION);
 
     data_ptr += sv_read_32bits(data_ptr, &gop_info->current_partial_gop);
     DEBUG_LOG("Found GOP counter = %u", gop_info->current_partial_gop);
@@ -341,12 +351,18 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
       gop_info->has_timestamp = flags & 0x01;
       gop_info->triggered_partial_gop = !!(flags & 0x02);
       if (gop_info->has_timestamp) {
-        data_ptr += sv_read_64bits_signed(data_ptr, &gop_info->timestamp);
+        data_ptr += sv_read_64bits_signed(data_ptr, &gop_info->start_timestamp);
+        if (version >= 4) {
+          data_ptr += sv_read_64bits_signed(data_ptr, &gop_info->end_timestamp);
+        } else {
+          gop_info->end_timestamp = gop_info->start_timestamp;
+        }
       }
       if (self->latest_validation) {
         self->latest_validation->has_timestamp = gop_info->has_timestamp;
         if (gop_info->has_timestamp) {
-          self->latest_validation->timestamp = gop_info->timestamp;
+          self->latest_validation->start_timestamp = gop_info->start_timestamp;
+          self->latest_validation->end_timestamp = gop_info->end_timestamp;
         }
       }
     }
@@ -370,9 +386,11 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
     printf("              SW version: %s\n", code_version_str);
     if (version >= 2) {
       if (gop_info->has_timestamp) {
-        printf("               timestamp: %ld\n", gop_info->timestamp);
+        printf("         start_timestamp: %ld\n", gop_info->start_timestamp);
+        printf("           end_timestamp: %ld\n", gop_info->end_timestamp);
       } else {
-        printf("               timestamp: not present\n");
+        printf("         start_timestamp: not present\n");
+        printf("           end_timestamp: not present\n");
       }
     }
     if (version >= 3) {

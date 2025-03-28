@@ -620,12 +620,13 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     // buffer. For all other valid Bitstream Units, simply hash and proceed.
     if (new_gop || trigger_signing) {
       gop_info->triggered_partial_gop = !new_gop;
-      if (self->sei_generation_enabled) {
-        if (timestamp) {
-          self->gop_info->timestamp = *timestamp;
-          self->gop_info->has_timestamp = true;
-        }
+      if (timestamp) {
+        gop_info->start_timestamp = gop_info->end_timestamp;
+        gop_info->end_timestamp = *timestamp;
+        gop_info->has_timestamp = true;
+      }
 
+      if (self->sei_generation_enabled) {
         uint8_t *payload = NULL;
         uint8_t *payload_signature_ptr = NULL;
 

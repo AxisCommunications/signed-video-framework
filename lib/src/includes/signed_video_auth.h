@@ -154,8 +154,13 @@ typedef struct {
   SignedVideoPublicKeyValidation public_key_validation;
   // True if the timestamp member is valid to look at, false otherwise.
   bool has_timestamp;
-  // Unix epoch UTC timestamp in microseconds of the latest signed Bitstream Unit.
-  int64_t timestamp;
+  // Unix epoch UTC timestamp in microseconds of the first signed Bitstream Unit.
+  int64_t start_timestamp;
+  // Unix epoch UTC timestamp in microseconds of the last signed Bitstream Unit (exclusive).
+  // The total duration this validation span is |end_timestamp| - |start_timestamp|.
+  // For older recordings, only one timestamp is present which represents the entire GOP. In that
+  // case |end_timestamp| = |start_timestamp|.
+  int64_t end_timestamp;
 } signed_video_latest_validation_t;
 
 /**

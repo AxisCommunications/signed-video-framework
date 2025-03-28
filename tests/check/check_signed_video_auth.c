@@ -165,7 +165,8 @@ validate_stream(signed_video_t *sv,
       has_timestamp |= latest->has_timestamp;
 
       if (latest->has_timestamp) {
-        ck_assert_int_eq(latest->timestamp, g_testTimestamp);
+        ck_assert_int_eq(latest->start_timestamp, g_testTimestamp);
+        ck_assert_int_eq(latest->end_timestamp, g_testTimestamp);
       }
 
       // Check if product_info has been received and set correctly.

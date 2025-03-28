@@ -256,7 +256,8 @@ typedef struct {
   int verified_signature_hash;  // Status of last hash-signature-pair verification. Has 1 for
   // success, 0 for fail, and -1 for error.
   bool has_timestamp;  // True if timestamp exists and has not yet been written to SEI.
-  int64_t timestamp;  // Unix epoch UTC timestamp of the first Bitstream Unit in GOP
+  int64_t start_timestamp;  // Unix epoch UTC timestamp of the first Bitstream Unit in (partial) GOP
+  int64_t end_timestamp;  // Unix epoch UTC timestamp of the (partial) GOP
 } gop_info_t;
 
 struct _signed_video_t {
