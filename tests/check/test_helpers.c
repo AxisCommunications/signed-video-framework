@@ -377,6 +377,11 @@ create_signed_stream_with_sv(signed_video_t *sv, const char *str, bool split_bu,
 
   // Loop through the Bitstream Units and add for signing.
   while (item) {
+    if (item->type == 'I' || item->type == 'P') {
+      // Increment timestamp when there is a new primary slice. Prepended SEIs will get
+      // same timestamp as the primary slice.
+      timestamp += 400000;  // One frame if 25 fps.
+    }
     int pulled_seis = 0;
     // Pull all SEIs and add them into the test stream.
     if (!get_seis_at_end || (get_seis_at_end && item->next == NULL)) {
@@ -401,8 +406,6 @@ create_signed_stream_with_sv(signed_video_t *sv, const char *str, bool split_bu,
     }
     ck_assert_int_eq(rc, SV_OK);
     pulled_seis -= pulled_seis ? 1 : 0;
-    // TODO: Activate timestamps in tests
-    // timestamp += 400000;  // One frame if 25 fps.
 
     if (item->next == NULL) {
       if (sei) {
