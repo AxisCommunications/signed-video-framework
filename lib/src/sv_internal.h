@@ -174,10 +174,8 @@ struct _bu_list_item_t {
   uint8_t hash[MAX_HASH_SIZE];  // The hash of the BU is stored in this memory slot, if it
   // is hashable that is.
   size_t hash_size;
-  // Flags
-  bool taken_ownership_of_bu;  // Flag to indicate if the item has taken ownership of the
-  // |bu| memory, hence need to free the memory if the item is released.
 
+  // Flags
   bool has_been_decoded;  // Marks a SEI as decoded. Decoding it twice might overwrite
   // vital information.
   bool used_in_gop_hash;  // Marks the BU as being part of a computed |gop_hash|.
