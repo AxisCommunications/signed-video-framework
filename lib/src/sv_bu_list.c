@@ -96,6 +96,8 @@ bu_list_item_create(const bu_info_t *bu)
   item->bu = (bu_info_t *)bu;
   item->validation_status = get_validation_status_from_bu(bu);
   item->tmp_validation_status = item->validation_status;
+  item->validation_status_if_sei_ok = ' ';
+  item->verified_signature = -1;
 
   return item;
 }
