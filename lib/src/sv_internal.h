@@ -298,11 +298,6 @@ struct _signed_video_t {
                                 // the first signing attempt, triggering SEI generation at the end
                                 // of GOP.
 
-  // TODO: Remove this flag when the deprecated API get_nalus_to_prepend have been removed.
-  bool avoid_checking_available_seis;  // Temporary flag to avoid checking for available SEIs when
-                                       // peek Bitstream Units are used when getting SEIs, since
-                                       // they might be postponed.
-
   // For signing plugin
   void *plugin_handle;
   sign_or_verify_data_t *sign_data;  // Pointer to all necessary information to sign in a plugin.
@@ -322,7 +317,6 @@ struct _signed_video_t {
   uint16_t last_two_bytes;
   sei_data_t sei_data_buffer[MAX_SEI_DATA_BUFFER];
   int sei_data_buffer_idx;
-  int num_of_completed_seis;
 
   // Members only used for validation
   // TODO: Collect everything needed by the authentication part only in one struct/object, which
