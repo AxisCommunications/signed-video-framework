@@ -171,4 +171,10 @@ sv_get_optional_tags(size_t *num_of_optional_tags);
 const sv_tlv_tag_t *
 sv_get_mandatory_tags(size_t *num_of_mandatory_tags);
 
+/**
+ * @brief Gets the signature tag
+ */
+sv_tlv_tag_t
+sv_get_signature_tag();
+
 #endif  // __SV_TLV_H__

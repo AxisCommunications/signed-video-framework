@@ -208,16 +208,13 @@ generate_sei_and_add_to_buffer(signed_video_t *self, bool ATTR_UNUSED force_sign
 
   const sv_tlv_tag_t *optional_tags = sv_get_optional_tags(&num_optional_tags);
   const sv_tlv_tag_t *mandatory_tags = sv_get_mandatory_tags(&num_mandatory_tags);
-  const sv_tlv_tag_t gop_info_encoders[] = {
-      SIGNATURE_TAG,
-  };
+  const sv_tlv_tag_t signature_tag = sv_get_signature_tag();
 
   size_t payload_size = 0;
   size_t optional_tags_size = 0;
   size_t mandatory_tags_size = 0;
-  size_t gop_info_size = 0;
+  size_t signature_size = 0;
   size_t sei_buffer_size = 0;
-  const size_t num_gop_encoders = ARRAY_SIZE(gop_info_encoders);
 
   if (self->sei_data_buffer_idx >= MAX_SEI_DATA_BUFFER) {
     // Not enough space for this SEI.
@@ -234,9 +231,9 @@ generate_sei_and_add_to_buffer(signed_video_t *self, bool ATTR_UNUSED force_sign
     mandatory_tags_size =
         sv_tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, NULL);
     if (self->is_golden_sei) mandatory_tags_size = 0;
-    gop_info_size = sv_tlv_list_encode_or_get_size(self, gop_info_encoders, num_gop_encoders, NULL);
+    signature_size = sv_tlv_list_encode_or_get_size(self, &signature_tag, 1, NULL);
 
-    payload_size = gop_info_size + optional_tags_size + mandatory_tags_size;
+    payload_size = signature_size + optional_tags_size + mandatory_tags_size;
     payload_size += UUID_LEN;  // UUID
     payload_size += 1;  // One byte for reserved data.
     if ((self->max_sei_payload_size > 0) && (payload_size > self->max_sei_payload_size) &&
@@ -413,9 +410,7 @@ generate_sei_and_add_to_buffer(signed_video_t *self, bool ATTR_UNUSED force_sign
 static size_t
 get_sign_and_complete_sei(signed_video_t *self, uint8_t **payload, uint8_t *payload_signature_ptr)
 {
-  const sv_tlv_tag_t gop_info_encoders[] = {
-      SIGNATURE_TAG,
-  };
+  const sv_tlv_tag_t signature_tag = sv_get_signature_tag();
   uint16_t *last_two_bytes = &self->last_two_bytes;
   uint8_t *payload_ptr = payload_signature_ptr;
   if (!payload_ptr) {
@@ -425,9 +420,7 @@ get_sign_and_complete_sei(signed_video_t *self, uint8_t **payload, uint8_t *payl
   // TODO: Do we need to check if a signature is present before encoding it? Can it happen that we
   // encode an old signature?
 
-  const size_t num_gop_encoders = ARRAY_SIZE(gop_info_encoders);
-  size_t written_size =
-      sv_tlv_list_encode_or_get_size(self, gop_info_encoders, num_gop_encoders, payload_ptr);
+  size_t written_size = sv_tlv_list_encode_or_get_size(self, &signature_tag, 1, payload_ptr);
   payload_ptr += written_size;
 
   // Stop bit (Trailing bit identical for both H.26x and AV1)
