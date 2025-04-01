@@ -560,9 +560,10 @@ parse_bu_info(const uint8_t *bu_data,
     }
 
     remove_epb_from_sei_payload(&bu);
-    if (bu.emulation_prevention_bytes >= 0) {
+    if (bu.emulation_prevention_bytes >= 0 && (bu.hashable_data_size > bu.tlv_size)) {
       // Check if a signature TLV tag exists. If number of computed emulation prevention
-      // bytes is negative, either the SEI is currupt or incomplete.
+      // bytes is negative, either the SEI is currupt or incomplete. Or if there is enough
+      // TLV data.
       const uint8_t *signature_tag =
           sv_tlv_find_tag(bu.tlv_data, bu.tlv_size, SIGNATURE_TAG, false);
       bu.is_signed = (signature_tag != NULL);
