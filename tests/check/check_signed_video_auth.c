@@ -1812,6 +1812,8 @@ START_TEST(onvif_intact_stream)
   validate_stream(NULL, list, expected, false);
 
   // Free allocated resources.
+  signed_video_free(sv);
+  free(certificate_chain);
   test_stream_free(list);
 }
 END_TEST
