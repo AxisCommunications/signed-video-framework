@@ -440,6 +440,8 @@ sv_print_hex_data(const uint8_t *data, size_t data_size, const char *fmt, ...);
 #ifdef SIGNED_VIDEO_DEBUG
 char *
 bu_type_to_str(const bu_info_t *bu);
+svrc_t
+sv_simply_hash(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t hash_size);
 #endif
 
 char

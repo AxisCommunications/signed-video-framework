@@ -67,8 +67,10 @@ static hash_wrapper_t
 get_hash_wrapper(signed_video_t *self, const bu_info_t *bu);
 static svrc_t
 update_hash(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t hash_size);
+#ifndef SIGNED_VIDEO_DEBUG
 static svrc_t
-simply_hash(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t hash_size);
+sv_simply_hash(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t hash_size);
+#endif
 static svrc_t
 hash_and_copy_to_ref(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t hash_size);
 static svrc_t
@@ -722,10 +724,10 @@ get_hash_wrapper(signed_video_t *self, const bu_info_t *bu)
   } else if (bu->is_sv_sei) {
     // A SEI, i.e., the document_hash, is hashed without reference, since that one may be verified
     // separately.
-    return simply_hash;
+    return sv_simply_hash;
   } else if (bu->is_first_bu_in_gop) {
     // If the current BU |is_first_bu_in_gop| and we do not already have a reference, we should
-    // |simply_hash| and copy the hash to reference.
+    // |sv_simply_hash| and copy the hash to reference.
     return hash_and_copy_to_ref;
   } else {
     // All other BUs should be hashed together with the reference.
@@ -751,12 +753,16 @@ update_hash(signed_video_t *self,
   return sv_openssl_update_hash(self->crypto_handle, hashable_data, hashable_data_size, false);
 }
 
-/* simply_hash()
+/* sv_simply_hash()
  *
  * takes the |hashable_data| from the Bitstream Unit (BU), hash it and store the hash in
  * |bu_hash|. */
+#ifdef SIGNED_VIDEO_DEBUG
+svrc_t
+#else
 static svrc_t
-simply_hash(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t hash_size)
+#endif
+sv_simply_hash(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t hash_size)
 {
   // It should not be possible to end up here unless the BU data includes the last part.
   assert(bu && bu->is_last_bu_part && hash);
@@ -778,7 +784,7 @@ simply_hash(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t has
 
 /* hash_and_copy_to_ref()
  *
- * extends simply_hash() by also copying the |hash| to the reference hash used to
+ * extends sv_simply_hash() by also copying the |hash| to the reference hash used to
  * hash_with_reference().
  *
  * This is needed for the first Bitstream Unit of a GOP, which serves as a reference. */
@@ -793,7 +799,7 @@ hash_and_copy_to_ref(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, s
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    SV_THROW(simply_hash(self, bu, hash, hash_size));
+    SV_THROW(sv_simply_hash(self, bu, hash, hash_size));
     // Copy the |bu_hash| to |reference_hash| to be used in hash_with_reference().
     memcpy(reference_hash, hash, hash_size);
     // Update |linked_hash| with |reference_hash| if applied on the signing side.
@@ -831,7 +837,7 @@ hash_with_reference(signed_video_t *self,
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // Hash BU data and store as |bu_hash|.
-    SV_THROW(simply_hash(self, bu, bu_hash, hash_size));
+    SV_THROW(sv_simply_hash(self, bu, bu_hash, hash_size));
     // Hash reference hash together with the |bu_hash| and store in |buddy_hash|.
     SV_THROW(sv_openssl_hash_data(
         self->crypto_handle, gop_info->hash_buddies, hash_size * 2, buddy_hash));
