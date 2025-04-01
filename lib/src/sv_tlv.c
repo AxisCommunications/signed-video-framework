@@ -1240,7 +1240,7 @@ tag_is_present(sv_tlv_tag_t tag, const sv_tlv_tag_t *tags, size_t num_of_tags)
   return false;
 }
 
-static bool
+bool
 sv_tlv_find_and_decode_tags(signed_video_t *self,
     const uint8_t *tlv_data,
     size_t tlv_data_size,
@@ -1276,17 +1276,6 @@ sv_tlv_find_and_decode_tags(signed_video_t *self,
   }
 
   return decoded_tags > 0;
-}
-
-bool
-sv_tlv_find_and_decode_optional_tags(signed_video_t *self,
-    const uint8_t *tlv_data,
-    size_t tlv_data_size)
-{
-  size_t num_of_tags = 0;
-  const sv_tlv_tag_t *optional_tags = sv_get_optional_tags(&num_of_tags);
-
-  return sv_tlv_find_and_decode_tags(self, tlv_data, tlv_data_size, optional_tags, num_of_tags);
 }
 
 const sv_tlv_tag_t *
