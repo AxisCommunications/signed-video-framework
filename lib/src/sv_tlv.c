@@ -1228,17 +1228,31 @@ sv_tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag,
   return NULL;
 }
 
-bool
-sv_tlv_find_and_decode_optional_tags(signed_video_t *self,
+static bool
+tag_is_present(sv_tlv_tag_t tag, const sv_tlv_tag_t *tags, size_t num_of_tags)
+{
+  for (size_t i = 0; i < num_of_tags; i++) {
+    if (tag == tags[i]) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static bool
+sv_tlv_find_and_decode_tags(signed_video_t *self,
     const uint8_t *tlv_data,
-    size_t tlv_data_size)
+    size_t tlv_data_size,
+    const sv_tlv_tag_t *tags,
+    size_t num_of_tags)
 {
   const uint8_t *tlv_data_ptr = tlv_data;
 
   if (!self || !tlv_data || tlv_data_size == 0) return false;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
-  bool optional_tags_decoded = false;
+  int decoded_tags = 0;
   while (tlv_data_ptr < tlv_data + tlv_data_size) {
     size_t tlv_header_size = 0;
     size_t length = 0;
@@ -1249,19 +1263,30 @@ sv_tlv_find_and_decode_optional_tags(signed_video_t *self,
       break;
     }
     tlv_data_ptr += tlv_header_size;
-    if (!tlv_tuples[this_tag].is_always_present) {
+    if (tag_is_present(this_tag, tags, num_of_tags)) {
       sv_tlv_decoder_t decoder = get_decoder(this_tag);
       status = decoder(self, tlv_data_ptr, length);
       if (status != SV_OK) {
         DEBUG_LOG("Could not decode tlv values");
         break;
       }
-      optional_tags_decoded = true;
+      decoded_tags++;
     }
     tlv_data_ptr += length;
   }
 
-  return optional_tags_decoded;
+  return decoded_tags > 0;
+}
+
+bool
+sv_tlv_find_and_decode_optional_tags(signed_video_t *self,
+    const uint8_t *tlv_data,
+    size_t tlv_data_size)
+{
+  size_t num_of_tags = 0;
+  const sv_tlv_tag_t *optional_tags = sv_get_optional_tags(&num_of_tags);
+
+  return sv_tlv_find_and_decode_tags(self, tlv_data, tlv_data_size, optional_tags, num_of_tags);
 }
 
 const sv_tlv_tag_t *
