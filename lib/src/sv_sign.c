@@ -54,15 +54,15 @@ bu_set_uuid_type(signed_video_t *self, uint8_t **payload, SignedVideoUUIDType uu
 static size_t
 get_sign_and_complete_sei(signed_video_t *self, uint8_t **payload, uint8_t *payload_signature_ptr);
 
-/* Functions for payload_buffer. */
+/* Functions for sei_data_buffer. */
 static void
-add_payload_to_buffer(signed_video_t *self, uint8_t *payload_ptr, uint8_t *payload_signature_ptr);
+add_sei_to_buffer(signed_video_t *self, uint8_t *sei, uint8_t *write_position, bool is_complete);
 static svrc_t
 complete_sei_and_add_to_prepend(signed_video_t *self);
 
 /* Functions related to the list of BUs to prepend. */
 static svrc_t
-generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signature_ptr);
+generate_sei_and_add_to_buffer(signed_video_t *self, bool force_signature);
 static svrc_t
 prepare_for_signing(signed_video_t *self);
 static void
@@ -96,23 +96,29 @@ free_sei_data_buffer(sei_data_t sei_data_buffer[])
   }
 }
 
-/* Adds the |payload| to the next available slot in |payload_buffer| and |last_two_bytes| to the
- * next available slot in |last_two_bytes_buffer|. */
+/* Adds the |sei| to the next available slot in |sei_data_buffer|. */
 static void
-add_payload_to_buffer(signed_video_t *self, uint8_t *payload, uint8_t *payload_signature_ptr)
+add_sei_to_buffer(signed_video_t *self, uint8_t *sei, uint8_t *write_position, bool is_complete)
 {
   assert(self);
 
+  if (!sei) {
+    return;
+  }
   if (self->sei_data_buffer_idx >= MAX_SEI_DATA_BUFFER) {
     // Not enough space for this payload. Free the memory and return.
-    free(payload);
+    free(sei);
     return;
   }
 
-  self->sei_data_buffer[self->sei_data_buffer_idx].sei = payload;
-  self->sei_data_buffer[self->sei_data_buffer_idx].write_position = payload_signature_ptr;
+  size_t sei_size = 0;
+  if (is_complete) {
+    sei_size = write_position - sei;
+  }
+  self->sei_data_buffer[self->sei_data_buffer_idx].sei = sei;
+  self->sei_data_buffer[self->sei_data_buffer_idx].write_position = write_position;
   self->sei_data_buffer[self->sei_data_buffer_idx].last_two_bytes = self->last_two_bytes;
-  self->sei_data_buffer[self->sei_data_buffer_idx].completed_sei_size = 0;
+  self->sei_data_buffer[self->sei_data_buffer_idx].completed_sei_size = sei_size;
   self->sei_data_buffer_idx += 1;
 }
 
@@ -192,12 +198,13 @@ shift_sei_buffer_at_index(signed_video_t *self, int index)
  * any Bitstream Unit (BU) hash and added to the gop_hash. For SV_AUTHENTICITY_LEVEL_FRAME we sign
  * this hash instead of the gop_hash, which is the traditional principle of signing. */
 static svrc_t
-generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signature_ptr)
+generate_sei_and_add_to_buffer(signed_video_t *self, bool ATTR_UNUSED force_signature)
 {
   sign_or_verify_data_t *sign_data = self->sign_data;
   const size_t hash_size = sign_data->hash_size;
   size_t num_optional_tags = 0;
   size_t num_mandatory_tags = 0;
+  uint8_t *sei = NULL;
 
   const sv_tlv_tag_t *optional_tags = sv_get_optional_tags(&num_optional_tags);
   const sv_tlv_tag_t *mandatory_tags = sv_get_mandatory_tags(&num_mandatory_tags);
@@ -212,13 +219,8 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
   size_t sei_buffer_size = 0;
   const size_t num_gop_encoders = ARRAY_SIZE(gop_info_encoders);
 
-  if (*payload) {
-    DEBUG_LOG("Payload is not empty, *payload must be NULL");
-    return SV_OK;
-  }
-
   if (self->sei_data_buffer_idx >= MAX_SEI_DATA_BUFFER) {
-    // Not enough space for this payload.
+    // Not enough space for this SEI.
     return SV_NOT_SUPPORTED;
   }
 
@@ -269,11 +271,11 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
     }
 
     // Allocate memory for payload + SEI header to return
-    *payload = (uint8_t *)malloc(sei_buffer_size);
-    SV_THROW_IF(!(*payload), SV_MEMORY);
+    sei = (uint8_t *)malloc(sei_buffer_size);
+    SV_THROW_IF(!sei, SV_MEMORY);
 
-    // Track the payload position with |payload_ptr|.
-    uint8_t *payload_ptr = *payload;
+    // Track the write position with |sei_ptr|.
+    uint8_t *sei_ptr = sei;
 
     // Start writing bytes.
     // Reset last_two_bytes before writing bytes
@@ -281,31 +283,31 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
     uint16_t *last_two_bytes = &self->last_two_bytes;
     if (self->codec != SV_CODEC_AV1) {
       // Start code prefix
-      *payload_ptr++ = 0x00;
-      *payload_ptr++ = 0x00;
-      *payload_ptr++ = 0x00;
-      *payload_ptr++ = 0x01;
+      *sei_ptr++ = 0x00;
+      *sei_ptr++ = 0x00;
+      *sei_ptr++ = 0x00;
+      *sei_ptr++ = 0x01;
 
       if (self->codec == SV_CODEC_H264) {
-        sv_write_byte(last_two_bytes, &payload_ptr, 0x06, false);  // SEI NAL type
+        sv_write_byte(last_two_bytes, &sei_ptr, 0x06, false);  // SEI NAL type
       } else if (self->codec == SV_CODEC_H265) {
-        sv_write_byte(last_two_bytes, &payload_ptr, 0x4E, false);  // SEI NAL type
+        sv_write_byte(last_two_bytes, &sei_ptr, 0x4E, false);  // SEI NAL type
         // nuh_layer_id and nuh_temporal_id_plus1
-        sv_write_byte(last_two_bytes, &payload_ptr, 0x01, false);
+        sv_write_byte(last_two_bytes, &sei_ptr, 0x01, false);
       }
       // last_payload_type_byte : user_data_unregistered
-      sv_write_byte(last_two_bytes, &payload_ptr, 0x05, false);
+      sv_write_byte(last_two_bytes, &sei_ptr, 0x05, false);
 
       // Payload size
       size_t size_left = payload_size;
       while (size_left >= 0xFF) {
-        sv_write_byte(last_two_bytes, &payload_ptr, 0xFF, false);
+        sv_write_byte(last_two_bytes, &sei_ptr, 0xFF, false);
         size_left -= 0xFF;
       }
       // last_payload_size_byte - u(8)
-      sv_write_byte(last_two_bytes, &payload_ptr, (uint8_t)size_left, false);
+      sv_write_byte(last_two_bytes, &sei_ptr, (uint8_t)size_left, false);
     } else {
-      sv_write_byte(last_two_bytes, &payload_ptr, 0x2A, false);  // OBU header
+      sv_write_byte(last_two_bytes, &sei_ptr, 0x2A, false);  // OBU header
       // Write payload size
       size_t size_left = payload_size;
       while (size_left > 0) {
@@ -320,17 +322,16 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
           // No more bytes to come. Clear highest bit
           byte &= 0x7F;
         }
-        sv_write_byte(last_two_bytes, &payload_ptr, byte, false);  // obu_size
+        sv_write_byte(last_two_bytes, &sei_ptr, byte, false);  // obu_size
       }
       // Write metadata_type
-      sv_write_byte(
-          last_two_bytes, &payload_ptr, METADATA_TYPE_USER_PRIVATE, false);  // metadata_type
+      sv_write_byte(last_two_bytes, &sei_ptr, METADATA_TYPE_USER_PRIVATE, false);  // metadata_type
       // Intermediate trailing byte
-      sv_write_byte(last_two_bytes, &payload_ptr, 0x80, false);  // trailing byte
+      sv_write_byte(last_two_bytes, &sei_ptr, 0x80, false);  // trailing byte
     }
 
     // User data unregistered UUID field
-    bu_set_uuid_type(self, &payload_ptr, UUID_TYPE_SIGNED_VIDEO);
+    bu_set_uuid_type(self, &sei_ptr, UUID_TYPE_SIGNED_VIDEO);
 
     // Add reserved byte(s).
     // The bit stream is illustrated below.
@@ -339,21 +340,21 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
     reserved_byte |= self->is_golden_sei << 6;
     reserved_byte |= 1 << 5;
     reserved_byte |= 1 << 4;
-    *payload_ptr++ = reserved_byte;
+    *sei_ptr++ = reserved_byte;
 
     size_t written_size = 0;
     if (optional_tags_size > 0) {
       written_size =
-          sv_tlv_list_encode_or_get_size(self, optional_tags, num_optional_tags, payload_ptr);
+          sv_tlv_list_encode_or_get_size(self, optional_tags, num_optional_tags, sei_ptr);
       SV_THROW_IF(written_size == 0, SV_MEMORY);
-      payload_ptr += written_size;
+      sei_ptr += written_size;
     }
 
     if (mandatory_tags_size > 0) {
       written_size =
-          sv_tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, payload_ptr);
+          sv_tlv_list_encode_or_get_size(self, mandatory_tags, num_mandatory_tags, sei_ptr);
       SV_THROW_IF(written_size == 0, SV_MEMORY);
-      payload_ptr += written_size;
+      sei_ptr += written_size;
     }
 
     // Up till now we have all the hashable data available. Before writing the signature TLV to the
@@ -361,10 +362,10 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
     // with the data so far and we will automatically get the pointers to the |hashable_data| and
     // the size of it. Then we can use the sv_hash_and_add() function.
     {
-      size_t fake_payload_size = (payload_ptr - *payload);
+      size_t fake_payload_size = (sei_ptr - sei);
       // Force SEI to be hashable.
       bu_info_t bu_without_signature_data =
-          parse_bu_info(*payload, fake_payload_size, self->codec, false, true);
+          parse_bu_info(sei, fake_payload_size, self->codec, false, true);
       // Create a document hash.
       SV_THROW(sv_hash_and_add(self, &bu_without_signature_data));
       // Note that the "add" part of the sv_hash_and_add() operation above is actually only
@@ -395,15 +396,16 @@ generate_sei(signed_video_t *self, uint8_t **payload, uint8_t **payload_signatur
     SV_THROW(sv_signing_plugin_sign(self->plugin_handle, sign_data->hash, sign_data->hash_size));
   SV_CATCH()
   {
-    DEBUG_LOG("Failed generating the SEI");
-    free(*payload);
-    *payload = NULL;
-    payload_ptr = NULL;
+    DEBUG_LOG("Failed to generate the SEI");
+    free(sei);
+    sei = NULL;
+    sei_ptr = NULL;
   }
   SV_DONE(status)
 
-  // Store offset so that we can append the signature once it has been generated.
-  *payload_signature_ptr = payload_ptr;
+  // Add |sei| to buffer. Will be picked up again when the signature has been generated.
+  // If the SEI is not signed mark it as complete at once.
+  add_sei_to_buffer(self, sei, sei_ptr, false);
 
   return status;
 }
@@ -627,16 +629,11 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
       }
 
       if (self->sei_generation_enabled) {
-        uint8_t *payload = NULL;
-        uint8_t *payload_signature_ptr = NULL;
-
         // If there are hashes added to the hash list, the |computed_gop_hash| can be finalized.
         SV_THROW(sv_openssl_finalize_hash(self->crypto_handle, gop_info->computed_gop_hash, true));
-        SV_THROW(generate_sei(self, &payload, &payload_signature_ptr));
-        // Add |payload| to buffer. Will be picked up again when the signature has been generated.
-        add_payload_to_buffer(self, payload, payload_signature_ptr);
         // The previous GOP is now completed. The gop_hash was reset right after signing and
         // adding it to the SEI.
+        SV_THROW(generate_sei_and_add_to_buffer(self, true));
       }
       self->sei_generation_enabled = true;
     }
@@ -823,13 +820,10 @@ signed_video_set_end_of_stream(signed_video_t *self)
   if (self->onvif) {
     return msrc_to_svrc(onvif_media_signing_set_end_of_stream(self->onvif));
   }
-  uint8_t *payload = NULL;
-  uint8_t *payload_signature_ptr = NULL;
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW(prepare_for_signing(self));
-    SV_THROW(generate_sei(self, &payload, &payload_signature_ptr));
-    add_payload_to_buffer(self, payload, payload_signature_ptr);
+    SV_THROW(generate_sei_and_add_to_buffer(self, true));
     // Fetch the signature. If it is not ready we exit without generating the SEI.
     sign_or_verify_data_t *sign_data = self->sign_data;
     SignedVideoReturnCode signature_error = SV_UNKNOWN_FAILURE;
@@ -853,8 +847,6 @@ signed_video_generate_golden_sei(signed_video_t *self)
   if (self->onvif) {
     return msrc_to_svrc(onvif_media_signing_generate_certificate_sei(self->onvif));
   }
-  uint8_t *payload = NULL;
-  uint8_t *payload_signature_ptr = NULL;
   // The flag |is_golden_sei| will mark the next SEI as golden and should include
   // recurrent data, hence |has_recurrent_data| is set to true.
   self->is_golden_sei = true;
@@ -864,8 +856,7 @@ signed_video_generate_golden_sei(signed_video_t *self)
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW(prepare_for_signing(self));
-    SV_THROW(generate_sei(self, &payload, &payload_signature_ptr));
-    add_payload_to_buffer(self, payload, payload_signature_ptr);
+    SV_THROW(generate_sei_and_add_to_buffer(self, true));
 
   SV_CATCH()
   SV_DONE(status)
