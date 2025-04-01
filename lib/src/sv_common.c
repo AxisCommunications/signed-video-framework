@@ -563,7 +563,9 @@ parse_bu_info(const uint8_t *bu_data,
     if (bu.emulation_prevention_bytes >= 0) {
       // Check if a signature TLV tag exists. If number of computed emulation prevention
       // bytes is negative, either the SEI is currupt or incomplete.
-      bu.is_signed = !!sv_tlv_find_tag(bu.tlv_data, bu.tlv_size, SIGNATURE_TAG, false);
+      const uint8_t *signature_tag =
+          sv_tlv_find_tag(bu.tlv_data, bu.tlv_size, SIGNATURE_TAG, false);
+      bu.is_signed = (signature_tag != NULL);
     }
     // Update |is_hashable| w.r.t. signed or not.
     bu.is_hashable |= bu.is_sv_sei && !bu.is_signed;
