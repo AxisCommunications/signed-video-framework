@@ -681,6 +681,7 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
   pem_pkey_t *pem_public_key = &self->pem_public_key;
   uint8_t version = *data_ptr++;
   uint16_t pubkey_size = (uint16_t)(data_size - 1);  // Only version and the key is stored
+  bool public_key_has_changed = false;
 
   // The algo was removed in version 2 since it is not needed. Simply move to next byte if
   // older version.
@@ -702,11 +703,14 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     }
 
     int key_diff = memcmp(data_ptr, pem_public_key->key, pubkey_size);
-    if (self->has_public_key && key_diff && self->latest_validation) {
-      self->latest_validation->public_key_has_changed = true;
+    public_key_has_changed = self->has_public_key && key_diff;
+    if (self->latest_validation) {
+      self->latest_validation->public_key_has_changed = public_key_has_changed;
     }
-    memcpy(pem_public_key->key, data_ptr, pubkey_size);
-    self->has_public_key = true;
+    if (!public_key_has_changed) {
+      memcpy(pem_public_key->key, data_ptr, pubkey_size);
+      self->has_public_key = true;
+    }
     data_ptr += pubkey_size;
 
     // Convert to EVP_PKEY_CTX

@@ -1007,6 +1007,54 @@ prepare_for_validation(signed_video_t *self)
   return status;
 }
 
+static void
+extract_optional_info_from_sei(signed_video_t *self, bu_list_item_t *item)
+{
+  bu_info_t *bu = item->bu;
+  if (!bu->is_sv_sei) {
+    return;
+  }
+  // Even if a SEI without signature (signing multiple GOPs) could include optional
+  // information like the public key it is not safe to use that until the SEI can be
+  // verified. Therefore, a SEI is not decoded to get the cryptographic information if it
+  // is not signed directly.
+  if (!bu->is_signed) {
+    return;
+  }
+
+  const uint8_t *tlv_data = bu->tlv_data;
+  size_t tlv_size = bu->tlv_size;
+  size_t num_of_tags = 0;
+  const sv_tlv_tag_t *optional_tags = sv_get_optional_tags(&num_of_tags);
+  sv_tlv_find_and_decode_tags(self, tlv_data, tlv_size, optional_tags, num_of_tags);
+}
+
+// If this is a Signed Video generated SEI, including a signature, decode all the
+// optional TLV information and verify the signature.
+static svrc_t
+verify_sei_signature(signed_video_t *self, bu_list_item_t *item, int *verified_result)
+{
+  bu_info_t *bu = item->bu;
+  if (!bu->is_sv_sei || !bu->is_signed) {
+    return SV_OK;
+  }
+  const sv_tlv_tag_t signature_tag = SIGNATURE_TAG;
+  if (!sv_tlv_find_and_decode_tags(
+          self, item->bu->tlv_data, item->bu->tlv_size, &signature_tag, 1)) {
+    return SV_OK;
+  }
+  if (!self->has_public_key) {
+    // If no public key has been set, validation is not supported. This can happen if the
+    // Public key was not added to the SEI and the validation side has not set it
+    // manually.
+    return SV_NOT_SUPPORTED;
+  }
+
+  memcpy(self->verify_data->hash, item->hash, self->verify_data->hash_size);
+
+  return sv_openssl_verify_hash(self->verify_data, verified_result);
+}
+
 // If public_key is not received then try to decode all recurrent tags.
 static bool
 is_recurrent_data_decoded(signed_video_t *self)
@@ -1267,8 +1315,22 @@ register_bu(signed_video_t *self, bu_list_item_t *item)
 
   if (bu->is_valid == 0) return SV_OK;
 
+  extract_optional_info_from_sei(self, item);
   sv_update_hashable_data(bu);
-  return hash_and_add_for_auth(self, item);
+
+  svrc_t status = SV_UNKNOWN_FAILURE;
+  SV_TRY()
+    SV_THROW(hash_and_add_for_auth(self, item));
+    if (bu->is_signed) {
+      SV_THROW(verify_sei_signature(self, item, &item->verified_signature));
+      // TODO: Decide what to do if verification fails. Should mark public key as not
+      // present?
+      DEBUG_LOG("Verified SEI signature with result %d", item->verified_signature);
+    }
+  SV_CATCH()
+  SV_DONE(status)
+
+  return status;
 }
 
 /* All Bitstream Units in the |bu_list| are re-registered by hashing them. */
@@ -1399,6 +1461,7 @@ add_bitstream_unit(signed_video_t *self, const uint8_t *bu_data, size_t bu_data_
   validation_flags->has_auth_result = false;
 
   self->accumulated_validation->number_of_received_nalus++;
+  const bool nalus_pending_registration = !self->validation_flags.hash_algo_known;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
@@ -1414,22 +1477,19 @@ add_bitstream_unit(signed_video_t *self, const uint8_t *bu_data, size_t bu_data_
     // As soon as the first Signed Video SEI arrives (|signing_present| is true) and the
     // crypto TLV tag has been decoded it is feasible to hash the temporarily stored
     // Bitstream Units.
-    if (!validation_flags->hash_algo_known &&
-        ((validation_flags->signing_present && is_recurrent_data_decoded(self)) ||
-            (bu_list->num_gops > MAX_UNHASHED_GOPS))) {
-      if (!validation_flags->hash_algo_known) {
-        DEBUG_LOG("No cryptographic information found in SEI. Using default hash algo");
-        validation_flags->hash_algo_known = true;
-      }
-      if (bu.is_golden_sei) SV_THROW(prepare_golden_sei(self, bu_list->last_item));
+    if (!validation_flags->signing_present && (bu_list->num_gops > MAX_UNHASHED_GOPS)) {
+      validation_flags->hash_algo_known = true;
+    }
+    if (bu.is_golden_sei) SV_THROW(prepare_golden_sei(self, bu_list->last_item));
 
-      // Determine if legacy validation should be applied, that is, if the legacy way of
-      // using linked hashes and recursive GOP hash is detected.
-      if (validation_flags->signing_present && (!(bu.reserved_byte & 0x30) && !bu.is_golden_sei)) {
-        self->legacy_sv = legacy_sv_create(self);
-        SV_THROW_IF(!self->legacy_sv, SV_MEMORY);
-        sv_accumulated_validation_init(self->accumulated_validation);
-      }
+    // Determine if legacy validation should be applied, that is, if the legacy way of
+    // using linked hashes and recursive GOP hash is detected.
+    if (bu.is_sv_sei && (!(bu.reserved_byte & 0x30) && !bu.is_golden_sei)) {
+      self->legacy_sv = legacy_sv_create(self);
+      SV_THROW_IF(!self->legacy_sv, SV_MEMORY);
+      sv_accumulated_validation_init(self->accumulated_validation);
+    }
+    if (nalus_pending_registration && self->validation_flags.hash_algo_known) {
       SV_THROW(reregister_bu(self));
     }
     SV_THROW(maybe_validate_gop(self, &bu));
