@@ -70,6 +70,11 @@ test_stream_free(test_stream_t *list);
 test_stream_t *
 test_stream_pop(test_stream_t *list, int number_of_items);
 
+/* Pops |number_of_gops| from a |list| and returns a new list with these items. If there
+ * is not at least |number_of_gops| in the list NULL is returned. */
+test_stream_t *
+test_stream_pop_gops(test_stream_t *list, int number_of_gops);
+
 /* Appends a list to a list. The |list_to_append| is freed after the operation. */
 void
 test_stream_append(test_stream_t *list, test_stream_t *list_to_append);

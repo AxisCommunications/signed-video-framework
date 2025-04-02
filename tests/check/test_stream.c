@@ -481,6 +481,40 @@ test_stream_pop(test_stream_t *list, int number_of_items)
   return new_list;
 }
 
+/* Pops |number_of_gops| from a |list| and returns a new list with these items. If there
+ * is not at least |number_of_gops| in the list NULL is returned. */
+test_stream_t *
+test_stream_pop_gops(test_stream_t *list, int number_of_gops)
+{
+  if (!list) {
+    return NULL;
+  }
+
+  // Count number of I-frames, which equals number of GOPs.
+  int num_gops_in_list = 0;
+  test_stream_item_t *item = list->first_item;
+  while (item) {
+    num_gops_in_list += item->type == 'I';
+    item = item->next;
+  }
+
+  if (num_gops_in_list < number_of_gops) {
+    return NULL;
+  }
+
+  // Create an empty list.
+  test_stream_t *new_list = test_stream_create("", list->codec);
+  ck_assert(new_list);
+  // Pop items from list and append to the new_list.
+  while (number_of_gops) {
+    test_stream_item_t *item = test_stream_pop_first_item(list);
+    test_stream_append_last_item(new_list, item);
+    number_of_gops -= list->first_item->type == 'I';  // Reached end of GOP
+  }
+
+  return new_list;
+}
+
 /* Appends a test stream to a |list|. The |list_to_append| is freed after the operation. */
 void
 test_stream_append(test_stream_t *list, test_stream_t *list_to_append)
