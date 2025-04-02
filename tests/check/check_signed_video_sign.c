@@ -19,6 +19,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 #include <check.h>
+#include <stdbool.h>
 #include <stdint.h>  // uint8_t
 #ifdef PRINT_DECODED_SEI
 #include <stdio.h>
@@ -58,18 +59,26 @@ verify_seis(test_stream_t *list, struct sv_setting setting)
     return;
   }
 
+  bool is_first_signed_sei = true;
+  bool is_first_unsigned_sei = true;
   int num_seis = 0;
-  size_t sei_size = 0;
+  size_t sei_size_signed = 0;
+  size_t sei_size_unsigned = 0;
   test_stream_item_t *item = list->first_item;
   while (item) {
     bu_info_t bu = parse_bu_info(item->data, item->data_size, list->codec, false, true);
     if (bu.is_sv_sei) {
-      if (num_seis == 0) {
+      if (bu.is_signed && is_first_signed_sei) {
         // Set the SEI size for the first detected SEI.
-        sei_size = item->data_size;
+        sei_size_signed = item->data_size;
+        is_first_signed_sei = false;
+      }
+      if (!bu.is_signed && is_first_unsigned_sei) {
+        // Set the SEI size for the first detected SEI.
+        sei_size_unsigned = item->data_size;
+        is_first_unsigned_sei = false;
       }
       num_seis++;
-      const bool has_signature = tag_is_present(item, list->codec, SIGNATURE_TAG);
       const bool has_hash_list = tag_is_present(item, list->codec, HASH_LIST_TAG);
       const bool has_axis_tag = tag_is_present(item, list->codec, VENDOR_AXIS_COMMUNICATIONS_TAG);
       const bool has_public_key_tag = tag_is_present(item, list->codec, PUBLIC_KEY_TAG);
@@ -80,12 +89,12 @@ verify_seis(test_stream_t *list, struct sv_setting setting)
       // Verify SEI sizes if emulation prevention is turned off.
       if (setting.auth_level == SV_AUTHENTICITY_LEVEL_GOP && !setting.ep_before_signing) {
         // For GOP level authenticity, all SEIs should have the same size
-        ck_assert(item->data_size == sei_size);
+        ck_assert(item->data_size == (bu.is_signed ? sei_size_signed : sei_size_unsigned));
       }
       // Verify that SEI sizes increase over time.
       if (setting.increased_sei_size) {
-        ck_assert_int_ge(item->data_size, sei_size);
-        sei_size = item->data_size;
+        ck_assert_int_ge(item->data_size, sei_size_signed);
+        sei_size_signed = item->data_size;
       }
       if (setting.max_sei_payload_size > 0) {
         // Verify the SEI size. This overrides the authenticity level.
@@ -111,14 +120,14 @@ verify_seis(test_stream_t *list, struct sv_setting setting)
         ck_assert(has_optional_tags);
         // Verify that signatures follow the signing_frequency.
         if (num_seis % setting.signing_frequency == 0) {
-          ck_assert(has_signature);
+          ck_assert(bu.is_signed);
         } else {
-          ck_assert(!has_signature);
+          ck_assert(!bu.is_signed);
         }
       }
       // Verify that a golden SEI has a signature.
       if (bu.is_golden_sei) {
-        ck_assert(has_signature);
+        ck_assert(bu.is_signed);
       }
       // Verify that Axis vendor tag is present.
       ck_assert(!((setting.vendor_axis_mode > 0) ^ has_axis_tag));
@@ -198,6 +207,13 @@ START_TEST(api_inputs)
   sv_rc = signed_video_set_private_key(sv, private_key, private_key_size);
   ck_assert_int_eq(sv_rc, SV_OK);
 
+  // Check setting signing_frequency
+  sv_rc = signed_video_set_signing_frequency(NULL, 1);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  sv_rc = signed_video_set_signing_frequency(sv, 0);
+  ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
+  sv_rc = signed_video_set_signing_frequency(sv, 2);
+  ck_assert_int_eq(sv_rc, SV_OK);
   // Check setting recurrence
   sv_rc = signed_video_set_recurrence_interval_frames(NULL, 1);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
@@ -885,6 +901,22 @@ START_TEST(limited_sei_payload_size)
 END_TEST
 
 /* Test description
+ * Verifies the signing frequency setter, that is, signing multiple GOPs. */
+START_TEST(signing_multiple_gops)
+{
+  struct sv_setting setting = settings[_i];
+  // Select a signing frequency longer than every GOP.
+  const unsigned signing_frequency = 2;
+  setting.signing_frequency = signing_frequency;
+  test_stream_t *list = create_signed_stream("IPPIPPIPPIPPIP", setting);
+  test_stream_check_types(list, "IPPIsPPISPPIsPPISP");
+  verify_seis(list, setting);
+
+  test_stream_free(list);
+}
+END_TEST
+
+/* Test description
  * Verifies the setter for maximum Bitstream Units before signing, that is, triggers
  * signing partial GOPs. */
 START_TEST(signing_partial_gops)
@@ -951,6 +983,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, golden_sei_created, s, e);
   tcase_add_loop_test(tc, w_wo_emulation_prevention_bytes, s, e);
   tcase_add_loop_test(tc, limited_sei_payload_size, s, e);
+  tcase_add_loop_test(tc, signing_multiple_gops, s, e);
   tcase_add_loop_test(tc, signing_partial_gops, s, e);
   tcase_add_loop_test(tc, signing_mulitslice_stream_partial_gops, s, e);
 

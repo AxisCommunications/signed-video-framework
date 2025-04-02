@@ -147,6 +147,7 @@ typedef struct {
   bool is_last_bu_part;  // True if the |bu_data| includes the last part
   bool with_epb;  // Hashable data may include emulation prevention bytes
   bool is_golden_sei;
+  bool is_signed;  // True if the SEI is signed, i.e., has a signature
 } bu_info_t;
 
 /**
@@ -285,6 +286,7 @@ struct _signed_video_t {
   SignedVideoAuthenticityLevel authenticity_level;
   size_t max_sei_payload_size;  // Default 0 = unlimited
   unsigned signing_frequency;  // Number of GOPs per signature (default 1)
+  unsigned num_gops_until_signing;  // Counter to track |signing_frequency|
   unsigned recurrence;
   unsigned max_signing_frames;
 

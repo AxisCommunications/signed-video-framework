@@ -506,6 +506,7 @@ get_initialized_signed_video(struct sv_setting settings, bool new_private_key)
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
   ck_assert_int_eq(signed_video_set_max_sei_payload_size(sv, settings.max_sei_payload_size), SV_OK);
   ck_assert_int_eq(signed_viedo_set_max_signing_frames(sv, settings.max_signing_frames), SV_OK);
+  ck_assert_int_eq(signed_video_set_signing_frequency(sv, settings.signing_frequency), SV_OK);
   ck_assert_int_eq(signed_video_set_hash_algo(sv, settings.hash_algo_name), SV_OK);
   if (settings.codec != SV_CODEC_AV1) {
     ck_assert_int_eq(signed_video_set_sei_epb(sv, settings.ep_before_signing), SV_OK);
