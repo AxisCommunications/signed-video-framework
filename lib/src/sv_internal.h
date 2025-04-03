@@ -179,8 +179,13 @@ struct _bu_list_item_t {
   bool has_been_decoded;  // Marks a SEI as decoded. Decoding it twice might overwrite
   // vital information.
   bool used_in_gop_hash;  // Marks the BU as being part of a computed |gop_hash|.
-
   bool used_for_linked_hash;
+
+  // Members used when there are unsigned SEIs involved. The content of a SEI can only be
+  // trusted once the signed SEI has been verified.
+  char validation_status_if_sei_ok;
+  const bu_list_item_t *associated_sei;  // Which SEI this item is associated with.
+  int verified_signature;
 
   // Members used when synchronizing the first usable SEI with the I-frame(s).
   bool in_validation;  // Marks the SEI that is currently up for use.
