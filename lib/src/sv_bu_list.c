@@ -94,7 +94,6 @@ bu_list_item_create(const bu_info_t *bu)
   }
 
   item->bu = (bu_info_t *)bu;
-  item->taken_ownership_of_bu = false;
   item->validation_status = get_validation_status_from_bu(bu);
   item->tmp_validation_status = item->validation_status;
 
@@ -111,13 +110,11 @@ bu_list_item_free(bu_list_item_t *item)
   }
 
   // If we have |bu| data we free the temporarily used TLV memory slot.
-  if (item->taken_ownership_of_bu) {
-    if (item->bu) {
-      free(item->bu->nalu_data_wo_epb);
-      free(item->bu->pending_bu_data);
-    }
-    free(item->bu);
+  if (item->bu) {
+    free(item->bu->nalu_data_wo_epb);
+    free(item->bu->pending_bu_data);
   }
+  free(item->bu);
   free(item);
 }
 
@@ -161,7 +158,6 @@ bu_list_item_print(const bu_list_item_t *item)
   // bu_info_t *bu;
   // char validation_status;
   // uint8_t hash[MAX_HASH_SIZE];
-  // bool taken_ownership_of_bu;
   // bool has_been_decoded;
   // bool used_in_gop_hash;
 
@@ -176,8 +172,7 @@ bu_list_item_print(const bu_list_item_t *item)
   memcpy(validation_status_str, &item->tmp_validation_status, 1);
 
   printf("BU type = %s\n", bu_type_str);
-  printf("validation_status = %s%s%s%s\n", validation_status_str,
-      (item->taken_ownership_of_bu ? ", taken_ownership_of_bu" : ""),
+  printf("validation_status = %s%s%s\n", validation_status_str,
       (item->has_been_decoded ? ", has_been_decoded" : ""),
       (item->used_in_gop_hash ? ", used_in_gop_hash" : ""));
   sv_print_hex_data(item->hash, item->hash_size, "item->hash     ");
@@ -395,16 +390,7 @@ bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
   }
   SV_DONE(status)
 
-  if (item->taken_ownership_of_bu) {
-    // We have taken ownership of the existing |bu|, hence we need to free it when releasing it.
-    // NOTE: This should not happen if the list is used properly.
-    if (item->bu) {
-      free(item->bu->nalu_data_wo_epb);
-    }
-    free(item->bu);
-  }
   item->bu = copied_bu;
-  item->taken_ownership_of_bu = true;
 
   return status;
 }
