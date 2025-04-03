@@ -1283,29 +1283,6 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
   return status;
 }
 
-/* This function updates the hashable part of the Bitstream Unit (BU) data. The default assumption
- * is that all bytes from BU header to stop bit are hashed. This holds for all BU types but the
- * Signed Video generated SEIs. For these, the last X bytes storing the signature are not hashed.
- *
- * In this function we update the bu_info_t member |hashable_data_size| w.r.t. that. The pointer
- * to the start is still the same. */
-void
-sv_update_hashable_data(bu_info_t *bu)
-{
-  assert(bu && (bu->is_valid > 0));
-  if (!bu->is_hashable || !bu->is_sv_sei) return;
-
-  // This is a Signed Video generated BU of type SEI. As payload it holds TLV data where the last
-  // chunk is supposed to be the signature. That part should not be hashed, hence we need to
-  // re-calculate hashable_data_size by subtracting the number of bytes (including potential
-  // emulation prevention bytes) coresponding to that tag. This is done by scanning the TLV for that
-  // tag.
-  const uint8_t *signature_tag_ptr =
-      sv_tlv_find_tag(bu->tlv_start_in_bu_data, bu->tlv_size, SIGNATURE_TAG, bu->with_epb);
-
-  if (signature_tag_ptr) bu->hashable_data_size = signature_tag_ptr - bu->hashable_data;
-}
-
 /* A valid BU is registered by hashing and adding to the |item|. */
 static svrc_t
 register_bu(signed_video_t *self, bu_list_item_t *item)
@@ -1316,7 +1293,6 @@ register_bu(signed_video_t *self, bu_list_item_t *item)
   if (bu->is_valid == 0) return SV_OK;
 
   extract_optional_info_from_sei(self, item);
-  sv_update_hashable_data(bu);
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()

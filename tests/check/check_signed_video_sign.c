@@ -849,7 +849,6 @@ START_TEST(w_wo_emulation_prevention_bytes)
     ck_assert(seis[ii]);
     sei_sizes[ii] = sei_size;
     bu[ii] = parse_bu_info(seis[ii], sei_sizes[ii], codec, false, true);
-    sv_update_hashable_data(&bu[ii]);
     signed_video_free(sv);
     sv = NULL;
   }

@@ -445,7 +445,6 @@ complete_sei(signed_video_t *self)
     uint8_t test_hash[MAX_HASH_SIZE];
     bu_info_t test_bu_info =
         parse_bu_info(sei, sei_data->completed_sei_size, self->codec, false, true);
-    sv_update_hashable_data(&test_bu_info);
     SV_THROW(sv_simply_hash(self, &test_bu_info, test_hash, self->sign_data->hash_size));
     free(test_bu_info.nalu_data_wo_epb);
     // Borrow hash and signature from |sign_data|.
