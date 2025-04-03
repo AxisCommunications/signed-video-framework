@@ -260,6 +260,8 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
       item->used_in_gop_hash = true;  // Mark the item as used in the GOP hash
       num_in_partial_gop++;
 
+      // Mark the item and move to next.
+      item->associated_sei = sei;
       item = item->next;
     }
     SV_THROW(
@@ -305,7 +307,7 @@ extend_partial_gop(signed_video_t *self, const bu_list_item_t *sei)
       break;
     }
     // If this item is not pending, or already part of |gop_hash|, move to the next one.
-    if (item->tmp_validation_status != 'P' || item->used_in_gop_hash) {
+    if (item->tmp_validation_status != 'P' || item->associated_sei) {
       item = item->next;
       continue;
     }
@@ -322,6 +324,7 @@ extend_partial_gop(signed_video_t *self, const bu_list_item_t *sei)
 
     // Mark the item and move to next.
     item->used_in_gop_hash = true;
+    item->associated_sei = sei;
     item = item->next;
   }
 }
@@ -404,7 +407,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
       break;
     }
     // If this item is not Pending or not part of the GOP hash, move to the next one.
-    if (item->tmp_validation_status != 'P' || !item->used_in_gop_hash) {
+    if (item->tmp_validation_status != 'P' || !item->associated_sei) {
       DEBUG_LOG("Skipping non-pending Bitstream Unit");
       item = item->next;
       continue;
@@ -521,7 +524,7 @@ set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
   // |used_in_gop_hash|
   bu_list_item_t *item = bu_list->first_item;
   while (item) {
-    if (item->used_in_gop_hash && item->tmp_validation_status == 'P') {
+    if ((item->associated_sei == sei) && item->tmp_validation_status == 'P') {
       if (!item->bu->is_sv_sei) {
         num_marked_items++;
       }
@@ -602,7 +605,7 @@ verify_hashes_with_sei(signed_video_t *self,
 
   // Identify the first BU used in the GOP hash. This will be used to add missing BUs.
   bu_list_item_t *first_gop_hash_item = self->bu_list->first_item;
-  while (first_gop_hash_item && !first_gop_hash_item->used_in_gop_hash) {
+  while (first_gop_hash_item && (first_gop_hash_item->associated_sei != sei)) {
     first_gop_hash_item = first_gop_hash_item->next;
   }
   num_received_hashes =
@@ -860,6 +863,7 @@ remove_used_in_gop_hash(bu_list_t *bu_list)
   bu_list_item_t *item = bu_list->first_item;
   while (item) {
     item->used_in_gop_hash = false;
+    item->associated_sei = NULL;
     item = item->next;
   }
 }
