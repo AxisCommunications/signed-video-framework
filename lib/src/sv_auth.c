@@ -73,7 +73,7 @@ static bool
 validation_is_feasible(const bu_list_item_t *item);
 
 static void
-remove_used_in_gop_hash(bu_list_t *bu_list);
+remove_sei_association(bu_list_t *bu_list, const bu_list_item_t *sei);
 
 #ifdef SIGNED_VIDEO_DEBUG
 static const char *kAuthResultValidStr[SV_AUTH_NUM_SIGNED_GOP_VALID_STATES] = {"SIGNATURE MISSING",
@@ -257,7 +257,6 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
       }
       // Since the GOP hash is initialized, it can be updated with each incoming BU hash.
       SV_THROW(sv_openssl_update_hash(self->crypto_handle, item->hash, hash_size, true));
-      item->used_in_gop_hash = true;  // Mark the item as used in the GOP hash
       num_in_partial_gop++;
 
       // Mark the item and move to next.
@@ -273,15 +272,15 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
 
   SV_CATCH()
   {
-    // Failed computing the gop_hash. Remove all used_in_gop_hash markers.
-    remove_used_in_gop_hash(bu_list);
+    // Failed computing the gop_hash. Remove SEI associations.
+    remove_sei_association(bu_list, sei);
   }
   SV_DONE(status)
 
   return status;
 }
 
-/* Mark as many items as possible with |used_in_gop_hash| for the current partial GOP.
+/* Associate as many items as possible with |sei| for the current partial GOP.
  * This function should be called if validation with the |gop_hash| fails and individual
  * hashes are to be verified. */
 static void
@@ -323,7 +322,6 @@ extend_partial_gop(signed_video_t *self, const bu_list_item_t *sei)
     }
 
     // Mark the item and move to next.
-    item->used_in_gop_hash = true;
     item->associated_sei = sei;
     item = item->next;
   }
@@ -507,7 +505,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
 }
 
 /* Sets the |tmp_validation_status| of all items in |bu_list| that are pending and
- * |used_in_gop_hash|.
+ * associated with |sei|.
  *
  * Returns the number of items marked and -1 upon failure. */
 static int
@@ -521,7 +519,7 @@ set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
   int num_marked_items = 0;
 
   // Loop through the |bu_list| and set the |tmp_validation_status| if the item is
-  // |used_in_gop_hash|
+  // associated with |sei|.
   bu_list_item_t *item = bu_list->first_item;
   while (item) {
     if ((item->associated_sei == sei) && item->tmp_validation_status == 'P') {
@@ -598,8 +596,7 @@ verify_hashes_with_sei(signed_video_t *self,
     // An error occurred when verifying the GOP hash. Verify without a SEI.
     validation_status = 'E';
     sei->tmp_validation_status = validation_status;
-    // Remove |used_in_gop_hash| from marked BUs.
-    remove_used_in_gop_hash(self->bu_list);
+    remove_sei_association(self->bu_list, sei);
     return verify_hashes_without_sei(self, 0);
   }
 
@@ -779,7 +776,7 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
   bool has_valid_bu = bu_list_get_stats(self->bu_list, sei, &num_invalid, &num_missed);
   DEBUG_LOG("Number of invalid Bitstream Units = %d.", num_invalid);
   DEBUG_LOG("Number of missed Bitstream Units  = %d.", num_missed);
-  remove_used_in_gop_hash(self->bu_list);
+  remove_sei_association(self->bu_list, sei);
 
   valid = (num_invalid > 0) ? SV_AUTH_RESULT_NOT_OK : SV_AUTH_RESULT_OK;
 
@@ -854,16 +851,23 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
   }
 }
 
-/* Removes the |used_in_gop_hash| flag from all items. */
+/* Removes the association with a specific SEI from the items. */
 static void
-remove_used_in_gop_hash(bu_list_t *bu_list)
+remove_sei_association(bu_list_t *bu_list, const bu_list_item_t *sei)
 {
   if (!bu_list) return;
 
   bu_list_item_t *item = bu_list->first_item;
   while (item) {
-    item->used_in_gop_hash = false;
-    item->associated_sei = NULL;
+    if (sei && item->associated_sei == sei) {
+      if (item->validation_status == 'M') {
+        const bu_list_item_t *item_to_remove = item;
+        item = item->next;
+        bu_list_remove_and_free_item(bu_list, item_to_remove);
+        continue;
+      }
+      item->associated_sei = NULL;
+    }
     item = item->next;
   }
 }
