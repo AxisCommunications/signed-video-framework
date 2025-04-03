@@ -776,7 +776,7 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
 
   // Collect statistics from the bu_list. This is used to validate the GOP and provide additional
   // information to the user.
-  bool has_valid_bu = bu_list_get_stats(self->bu_list, &num_invalid, &num_missed);
+  bool has_valid_bu = bu_list_get_stats(self->bu_list, sei, &num_invalid, &num_missed);
   DEBUG_LOG("Number of invalid Bitstream Units = %d.", num_invalid);
   DEBUG_LOG("Number of missed Bitstream Units  = %d.", num_missed);
   remove_used_in_gop_hash(self->bu_list);
