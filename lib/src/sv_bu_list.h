@@ -102,11 +102,16 @@ bu_list_copy_last_item(bu_list_t* list, bool hash_algo_known);
  * @param num_missing Number of missing items to append/prepend.
  * @param append Appends |item| if true and prepends |item| if false.
  * @param item The |item| of which the 'missing' items are append/prepend.
+ * @param associated_sei The sei to which the 'missing' items is associated.
  *
  * @return An appropriate Signed Video Return Code.
  */
 svrc_t
-bu_list_add_missing(bu_list_t* list, int num_missing, bool append, bu_list_item_t* item);
+bu_list_add_missing(bu_list_t* list,
+    int num_missing,
+    bool append,
+    bu_list_item_t* item,
+    const bu_list_item_t* associated_sei);
 
 /**
  * @brief Removes 'M' items present at the beginning of a |list|

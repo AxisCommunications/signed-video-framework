@@ -442,7 +442,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
         num_missed_hashes += num_detected_missing;
         // No need to check the return value. A failure only affects the statistics. In the worst
         // case we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
-        bu_list_add_missing(bu_list, num_detected_missing, false, item);
+        bu_list_add_missing(bu_list, num_detected_missing, false, item, sei);
         // Reset counters and latest_match_idx.
         latest_match_idx = compare_idx;
         num_invalid_since_latest_match = 0;
@@ -478,7 +478,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
     // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
     // TODO: Investigate whether adding missing items to the start of the list could cause problems
     // during the validation of multiple GOPs in one go.
-    bu_list_add_missing(bu_list, num_missing, true, bu_list->first_item);
+    bu_list_add_missing(bu_list, num_missing, true, bu_list->first_item, sei);
   }
 
   // If the last invalid BU is the first BU in a GOP or the BU after the SEI, keep it
@@ -493,7 +493,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
     int num_unused_expected_hashes = num_expected_hashes - 1 - latest_match_idx;
     // No need to check the return value. A failure only affects the statistics. In the worst case
     // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
-    bu_list_add_missing(bu_list, num_unused_expected_hashes, true, last_used_item);
+    bu_list_add_missing(bu_list, num_unused_expected_hashes, true, last_used_item, sei);
   }
 
   // Done with the SEI. Mark as valid, because if we failed verifying the |document_hash| we would
@@ -616,7 +616,7 @@ verify_hashes_with_sei(signed_video_t *self,
     const bool append = first_gop_hash_item->bu->is_first_bu_in_gop;
     // No need to check the return value. A failure only affects the statistics. In the worst case
     // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
-    bu_list_add_missing(self->bu_list, num_missing, append, first_gop_hash_item);
+    bu_list_add_missing(self->bu_list, num_missing, append, first_gop_hash_item, sei);
   }
 
   if (num_expected) *num_expected = num_expected_hashes;
