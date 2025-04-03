@@ -210,6 +210,7 @@ typedef struct {
   bool hash_algo_known;  // Information on what hash algorithm to use has been received.
 
   // GOP-related flags.
+  bool waiting_for_signature;  // Validating a GOP with a SEI without signature.
   bool has_lost_sei;  // Has detected a lost SEI since last validation.
 } validation_flags_t;
 
