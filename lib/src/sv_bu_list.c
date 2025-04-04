@@ -171,8 +171,9 @@ bu_list_item_print(const bu_list_item_t *item)
   memcpy(validation_status_str, &item->tmp_validation_status, 1);
 
   printf("BU type = %s\n", bu_type_str);
-  printf("validation_status = %s%s%p\n", validation_status_str,
-      (item->has_been_decoded ? ", has_been_decoded" : ""), item->associated_sei);
+  printf("validation_status = %c ('%c' if_sei_ok)%s, associated_sei %p\n", item->validation_status,
+      item->validation_status_if_sei_ok, (item->has_been_decoded ? ", has_been_decoded" : ""),
+      item->associated_sei);
   sv_print_hex_data(item->hash, item->hash_size, "item->hash     ");
 }
 #endif
@@ -485,7 +486,8 @@ bu_list_get_next_sei_item(const bu_list_t *list)
 
   bu_list_item_t *item = list->first_item;
   while (item) {
-    if (item->bu && item->bu->is_sv_sei && item->tmp_validation_status == 'P') {
+    if (item->bu && item->bu->is_sv_sei && item->tmp_validation_status == 'P' &&
+        item->validation_status_if_sei_ok == ' ') {
       break;
     }
     item = item->next;
