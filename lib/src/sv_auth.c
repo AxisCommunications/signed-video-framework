@@ -1022,7 +1022,10 @@ is_recurrent_data_decoded(signed_video_t *self)
     if (item->bu && item->bu->is_sv_sei && item->tmp_validation_status == 'P') {
       const uint8_t *tlv_data = item->bu->tlv_data;
       size_t tlv_size = item->bu->tlv_size;
-      recurrent_data_decoded = sv_tlv_find_and_decode_optional_tags(self, tlv_data, tlv_size);
+      size_t num_of_tags = 0;
+      const sv_tlv_tag_t *optional_tags = sv_get_optional_tags(&num_of_tags);
+      recurrent_data_decoded =
+          sv_tlv_find_and_decode_tags(self, tlv_data, tlv_size, optional_tags, num_of_tags);
     }
     item = item->next;
   }

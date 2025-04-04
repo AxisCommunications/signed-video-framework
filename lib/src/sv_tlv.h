@@ -133,21 +133,25 @@ uint8_t
 sv_read_byte(uint16_t *last_two_bytes, const uint8_t **payload, bool do_emulation_prevention);
 
 /**
- * @brief Scans the TLV part of a SEI payload and decodes all recurrent tags
+ * @brief Scans the TLV part of a SEI payload and decodes tags
  *
  * The data is assumed to have been written in a TLV format. This function parses data and
- * finds all tags dependent on recurrency (marked not |is_always_present|) and decodes them.
+ * finds all |tags| and decodes them.
  *
  * @param self Pointer to the signed_video_t session.
  * @param tlv_data Pointer to the TLV data to scan.
  * @param tlv_data_size Size of the TLV data.
+ * @param tags An array of the TLV tags to decode.
+ * @param num_of_tags Size of the array of TLV tags.
  *
  * @return True if find and decoding tag was successful.
  */
 bool
-sv_tlv_find_and_decode_optional_tags(signed_video_t *self,
+sv_tlv_find_and_decode_tags(signed_video_t *self,
     const uint8_t *tlv_data,
-    size_t tlv_data_size);
+    size_t tlv_data_size,
+    const sv_tlv_tag_t *tags,
+    size_t num_of_tags);
 
 /**
  * @brief Helper to get only the optional tags as an array
