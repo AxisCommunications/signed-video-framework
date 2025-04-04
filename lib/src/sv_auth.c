@@ -364,27 +364,8 @@ verify_hashes_with_hash_list(signed_video_t *self,
 
   bu_list_print(bu_list);
 
-  // First of all we need to know if the SEI itself is authentic, that is, the SEI |document_hash|
-  // has successfully been verified (= 1). If the document could not be verified sucessfully, that
-  // is, the SEI is invalid, all BUs become invalid. Hence, verify_hashes_without_sei().
-  switch (gop_info->verified_signature_hash) {
-    case -1:
-      sei->tmp_validation_status = 'E';
-      return verify_hashes_without_sei(self, 0);
-    case 0:
-      sei->tmp_validation_status = 'N';
-      return verify_hashes_without_sei(self, 0);
-    case 1:
-      assert(sei->tmp_validation_status == 'P');
-      break;
-    default:
-      // We should not end up here.
-      assert(false);
-      return false;
-  }
-
-  // The next step is to verify the hashes of the BUs in the |bu_list| until we hit a transition
-  // to the next GOP, but no further than to the item after the |sei|.
+  // Verify the hashes of the BUs in the |bu_list| until a transition to the next GOP is
+  // detected, but no further than to the item after the |sei|.
 
   // Statistics tracked while verifying hashes.
   int num_invalid_since_latest_match = 0;
@@ -433,7 +414,11 @@ verify_hashes_with_hash_list(signed_video_t *self,
       if (memcmp(item->hash, expected_hash, hash_size) == 0) {
         // There is a match. Set tmp_validation_status and add missing bitstream units if
         // it has been detected.
-        item->tmp_validation_status = order_ok ? '.' : 'N';
+        if (sei->bu->is_signed) {
+          item->tmp_validation_status = order_ok ? sei->validation_status : 'N';
+        } else {
+          item->validation_status_if_sei_ok = sei->validation_status_if_sei_ok;
+        }
         // Add missing items to |bu_list|.
         int num_detected_missing =
             (compare_idx - latest_match_idx) - 1 - num_invalid_since_latest_match;
@@ -459,8 +444,11 @@ verify_hashes_with_hash_list(signed_video_t *self,
     if (latest_match_idx != compare_idx) {
       // We have compared against all feasible hashes in |hash_list| without a match. Mark as NOT
       // OK, or keep pending for second use.
-
-      item->tmp_validation_status = 'N';
+      if (sei->bu->is_signed) {
+        item->tmp_validation_status = 'N';
+      } else {
+        item->validation_status_if_sei_ok = 'N';
+      }
       // Update counters.
       num_invalid_since_latest_match++;
     }
@@ -572,6 +560,8 @@ verify_hashes_with_sei(signed_video_t *self,
   int num_received_hashes = -1;
   char validation_status = 'P';
 
+  bool sei_is_maybe_ok =
+      (!sei->bu->is_signed || (sei->bu->is_signed && sei->verified_signature == 1));
   bool gop_is_ok = verify_gop_hash(self);
   bool order_ok = verify_linked_hash(self);
 
@@ -579,7 +569,7 @@ verify_hashes_with_sei(signed_video_t *self,
   // If the signature hash is verified, the GOP hash can be verified as well.
   // If the signature hash is not verified, it means the SEI is corrupted, and the whole GOP status
   // is determined by the verified_signature_hash.
-  if (self->gop_info->verified_signature_hash == 1) {
+  if (sei_is_maybe_ok) {
     validation_status = (gop_is_ok && order_ok) ? '.' : 'N';
     num_expected_hashes = (int)self->gop_info->num_sent;
     // If the signature is verified but GOP hash or the linked hash is not, continue validation with
