@@ -996,9 +996,13 @@ prepare_for_validation(signed_video_t *self)
     }
 #endif
 
-    // If we have received a SEI there is a signature to use for verification.
+    // For SEIs, transfer the result of the signature verification.
     if (sei) {
-      SV_THROW(sv_openssl_verify_hash(verify_data, &self->gop_info->verified_signature_hash));
+      if (sei->bu->is_signed) {
+        self->gop_info->verified_signature_hash = sei->verified_signature;
+      } else {
+        self->gop_info->verified_signature_hash = 1;
+      }
     }
 
   SV_CATCH()
