@@ -416,7 +416,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
         // There is a match. Set tmp_validation_status and add missing bitstream units if
         // it has been detected.
         if (sei->bu->is_signed) {
-          item->tmp_validation_status = order_ok ? sei->validation_status : 'N';
+          item->tmp_validation_status = order_ok ? sei->tmp_validation_status : 'N';
         } else {
           item->validation_status_if_sei_ok = sei->validation_status_if_sei_ok;
         }
@@ -566,10 +566,8 @@ verify_hashes_with_sei(signed_video_t *self,
   bool gop_is_ok = verify_gop_hash(self);
   bool order_ok = verify_linked_hash(self);
 
-  // The verified_signature_hash indicates if the signature is verified.
-  // If the signature hash is verified, the GOP hash can be verified as well.
-  // If the signature hash is not verified, it means the SEI is corrupted, and the whole GOP status
-  // is determined by the verified_signature_hash.
+  // The content of the SEI can only be trusted and used if the signature was verified
+  // successfully. If not, mark GOP as not OK.
   if (sei_is_maybe_ok) {
     validation_status = (gop_is_ok && order_ok) ? '.' : 'N';
     num_expected_hashes = (int)self->gop_info->num_sent;
@@ -580,15 +578,13 @@ verify_hashes_with_sei(signed_video_t *self,
       extend_partial_gop(self, sei);
       return verify_hashes_with_hash_list(self, sei, num_expected, num_received, order_ok);
     }
-  } else if (self->gop_info->verified_signature_hash == 0) {
-    validation_status = 'N';
-    sei->tmp_validation_status = validation_status;
   } else {
+    validation_status = sei->tmp_validation_status;
     // An error occurred when verifying the GOP hash. Verify without a SEI.
-    validation_status = 'E';
-    sei->tmp_validation_status = validation_status;
-    remove_sei_association(self->bu_list, sei);
-    return verify_hashes_without_sei(self, 0);
+    if (validation_status == 'E') {
+      remove_sei_association(self->bu_list, sei);
+      return verify_hashes_without_sei(self, 0);
+    }
   }
 
   // Identify the first BU used in the GOP hash. This will be used to add missing BUs.
@@ -967,7 +963,18 @@ prepare_for_validation(signed_video_t *self, bu_list_item_t **sei)
     // Mark status of |sei| based on signature verification.
     if (!validation_flags->has_lost_sei) {
       if ((*sei)->bu->is_signed) {
-        (*sei)->validation_status = (*sei)->verified_signature == 1 ? '.' : 'N';
+        switch ((*sei)->verified_signature) {
+          case 1:
+            (*sei)->tmp_validation_status = '.';
+            break;
+          case 0:
+            (*sei)->tmp_validation_status = 'N';
+            break;
+          case -1:
+          default:
+            (*sei)->tmp_validation_status = 'E';
+            break;
+        }
       } else {
         (*sei)->validation_status_if_sei_ok = '.';
       }
