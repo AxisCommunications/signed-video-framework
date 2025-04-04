@@ -385,8 +385,20 @@ remove_epb_from_sei_payload(bu_info_t *bu)
   bu->with_epb = (bu->reserved_byte & 0x80);  // Hash with emulation prevention bytes
   bu->is_golden_sei = (bu->reserved_byte & 0x40);  // The BU is a golden SEI.
 
-  if (bu->emulation_prevention_bytes <= 0) return;
+  // Check if the SEI is signed, i.e., a signature TLV tag exists. This is only possible
+  // if TLV data size (computed from the payload size) fit within the total data size.
+  const uint8_t *signature_ptr = NULL;
+  if (bu->hashable_data_size > bu->tlv_size) {
+    bool has_epb = bu->emulation_prevention_bytes > 0;
+    signature_ptr = sv_tlv_find_tag(bu->tlv_data, bu->tlv_size, SIGNATURE_TAG, has_epb);
+  }
+  bu->is_signed = (signature_ptr != NULL);
+  // If the SEI is signed the hashable part of the SEI ends at the signature tag.
+  if (bu->is_signed) {
+    bu->hashable_data_size = signature_ptr - bu->hashable_data;
+  }
 
+  if (bu->emulation_prevention_bytes <= 0) return;
   // We need to read byte by byte to a new memory and remove any emulation prevention bytes.
   uint16_t last_two_bytes = LAST_TWO_BYTES_INIT_VALUE;
   // Complete data size including stop bit (byte). Note that |payload_size| excludes the final byte
@@ -407,10 +419,17 @@ remove_epb_from_sei_payload(bu_info_t *bu)
     // Point |tlv_data| to the first byte of the TLV part in |nalu_data_wo_epb|.
     bu->tlv_data = &bu->nalu_data_wo_epb[data_size - bu->payload_size + UUID_LEN];
     if (!bu->with_epb) {
+      // Find the signature tag again, but now after emulation prevention has been
+      // removed, to get the correct size of the hashable part.
+      signature_ptr = sv_tlv_find_tag(bu->tlv_data, bu->tlv_size, SIGNATURE_TAG, false);
       // If the SEI was hashed before applying emulation prevention, update |hashable_data|.
       bu->hashable_data = bu->nalu_data_wo_epb;
-      bu->hashable_data_size = data_size;
       bu->tlv_start_in_bu_data = bu->tlv_data;
+      if (bu->is_signed) {
+        bu->hashable_data_size = signature_ptr - bu->hashable_data;
+      } else {
+        bu->hashable_data_size = data_size;
+      }
     }
   }
 }
@@ -560,14 +579,6 @@ parse_bu_info(const uint8_t *bu_data,
     }
 
     remove_epb_from_sei_payload(&bu);
-    if (bu.emulation_prevention_bytes >= 0 && (bu.hashable_data_size > bu.tlv_size)) {
-      // Check if a signature TLV tag exists. If number of computed emulation prevention
-      // bytes is negative, either the SEI is currupt or incomplete. Or if there is enough
-      // TLV data.
-      const uint8_t *signature_tag =
-          sv_tlv_find_tag(bu.tlv_data, bu.tlv_size, SIGNATURE_TAG, false);
-      bu.is_signed = (signature_tag != NULL);
-    }
     // Update |is_hashable| w.r.t. signed or not.
     bu.is_hashable |= bu.is_sv_sei && !bu.is_signed;
   }

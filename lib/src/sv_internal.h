@@ -398,9 +398,6 @@ void
 copy_bu_except_pointers(bu_info_t *dst_bu, const bu_info_t *src_bu);
 
 void
-sv_update_hashable_data(bu_info_t *bu);
-
-void
 sv_bytes_to_version_str(const int *arr, char *str);
 
 int64_t
