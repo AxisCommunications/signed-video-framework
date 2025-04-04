@@ -699,7 +699,7 @@ verify_hashes_without_sei(signed_video_t *self, int num_skips)
     }
 
     item->tmp_validation_status = self->validation_flags.signing_present ? 'N' : 'U';
-    // item->validation_status_if_sei_ok = ' ';
+    item->validation_status_if_sei_ok = ' ';
     num_marked_items++;
     item = item->next;
   }
@@ -857,6 +857,7 @@ remove_sei_association(bu_list_t *bu_list, const bu_list_item_t *sei)
         continue;
       }
       item->associated_sei = NULL;
+      item->validation_status_if_sei_ok = ' ';
     }
     item = item->next;
   }
