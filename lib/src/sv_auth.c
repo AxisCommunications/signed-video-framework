@@ -184,6 +184,10 @@ update_link_hash_for_auth(signed_video_t *self, const bu_list_item_t *sei)
     }
     item = item->next;
   }
+#ifdef SIGNED_VIDEO_DEBUG
+  sv_print_hex_data(self->gop_info->linked_hashes, hash_size, "Computed linked hash: ");
+  sv_print_hex_data(self->received_linked_hash, hash_size, "Received linked hash: ");
+#endif
 }
 
 /* Resets the buffer of linked hashes and removes |used_for_linked_hash| flag from the
@@ -375,12 +379,10 @@ verify_hashes_with_hash_list(signed_video_t *self,
   int latest_match_idx = -1;  // The latest matching hash in |hash_list|
   int compare_idx = 0;  // The offset in |hash_list| selecting the hash to compared
                         // against the |item->hash|
-  bool found_next_gop = false;
-  bool found_item_after_sei = false;
   bu_list_item_t *item = bu_list->first_item;
   // This while-loop selects items from the oldest pending GOP. Each item hash is then verified
   // against the feasible hashes in the received |hash_list|.
-  while (item && !(found_next_gop || found_item_after_sei)) {
+  while (item) {
     if (gop_info->triggered_partial_gop &&
         !((num_verified_hashes + num_missed_hashes) < num_expected_hashes)) {
       break;
@@ -393,15 +395,14 @@ verify_hashes_with_hash_list(signed_video_t *self,
     }
     // Only a missing item has a null pointer BU, but they are skipped.
     assert(item->bu);
-    // Check if this is the item right after the |sei|.
-    found_item_after_sei = (item->prev == sei);
-    // Check if this |is_first_bu_in_gop|, but not used before.
-    found_next_gop = (item->bu->is_first_bu_in_gop && !item->used_for_linked_hash);
     last_used_item = item;
-    // Validation should be stopped if item is a SEI or if the item is the I-frame of the next GOP.
-    if (item->bu->is_sv_sei || found_next_gop) {
-      break;
+    // If this is a signed SEI, it is not part of the hash list and should not be
+    // verified.
+    if (item->bu->is_sv_sei && item->bu->is_signed) {
+      item = item->next;
+      continue;
     }
+
     num_verified_hashes++;
 
     // Compare |item->hash| against all the |expected_hashes| since the |latest_match_idx|. Stop
