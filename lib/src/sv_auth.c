@@ -51,6 +51,7 @@ static void
 detect_lost_sei(signed_video_t *self);
 static bool
 verify_hashes_with_hash_list(signed_video_t *self,
+    bu_list_item_t *sei,
     int *num_expected,
     int *num_received,
     bool order_ok);
@@ -61,9 +62,9 @@ set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
 static bool
 verify_hashes_without_sei(signed_video_t *self, int num_skips);
 static void
-validate_authenticity(signed_video_t *self);
+validate_authenticity(signed_video_t *self, bu_list_item_t *sei);
 static svrc_t
-prepare_for_validation(signed_video_t *self);
+prepare_for_validation(signed_video_t *self, bu_list_item_t **sei);
 static bool
 is_recurrent_data_decoded(signed_video_t *self);
 static bool
@@ -341,11 +342,12 @@ extend_partial_gop(signed_video_t *self, const bu_list_item_t *sei)
  * Returns false if we failed verifying hashes. Otherwise, returns true. */
 static bool
 verify_hashes_with_hash_list(signed_video_t *self,
+    bu_list_item_t *sei,
     int *num_expected,
     int *num_received,
     bool order_ok)
 {
-  assert(self);
+  assert(self && sei);
 
   const size_t hash_size = self->verify_data->hash_size;
   assert(hash_size > 0);
@@ -360,12 +362,6 @@ verify_hashes_with_hash_list(signed_video_t *self,
   if (!expected_hashes || !bu_list) return false;
 
   bu_list_print(bu_list);
-
-  // Get the SEI associated with the oldest pending GOP.
-  bu_list_item_t *sei = bu_list_get_next_sei_item(bu_list);
-  // TODO: Investigate if we can end up without finding a SEI. If so, should we fail the validation
-  // or call verify_hashes_without_sei()?
-  if (!sei) return false;
 
   // First of all we need to know if the SEI itself is authentic, that is, the SEI |document_hash|
   // has successfully been verified (= 1). If the document could not be verified sucessfully, that
@@ -564,14 +560,16 @@ set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
  *    to reflect the total number of expected and received BUs.
  */
 static bool
-verify_hashes_with_sei(signed_video_t *self, int *num_expected, int *num_received)
+verify_hashes_with_sei(signed_video_t *self,
+    bu_list_item_t *sei,
+    int *num_expected,
+    int *num_received)
 {
   assert(self);
 
   int num_expected_hashes = -1;
   int num_received_hashes = -1;
   char validation_status = 'P';
-  bu_list_item_t *sei = bu_list_get_next_sei_item(self->bu_list);
 
   bool gop_is_ok = verify_gop_hash(self);
   bool order_ok = verify_linked_hash(self);
@@ -588,7 +586,7 @@ verify_hashes_with_sei(signed_video_t *self, int *num_expected, int *num_receive
     if (validation_status != '.' && self->gop_info->list_idx > 0) {
       // Extend partial GOP with more items, since the failure can be due to added BUs.
       extend_partial_gop(self, sei);
-      return verify_hashes_with_hash_list(self, num_expected, num_received, order_ok);
+      return verify_hashes_with_hash_list(self, sei, num_expected, num_received, order_ok);
     }
   } else if (self->gop_info->verified_signature_hash == 0) {
     validation_status = 'N';
@@ -747,7 +745,7 @@ verify_hashes_without_sei(signed_video_t *self, int num_skips)
  * - Update |latest_validation| with the validation result.
  */
 static void
-validate_authenticity(signed_video_t *self)
+validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
 {
   assert(self);
 
@@ -768,7 +766,7 @@ validate_authenticity(signed_video_t *self)
     // verify this GOP. Marking this GOP as not OK by verify_hashes_without_sei().
     verify_success = verify_hashes_without_sei(self, self->gop_info->num_sent);
   } else {
-    verify_success = verify_hashes_with_sei(self, &num_expected, &num_received);
+    verify_success = verify_hashes_with_sei(self, sei, &num_expected, &num_received);
     // Set |latest_validated_gop| to recived gop counter for the next validation.
     self->gop_info->latest_validated_gop = self->gop_info->current_partial_gop;
   }
@@ -921,7 +919,7 @@ prepare_golden_sei(signed_video_t *self, bu_list_item_t *sei)
     SV_THROW(hash_and_add_for_auth(self, sei));
     memcpy(verify_data->hash, sei->hash, verify_data->hash_size);
 
-    SV_THROW(prepare_for_validation(self));
+    SV_THROW(prepare_for_validation(self, &sei));
   SV_CATCH()
   SV_DONE(status)
 
@@ -938,7 +936,7 @@ prepare_golden_sei(signed_video_t *self, bu_list_item_t *sei)
  * 5) verify the associated hash using the signature.
  */
 static svrc_t
-prepare_for_validation(signed_video_t *self)
+prepare_for_validation(signed_video_t *self, bu_list_item_t **sei)
 {
   assert(self);
 
@@ -947,23 +945,26 @@ prepare_for_validation(signed_video_t *self)
   sign_or_verify_data_t *verify_data = self->verify_data;
   const size_t hash_size = verify_data->hash_size;
 
+  *sei = bu_list_get_next_sei_item(bu_list);
+  if (!(*sei)) {
+    // No reason to proceed with preparations if no pending SEI is found.
+    return SV_OK;
+  }
+
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    bu_list_item_t *sei = bu_list_get_next_sei_item(bu_list);
-    if (sei) {
-      sei->in_validation = true;
-      if (!sei->has_been_decoded) {
-        // Decode the SEI and set signature->hash
-        self->latest_validation->public_key_has_changed = false;
-        const uint8_t *tlv_data = sei->bu->tlv_data;
-        size_t tlv_size = sei->bu->tlv_size;
-        SV_THROW(decode_sei_data(self, tlv_data, tlv_size));
-        sei->has_been_decoded = true;
-        memcpy(verify_data->hash, sei->hash, hash_size);
-      }
-      detect_lost_sei(self);
-      SV_THROW(prepare_for_link_and_gop_hash_verification(self, sei));
+    (*sei)->in_validation = true;
+    if (!(*sei)->has_been_decoded) {
+      // Decode the SEI and set signature->hash
+      self->latest_validation->public_key_has_changed = false;
+      const uint8_t *tlv_data = (*sei)->bu->tlv_data;
+      size_t tlv_size = (*sei)->bu->tlv_size;
+      SV_THROW(decode_sei_data(self, tlv_data, tlv_size));
+      (*sei)->has_been_decoded = true;
+      memcpy(verify_data->hash, (*sei)->hash, hash_size);
     }
+    detect_lost_sei(self);
+    SV_THROW(prepare_for_link_and_gop_hash_verification(self, *sei));
 
     SV_THROW_IF_WITH_MSG(validation_flags->signing_present && !self->has_public_key,
         SV_NOT_SUPPORTED, "No public key present");
@@ -997,12 +998,10 @@ prepare_for_validation(signed_video_t *self)
 #endif
 
     // For SEIs, transfer the result of the signature verification.
-    if (sei) {
-      if (sei->bu->is_signed) {
-        self->gop_info->verified_signature_hash = sei->verified_signature;
-      } else {
-        self->gop_info->verified_signature_hash = 1;
-      }
+    if ((*sei)->bu->is_signed) {
+      self->gop_info->verified_signature_hash = (*sei)->verified_signature;
+    } else {
+      self->gop_info->verified_signature_hash = 1;
     }
 
   SV_CATCH()
@@ -1216,6 +1215,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
     // Keep validating as long as there are pending GOPs.
     bool stop_validating = false;
     while (has_pending_partial_gop(self) && !stop_validating) {
+      bu_list_item_t *sei = NULL;
       // Initialize latest validation.
       if (!self->validation_flags.has_auth_result || validation_flags->is_first_validation) {
         latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
@@ -1227,7 +1227,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
         update_sei_in_validation(self, true, NULL, NULL);
       }
 
-      SV_THROW(prepare_for_validation(self));
+      SV_THROW(prepare_for_validation(self, &sei));
       update_link_hash_for_auth(self);
 
       if (!validation_flags->signing_present) {
@@ -1236,7 +1236,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
         // to avoid a dead lock.
         stop_validating = true;
       } else {
-        validate_authenticity(self);
+        validate_authenticity(self, sei);
       }
 
       if (validation_flags->is_first_validation && (latest->authenticity != SV_AUTH_RESULT_OK)) {
