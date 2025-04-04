@@ -174,15 +174,20 @@ update_link_hash_for_auth(signed_video_t *self, const bu_list_item_t *sei)
 {
   const size_t hash_size = self->verify_data->hash_size;
   bu_list_item_t *item = self->bu_list->first_item;
+  // The first pending NAL Unit, prior in order to the |sei|, should be the pending
+  // linked hash.
   while (item) {
-    if (item->associated_sei == sei) {
-      if (!item->used_for_linked_hash) {
-        sv_update_linked_hash(self, item->hash, hash_size);
-        item->used_for_linked_hash = true;
-      }
+    // If this item is not pending, move to the next one.
+    if (item->tmp_validation_status != 'P' || item->validation_status_if_sei_ok != ' ') {
+      item = item->next;
+      continue;
+    }
+    if (item == sei) {
       break;
     }
-    item = item->next;
+
+    sv_update_linked_hash(self, item->hash, hash_size);
+    break;
   }
 #ifdef SIGNED_VIDEO_DEBUG
   sv_print_hex_data(self->gop_info->linked_hashes, hash_size, "Computed linked hash: ");
@@ -190,16 +195,10 @@ update_link_hash_for_auth(signed_video_t *self, const bu_list_item_t *sei)
 #endif
 }
 
-/* Resets the buffer of linked hashes and removes |used_for_linked_hash| flag from the
- * items in the |bu_list|. */
+/* Resets the buffer of linked hashes. */
 static void
 reset_linked_hash(signed_video_t *self)
 {
-  bu_list_item_t *item = self->bu_list->first_item;
-  while (item) {
-    item->used_for_linked_hash = false;
-    item = item->next;
-  }
   memset(self->gop_info->linked_hashes, 0, 2 * MAX_HASH_SIZE);
 }
 
@@ -222,8 +221,6 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
   bu_list_item_t *item = NULL;
   int num_in_partial_gop = 0;
   assert(bu_list);
-
-  bu_list_print(bu_list);
 
   // Start with the first item in the BU list.
   item = bu_list->first_item;
@@ -365,8 +362,6 @@ verify_hashes_with_hash_list(signed_video_t *self,
   bu_list_item_t *last_used_item = NULL;
 
   if (!expected_hashes || !bu_list) return false;
-
-  bu_list_print(bu_list);
 
   // Verify the hashes of the BUs in the |bu_list| until a transition to the next GOP is
   // detected, but no further than to the item after the |sei|.
@@ -623,8 +618,6 @@ verify_hashes_without_sei(signed_video_t *self, int num_skips)
   if (!bu_list) {
     return false;
   }
-
-  bu_list_print(bu_list);
 
   // If there should be unmarked Bitstream Units (BUs) in the GOP, for example, if a GOP
   // is split in several partial GOPs, determine the maximum number of BUs to mark

@@ -178,7 +178,6 @@ struct _bu_list_item_t {
   // Flags
   bool has_been_decoded;  // Marks a SEI as decoded. Decoding it twice might overwrite
   // vital information.
-  bool used_for_linked_hash;
 
   // Members used when there are unsigned SEIs involved. The content of a SEI can only be
   // trusted once the signed SEI has been verified.
