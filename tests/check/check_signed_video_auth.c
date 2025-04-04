@@ -1155,12 +1155,12 @@ START_TEST(detect_change_of_public_key)
   //
   // IPPIS            ...P.                ->  (   valid)
   //    ISPPIS           ....P.            ->  (   valid)
-  //        ISPIS*           N.NP.         ->  ( invalid, key has changed, wrong link)
-  //           IS*PIS*          ...P.      ->  (   valid)
+  //        ISPIS*           N.NPN         ->  ( invalid, key has changed, wrong link)
+  //           IS*PIS*          NNNPN      ->  ( invalid)
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, true, 16, 13, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  const struct validation_stats expected = {.valid_gops = 3,
-      .invalid_gops = 1,
+  const struct validation_stats expected = {.valid_gops = 2,
+      .invalid_gops = 2,
       .pending_bu = 4,
       .public_key_has_changed = true,
       .final_validation = &final_validation};
