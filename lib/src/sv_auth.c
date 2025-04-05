@@ -66,8 +66,6 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei);
 static svrc_t
 prepare_for_validation(signed_video_t *self, bu_list_item_t **sei);
 static bool
-is_recurrent_data_decoded(signed_video_t *self);
-static bool
 has_pending_partial_gop(signed_video_t *self);
 static bool
 validation_is_feasible(const bu_list_item_t *item);
@@ -1103,32 +1101,6 @@ verify_sei_signature(signed_video_t *self, bu_list_item_t *item, int *verified_r
   return sv_openssl_verify_hash(self->verify_data, verified_result);
 }
 
-// If public_key is not received then try to decode all recurrent tags.
-static bool
-is_recurrent_data_decoded(signed_video_t *self)
-{
-  bu_list_t *bu_list = self->bu_list;
-
-  if (self->has_public_key || !self->validation_flags.signing_present) return true;
-
-  bool recurrent_data_decoded = false;
-  bu_list_item_t *item = bu_list->first_item;
-
-  while (item && !recurrent_data_decoded) {
-    if (item->bu && item->bu->is_sv_sei && item->tmp_validation_status == 'P') {
-      const uint8_t *tlv_data = item->bu->tlv_data;
-      size_t tlv_size = item->bu->tlv_size;
-      size_t num_of_tags = 0;
-      const sv_tlv_tag_t *optional_tags = sv_get_optional_tags(&num_of_tags);
-      recurrent_data_decoded =
-          sv_tlv_find_and_decode_tags(self, tlv_data, tlv_size, optional_tags, num_of_tags);
-    }
-    item = item->next;
-  }
-
-  return recurrent_data_decoded;
-}
-
 /* Loops through the |bu_list| to find out if there are GOPs that awaits validation. */
 static bool
 has_pending_partial_gop(signed_video_t *self)
@@ -1215,8 +1187,8 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
 
   // Make sure the current BU can trigger a validation.
   validation_feasible &= validation_is_feasible(bu_list->last_item);
-  // Make sure there is enough information to perform validation.
-  validation_feasible &= is_recurrent_data_decoded(self);
+  // Without a Public key validation is not feasible.
+  validation_feasible &= self->has_public_key || !validation_flags->signing_present;
 
   // Abort if validation is not feasible.
   if (!validation_feasible) {
