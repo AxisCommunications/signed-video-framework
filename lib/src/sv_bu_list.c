@@ -174,9 +174,9 @@ bu_list_item_print(const bu_list_item_t *item)
   memcpy(validation_status_str, &item->tmp_validation_status, 1);
 
   printf("BU type = %s\n", bu_type_str);
-  printf("validation_status = %s%s%s\n", validation_status_str,
+  printf("validation_status = %s%s%s%p\n", validation_status_str,
       (item->has_been_decoded ? ", has_been_decoded" : ""),
-      (item->used_in_gop_hash ? ", used_in_gop_hash" : ""));
+      (item->used_in_gop_hash ? ", used_in_gop_hash" : ""), item->associated_sei);
   sv_print_hex_data(item->hash, item->hash_size, "item->hash     ");
 }
 #endif
@@ -420,6 +420,7 @@ bu_list_add_missing(bu_list_t *list, int num_missing, bool append, bu_list_item_
       missing_bu->tmp_validation_status = 'M';
       missing_bu->in_validation = true;
       missing_bu->used_in_gop_hash = true;  // Belongs to the same GOP it is added to.
+      // TODO: Associate with a SEI
       if (append) {
         bu_list_item_append_item(item, missing_bu);
       } else {
