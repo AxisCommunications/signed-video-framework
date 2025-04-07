@@ -316,7 +316,6 @@ struct _signed_video_t {
 
   bu_info_t *last_bu;  // Track last parsed bu_info_t to pass on to next part
 
-  uint8_t received_linked_hash[MAX_HASH_SIZE];  // Stores linked hash data for liked hash method.
   // Members associated with SEI writing
   uint16_t last_two_bytes;
   sei_data_t sei_data_buffer[MAX_SEI_DATA_BUFFER];
@@ -335,6 +334,8 @@ struct _signed_video_t {
   bool authentication_started;
   uint8_t received_gop_hash[MAX_HASH_SIZE];  // Received hash list after decoding SEI data while
   // authenticating. |received_gop_hash| will be compared against |computed_gop_hash|.
+  uint8_t received_linked_hash[MAX_HASH_SIZE];  // Stores linked hash data for liked hash method.
+  uint16_t tmp_num_in_partial_gop;  // Counted number of BUs in the currently |computed_gop_hash|.
 
   validation_flags_t validation_flags;
   bool has_public_key;  // State to indicate if public key is received/added

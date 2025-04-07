@@ -55,10 +55,6 @@ verify_hashes_with_hash_list(signed_video_t *self,
     int *num_expected,
     int *num_received,
     bool order_ok);
-static int
-set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
-    char validation_status,
-    bu_list_item_t *sei);
 static bool
 verify_hashes_without_sei(signed_video_t *self, int num_skips);
 static void
@@ -297,6 +293,8 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
     }
     SV_THROW(
         sv_openssl_finalize_hash(self->crypto_handle, self->gop_info->computed_gop_hash, true));
+    // Store number of BUs used in |computed_gop_hash|.
+    self->tmp_num_in_partial_gop = num_in_partial_gop;
 #ifdef SIGNED_VIDEO_DEBUG
     sv_print_hex_data(self->gop_info->computed_gop_hash, hash_size, "Computed gop_hash ");
     sv_print_hex_data(self->received_gop_hash, hash_size, "Received gop_hash ");
@@ -519,42 +517,6 @@ verify_hashes_with_hash_list(signed_video_t *self,
   return true;
 }
 
-/* Sets the |tmp_validation_status| of all items in |bu_list| that are pending and
- * associated with |sei|.
- *
- * Returns the number of items marked and -1 upon failure. */
-static int
-set_validation_status_of_pending_items_used_in_gop_hash(signed_video_t *self,
-    char validation_status,
-    bu_list_item_t *sei)
-{
-  if (!self || !sei) return -1;
-
-  bu_list_t *bu_list = self->bu_list;
-  int num_marked_items = 0;
-
-  // Loop through the |bu_list| and set the |tmp_validation_status| if the item is
-  // associated with |sei|.
-  bu_list_item_t *item = bu_list->first_item;
-  while (item) {
-    if ((item->associated_sei == sei) && item->tmp_validation_status == 'P') {
-      if (!item->bu->is_sv_sei) {
-        num_marked_items++;
-      }
-      item->tmp_validation_status = validation_status;
-    }
-    item = item->next;
-  }
-  // Validates the SEI if the validation status has not been set previously. If the signature was
-  // corrupted, the validation status would already have been set. Otherwise, this indicates that
-  // the signature has been verified, confirming the SEI is valid.
-  if (sei->tmp_validation_status == 'P') {
-    assert(self->gop_info->verified_signature_hash == 1);
-    sei->tmp_validation_status = '.';
-  }
-  return num_marked_items;
-}
-
 /**
  * Verifies the integrity of the GOP hash in the video, ensuring that the data
  * within the GOP is authentic and complete. Updates the expected and received
@@ -618,8 +580,9 @@ verify_hashes_with_sei(signed_video_t *self,
   while (first_gop_hash_item && (first_gop_hash_item->associated_sei != sei)) {
     first_gop_hash_item = first_gop_hash_item->next;
   }
-  num_received_hashes =
-      set_validation_status_of_pending_items_used_in_gop_hash(self, validation_status, sei);
+  // Number of received hashes equals the number used when computing the GOP hash.
+  num_received_hashes = self->tmp_num_in_partial_gop;
+  mark_associated_items(self->bu_list, validation_status == '.', order_ok, sei);
 
   if (!self->validation_flags.is_first_validation && first_gop_hash_item) {
     int num_missing = num_expected_hashes - num_received_hashes;
