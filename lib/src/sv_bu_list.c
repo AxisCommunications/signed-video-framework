@@ -504,7 +504,10 @@ bu_list_get_next_sei_item(const bu_list_t *list)
  *   - number of missing BUs
  * and return true if any valid BUs are present. */
 bool
-bu_list_get_stats(const bu_list_t *list, int *num_invalid_bu, int *num_missing_bu)
+bu_list_get_stats(const bu_list_t *list,
+    const bu_list_item_t *sei,
+    int *num_invalid_bu,
+    int *num_missing_bu)
 {
   if (!list) {
     return false;
@@ -518,8 +521,9 @@ bu_list_get_stats(const bu_list_t *list, int *num_invalid_bu, int *num_missing_b
   // Units.
   bu_list_item_t *item = list->first_item;
   while (item) {
-    // Only collect statistics from the Bitstream Units |used_in_gop_hash|.
-    if (!item->used_in_gop_hash) {
+    // Only collect statistics from the Bitstream Units associated with a SEI, or
+    // validated without a SEI.
+    if (sei && !item->associated_sei) {
       item = item->next;
       continue;
     }
