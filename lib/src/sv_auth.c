@@ -260,7 +260,7 @@ prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t 
     // Iterate through the BU list until the end of the current GOP or SEI item is found.
     while (item) {
       // Skip non-pending items
-      if (item->tmp_validation_status != 'P') {
+      if (item->tmp_validation_status != 'P' || item->associated_sei) {
         item = item->next;
         continue;
       }
@@ -737,6 +737,8 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
     DEBUG_LOG("We never received the SEI associated with this GOP");
     // We never received the SEI, but we know we have passed a GOP transition. Hence, we cannot
     // verify this GOP. Marking this GOP as not OK by verify_hashes_without_sei().
+    remove_sei_association(self->bu_list, sei);
+    sei = NULL;
     verify_success = verify_hashes_without_sei(self, self->gop_info->num_sent);
   } else {
     verify_success = verify_hashes_with_sei(self, sei, &num_expected, &num_received);
@@ -749,7 +751,6 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
   bool has_valid_bu = bu_list_get_stats(self->bu_list, sei, &num_invalid, &num_missed);
   DEBUG_LOG("Number of invalid Bitstream Units = %d.", num_invalid);
   DEBUG_LOG("Number of missed Bitstream Units  = %d.", num_missed);
-  remove_sei_association(self->bu_list, sei);
 
   valid = (num_invalid > 0) ? SV_AUTH_RESULT_NOT_OK : SV_AUTH_RESULT_OK;
 
@@ -779,7 +780,7 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
   if (validation_flags->is_first_validation) {
     // Change status from SV_AUTH_RESULT_OK to SV_AUTH_RESULT_SIGNATURE_PRESENT if no valid BUs
     // were found when collecting stats.
-    if ((valid == SV_AUTH_RESULT_OK) && !has_valid_bu) {
+    if ((valid == SV_AUTH_RESULT_OK) && !has_valid_bu && (sei && sei->bu->is_signed)) {
       valid = SV_AUTH_RESULT_SIGNATURE_PRESENT;
     }
     // If validation was successful, the |current_partial_gop| is in sync.
@@ -795,6 +796,7 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
       // meaning and may only confuse the user. These should be removed. This is handled in
       // bu_list_remove_missing_items().
       bu_list_remove_missing_items(self->bu_list);
+      remove_sei_association(self->bu_list, sei);
       valid = SV_AUTH_RESULT_SIGNATURE_PRESENT;
       num_expected = -1;
       num_received = -1;

@@ -2752,8 +2752,6 @@ END_TEST
  * Verifies intact and tampered streams when the device signs multiple GOPs. */
 START_TEST(sign_multiple_gops)
 {
-  // Enable when validation can be made without dead lock.
-  return;
   // Device side
   struct sv_setting setting = settings[_i];
   const unsigned signing_frequency = 3;  // Sign every third GOP.

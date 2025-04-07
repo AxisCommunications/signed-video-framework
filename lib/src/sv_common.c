@@ -668,7 +668,7 @@ update_num_bu_in_gop_hash(signed_video_t *self, const bu_info_t *bu)
 {
   if (!self || !bu) return;
 
-  if (!bu->is_sv_sei) {
+  if (!(bu->is_sv_sei && bu->is_signed)) {
     self->gop_info->num_in_partial_gop++;
     if (self->gop_info->num_in_partial_gop == 0) {
       DEBUG_LOG("Wraparound in |num_in_partial_gop|");
