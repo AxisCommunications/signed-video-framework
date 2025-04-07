@@ -1003,6 +1003,7 @@ prepare_for_validation(signed_video_t *self, bu_list_item_t **sei)
     } else {
       self->gop_info->verified_signature_hash = 1;
     }
+    validation_flags->waiting_for_signature = !(*sei)->bu->is_signed;
 
   SV_CATCH()
   SV_DONE(status)
@@ -1209,15 +1210,18 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
+    // TODO: Keep a safe guard for infinite loops until "safe". Then remove.
+    int max_loop = 10;
     bool update_validation_status = false;
     bool public_key_has_changed = false;
     char sei_validation_status = 'U';
     // Keep validating as long as there are pending GOPs.
     bool stop_validating = false;
-    while (has_pending_partial_gop(self) && !stop_validating) {
+    while (has_pending_partial_gop(self) && !stop_validating && max_loop > 0) {
       bu_list_item_t *sei = NULL;
-      // Initialize latest validation.
-      if (!self->validation_flags.has_auth_result || validation_flags->is_first_validation) {
+      // Initialize latest validation if not validating intermediate GOPs.
+      if (!validation_flags->waiting_for_signature &&
+          (!validation_flags->has_auth_result || validation_flags->is_first_validation)) {
         latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
         latest->number_of_expected_picture_nalus = 0;
         latest->number_of_received_picture_nalus = 0;
@@ -1254,8 +1258,10 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
       } else {
         update_validation_status = true;
       }
-      self->gop_info->verified_signature_hash = -1;
-      validation_flags->has_auth_result = true;
+      if (!validation_flags->waiting_for_signature) {
+        self->gop_info->verified_signature_hash = -1;
+        validation_flags->has_auth_result = true;
+      }
       if (latest->authenticity == SV_AUTH_RESULT_NOT_SIGNED) {
         // Only report "stream is unsigned" in the accumulated report.
         validation_flags->has_auth_result = false;
@@ -1266,6 +1272,10 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
             latest->authenticity != self->accumulated_validation->authenticity;
       }
       public_key_has_changed |= latest->public_key_has_changed;  // Pass on public key failure.
+      max_loop--;
+    }
+    if (max_loop <= 0) {
+      DEBUG_LOG("Validation aborted after reaching max number of loops");
     }
 
     SV_THROW(bu_list_update_status(bu_list, update_validation_status));
@@ -1275,12 +1285,16 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
       reset_linked_hash(self);
     }
 
-    // All statistics but pending BUs have already been collected.
-    latest->number_of_pending_picture_nalus = bu_list_num_pending_items(bu_list);
-    DEBUG_LOG("Validated GOP as %s", kAuthResultValidStr[latest->authenticity]);
-    DEBUG_LOG("Expected number of Bitstream Units = %d", latest->number_of_expected_picture_nalus);
-    DEBUG_LOG("Received number of Bitstream Units = %d", latest->number_of_received_picture_nalus);
-    DEBUG_LOG("Number of pending Bitstream Units  = %d", latest->number_of_pending_picture_nalus);
+    if (!validation_flags->waiting_for_signature) {
+      // All statistics but pending BUs have already been collected.
+      latest->number_of_pending_picture_nalus = bu_list_num_pending_items(bu_list);
+      DEBUG_LOG("Validated GOP as %s", kAuthResultValidStr[latest->authenticity]);
+      DEBUG_LOG(
+          "Expected number of Bitstream Units = %d", latest->number_of_expected_picture_nalus);
+      DEBUG_LOG(
+          "Received number of Bitstream Units = %d", latest->number_of_received_picture_nalus);
+      DEBUG_LOG("Number of pending Bitstream Units  = %d", latest->number_of_pending_picture_nalus);
+    }
   SV_CATCH()
   SV_DONE(status)
 
