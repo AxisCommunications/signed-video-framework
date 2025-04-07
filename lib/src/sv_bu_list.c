@@ -399,7 +399,11 @@ bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
 
 /* Append or prepend the |item| of the |list| with |num_missing| BUs. */
 svrc_t
-bu_list_add_missing(bu_list_t *list, int num_missing, bool append, bu_list_item_t *item)
+bu_list_add_missing(bu_list_t *list,
+    int num_missing,
+    bool append,
+    bu_list_item_t *item,
+    const bu_list_item_t *associated_sei)
 {
   if (!list || !item || !is_in_list(list, item) || num_missing < 0) {
     return SV_INVALID_PARAMETER;
@@ -420,7 +424,7 @@ bu_list_add_missing(bu_list_t *list, int num_missing, bool append, bu_list_item_
       missing_bu->tmp_validation_status = 'M';
       missing_bu->in_validation = true;
       missing_bu->used_in_gop_hash = true;  // Belongs to the same GOP it is added to.
-      // TODO: Associate with a SEI
+      missing_bu->associated_sei = associated_sei;
       if (append) {
         bu_list_item_append_item(item, missing_bu);
       } else {
@@ -433,8 +437,8 @@ bu_list_add_missing(bu_list_t *list, int num_missing, bool append, bu_list_item_
   SV_DONE(status)
 
   if (added_items > 0) {
-    DEBUG_LOG("Added %d missing Bitstream Unit%s items to list", added_items,
-        added_items == 1 ? "" : "s");
+    DEBUG_LOG("Added %d missing Bitstream Unit%s items to list, associated with SEI %p",
+        added_items, added_items == 1 ? "" : "s", associated_sei);
   }
 
   return status;
