@@ -2783,8 +2783,6 @@ START_TEST(sign_multislice_stream_multiple_gops)
   // For AV1, multi-slices are covered in one single OBU (OBU Frame).
   if (settings[_i].codec == SV_CODEC_AV1) return;
 
-  // Enable when validation can be made without dead lock.
-  return;
   // Device side
   struct sv_setting setting = settings[_i];
   const unsigned signing_frequency = 3;  // Sign every third GOP.
@@ -2802,7 +2800,7 @@ START_TEST(sign_multislice_stream_multiple_gops)
   //                                                                                  13 pending
   //                                          IiSPp                     PP.PP ( valid, 5 pending)
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 47, 42, 5, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 46, 41, 5, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 13, .has_signature = 1, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -2813,8 +2811,6 @@ END_TEST
 
 START_TEST(all_seis_arrive_late_multiple_gops)
 {
-  // Enable when validation can be made without dead lock.
-  return;
   // Device side
   struct sv_setting setting = settings[_i];
   const unsigned signing_frequency = 3;
@@ -2834,7 +2830,7 @@ START_TEST(all_seis_arrive_late_multiple_gops)
   //                                                                      13 pending
   //                        IPPPSP                        PPPP.P  ( valid, 6 pending)
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 29, 23, 6, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 29, 23, 6, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 13, .has_signature = 1, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
