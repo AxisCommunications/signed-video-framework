@@ -90,8 +90,9 @@ static svrc_t
 decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_size)
 {
   assert(self && payload && (payload_size > 0));
-  DEBUG_LOG("SEI payload size = %zu, exp gop number = %ld", payload_size,
-      self->gop_info->latest_validated_gop + 1);
+  const int64_t exp_partial_gop_number = self->gop_info->latest_validated_gop + 1;
+  DEBUG_LOG("SEI payload size = %zu, exp (partial) gop number = %ld", payload_size,
+      exp_partial_gop_number);
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW_WITH_MSG(sv_tlv_decode(self, payload, payload_size), "Failed decoding SEI payload");
