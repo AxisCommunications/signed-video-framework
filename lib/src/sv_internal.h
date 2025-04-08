@@ -253,7 +253,7 @@ typedef struct {
   // GOP.
   uint32_t current_partial_gop;  // The index of the current GOP, incremented when encoded in the
   // TLV.
-  uint32_t latest_validated_gop;  // The index of latest validated GOP.
+  int64_t latest_validated_gop;  // The index of latest validated GOP.
   bool partial_gop_is_synced;  // Turns true when a SEI corresponding to the segment is
   // detected.
   int verified_signature_hash;  // Status of last hash-signature-pair verification. Has 1 for
