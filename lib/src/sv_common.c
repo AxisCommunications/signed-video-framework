@@ -278,6 +278,7 @@ gop_info_reset(gop_info_t *gop_info)
   gop_info->verified_signature_hash = -1;
   // If a reset is forced, the stored hashes in |hash_list| have no meaning anymore.
   gop_info->list_idx = 0;
+  gop_info->num_partial_gop_wraparounds = 0;
   gop_info->partial_gop_is_synced = false;
 }
 

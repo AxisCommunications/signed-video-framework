@@ -254,6 +254,8 @@ typedef struct {
   uint32_t current_partial_gop;  // The index of the current GOP, incremented when encoded in the
   // TLV.
   int64_t latest_validated_gop;  // The index of latest validated GOP.
+  int num_partial_gop_wraparounds;  // Tracks number of times the |current_partial_gop|
+  // has wrapped around.
   bool partial_gop_is_synced;  // Turns true when a SEI corresponding to the segment is
   // detected.
   int verified_signature_hash;  // Status of last hash-signature-pair verification. Has 1 for
