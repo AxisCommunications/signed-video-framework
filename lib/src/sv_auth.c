@@ -353,6 +353,7 @@ extend_partial_gop(signed_video_t *self, const bu_list_item_t *sei)
 
     // Mark the item and move to next.
     item->associated_sei = sei;
+    self->tmp_num_in_partial_gop++;
     item = item->next;
   }
 }
@@ -412,7 +413,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
       break;
     }
     // If this item is not Pending or not part of the GOP hash, move to the next one.
-    if (item->tmp_validation_status != 'P' || !item->associated_sei) {
+    if (item->tmp_validation_status != 'P' || (item->associated_sei != sei)) {
       DEBUG_LOG("Skipping non-pending Bitstream Unit");
       item = item->next;
       continue;
@@ -505,6 +506,16 @@ verify_hashes_with_hash_list(signed_video_t *self,
     // No need to check the return value. A failure only affects the statistics. In the worst case
     // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
     bu_list_add_missing(bu_list, num_unused_expected_hashes, true, last_used_item, sei);
+  }
+
+  // Remove SEI associations which were never used. This happens if there are missing BUs
+  // within a partial GOP.
+  while (item) {
+    if (item->associated_sei == sei) {
+      item->associated_sei = NULL;
+      self->tmp_num_in_partial_gop--;
+    }
+    item = item->next;
   }
 
   if (num_expected) *num_expected = num_expected_hashes;
