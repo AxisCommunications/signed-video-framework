@@ -178,7 +178,6 @@ struct _bu_list_item_t {
   // Flags
   bool has_been_decoded;  // Marks a SEI as decoded. Decoding it twice might overwrite
   // vital information.
-  bool used_in_gop_hash;  // Marks the BU as being part of a computed |gop_hash|.
   bool used_for_linked_hash;
 
   // Members used when there are unsigned SEIs involved. The content of a SEI can only be

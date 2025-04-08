@@ -126,6 +126,15 @@ void
 bu_list_remove_missing_items(bu_list_t* list);
 
 /**
+ * @brief Removes a specific item from the |list| and frees the memory
+ *
+ * @param list The |list| to remove items from.
+ * @param item_to_remove The item to remove from |list|.
+ */
+void
+bu_list_remove_and_free_item(bu_list_t* list, const bu_list_item_t* item_to_remove);
+
+/**
  * @brief Searches for, and returns, the next pending SEI item
  *
  * @param list The |list| to search for the next SEI.

@@ -44,8 +44,6 @@ bu_list_item_print(const bu_list_item_t *item);
 
 /* Declarations of static bu_list_t functions. */
 static void
-bu_list_remove_and_free_item(bu_list_t *list, const bu_list_item_t *item_to_remove);
-static void
 bu_list_refresh(bu_list_t *list);
 
 /* Helper functions. */
@@ -161,7 +159,6 @@ bu_list_item_print(const bu_list_item_t *item)
   // char validation_status;
   // uint8_t hash[MAX_HASH_SIZE];
   // bool has_been_decoded;
-  // bool used_in_gop_hash;
 
   if (!item) {
     return;
@@ -174,9 +171,8 @@ bu_list_item_print(const bu_list_item_t *item)
   memcpy(validation_status_str, &item->tmp_validation_status, 1);
 
   printf("BU type = %s\n", bu_type_str);
-  printf("validation_status = %s%s%s%p\n", validation_status_str,
-      (item->has_been_decoded ? ", has_been_decoded" : ""),
-      (item->used_in_gop_hash ? ", used_in_gop_hash" : ""), item->associated_sei);
+  printf("validation_status = %s%s%p\n", validation_status_str,
+      (item->has_been_decoded ? ", has_been_decoded" : ""), item->associated_sei);
   sv_print_hex_data(item->hash, item->hash_size, "item->hash     ");
 }
 #endif
@@ -186,7 +182,7 @@ bu_list_item_print(const bu_list_item_t *item)
  */
 
 /* Finds and removes |item_to_remove| from the |list|. The |item_to_remove| is then freed. */
-static void
+void
 bu_list_remove_and_free_item(bu_list_t *list, const bu_list_item_t *item_to_remove)
 {
   // Find the |item_to_remove|.
@@ -423,7 +419,6 @@ bu_list_add_missing(bu_list_t *list,
       missing_bu->validation_status = 'M';
       missing_bu->tmp_validation_status = 'M';
       missing_bu->in_validation = true;
-      missing_bu->used_in_gop_hash = true;  // Belongs to the same GOP it is added to.
       missing_bu->associated_sei = associated_sei;
       if (append) {
         bu_list_item_append_item(item, missing_bu);
