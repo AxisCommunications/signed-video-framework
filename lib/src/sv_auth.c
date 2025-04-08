@@ -50,6 +50,8 @@ decode_sei_data(signed_video_t *signed_video, const uint8_t *payload, size_t pay
 static void
 detect_lost_sei(signed_video_t *self);
 static bool
+hash_is_empty(const uint8_t *hash, size_t hash_size);
+static bool
 verify_hashes_with_hash_list(signed_video_t *self,
     bu_list_item_t *sei,
     int *num_expected,
@@ -131,6 +133,15 @@ detect_lost_sei(signed_video_t *self)
   new_partial_gop_number += (int64_t)gop_info->num_partial_gop_wraparounds << 32;
   int64_t potentially_lost_seis = new_partial_gop_number - exp_partial_gop_number;
 
+  // If this is the first SEI used in this session there can by definition not be any lost
+  // SEIs. Also, if a SEI is detected that is the first SEI of a stream (no linked hash)
+  // it is infeasible to detect lost SEIs as well. This can happen if the session is reset
+  // on the camera/signing device.
+  size_t hash_size = self->verify_data->hash_size;
+  bool is_start_of_stream = hash_is_empty(self->received_linked_hash, hash_size);
+  if (is_start_of_stream || self->validation_flags.is_first_sei) {
+    potentially_lost_seis = 0;
+  }
   // Check if any SEIs have been lost. Wraparound of 64 bits is not feasible in practice.
   // Hence, a negative value means that an older SEI has been received.
   // NOTE: It should not be necessary to check if |potentially_lost_seis| is outside
@@ -140,6 +151,17 @@ detect_lost_sei(signed_video_t *self)
   // |current_partial_gop| is in sync. Otherwise, the counter cannot be trusted.
   self->validation_flags.has_lost_sei =
       (potentially_lost_seis > 0) && gop_info->partial_gop_is_synced;
+  // If there are no lost SEIs it is in sync. Otherwise, validation should probably be
+  // performed without this SEI.
+  self->validation_flags.sei_in_sync = (potentially_lost_seis == 0);
+}
+
+/* Checks if the hash is empty, that is, consists of all zeros. */
+static bool
+hash_is_empty(const uint8_t *hash, size_t hash_size)
+{
+  const uint8_t no_linked_hash[MAX_HASH_SIZE] = {0};
+  return (memcmp(hash, no_linked_hash, hash_size) == 0);
 }
 
 /**
@@ -574,6 +596,8 @@ verify_hashes_with_sei(signed_video_t *self,
       (!sei->bu->is_signed || (sei->bu->is_signed && sei->verified_signature == 1));
   bool gop_is_ok = verify_gop_hash(self);
   bool order_ok = verify_linked_hash(self);
+  // If the order is correct, the SEI is for sure in sync.
+  self->validation_flags.sei_in_sync |= order_ok;
 
   // The content of the SEI can only be trusted and used if the signature was verified
   // successfully. If not, mark GOP as not OK.
@@ -711,11 +735,6 @@ verify_hashes_without_sei(signed_video_t *self, int num_skips)
     num_marked_items++;
     item = item->next;
   }
-  // If we have verified a GOP without a SEI, we should increment the |current_partial_gop|.
-  if (self->validation_flags.signing_present &&
-      ((num_marked_items > 0) || (max_marked_items == 0))) {
-    self->gop_info->latest_validated_gop++;
-  }
 
   return (num_marked_items > 0);
 }
@@ -766,6 +785,15 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
     remove_sei_association(self->bu_list, sei);
     sei = NULL;
     verify_success = verify_hashes_without_sei(self, gop_info->num_sent);
+    // If a GOP was verified without a SEI, increment the |latest_validated_gop|.
+    if (self->validation_flags.signing_present && verify_success) {
+      gop_info->latest_validated_gop++;
+    }
+  } else if (validation_flags->num_lost_seis < 0) {
+    DEBUG_LOG("Found an old SEI. Mark (partial) GOP as not authentic.");
+    remove_sei_association(self->bu_list, sei);
+    sei = NULL;
+    verify_success = verify_hashes_without_sei(self, 0);
   } else {
     verify_success = verify_hashes_with_sei(self, sei, &num_expected, &num_received);
     // Set |latest_validated_gop| to recived gop counter for the next validation.
@@ -791,6 +819,9 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
       valid = SV_AUTH_RESULT_NOT_OK;
     }
     gop_info->partial_gop_is_synced = true;
+  }
+  if (valid == SV_AUTH_RESULT_OK) {
+    self->validation_flags.sei_in_sync = true;
   }
   // Determine if this GOP is valid, but has missing information. This happens if we have detected
   // missed BUs or if the GOP is incomplete.
@@ -849,6 +880,14 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
     latest->number_of_expected_picture_nalus = -1;
   } else if (latest->number_of_expected_picture_nalus != -1) {
     latest->number_of_expected_picture_nalus += num_expected;
+  }
+  // Update |latest_validated_gop| and |num_lost_seis| w.r.t. if SEI is in sync.
+  if (self->validation_flags.sei_in_sync) {
+    gop_info->latest_validated_gop = gop_info->current_partial_gop;
+    self->validation_flags.num_lost_seis = 0;
+  } else {
+    self->validation_flags.num_lost_seis =
+        gop_info->current_partial_gop - gop_info->latest_validated_gop - 1;
   }
 }
 
