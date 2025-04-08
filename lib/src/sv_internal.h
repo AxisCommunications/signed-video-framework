@@ -210,6 +210,8 @@ typedef struct {
   // GOP-related flags.
   bool waiting_for_signature;  // Validating a GOP with a SEI without signature.
   bool has_lost_sei;  // Has detected a lost SEI since last validation.
+  int num_lost_seis;  // Indicates how many SEIs has been lost since last the session got
+  // the latest SEI. Note that this value can become negative if SEIs have changed order.
 } validation_flags_t;
 
 // Buffer of |last_two_bytes| and pointers to |sei| memory and current |write_position|.
