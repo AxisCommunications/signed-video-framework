@@ -123,6 +123,11 @@ detect_lost_sei(signed_video_t *self)
   bool is_wraparound = (potentially_missed_gops + INT64_MAX) < (INT64_MAX / 2);
   if (is_wraparound) potentially_missed_gops += INT64_MAX;
 
+  // Check if any SEIs have been lost. Wraparound of 64 bits is not feasible in practice.
+  // Hence, a negative value means that an older SEI has been received.
+  // NOTE: It should not be necessary to check if |potentially_missed_gops| is outside
+  // range, since if that many GOPs has been lost that is a much more serious issue.
+  self->validation_flags.num_lost_seis = (int)potentially_missed_gops;
   // It is only possible to know if a SEI has been lost if the |current_partial_gop| is in sync.
   // Otherwise, the counter cannot be trusted.
   self->validation_flags.has_lost_sei =
