@@ -90,14 +90,27 @@ static svrc_t
 decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_size)
 {
   assert(self && payload && (payload_size > 0));
+  gop_info_t *gop_info = self->gop_info;
+  int64_t partial_gop_number = (int64_t)gop_info->current_partial_gop;
   DEBUG_LOG("SEI payload size = %zu, exp (partial) gop number = %ld", payload_size,
-      self->gop_info->latest_validated_gop + 1);
-  svrc_t status = SV_UNKNOWN_FAILURE;
-  SV_TRY()
-    SV_THROW_WITH_MSG(sv_tlv_decode(self, payload, payload_size), "Failed decoding SEI payload");
-    detect_lost_sei(self);
-  SV_CATCH()
-  SV_DONE(status)
+      gop_info->latest_validated_gop + 1);
+
+  svrc_t status = sv_tlv_decode(self, payload, payload_size);
+  if (status != SV_OK) {
+    DEBUG_LOG("Failed decoding SEI payload");
+    return status;
+  }
+
+  // Compare new with last number of GOPs to detect potential wraparound.
+  int64_t new_partial_gop_number = (int64_t)gop_info->current_partial_gop;
+  if (new_partial_gop_number < partial_gop_number) {
+    // There is a potential wraparound, but it could also be due to re-ordering of SEIs.
+    // Use the distance to determine which of these options is the most likely one.
+    if (((int64_t)1 << 31) < partial_gop_number - new_partial_gop_number) {
+      gop_info->num_partial_gop_wraparounds++;
+    }
+  }
+  detect_lost_sei(self);
 
   return status;
 }
@@ -110,28 +123,22 @@ detect_lost_sei(signed_video_t *self)
 {
   gop_info_t *gop_info = self->gop_info;
   // Get the last GOP counter.
-  int64_t exp_gop_number = gop_info->latest_validated_gop + 1;
+  int64_t exp_partial_gop_number = gop_info->latest_validated_gop + 1;
   // Compare new with last number of GOPs to detect potentially lost SEIs.
-  int64_t new_gop_number = (int64_t)gop_info->current_partial_gop;
-  int64_t potentially_missed_gops = new_gop_number - exp_gop_number;
-  // To estimate whether a wraparound has occurred, we check if the adjusted value
-  // is within a specific range that indicates a likely wraparound. If so, we adjust
-  // the value accordingly. This approach cannot definitively differentiate between
-  // a reset and a wraparound but provides a reasonable estimate to handle the situation.
-  // TODO: Investigate what happens if two SEI frames are interchanged.This will be
-  // addressed in future updates.
-  bool is_wraparound = (potentially_missed_gops + INT64_MAX) < (INT64_MAX / 2);
-  if (is_wraparound) potentially_missed_gops += INT64_MAX;
+  int64_t new_partial_gop_number = (int64_t)gop_info->current_partial_gop;
+  // Compensate for counter wraparounds.
+  new_partial_gop_number += (int64_t)gop_info->num_partial_gop_wraparounds << 32;
+  int64_t potentially_lost_seis = new_partial_gop_number - exp_partial_gop_number;
 
   // Check if any SEIs have been lost. Wraparound of 64 bits is not feasible in practice.
   // Hence, a negative value means that an older SEI has been received.
-  // NOTE: It should not be necessary to check if |potentially_missed_gops| is outside
-  // range, since if that many GOPs has been lost that is a much more serious issue.
-  self->validation_flags.num_lost_seis = (int)potentially_missed_gops;
-  // It is only possible to know if a SEI has been lost if the |current_partial_gop| is in sync.
-  // Otherwise, the counter cannot be trusted.
+  // NOTE: It should not be necessary to check if |potentially_lost_seis| is outside
+  // range, since if that many GOPs have been lost that is a much more serious issue.
+  self->validation_flags.num_lost_seis = (int)potentially_lost_seis;
+  // It is only possible to know if a SEI has been lost if the
+  // |current_partial_gop| is in sync. Otherwise, the counter cannot be trusted.
   self->validation_flags.has_lost_sei =
-      (potentially_missed_gops > 0) && gop_info->partial_gop_is_synced;
+      (potentially_lost_seis > 0) && gop_info->partial_gop_is_synced;
 }
 
 /**
