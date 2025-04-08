@@ -972,6 +972,14 @@ prepare_for_validation(signed_video_t *self, bu_list_item_t **sei)
       memcpy(verify_data->hash, (*sei)->hash, hash_size);
     }
     detect_lost_sei(self);
+    // Mark status of |sei| based on signature verification.
+    if (!validation_flags->has_lost_sei) {
+      if ((*sei)->bu->is_signed) {
+        (*sei)->validation_status = (*sei)->verified_signature == 1 ? '.' : 'N';
+      } else {
+        (*sei)->validation_status_if_sei_ok = '.';
+      }
+    }
     SV_THROW(prepare_for_link_and_gop_hash_verification(self, *sei));
 
     SV_THROW_IF_WITH_MSG(validation_flags->signing_present && !self->has_public_key,
@@ -1110,12 +1118,18 @@ has_pending_partial_gop(signed_video_t *self)
   self->validation_flags.has_lost_sei = false;
 
   while (item && !found_pending_gop && !found_pending_partial_gop) {
+    bu_info_t *bu = item->bu;
+    if (!bu || item->validation_status_if_sei_ok != ' ') {
+      // Missing item or already validated item with an unsigned SEI; move on
+      item = item->next;
+      continue;
+    }
     // Collect statistics from pending and hashable BUs only. The others are either out of date or
     // not part of the validation.
-    if (item->tmp_validation_status == 'P' && item->bu && item->bu->is_hashable) {
-      num_pending_bu += !item->bu->is_sv_sei;
-      num_pending_gop_ends += item->bu->is_first_bu_in_gop;
-      found_pending_sv_sei |= item->bu->is_sv_sei;
+    if (item->tmp_validation_status == 'P' && bu->is_hashable) {
+      num_pending_bu += !bu->is_sv_sei;
+      num_pending_gop_ends += bu->is_first_bu_in_gop;
+      found_pending_sv_sei |= bu->is_sv_sei;
     }
     if (!self->validation_flags.signing_present) {
       // If the video is not signed we need at least 2 I-frames to have a complete GOP.
