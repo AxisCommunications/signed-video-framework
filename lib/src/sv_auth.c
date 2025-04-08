@@ -170,12 +170,12 @@ verify_gop_hash(signed_video_t *self)
  * linked hash with the first BU hash and marks it as used.
  */
 static void
-update_link_hash_for_auth(signed_video_t *self)
+update_link_hash_for_auth(signed_video_t *self, const bu_list_item_t *sei)
 {
   const size_t hash_size = self->verify_data->hash_size;
   bu_list_item_t *item = self->bu_list->first_item;
   while (item) {
-    if (item->used_in_gop_hash) {
+    if (item->associated_sei == sei) {
       if (!item->used_for_linked_hash) {
         sv_update_linked_hash(self, item->hash, hash_size);
         item->used_for_linked_hash = true;
@@ -1236,7 +1236,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
       }
 
       SV_THROW(prepare_for_validation(self, &sei));
-      update_link_hash_for_auth(self);
+      update_link_hash_for_auth(self, sei);
 
       if (!validation_flags->signing_present) {
         latest->authenticity = SV_AUTH_RESULT_NOT_SIGNED;
