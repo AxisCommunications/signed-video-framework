@@ -112,7 +112,6 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
       gop_info->num_partial_gop_wraparounds++;
     }
   }
-  detect_lost_sei(self);
 
   return status;
 }
@@ -232,7 +231,7 @@ mark_associated_items(bu_list_t *bu_list, bool set_valid, bool link_ok, bu_list_
  * linked hash with the first BU hash and marks it as used.
  */
 static void
-update_link_hash_for_auth(signed_video_t *self, const bu_list_item_t *sei)
+update_link_hash(signed_video_t *self, const bu_list_item_t *sei)
 {
   const size_t hash_size = self->verify_data->hash_size;
   bu_list_item_t *item = self->bu_list->first_item;
@@ -264,14 +263,13 @@ reset_linked_hash(signed_video_t *self)
   memset(self->gop_info->linked_hashes, 0, 2 * MAX_HASH_SIZE);
 }
 
-/* Marks the Bitstream Units (BU) that are used in GOP hash and computes the GOP hash.
+/* Computes the GOP hash from Bitstream Units (BU) in the |bu_list|
  *
  * This function iterates through the BU list, identifies the BUs that belong to the
- * current GOP, and marks them as used in the GOP hash. It initializes the GOP hash and
- * updates it with each incoming BU that belongs to the GOP.
+ * current partial GOP, and associates them with the current |sei|.
  */
 static svrc_t
-prepare_for_link_and_gop_hash_verification(signed_video_t *self, bu_list_item_t *sei)
+compute_gop_hash(signed_video_t *self, bu_list_item_t *sei)
 {
   // Ensure the `self` pointer is valid
   assert(self);
@@ -975,7 +973,6 @@ prepare_for_validation(signed_video_t *self, bu_list_item_t **sei)
     (*sei)->in_validation = true;
     if (!(*sei)->has_been_decoded) {
       // Decode the SEI and set signature->hash
-      self->latest_validation->public_key_has_changed = false;
       const uint8_t *tlv_data = (*sei)->bu->tlv_data;
       size_t tlv_size = (*sei)->bu->tlv_size;
       SV_THROW(decode_sei_data(self, tlv_data, tlv_size));
@@ -984,7 +981,7 @@ prepare_for_validation(signed_video_t *self, bu_list_item_t **sei)
     }
     detect_lost_sei(self);
     // Mark status of |sei| based on signature verification.
-    if (!validation_flags->has_lost_sei) {
+    if (validation_flags->num_lost_seis == 0) {
       if ((*sei)->bu->is_signed) {
         switch ((*sei)->verified_signature) {
           case 1:
@@ -1001,11 +998,26 @@ prepare_for_validation(signed_video_t *self, bu_list_item_t **sei)
       } else {
         (*sei)->validation_status_if_sei_ok = '.';
       }
+    } else if (validation_flags->num_lost_seis < 0) {
+      if ((*sei)->bu->is_signed) {
+        (*sei)->tmp_validation_status = 'N';
+      } else {
+        (*sei)->validation_status_if_sei_ok = 'N';
+      }
     }
-    SV_THROW(prepare_for_link_and_gop_hash_verification(self, *sei));
+    SV_THROW(compute_gop_hash(self, *sei));
+    update_link_hash(self, *sei);
 
     SV_THROW_IF_WITH_MSG(validation_flags->signing_present && !self->has_public_key,
         SV_NOT_SUPPORTED, "No public key present");
+
+    // For SEIs, transfer the result of the signature verification.
+    if ((*sei)->bu->is_signed) {
+      self->gop_info->verified_signature_hash = (*sei)->verified_signature;
+    } else {
+      self->gop_info->verified_signature_hash = 1;
+    }
+    validation_flags->waiting_for_signature = !(*sei)->bu->is_signed;
 
 #ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // If "Axis Communications AB" can be identified from the |product_info|, get
@@ -1034,14 +1046,6 @@ prepare_for_validation(signed_video_t *self, bu_list_item_t **sei)
       }
     }
 #endif
-
-    // For SEIs, transfer the result of the signature verification.
-    if ((*sei)->bu->is_signed) {
-      self->gop_info->verified_signature_hash = (*sei)->verified_signature;
-    } else {
-      self->gop_info->verified_signature_hash = 1;
-    }
-    validation_flags->waiting_for_signature = !(*sei)->bu->is_signed;
 
   SV_CATCH()
   SV_DONE(status)
@@ -1232,7 +1236,6 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
       }
 
       SV_THROW(prepare_for_validation(self, &sei));
-      update_link_hash_for_auth(self, sei);
 
       if (!validation_flags->signing_present) {
         latest->authenticity = SV_AUTH_RESULT_NOT_SIGNED;
