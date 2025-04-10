@@ -578,66 +578,41 @@ verify_hashes_with_hash_list(signed_video_t *self,
  *    to reflect the total number of expected and received BUs.
  */
 static bool
-verify_hashes_with_sei(signed_video_t *self,
-    bu_list_item_t *sei,
-    int *num_expected,
-    int *num_received)
+verify_hashes_with_sei(signed_video_t *self, bu_list_item_t *sei)
 {
-  assert(self);
+  assert(self && sei);
 
-  int num_expected_hashes = -1;
-  int num_received_hashes = -1;
-  char validation_status = 'P';
-
+  bu_list_t *bu_list = self->bu_list;
   bool sei_is_maybe_ok =
       (!sei->bu->is_signed || (sei->bu->is_signed && sei->verified_signature == 1));
-  bool gop_is_ok = verify_gop_hash(self);
-  bool order_ok = verify_linked_hash(self);
-  // If the order is correct, the SEI is for sure in sync.
-  self->validation_flags.sei_in_sync |= order_ok;
-
-  // The content of the SEI can only be trusted and used if the signature was verified
-  // successfully. If not, mark GOP as not OK.
-  if (sei_is_maybe_ok) {
-    validation_status = (gop_is_ok && order_ok) ? '.' : 'N';
-    num_expected_hashes = (int)self->gop_info->num_sent;
-    // If the signature is verified but GOP hash or the linked hash is not, continue validation with
-    // the hash list if it is present.
-    if (validation_status != '.' && self->gop_info->list_idx > 0) {
-      // Extend partial GOP with more items, since the failure can be due to added BUs.
-      extend_partial_gop(self, sei);
-      return verify_hashes_with_hash_list(self, sei, num_expected, num_received, order_ok);
+  bool gop_hash_ok = verify_gop_hash(self);
+  bool linked_hash_ok = verify_linked_hash(self);
+  self->validation_flags.sei_in_sync |= linked_hash_ok;
+  // For complete and successful validation both the GOP hash and the linked hash have
+  // to be correct (given that the signature could be verified successfully of course).
+  // If the gop hash could not be verified correct, there is a second chance by
+  // verifying individual hashes, if a hash list was sent in the SEI.
+  bool verify_success = gop_hash_ok && sei_is_maybe_ok;
+  if (linked_hash_ok && !gop_hash_ok && self->gop_info->list_idx > 0) {
+    // If the GOP hash could not successfully be verified and a hash list was
+    // transmitted in the SEI, verify individual hashes.
+    DEBUG_LOG("GOP hash could not be verified. Verifying individual hashes.");
+    // Associate more items, since the failure can be due to added NAL Units.
+    extend_partial_gop(self, sei);
+    // verify_indiviual_hashes(self, sei);
+    verify_hashes_with_hash_list(self, sei, NULL, NULL, true);
+    if (sei->bu->is_signed) {
+      // If the SEI is signed mark previous GOPs if there are any.
+      mark_associated_items(bu_list, true, linked_hash_ok, sei);
     }
   } else {
-    validation_status = sei->tmp_validation_status;
-    // An error occurred when verifying the GOP hash. Verify without a SEI.
-    if (validation_status == 'E') {
-      remove_sei_association(self->bu_list, sei);
-      return verify_hashes_without_sei(self, 0);
-    }
+    int num_expected = self->gop_info->num_sent;
+    int num_received = self->tmp_num_in_partial_gop;
+    bu_list_add_missing_items_at_end_of_partial_gop(bu_list, num_expected - num_received, sei);
+    mark_associated_items(bu_list, verify_success, linked_hash_ok, sei);
   }
 
-  // Identify the first BU used in the GOP hash. This will be used to add missing BUs.
-  bu_list_item_t *first_gop_hash_item = self->bu_list->first_item;
-  while (first_gop_hash_item && (first_gop_hash_item->associated_sei != sei)) {
-    first_gop_hash_item = first_gop_hash_item->next;
-  }
-  // Number of received hashes equals the number used when computing the GOP hash.
-  num_received_hashes = self->tmp_num_in_partial_gop;
-  mark_associated_items(self->bu_list, validation_status == '.', order_ok, sei);
-
-  if (!self->validation_flags.is_first_validation && first_gop_hash_item) {
-    int num_missing = num_expected_hashes - num_received_hashes;
-    const bool append = first_gop_hash_item->bu->is_first_bu_in_gop;
-    // No need to check the return value. A failure only affects the statistics. In the worst case
-    // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
-    bu_list_add_missing(self->bu_list, num_missing, append, first_gop_hash_item, sei);
-  }
-
-  if (num_expected) *num_expected = num_expected_hashes;
-  if (num_received) *num_received = num_received_hashes;
-
-  return true;
+  return verify_success;
 }
 
 /* Verifying hashes without the SEI means that we have nothing to verify against. Therefore, we mark
@@ -794,7 +769,7 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
     verify_success = verify_hashes_without_sei(self, 0);
     num_expected = -1;
   } else {
-    verify_success = verify_hashes_with_sei(self, sei, &num_expected, &num_received);
+    verify_success = verify_hashes_with_sei(self, sei);
   }
 
   // Collect statistics from the bu_list. This is used to validate the GOP and provide additional
@@ -802,6 +777,8 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
   bool has_valid_bu = bu_list_get_stats(self->bu_list, sei, &num_invalid, &num_missed);
   DEBUG_LOG("Number of invalid Bitstream Units = %d.", num_invalid);
   DEBUG_LOG("Number of missed Bitstream Units  = %d.", num_missed);
+  // Update the counted NAL Units part of this validation, since it may have changed.
+  num_received = self->tmp_num_in_partial_gop;
 
   valid = (num_invalid > 0) ? SV_AUTH_RESULT_NOT_OK : SV_AUTH_RESULT_OK;
 
