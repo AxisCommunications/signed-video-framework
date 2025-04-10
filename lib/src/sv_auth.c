@@ -643,7 +643,7 @@ verify_hashes_without_sei(signed_video_t *self, int num_skips)
   bu_list_item_t *item = bu_list->first_item;
   while (item) {
     // Skip non-pending items
-    if (item->tmp_validation_status != 'P') {
+    if (item->tmp_validation_status != 'P' || item->associated_sei) {
       item = item->next;
       continue;
     }
@@ -651,7 +651,7 @@ verify_hashes_without_sei(signed_video_t *self, int num_skips)
     bu_info_t *bu_info = item->bu;
     // Only (added) items marked as 'missing' ('M') have no |bu_info|.
     assert(bu_info);
-    if (bu_info->is_sv_sei) {
+    if (bu_info->is_sv_sei && bu_info->is_signed) {
       // Skip counting signed SEIs since they are verified by its signature.
       item = item->next;
       continue;
@@ -687,13 +687,13 @@ verify_hashes_without_sei(signed_video_t *self, int num_skips)
   item = bu_list->first_item;
   while (item && (num_marked_items < max_marked_items)) {
     // Skip non-pending items and items already associated with a SEI.
-    if (item->tmp_validation_status != 'P') {
+    if (item->tmp_validation_status != 'P' || item->associated_sei) {
       item = item->next;
       continue;
     }
 
     bu_info_t *bu_info = item->bu;
-    if (bu_info->is_sv_sei) {
+    if (bu_info->is_sv_sei && bu_info->is_signed) {
       // Skip marking signed SEIs since they are verified by its signature.
       item = item->next;
       continue;
