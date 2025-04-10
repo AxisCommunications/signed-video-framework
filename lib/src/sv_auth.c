@@ -164,6 +164,39 @@ verify_gop_hash(signed_video_t *self)
   return (memcmp(gop_info->computed_gop_hash, self->received_gop_hash, hash_size) == 0);
 }
 
+/* Marks items associated with |sei| as |valid| (or overridden by the SEI verification)
+ * recursively. */
+static void
+mark_associated_items(bu_list_t *bu_list, bool set_valid, bool link_ok, bu_list_item_t *sei)
+{
+  if (!bu_list) {
+    return;
+  }
+
+  bool is_first_associated_item = true;
+  bu_list_item_t *item = bu_list->first_item;
+  while (item) {
+    if (item->associated_sei == sei) {
+      bool valid = set_valid && (is_first_associated_item ? link_ok : true);
+      if (sei->validation_status_if_sei_ok != ' ') {
+        bool valid_if_sei_ok = !(item->validation_status_if_sei_ok == 'N');
+        item->validation_status_if_sei_ok = (valid && valid_if_sei_ok) ? '.' : 'N';
+      } else {
+        bool valid_if_sei_ok = !(item->validation_status_if_sei_ok == 'N');
+        if (item->tmp_validation_status == 'P') {
+          item->tmp_validation_status = (valid && valid_if_sei_ok) ? '.' : 'N';
+        }
+        item->validation_status_if_sei_ok = ' ';
+        if (item->bu && item->bu->is_sv_sei) {
+          mark_associated_items(bu_list, valid && valid_if_sei_ok, link_ok, item);
+        }
+      }
+      is_first_associated_item = false;
+    }
+    item = item->next;
+  }
+}
+
 /*
  * Iterates through the Bitstream Unit (BU) list to find the first BU used in the GOP
  * hash. If the linked hash has not yet been updated with this BU's hash, it updates the
@@ -690,6 +723,9 @@ verify_hashes_without_sei(signed_video_t *self, int num_skips)
 
     item->tmp_validation_status = self->validation_flags.signing_present ? 'N' : 'U';
     item->validation_status_if_sei_ok = ' ';
+    if (item->bu && item->bu->is_sv_sei) {
+      mark_associated_items(bu_list, false, false, item);
+    }
     num_marked_items++;
     item = item->next;
   }
