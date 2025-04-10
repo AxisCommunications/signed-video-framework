@@ -440,6 +440,28 @@ bu_list_add_missing(bu_list_t *list,
   return status;
 }
 
+void
+bu_list_add_missing_items_at_end_of_partial_gop(bu_list_t *list,
+    int num_missing,
+    const bu_list_item_t *associated_sei)
+{
+  if (!list || num_missing <= 0) {
+    // Return silently if there is no |list| or no missing items are to be added.
+    return;
+  }
+
+  bu_list_item_t *item = list->first_item;
+  while (item) {
+    // If this item is not the last one associated with this SEI, move to the next one.
+    if (item->prev && item->prev->associated_sei == associated_sei &&
+        item->associated_sei != associated_sei) {
+      bu_list_add_missing(list, num_missing, false, item, associated_sei);
+      break;
+    }
+    item = item->next;
+  }
+}
+
 /* Removes 'M' items present at the beginning of the |list|. A decoded SEI is marked
  * as 'U' since it is not associated with this recording. The screening keeps going
  * until we find the decoded SEI. */

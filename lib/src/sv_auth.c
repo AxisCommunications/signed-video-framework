@@ -288,6 +288,10 @@ compute_gop_hash(signed_video_t *self, bu_list_item_t *sei)
     int num_i_frames = 0;
     // Iterate through the BU list until the end of the current GOP or SEI item is found.
     while (item) {
+      // Skip GOP SEI items as they do not contribute to the GOP hash.
+      if (item == sei) {
+        break;  // Break if encountered SEI frame.
+      }
       // Skip non-pending items
       if (item->tmp_validation_status != 'P' || item->associated_sei) {
         item = item->next;
@@ -303,10 +307,6 @@ compute_gop_hash(signed_video_t *self, bu_list_item_t *sei)
         break;
       }
 
-      // Skip GOP SEI items as they do not contribute to the GOP hash.
-      if (item == sei) {
-        break;  // Break if encountered SEI frame.
-      }
       // Stop adding Bitstream Units when exceeding the amount that the SEI has reported
       // in the partial GOP if the SEI was triggered by a partial GOP.
       if (gop_info->triggered_partial_gop && (num_in_partial_gop >= gop_info->num_sent)) {
@@ -320,12 +320,16 @@ compute_gop_hash(signed_video_t *self, bu_list_item_t *sei)
       item->associated_sei = sei;
       item = item->next;
     }
-    SV_THROW(
-        sv_openssl_finalize_hash(self->crypto_handle, self->gop_info->computed_gop_hash, true));
+    assert(item);  // Should have stopped latest at |sei|.
+    if (!gop_info->triggered_partial_gop && !item->bu->is_first_bu_in_gop) {
+      DEBUG_LOG("Lost an I-frame");
+      self->validation_flags.lost_start_of_gop = true;
+    }
+    SV_THROW(sv_openssl_finalize_hash(self->crypto_handle, gop_info->computed_gop_hash, true));
     // Store number of BUs used in |computed_gop_hash|.
     self->tmp_num_in_partial_gop = num_in_partial_gop;
 #ifdef SIGNED_VIDEO_DEBUG
-    sv_print_hex_data(self->gop_info->computed_gop_hash, hash_size, "Computed gop_hash ");
+    sv_print_hex_data(gop_info->computed_gop_hash, hash_size, "Computed gop_hash ");
     sv_print_hex_data(self->received_gop_hash, hash_size, "Received gop_hash ");
 #endif
 
@@ -418,7 +422,6 @@ verify_hashes_with_hash_list(signed_video_t *self,
   const int num_expected_hashes = (const int)(gop_info->list_idx / hash_size);
 
   bu_list_t *bu_list = self->bu_list;
-  bu_list_item_t *last_used_item = NULL;
 
   if (!expected_hashes || !bu_list) return false;
 
@@ -441,15 +444,18 @@ verify_hashes_with_hash_list(signed_video_t *self,
         !((num_verified_hashes + num_missed_hashes) < num_expected_hashes)) {
       break;
     }
+    // Due to causuality it is not possible to validate NAL Units after the associated
+    // SEI.
+    if (item == sei) {
+      break;
+    }
     // If this item is not Pending or not part of the GOP hash, move to the next one.
     if (item->tmp_validation_status != 'P' || (item->associated_sei != sei)) {
-      DEBUG_LOG("Skipping non-pending Bitstream Unit");
       item = item->next;
       continue;
     }
     // Only a missing item has a null pointer BU, but they are skipped.
     assert(item->bu);
-    last_used_item = item;
     // If this is a signed SEI, it is not part of the hash list and should not be
     // verified.
     if (item->bu->is_sv_sei && item->bu->is_signed) {
@@ -532,9 +538,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
     // index of the hashes span from 0 to |num_expected_hashes| - 1, so if |latest_match_idx| =
     // |num_expected_hashes| - 1, there are no pending bitstream units.
     int num_unused_expected_hashes = num_expected_hashes - 1 - latest_match_idx;
-    // No need to check the return value. A failure only affects the statistics. In the worst case
-    // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
-    bu_list_add_missing(bu_list, num_unused_expected_hashes, true, last_used_item, sei);
+    bu_list_add_missing_items_at_end_of_partial_gop(bu_list, num_unused_expected_hashes, sei);
   }
 
   // Remove SEI associations which were never used. This happens if there are missing BUs
@@ -805,7 +809,7 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
 
   // Determine if this GOP is valid, but has missing information. This happens if we have detected
   // missed BUs or if the GOP is incomplete.
-  if (valid == SV_AUTH_RESULT_OK && (num_missed > 0 && verify_success)) {
+  if (valid == SV_AUTH_RESULT_OK && (num_missed > 0)) {  // && verify_success)) {
     valid = SV_AUTH_RESULT_OK_WITH_MISSING_INFO;
     DEBUG_LOG("Successful validation, but detected missing Bitstream Units");
   }
@@ -1198,7 +1202,8 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
       latest->number_of_received_picture_nalus = -1;
       latest->number_of_pending_picture_nalus = bu_list_num_pending_items(bu_list);
       status = bu_list_update_status(bu_list, true);
-      self->validation_flags.has_auth_result = true;
+      validation_flags->has_auth_result = true;
+      validation_flags->lost_start_of_gop = false;
     }
     return status;
   }
