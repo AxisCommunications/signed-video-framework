@@ -210,7 +210,6 @@ typedef struct {
   // GOP-related flags.
   bool waiting_for_signature;  // Validating a GOP with a SEI without signature.
   bool sei_in_sync;  // The SEIs are correctly associated with a (partial) GOP
-  bool has_lost_sei;  // Has detected a lost SEI since last validation.
   int num_lost_seis;  // Indicates how many SEIs has been lost since last the session got
   // the latest SEI. Note that this value can become negative if SEIs have changed order.
 } validation_flags_t;
@@ -259,8 +258,6 @@ typedef struct {
   int64_t latest_validated_gop;  // The index of latest validated GOP.
   int num_partial_gop_wraparounds;  // Tracks number of times the |current_partial_gop|
   // has wrapped around.
-  bool partial_gop_is_synced;  // Turns true when a SEI corresponding to the segment is
-  // detected.
   int verified_signature_hash;  // Status of last hash-signature-pair verification. Has 1 for
   // success, 0 for fail, and -1 for error.
   bool has_timestamp;  // True if timestamp exists and has not yet been written to SEI.
