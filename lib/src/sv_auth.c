@@ -775,6 +775,14 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
   // Collect statistics from the bu_list. This is used to validate the GOP and provide additional
   // information to the user.
   bool has_valid_bu = bu_list_get_stats(self->bu_list, sei, &num_invalid, &num_missed);
+  // Stats may be collected across multiple GOPs, therefore, remove previous stats
+  // when deciding upon validation result.
+  num_invalid -= validation_flags->num_invalid;
+  // TODO: Workaround for special cases where intermediate GOPs are verified without SEI.
+  if (num_invalid < 0) {
+    num_invalid = 0;
+  }
+  validation_flags->num_invalid += num_invalid;
   DEBUG_LOG("Number of invalid Bitstream Units = %d.", num_invalid);
   DEBUG_LOG("Number of missed Bitstream Units  = %d.", num_missed);
   // Update the counted NAL Units part of this validation, since it may have changed.
@@ -1242,6 +1250,10 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
         validation_flags->has_auth_result = true;
         // All statistics but pending BUs have already been collected.
         latest->number_of_pending_picture_nalus = bu_list_num_pending_items(bu_list);
+        DEBUG_LOG("Validated GOP as %s", kAuthResultValidStr[latest->authenticity]);
+        DEBUG_LOG("Expected Bitstream Units = %d", latest->number_of_expected_picture_nalus);
+        DEBUG_LOG("Received Bitstream Units = %d", latest->number_of_received_picture_nalus);
+        DEBUG_LOG(" Pending Bitstream Units = %d", latest->number_of_pending_picture_nalus);
       }
       if (latest->authenticity == SV_AUTH_RESULT_NOT_SIGNED) {
         // Only report "stream is unsigned" in the accumulated report.
@@ -1266,16 +1278,6 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
       reset_linked_hash(self);
       // Re-compute number of pending BUs.
       latest->number_of_pending_picture_nalus = bu_list_num_pending_items(bu_list);
-    }
-
-    if (!validation_flags->waiting_for_signature) {
-      // All statistics but pending BUs have already been collected.
-      DEBUG_LOG("Validated GOP as %s", kAuthResultValidStr[latest->authenticity]);
-      DEBUG_LOG(
-          "Expected number of Bitstream Units = %d", latest->number_of_expected_picture_nalus);
-      DEBUG_LOG(
-          "Received number of Bitstream Units = %d", latest->number_of_received_picture_nalus);
-      DEBUG_LOG("Number of pending Bitstream Units  = %d", latest->number_of_pending_picture_nalus);
     }
   SV_CATCH()
   SV_DONE(status)
