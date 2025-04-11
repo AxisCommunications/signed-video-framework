@@ -85,7 +85,7 @@ bu_type_to_str(const bu_info_t *bu)
 {
   switch (bu->bu_type) {
     case BU_TYPE_SEI:
-      return "SEI";
+      return bu->is_signed ? "SEI" : "unsigned SEI";
     case BU_TYPE_I:
       return bu->is_primary_slice == true ? "I (primary)" : "I (secondary)";
     case BU_TYPE_P:
@@ -111,7 +111,7 @@ bu_type_to_char(const bu_info_t *bu)
 
   switch (bu->bu_type) {
     case BU_TYPE_SEI:
-      return bu->is_sv_sei ? (bu->is_golden_sei ? 'G' : 'S') : 'z';
+      return bu->is_sv_sei ? (bu->is_signed ? (bu->is_golden_sei ? 'G' : 'S') : 's') : 'z';
     case BU_TYPE_I:
       return bu->is_primary_slice == true ? 'I' : 'i';
     case BU_TYPE_P:
