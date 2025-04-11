@@ -52,11 +52,7 @@ detect_lost_sei(signed_video_t *self);
 static bool
 hash_is_empty(const uint8_t *hash, size_t hash_size);
 static bool
-verify_hashes_with_hash_list(signed_video_t *self,
-    bu_list_item_t *sei,
-    int *num_expected,
-    int *num_received,
-    bool order_ok);
+verify_hashes_with_hash_list(signed_video_t *self, bu_list_item_t *sei);
 static bool
 verify_hashes_without_sei(signed_video_t *self, int num_skips);
 static void
@@ -402,11 +398,7 @@ extend_partial_gop(signed_video_t *self, const bu_list_item_t *sei)
  *
  * Returns false if we failed verifying hashes. Otherwise, returns true. */
 static bool
-verify_hashes_with_hash_list(signed_video_t *self,
-    bu_list_item_t *sei,
-    int *num_expected,
-    int *num_received,
-    bool order_ok)
+verify_hashes_with_hash_list(signed_video_t *self, bu_list_item_t *sei)
 {
   assert(self && sei);
 
@@ -472,7 +464,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
         // There is a match. Set tmp_validation_status and add missing bitstream units if
         // it has been detected.
         if (sei->bu->is_signed) {
-          item->tmp_validation_status = order_ok ? sei->tmp_validation_status : 'N';
+          item->tmp_validation_status = sei->tmp_validation_status;
         } else {
           item->validation_status_if_sei_ok = sei->validation_status_if_sei_ok;
         }
@@ -486,12 +478,6 @@ verify_hashes_with_hash_list(signed_video_t *self,
         // Reset counters and latest_match_idx.
         latest_match_idx = compare_idx;
         num_invalid_since_latest_match = 0;
-        // If the order is not correct, the validation status of the first BU in the GOP should be
-        // 'N'. If that is the case, set |order_ok| to true for the next BUs, so they are not
-        // affected by this issue.
-        if (!order_ok) {
-          order_ok = true;
-        }
         break;
       }
       compare_idx++;
@@ -547,16 +533,13 @@ verify_hashes_with_hash_list(signed_video_t *self,
     item = item->next;
   }
 
-  if (num_expected) *num_expected = num_expected_hashes;
-  if (num_received) *num_received = num_verified_hashes;
-
   return true;
 }
 
 /**
- * Verifies the integrity of the GOP hash in the video, ensuring that the data
- * within the GOP is authentic and complete. Updates the expected and received
- * Bitstream Unit (BU) counts, and returns true if the verification is successful.
+ * Verifies the integrity of a (partial) GOP in the video, ensuring that the data within
+ * the (partial) GOP is authentic and complete. Returns true if the verification is
+ * successful.
  *
  * The function performs the following steps:
  * 1. Determines the validation status based on the verified signature hash. If this
@@ -570,8 +553,7 @@ verify_hashes_with_hash_list(signed_video_t *self,
  *    individual BU hashes, provided they are available in the SEI. This secondary
  *    validation can still result in a valid GOP, even if some BUs are missing.
  * 4. Each BU in the GOP is marked according to its validation status (valid, invalid, or
- *    missing). If necessary, missing BUs are added, and validation statistics are updated
- *    to reflect the total number of expected and received BUs.
+ *    missing). If necessary, missing BUs are added.
  */
 static bool
 verify_hashes_with_sei(signed_video_t *self, bu_list_item_t *sei)
@@ -595,8 +577,7 @@ verify_hashes_with_sei(signed_video_t *self, bu_list_item_t *sei)
     DEBUG_LOG("GOP hash could not be verified. Verifying individual hashes.");
     // Associate more items, since the failure can be due to added NAL Units.
     extend_partial_gop(self, sei);
-    // verify_indiviual_hashes(self, sei);
-    verify_hashes_with_hash_list(self, sei, NULL, NULL, true);
+    verify_hashes_with_hash_list(self, sei);
     if (sei->bu->is_signed) {
       // If the SEI is signed mark previous GOPs if there are any.
       mark_associated_items(bu_list, true, linked_hash_ok, sei);
