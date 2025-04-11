@@ -213,8 +213,6 @@ typedef struct {
   int num_lost_seis;  // Indicates how many SEIs has been lost since last the session got
   // the latest SEI. Note that this value can become negative if SEIs have changed order.
   int num_invalid;  // Tracks invalid GOPs across multiple GOP validation.
-  bool lost_start_of_gop;  // Tracks if a an I-frame has been lost, which needs to be
-  // handled as a special case if it happens for the first validation.
 } validation_flags_t;
 
 // Buffer of |last_two_bytes| and pointers to |sei| memory and current |write_position|.

@@ -321,10 +321,6 @@ compute_gop_hash(signed_video_t *self, bu_list_item_t *sei)
       item = item->next;
     }
     assert(item);  // Should have stopped latest at |sei|.
-    if (!gop_info->triggered_partial_gop && !item->bu->is_first_bu_in_gop) {
-      DEBUG_LOG("Lost an I-frame");
-      self->validation_flags.lost_start_of_gop = true;
-    }
     SV_THROW(sv_openssl_finalize_hash(self->crypto_handle, gop_info->computed_gop_hash, true));
     // Store number of BUs used in |computed_gop_hash|.
     self->tmp_num_in_partial_gop = num_in_partial_gop;
@@ -1213,7 +1209,6 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
         latest->number_of_pending_picture_nalus = -1;
         latest->public_key_has_changed = public_key_has_changed;
         validation_flags->num_invalid = 0;
-        validation_flags->lost_start_of_gop = false;
         // Reset |in_validation|.
         update_sei_in_validation(self, true, NULL, NULL);
       }
