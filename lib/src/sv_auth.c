@@ -90,7 +90,7 @@ static svrc_t
 decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_size)
 {
   assert(self && payload && (payload_size > 0));
-  DEBUG_LOG("SEI payload size = %zu, exp gop number = %ld", payload_size,
+  DEBUG_LOG("SEI payload size = %zu, exp (partial) gop number = %ld", payload_size,
       self->gop_info->latest_validated_gop + 1);
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
