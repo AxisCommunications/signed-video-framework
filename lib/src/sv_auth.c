@@ -507,10 +507,6 @@ verify_hashes_with_hash_list(signed_video_t *self,
     bu_list_add_missing(bu_list, num_unused_expected_hashes, true, last_used_item, sei);
   }
 
-  // Done with the SEI. Mark as valid, because if we failed verifying the |document_hash| we would
-  // not be here.
-  sei->tmp_validation_status = '.';
-
   if (num_expected) *num_expected = num_expected_hashes;
   if (num_received) *num_received = num_verified_hashes;
 
@@ -883,35 +879,6 @@ update_sei_in_validation(signed_video_t *self,
   }
 }
 
-/**
- * Decodes the SEI message, retrieves necessary parameters for authentication, and computes the hash
- * for authenticity.
- */
-static svrc_t
-prepare_golden_sei(signed_video_t *self, bu_list_item_t *sei)
-{
-  assert(self);
-  sign_or_verify_data_t *verify_data = self->verify_data;
-  svrc_t status = SV_UNKNOWN_FAILURE;
-  SV_TRY()
-    // Extract the TLV data and size from the BU.
-    const uint8_t *tlv_data = sei->bu->tlv_data;
-    size_t tlv_size = sei->bu->tlv_size;
-
-    // Decode the SEI data and update the status.
-    SV_THROW(decode_sei_data(self, tlv_data, tlv_size));
-    sei->has_been_decoded = true;  // Mark the SEI as decoded.
-    // Assuming the signature hash type is always DOCUMENT_HASH.
-    SV_THROW(hash_and_add_for_auth(self, sei));
-    memcpy(verify_data->hash, sei->hash, verify_data->hash_size);
-
-    SV_THROW(prepare_for_validation(self, &sei));
-  SV_CATCH()
-  SV_DONE(status)
-
-  return status;
-}
-
 /* prepare_for_validation()
  *
  * 1) finds the oldest available and pending SEI in the |bu_list|.
@@ -1120,7 +1087,7 @@ validation_is_feasible(const bu_list_item_t *item)
 {
   if (!item->bu) return false;
   // Validation for Golden SEIs are handled separately and therefore validation is not feasible.
-  if (item->bu->is_golden_sei) return false;
+  if (item->bu->is_golden_sei) return false;  // TODO: It should be possible to validate.
   if (!item->bu->is_hashable) return false;
   if (item->tmp_validation_status != 'P') return false;
   // Validation may be done upon a SEI.
@@ -1159,30 +1126,12 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
     // the user that the Signed Video feature has been detected.
     svrc_t status = SV_OK;
     if (validation_flags->is_first_sei) {
+      latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+      latest->public_key_has_changed = false;
       // Check if the data is golden. If it is, update the validation status accordingly.
-      if (bu->is_golden_sei) {
-        switch (self->gop_info->verified_signature_hash) {
-          case 1:
-            // Signature verified successfully.
-            bu_list->last_item->tmp_validation_status = '.';
-            latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
-            break;
-          case 0:
-            // Signature verification failed.
-            bu_list->last_item->tmp_validation_status = 'N';
-            latest->authenticity = SV_AUTH_RESULT_NOT_OK;
-            self->has_public_key = false;
-            break;
-          case -1:
-          default:
-            // Error occurred during verification; handle as an error.
-            bu_list->last_item->tmp_validation_status = 'E';
-            latest->authenticity = SV_AUTH_RESULT_NOT_OK;
-            self->has_public_key = false;
-        }
-      } else {
-        latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
-        latest->public_key_has_changed = false;
+      if (bu->is_golden_sei && self->gop_info->verified_signature_hash != 1) {
+        latest->authenticity = SV_AUTH_RESULT_NOT_OK;
+        self->has_public_key = false;
       }
       latest->number_of_expected_picture_nalus = -1;
       latest->number_of_received_picture_nalus = -1;
@@ -1462,7 +1411,15 @@ add_bitstream_unit(signed_video_t *self, const uint8_t *bu_data, size_t bu_data_
     if (!validation_flags->signing_present && (bu_list->num_gops > MAX_UNHASHED_GOPS)) {
       validation_flags->hash_algo_known = true;
     }
-    if (bu.is_golden_sei) SV_THROW(prepare_golden_sei(self, bu_list->last_item));
+    if (bu.is_golden_sei) {
+      // TODO: It should be possible to treat Golden SEIs like any other SEI when it comes
+      // to validation. Hence, this is probably possible to remove.
+      bu_list_item_t *out_sei = NULL;
+      SV_THROW(prepare_for_validation(self, &out_sei));
+      // If a different SEI compared to the current item is returned, something has gone
+      // wrong.
+      SV_THROW_IF(out_sei != bu_list->last_item, SV_INVALID_PARAMETER);
+    }
 
     // Determine if legacy validation should be applied, that is, if the legacy way of
     // using linked hashes and recursive GOP hash is detected.
