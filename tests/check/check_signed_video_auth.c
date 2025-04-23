@@ -1229,13 +1229,14 @@ START_TEST(fast_forward_stream_with_reset)
 
   // ISPPPISPPPISP
   //
-  // IS             PU                 ->  (signature)
   // ISPPPIS        .U...P.            ->  (    valid)
   //      ISPPPIS        .....P.       ->  (    valid)
+  // The reset will not report in another signature present. That message is only
+  // presented once.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 13, 10, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
-      .valid_gops = 2, .pending_bu = 3, .has_signature = 1, .final_validation = &final_validation};
+      .valid_gops = 2, .pending_bu = 2, .final_validation = &final_validation};
 
   validate_stream(sv, list, expected, true);
   // Free list and session.
@@ -1323,14 +1324,15 @@ START_TEST(fast_forward_stream_with_delayed_seis)
 
   // IPPSPIPPSPISPISP
   //
-  // IPPS           PPPU             ->  (signature)
   // IPPSPIPPS      ...U.PPP.        ->  (    valid)
   //      IPPSPIS        .....P.     ->  (    valid)
   //           ISPIS          ...P.  ->  (    valid)
+  // The reset will not report in another signature present. That message is only
+  // presented once.
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_OK, false, 16, 13, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
-      .valid_gops = 3, .pending_bu = 8, .has_signature = 1, .final_validation = &final_validation};
+      .valid_gops = 3, .pending_bu = 5, .final_validation = &final_validation};
 
   validate_stream(sv, list, expected, true);
   // Free list and session.
@@ -2413,10 +2415,9 @@ START_TEST(file_export_and_scrubbing_partial_gops)
   // ISPPPPSPISPPISPPPPSPPPPSPISPPPPSPISPISPP
   final_validation.number_of_received_nalus--;
   final_validation.number_of_validated_nalus--;
-  // TODO: Solve this
   // // The first report of stream being signed is now skipped, since it is already known.
-  // expected.pending_bu--;
-  // expected.has_signature--;
+  expected.pending_bu--;
+  expected.has_signature = false;
   // 3) Validate after reset.
   ck_assert_int_eq(signed_video_reset(sv), SV_OK);
   validate_stream(sv, list, expected, false);
@@ -2428,7 +2429,7 @@ START_TEST(file_export_and_scrubbing_partial_gops)
   final_validation.number_of_received_nalus = 12;
   final_validation.number_of_validated_nalus = 8;
   expected.valid_gops = 2;
-  expected.pending_bu = 3;
+  expected.pending_bu = 2;
   // 5) Reset and validate the first two GOPs.
   ck_assert_int_eq(signed_video_reset(sv), SV_OK);
   validate_stream(sv, first_list, expected, false);
@@ -2440,7 +2441,7 @@ START_TEST(file_export_and_scrubbing_partial_gops)
   final_validation.number_of_received_nalus = 15;
   final_validation.number_of_validated_nalus = 11;
   expected.valid_gops = 3;
-  expected.pending_bu = 4;
+  expected.pending_bu = 3;
   // 7) Reset and validate the rest of the file.
   ck_assert_int_eq(signed_video_reset(sv), SV_OK);
   validate_stream(sv, list, expected, true);
@@ -2873,7 +2874,7 @@ START_TEST(file_export_and_scrubbing_multiple_gops)
   final_validation.number_of_validated_nalus--;
   expected.pending_bu = 2;  // No report on the first unsigned SEI.
   expected.has_signature = 0;
-  ck_assert_int_eq(signed_video_reset(sv), OMS_OK);
+  ck_assert_int_eq(signed_video_reset(sv), SV_OK);
   // 3) Validate after reset.
   validate_stream(sv, list, expected, true);
   // 4) Scrub to the beginning.
@@ -2887,7 +2888,7 @@ START_TEST(file_export_and_scrubbing_multiple_gops)
   expected.valid_gops = 0;
   expected.pending_bu = 0;  // No report triggered.
   expected.has_signature = 0;
-  ck_assert_int_eq(signed_video_reset(sv), OMS_OK);
+  ck_assert_int_eq(signed_video_reset(sv), SV_OK);
   // 5) Reset and validate the first two GOPs.
   validate_stream(sv, first_list, expected, true);
   test_stream_free(first_list);
@@ -2902,7 +2903,7 @@ START_TEST(file_export_and_scrubbing_multiple_gops)
   expected.valid_gops = 1;
   expected.pending_bu = 1;  // No report on the first unsigned SEI.
   expected.has_signature = 0;
-  ck_assert_int_eq(signed_video_reset(sv), OMS_OK);
+  ck_assert_int_eq(signed_video_reset(sv), SV_OK);
   // 7) Reset and validate the rest of the file.
   validate_stream(sv, list, expected, true);
 

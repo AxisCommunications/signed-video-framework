@@ -194,7 +194,9 @@ sv_accumulated_validation_init(signed_video_accumulated_validation_t *self)
   // after creating a session, or done on the signing side.
   if (!self) return;
 
-  self->authenticity = SV_AUTH_RESULT_NOT_SIGNED;
+  if (self->authenticity != SV_AUTH_RESULT_NOT_SIGNED) {
+    self->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+  }
   self->public_key_has_changed = false;
   self->number_of_received_nalus = 0;
   self->number_of_validated_nalus = 0;
