@@ -145,10 +145,6 @@ detect_lost_sei(signed_video_t *self)
   // NOTE: It should not be necessary to check if |potentially_lost_seis| is outside
   // range, since if that many GOPs have been lost that is a much more serious issue.
   self->validation_flags.num_lost_seis = (int)potentially_lost_seis;
-  // It is only possible to know if a SEI has been lost if the
-  // |current_partial_gop| is in sync. Otherwise, the counter cannot be trusted.
-  self->validation_flags.has_lost_sei =
-      (potentially_lost_seis > 0) && gop_info->partial_gop_is_synced;
   // If there are no lost SEIs it is in sync. Otherwise, validation should probably be
   // performed without this SEI.
   self->validation_flags.sei_in_sync = (potentially_lost_seis == 0);
@@ -769,16 +765,16 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
 
   SignedVideoAuthenticityResult valid = SV_AUTH_RESULT_NOT_OK;
   // Initialize to "Unknown"
-  int num_expected = -1;
-  int num_received = -1;
+  int num_expected = self->gop_info->num_sent;
+  int num_received = self->tmp_num_in_partial_gop;
   int num_invalid = -1;
   int num_missed = -1;
   bool verify_success = false;
 
-  if (validation_flags->has_lost_sei) {
-    DEBUG_LOG("We never received the SEI associated with this GOP");
-    // We never received the SEI, but we know we have passed a GOP transition. Hence, we cannot
-    // verify this GOP. Marking this GOP as not OK by verify_hashes_without_sei().
+  if (validation_flags->num_lost_seis > 0) {
+    DEBUG_LOG("Lost a SEI. Mark (partial) GOP as not authentic.");
+    // An expected SEI was never received. Hence, it is not possible to verify this GOP.
+    // Marking this GOP as not OK by verify_hashes_without_sei().
     remove_sei_association(self->bu_list, sei);
     sei = NULL;
     verify_success = verify_hashes_without_sei(self, gop_info->num_sent);
@@ -786,15 +782,15 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
     if (self->validation_flags.signing_present && verify_success) {
       gop_info->latest_validated_gop++;
     }
+    num_expected = -1;
   } else if (validation_flags->num_lost_seis < 0) {
     DEBUG_LOG("Found an old SEI. Mark (partial) GOP as not authentic.");
     remove_sei_association(self->bu_list, sei);
     sei = NULL;
     verify_success = verify_hashes_without_sei(self, 0);
+    num_expected = -1;
   } else {
     verify_success = verify_hashes_with_sei(self, sei, &num_expected, &num_received);
-    // Set |latest_validated_gop| to recived gop counter for the next validation.
-    gop_info->latest_validated_gop = (int64_t)gop_info->current_partial_gop;
   }
 
   // Collect statistics from the bu_list. This is used to validate the GOP and provide additional
@@ -807,25 +803,22 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
 
   // Post-validation actions.
 
-  // If we lose an entire GOP (part from the associated SEI) it will be seen as valid. Here we fix
-  // it afterwards.
-  // TODO: Move this inside the verify_hashes_ functions. We should not need to perform any special
-  // actions on the output.
-  if (!validation_flags->is_first_validation) {
-    if ((valid == SV_AUTH_RESULT_OK) && (num_expected > 1) && (num_missed >= num_expected)) {
-      valid = SV_AUTH_RESULT_NOT_OK;
-    }
-    gop_info->partial_gop_is_synced = true;
-  }
-  if (valid == SV_AUTH_RESULT_OK) {
-    self->validation_flags.sei_in_sync = true;
-  }
   // Determine if this GOP is valid, but has missing information. This happens if we have detected
   // missed BUs or if the GOP is incomplete.
   if (valid == SV_AUTH_RESULT_OK && (num_missed > 0 && verify_success)) {
     valid = SV_AUTH_RESULT_OK_WITH_MISSING_INFO;
     DEBUG_LOG("Successful validation, but detected missing Bitstream Units");
   }
+  // If we lose an entire GOP (part from the associated SEI) it will be seen as valid. Here we fix
+  // it afterwards.
+  // TODO: Move this inside the verify_hashes_ functions. We should not need to perform any special
+  // actions on the output.
+  // TODO: Investigate if this part is actually needed.
+  // if (!validation_flags->is_first_validation) {
+  //   if ((valid == SV_AUTH_RESULT_OK) && (num_expected > 1) && (num_missed >= num_expected)) {
+  //     valid = SV_AUTH_RESULT_NOT_OK;
+  //   }
+  // }
   // The very first validation needs to be handled separately. If this is truly the start of a
   // stream we have all necessary information to successfully validate the authenticity. It can be
   // interpreted as being in sync with its signing counterpart. If this session validates the
@@ -838,7 +831,6 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
       valid = SV_AUTH_RESULT_SIGNATURE_PRESENT;
     }
     // If validation was successful, the |current_partial_gop| is in sync.
-    gop_info->partial_gop_is_synced = (valid == SV_AUTH_RESULT_OK);
     if (valid != SV_AUTH_RESULT_OK) {
       // We have validated the authenticity based on one single BU, but failed. A success can only
       // happen if we are at the beginning of the original stream. For all other cases, for example,
@@ -848,8 +840,6 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
       DEBUG_LOG("This first validation cannot be performed");
       // Empty items marked 'M', may have been added at the beginning. These have no
       // meaning and may only confuse the user. These should be removed. This is handled in
-      // bu_list_remove_missing_items().
-      bu_list_remove_missing_items(self->bu_list);
       remove_sei_association(self->bu_list, sei);
       valid = SV_AUTH_RESULT_SIGNATURE_PRESENT;
       num_expected = -1;
@@ -860,6 +850,10 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
     }
   }
   if (latest->public_key_has_changed) valid = SV_AUTH_RESULT_NOT_OK;
+
+  if (valid == SV_AUTH_RESULT_OK) {
+    self->validation_flags.sei_in_sync = true;
+  }
 
   // Update |latest_validation| with the validation result.
   if (latest->authenticity <= SV_AUTH_RESULT_SIGNATURE_PRESENT) {
@@ -873,7 +867,7 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
     latest->authenticity = valid;
   }
   latest->number_of_received_picture_nalus += num_received;
-  if (self->validation_flags.has_lost_sei) {
+  if (self->validation_flags.num_lost_seis > 0) {
     latest->number_of_expected_picture_nalus = -1;
   } else if (latest->number_of_expected_picture_nalus != -1) {
     latest->number_of_expected_picture_nalus += num_expected;
@@ -1113,9 +1107,6 @@ has_pending_partial_gop(signed_video_t *self)
   bool found_pending_sv_sei = false;
   bool found_pending_gop = false;
   bool found_pending_partial_gop = false;
-
-  // Reset the GOP-related |has_lost_sei| member before running through the BUs in |bu_list|.
-  self->validation_flags.has_lost_sei = false;
 
   while (item && !found_pending_gop && !found_pending_partial_gop) {
     bu_info_t *bu = item->bu;

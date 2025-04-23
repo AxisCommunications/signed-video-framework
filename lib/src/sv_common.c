@@ -279,7 +279,6 @@ gop_info_reset(gop_info_t *gop_info)
   // If a reset is forced, the stored hashes in |hash_list| have no meaning anymore.
   gop_info->list_idx = 0;
   gop_info->num_partial_gop_wraparounds = 0;
-  gop_info->partial_gop_is_synced = false;
   gop_info->current_partial_gop = 0;
   gop_info->latest_validated_gop = 0;
   memset(gop_info->linked_hashes, 0, MAX_HASH_SIZE * 2);
