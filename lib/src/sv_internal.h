@@ -212,6 +212,8 @@ typedef struct {
   bool sei_in_sync;  // The SEIs are correctly associated with a (partial) GOP
   int num_lost_seis;  // Indicates how many SEIs has been lost since last the session got
   // the latest SEI. Note that this value can become negative if SEIs have changed order.
+  bool lost_start_of_gop;  // Tracks if an I-frame has been lost, which needs to be
+  // handled as a special case if it happens for the first validation.
 } validation_flags_t;
 
 // Buffer of |last_two_bytes| and pointers to |sei| memory and current |write_position|.

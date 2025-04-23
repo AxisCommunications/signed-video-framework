@@ -114,6 +114,22 @@ bu_list_add_missing(bu_list_t* list,
     const bu_list_item_t* associated_sei);
 
 /**
+ * @brief Appends the last item in partial GOP with new items marked as missing
+ *
+ * Searches through the |list| for the last |item| of the partial GOP associated with
+ * |associated_sei| and appends it with new items that are marked as missing
+ * (|tmp_validation_status| = 'M'). The |bu| of this missing item is a NULL pointer.
+ *
+ * @param list The |list| including the |item|.
+ * @param num_missing Number of missing items to append.
+ * @param associated_sei The SEI to which the 'missing' items is associated.
+ */
+void
+bu_list_add_missing_items_at_end_of_partial_gop(bu_list_t* list,
+    int num_missing,
+    const bu_list_item_t* associated_sei);
+
+/**
  * @brief Removes 'M' items present at the beginning of a |list|
  *
  * There are scenarios when missing items are added to the front of the |list|, when the
