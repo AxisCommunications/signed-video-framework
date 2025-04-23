@@ -664,7 +664,6 @@ update_validation_flags(validation_flags_t *validation_flags, bu_info_t *bu)
 {
   if (!validation_flags || !bu) return;
 
-  validation_flags->is_first_sei = !validation_flags->signing_present && bu->is_sv_sei;
   // As soon as we receive a SEI, Signed Video is present.
   validation_flags->signing_present |= bu->is_sv_sei;
 }

@@ -807,7 +807,7 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
 
   // Determine if this GOP is valid, but has missing information. This happens if we have detected
   // missed BUs or if the GOP is incomplete.
-  if (valid == SV_AUTH_RESULT_OK && (num_missed > 0)) {  // && verify_success)) {
+  if (valid == SV_AUTH_RESULT_OK && (num_missed > 0)) {
     valid = SV_AUTH_RESULT_OK_WITH_MISSING_INFO;
     DEBUG_LOG("Successful validation, but detected missing Bitstream Units");
   }
@@ -1188,7 +1188,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
     // If this is the first arrived SEI, but could still not validate the authenticity, signal to
     // the user that the Signed Video feature has been detected.
     svrc_t status = SV_OK;
-    if (validation_flags->is_first_sei) {
+    if (validation_flags->is_first_sei && bu->is_sv_sei) {
       latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
       latest->public_key_has_changed = false;
       // Check if the data is golden. If it is, update the validation status accordingly.
@@ -1201,7 +1201,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
       latest->number_of_pending_picture_nalus = bu_list_num_pending_items(bu_list);
       status = bu_list_update_status(bu_list, true);
       validation_flags->has_auth_result = true;
-      validation_flags->lost_start_of_gop = false;
+      validation_flags->is_first_sei = false;
     }
     return status;
   }
@@ -1225,6 +1225,8 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
         latest->number_of_received_picture_nalus = 0;
         latest->number_of_pending_picture_nalus = -1;
         latest->public_key_has_changed = public_key_has_changed;
+        validation_flags->num_invalid = 0;
+        validation_flags->lost_start_of_gop = false;
         // Reset |in_validation|.
         update_sei_in_validation(self, true, NULL, NULL);
       }
@@ -1248,6 +1250,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
       // The flag |is_first_validation| is used to ignore the first validation if we start the
       // validation in the middle of a stream. Now it is time to reset it.
       validation_flags->is_first_validation = !validation_flags->signing_present;
+      validation_flags->is_first_sei &= !bu->is_sv_sei;
 
       if (validation_flags->reset_first_validation) {
         validation_flags->is_first_validation = true;
@@ -1491,7 +1494,7 @@ add_bitstream_unit(signed_video_t *self, const uint8_t *bu_data, size_t bu_data_
       SV_THROW_IF(!self->legacy_sv, SV_MEMORY);
       sv_accumulated_validation_init(self->accumulated_validation);
     }
-    if (nalus_pending_registration && self->validation_flags.hash_algo_known) {
+    if (nalus_pending_registration && validation_flags->hash_algo_known) {
       SV_THROW(reregister_bu(self));
     }
     SV_THROW(maybe_validate_gop(self, &bu));
