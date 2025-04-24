@@ -202,7 +202,7 @@ generate_sei_and_add_to_buffer(signed_video_t *self, bool force_signature)
     // Compute total SEI data size.
     if (self->codec != SV_CODEC_AV1) {
       sei_buffer_size += self->codec == SV_CODEC_H264 ? 6 : 7;  // BU header
-      sei_buffer_size += payload_size / 256 + 1;  // Size field
+      sei_buffer_size += payload_size / 255 + 1;  // Size field
       sei_buffer_size += payload_size;
       sei_buffer_size += 1;  // Stop bit in a separate byte
       // Secure enough memory for emulation prevention. Worst case will add 1 extra byte
