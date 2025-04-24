@@ -3038,8 +3038,6 @@ END_TEST
 
 START_TEST(modify_one_i_frame_multiple_gops)
 {
-  // Enable when validation can be made without dead lock.
-  return;
   // Device side
   struct sv_setting setting = settings[_i];
   const unsigned signing_frequency = 3;
@@ -3075,8 +3073,6 @@ END_TEST
 
 START_TEST(remove_one_i_frame_multiple_gops)
 {
-  // Enable when validation can be made without dead lock.
-  return;
   // Device side
   struct sv_setting setting = settings[_i];
   const unsigned signing_frequency = 3;
@@ -3116,8 +3112,6 @@ END_TEST
 
 START_TEST(modify_sei_frames_multiple_gops)
 {
-  // Enable when validation can be made without dead lock.
-  return;
   // Device side
   struct sv_setting setting = settings[_i];
   const unsigned signing_frequency = 3;
@@ -3166,8 +3160,6 @@ END_TEST
 
 START_TEST(remove_sei_frames_multiple_gops)
 {
-  // Enable when validation can be made without dead lock.
-  return;
   // Device side
   struct sv_setting setting = settings[_i];
   const unsigned signing_frequency = 3;
