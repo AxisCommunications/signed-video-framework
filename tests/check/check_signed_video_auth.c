@@ -624,7 +624,7 @@ START_TEST(remove_one_i_frame)
   //
   // IPPIS            ...P.                     ->  (   valid)
   //    ISPPS            .....                  ->  (   valid)
-  //         PPIS            MNNP.              ->  ( invalid, 1 missing)
+  //         PPIS            NNMP.              ->  ( invalid, 1 missing)
   //           ISPPIS           N...P.          ->  ( invalid, wrong link)
   //               ISPPIS           ....P.      ->  (   valid)
   //                   ISPPIS           ....P.  ->  (   valid)
@@ -658,7 +658,6 @@ START_TEST(remove_one_sei_and_i_frame)
   // IPPIS            ...P.                     ->  (  valid)
   //    ISPPPPIS         N.NNNNP.               ->  (invalid)
   //          ISPPIS           N...P.           ->  (invalid, wrong link)
-  //          ISPPIS           N.NNP.           ->  (invalid, wrong link) [GOP level]
   //              ISPPIS           ....P.       ->  (  valid)
   const struct validation_stats expected = {
       .valid_gops = 2, .invalid_gops = 2, .pending_bu = 4, .final_validation = &final_validation};
@@ -799,9 +798,9 @@ START_TEST(all_seis_arrive_late_first_gop_scrapped)
 
   // IPPPIPPSPIPPSPIPPSSPISPISP
   //
-  // IPPPIPPS          PPPPPPPU                    ->  (signature)  7 pending
-  // IPPPIPPSPIPPS     ....PPPUPPPP.               ->  (    valid)  7 pending
-  //     IPPSPIPPSPIPPS    ...U.PPP.PPPP.          ->  (    valid)  7 pending
+  // IPPPIPPS          PPPPPPP.                    ->  (signature)  7 pending
+  // IPPPIPPSPIPPS     ....PPP.PPPP.               ->  (    valid)  7 pending
+  //     IPPSPIPPSPIPPS    .....PPP.PPPP.          ->  (    valid)  7 pending
   //          IPPSPIPPSS        .....PPP..         ->  (    valid)  3 pending
   //               IPPSSPIS          ......P.      ->  (    valid)  1 pending
   //                     ISPIS             ...P.   ->  (    valid)  1 pending
@@ -818,6 +817,7 @@ END_TEST
 
 START_TEST(all_seis_arrive_late_two_gops_scrapped)
 {
+  // TODO: Investigate why SEIs are marked as "N", but GOP is OK.
   test_stream_t *list = generate_delayed_sei_list(settings[_i], true);
 
   // Remove the first two GOPs: IPPPPIPPP IPPSPIPPSPIPPSSPISPISP
@@ -953,9 +953,9 @@ START_TEST(lost_all_data_between_two_seis)
   // IPPPISSPPPISPPISPPISP
   //
   // IPPPIS            ....P.                   ->  (   valid)
-  // IPPPISS               ...MMM               ->  (   valid w. (3) missing)
-  //        PPPIS               MNNNP.          ->  ( invalid, 1 missing I-frame)
-  //           ISPPIS               ....P.      ->  ( invalid, wrong link)
+  //     ISS               .MMM..               ->  (   valid w. (3) missing)
+  //        PPPIS                NNNMP.         ->  ( invalid, 1 missing I-frame)
+  //           ISPPIS                N...P.     ->  ( invalid, wrong link)
   //               ISPPIS               ....P.  ->  (   valid)
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, false, 21, 18, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
@@ -1042,8 +1042,8 @@ START_TEST(remove_two_gops_in_start_of_stream)
       SV_AUTH_RESULT_OK, false, 19, 16, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // ISPPSPISPPPPISPPISP
   //
-  // IS                PU                      -> (signature) 1 pending
-  // ISPPSPIS          .U..U.P.                ->     (valid) 1 pending
+  // IS                P.                      -> (signature) 1 pending
+  // ISPPSPIS          ......P.                ->     (valid) 1 pending
   //       ISPPPPIS          ......P.          ->     (valid) 1 pending
   //             ISPPIS            ....P.      ->     (valid) 1 pending
   //                                                          4 pending
@@ -1095,7 +1095,7 @@ START_TEST(camera_reset_on_signing_side)
   //
   // IPPIS            ...P.                    ->  (   valid)
   //    ISPPIS           ....P.                ->  (   valid)
-  //        ISPPPIS          N.NNNP.           ->  ( invalid, reset, wrong link etc.)
+  //        ISPPPIS          N....P.           ->  ( invalid, reset, wrong link etc.)
   //             ISPIS            ...P.        ->  (   valid)
   //                ISPIS             ...P.    ->  (   valid)
   signed_video_accumulated_validation_t final_validation = {
@@ -1229,7 +1229,7 @@ START_TEST(fast_forward_stream_with_reset)
 
   // ISPPPISPPPISP
   //
-  // ISPPPIS        .U...P.            ->  (    valid)
+  // ISPPPIS        .....P.            ->  (    valid)
   //      ISPPPIS        .....P.       ->  (    valid)
   // The reset will not report in another signature present. That message is only
   // presented once.
@@ -1247,6 +1247,7 @@ END_TEST
 
 START_TEST(fast_forward_stream_without_reset)
 {
+  // TODO: Investigate why SEIs are marked as "N", but GOP is OK.
   // Create a session.
   signed_video_t *sv = get_initialized_signed_video(settings[_i], false);
   ck_assert(sv);
@@ -1324,7 +1325,7 @@ START_TEST(fast_forward_stream_with_delayed_seis)
 
   // IPPSPIPPSPISPISP
   //
-  // IPPSPIPPS      ...U.PPP.        ->  (    valid)
+  // IPPSPIPPS      .....PPP.        ->  (    valid)
   //      IPPSPIS        .....P.     ->  (    valid)
   //           ISPIS          ...P.  ->  (    valid)
   // The reset will not report in another signature present. That message is only
@@ -1417,6 +1418,7 @@ END_TEST
 
 START_TEST(file_export_with_two_useless_seis)
 {
+  // TODO: Investigate why SEIs are marked as "N", but GOP is OK.
   test_stream_t *list = generate_delayed_sei_list(settings[_i], true);
   // Remove the first three GOPs.
   // IPPPPIPPPIPPSP IPPSPIPPSSPISPISP
@@ -2472,7 +2474,7 @@ START_TEST(modify_one_p_frame_partial_gops)
   //     PSPIS                  ...P.               (  valid, 1 pending)
   //        ISPPIS                 ....P.           (  valid, 1 pending)
   //            ISPPPPS                ...N.P.      (invalid, 1 pending)
-  //            ISPPPPS                N.NNNP.                         [low bitrate mode]
+  //            ISPPPPS                N.NNNP.                         [GOP level]
   //                 PSPIS                  ...P.   (  valid, 1 pending)
   //                                                          5 pending
   //                    ISP                   P.P   (invalid, 3 pending)
@@ -2524,10 +2526,10 @@ START_TEST(remove_one_p_frame_partial_gops)
     // IPPPPS                 ....P.                  (  valid, 1 pending)
     //     PSPIS                  ...P.               (  valid, 1 pending)
     //        ISPPIS                 ....P.           (  valid, 1 pending)
-    //            ISPPPS                ....N.        (invalid, 0 pending)
-    //                  PIS                   M.P.    (invalid, 1 pending, 1 missing)
+    //            ISPPPS                 N.NNN.       (invalid, 0 pending)
+    //                  PIS                  NMP.     (invalid, 1 pending, 1 missing)
     //                                                          4 pending
-    //                   ISP                    P.P   (invalid, 2 pending)
+    //                   ISP                   P.P    (invalid, 2 pending)
     expected.valid_gops = 3;
     expected.invalid_gops = 2;
     expected.pending_bu = 4;
@@ -2616,7 +2618,7 @@ START_TEST(modify_one_i_frame_partial_gops)
   //        ISPPIS                 ....P.                 (  valid, 1 pending)
   //            ISPPPPS                N.NNNP.            (invalid, 1 pending)
   //                 PSPIS                  N.NP.         (invalid, 1 pending)
-  //                    ISPPIS                 N.NNP.     (invalid, 1 pending, wrong link)
+  //                    ISPPIS                 N...P.     (invalid, 1 pending, wrong link)
   //                        ISPIS                 ...P.   (  valid, 1 pending)
   //                                                                7 pending
   //                           ISP                   P.P  (invalid, 3 pending)
@@ -2653,7 +2655,7 @@ START_TEST(remove_one_i_frame_partial_gops)
   //        ISPPS      .....                   (  valid, 0 pending)
   //             PPPPS      NNNN.              (invalid, 0 pending)
   //                  PIS        NMP.          (invalid, 1 pending, 1 missing, wrong link)
-  //                   ISPPIS      N.NNP.      (invalid, 1 pending, wrong link)
+  //                   ISPPIS      N...P.      (invalid, 1 pending, wrong link)
   //                       ISPIS       ...P.   (  valid, 1 pending)
   //                                                     5 pending
   //                          ISP         P.P  (invalid, 3 pending)
@@ -2931,7 +2933,7 @@ START_TEST(modify_one_p_frame_multiple_gops)
   //
   // IPPIs             PPPPP                     ( signed, 5 pending)
   // IPPIsPPIsPPIS     ......N....P.             (invalid, 1 pending)
-  // IPPIsPPIsPPIS     NNNNNNN....P.                                 [low bitrate mode]
+  // IPPIsPPIsPPIS     NNNNNNN....P.                                [GOP level]
   //            ISPPIsPPIsPPIS    ...........P.  (  valid, 1 pending)
   //                                                       7 pending
   //                        ISP              P.P (invalid, 3 pending)
@@ -3018,8 +3020,8 @@ START_TEST(add_one_p_frame_multiple_gops)
   //
   // IPPIs             PPPPP                      ( signed, 5 pending)
   // IPPIsPPPIsPPIS    ......N.....P.             (invalid, 1 pending, -1 missing)
-  // IPPIsPPPIsPPIS    NNNNNNNN....P.                                 [low bitrate mode]
-  //             ISPPIsPPIsPPIS    ...........P.  (  valid_gops, 1 pending)
+  // IPPIsPPPIsPPIS    NNNNNNNN....P.                                 [GOP level]
+  //             ISPPIsPPIsPPIS    ...........P.  (  valid, 1 pending)
   //                                                        7 pending
   //                         ISP              P.P (invalid, 3 pending)
   signed_video_accumulated_validation_t final_validation = {
@@ -3038,6 +3040,7 @@ END_TEST
 
 START_TEST(modify_one_i_frame_multiple_gops)
 {
+  // TODO: Investigate validation status string. It looks fishy.
   // Device side
   struct sv_setting setting = settings[_i];
   const unsigned signing_frequency = 3;
@@ -3091,8 +3094,8 @@ START_TEST(remove_one_i_frame_multiple_gops)
   //
   // IPPIs             PPPPP                            ( signed, 5 pending)
   // IPPIsPPsPPIS      .......M.NNP.                    (invalid, 1 pending, 1 missing)
-  // IPPIsPPsPPIS      NNNNNNNNNNMP.                                   [low bitrate mode]
-  //           ISPPIsPPIsPPIS      N.NN.......P.        (invalid, 1 pending, wrong link)
+  // IPPIsPPsPPIS      NNNNNNNNNNMP.                                       [GOP level]
+  //           ISPPIsPPIsPPIS      N..........P.        (invalid, 1 pending, wrong link)
   //                       ISIsIsIS           ......P.  (  valid, 1 pending)
   //                                                              8 pending
   //                             ISP                P.P (invalid, 3 pending)

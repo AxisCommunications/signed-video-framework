@@ -505,7 +505,7 @@ verify_hashes_with_hash_list(signed_video_t *self, bu_list_item_t *sei)
     // we may signal SV_AUTH_RESULT_OK instead of SV_AUTH_RESULT_OK_WITH_MISSING_INFO.
     // TODO: Investigate whether adding missing items to the start of the list could cause problems
     // during the validation of multiple GOPs in one go.
-    bu_list_add_missing(bu_list, num_missing, true, bu_list->first_item, sei);
+    bu_list_add_missing_items_at_end_of_partial_gop(bu_list, num_missing, sei);
   }
 
   // If the last invalid BU is the first BU in a GOP or the BU after the SEI, keep it
