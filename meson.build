@@ -1,5 +1,5 @@
 project('signed-video-framework', 'c',
-  version : '2.1.1',
+  version : '2.2.0',
   meson_version : '>= 0.53.0',
   default_options : [ 'warning_level=2',
                       'werror=true',
