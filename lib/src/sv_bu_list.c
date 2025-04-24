@@ -345,6 +345,7 @@ bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
   uint8_t *bu_data = NULL;
   uint8_t *hashable_data = NULL;
   uint8_t *bu_data_wo_epb = NULL;
+  uint8_t *tlv_data = NULL;
   bu_list_item_t *item = list->last_item;
   /* Iteration is performed backwards through the list to find the previous item that
    * contains a valid Bitstream Unit. If a Bitstream Unit is missing, it cannot be copied,
@@ -361,10 +362,22 @@ bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
     SV_THROW_IF(!item->bu, SV_UNKNOWN_FAILURE);
     copied_bu = (bu_info_t *)malloc(sizeof(bu_info_t));
     SV_THROW_IF(!copied_bu, SV_MEMORY);
-    if (item->bu->tlv_data) {
+    if (item->bu->nalu_data_wo_epb) {
+      // If |nalu_data_wo_epb| has been allocated, emulation prevention bytes have been
+      // removed and clean TLV data exists. Copy the data and point |tlv_data| to the
+      // correct place.
+      size_t data_size = item->bu->nalu_data_wo_epb_size;
+      bu_data_wo_epb = malloc(data_size);
+      SV_THROW_IF(!bu_data_wo_epb, SV_MEMORY);
+      memcpy(bu_data_wo_epb, item->bu->nalu_data_wo_epb, data_size);
+      tlv_data = &bu_data_wo_epb[data_size - item->bu->payload_size + UUID_LEN];
+    } else if (item->bu->tlv_data) {
+      // TLV data exists, but there was no need to remove any emulation prevention bytes.
+      // Copy the data and point |tlv_data| to it.
       bu_data_wo_epb = malloc(item->bu->tlv_size);
       SV_THROW_IF(!bu_data_wo_epb, SV_MEMORY);
       memcpy(bu_data_wo_epb, item->bu->tlv_data, item->bu->tlv_size);
+      tlv_data = bu_data_wo_epb;
     }
     // If the library does not know which hash algo to use, store the |hashable_data| for later.
     if (!hash_algo_known) {
@@ -372,12 +385,18 @@ bu_list_copy_last_item(bu_list_t *list, bool hash_algo_known)
       SV_THROW_IF(!bu_data, SV_MEMORY);
       memcpy(bu_data, item->bu->bu_data, item->bu->bu_data_size);
       if (item->bu->is_hashable) {
-        hashable_data = bu_data + hashable_data_offset;
+        if (item->bu->nalu_data_wo_epb && !item->bu->with_epb) {
+          // Hash after emulation prevention bytes have been removed.
+          hashable_data = bu_data_wo_epb;
+        } else {
+          // Hash before emulation prevention bytes have been removed.
+          hashable_data = bu_data + hashable_data_offset;
+        }
       }
     }
     copy_bu_except_pointers(copied_bu, item->bu);
     copied_bu->nalu_data_wo_epb = bu_data_wo_epb;
-    copied_bu->tlv_data = copied_bu->nalu_data_wo_epb;
+    copied_bu->tlv_data = tlv_data;
     copied_bu->pending_bu_data = bu_data;
     copied_bu->bu_data = copied_bu->pending_bu_data;
     copied_bu->hashable_data = hashable_data;

@@ -413,6 +413,7 @@ remove_epb_from_sei_payload(bu_info_t *bu)
     DEBUG_LOG("Failed allocating |nalu_data_wo_epb|");
     bu->is_valid = -1;
   } else {
+    bu->nalu_data_wo_epb_size = data_size;
     // Copy everything from the BU header to stop bit (byte) inclusive, but with the emulation
     // prevention bytes removed.
     const uint8_t *hashable_data_ptr = bu->hashable_data;
