@@ -667,8 +667,7 @@ verify_hashes_without_sei(signed_video_t *self, int num_skips)
       continue;
     }
 
-    bu_info_t *bu_info = item->bu;
-    if (bu_info->is_sv_sei && bu_info->is_signed) {
+    if (item->bu && item->bu->is_sv_sei && item->bu->is_signed) {
       // Skip marking signed SEIs since they are verified by its signature.
       item = item->next;
       continue;
