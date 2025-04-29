@@ -481,42 +481,6 @@ bu_list_add_missing_items_at_end_of_partial_gop(bu_list_t *list,
   }
 }
 
-/* Removes 'M' items present at the beginning of the |list|. A decoded SEI is marked
- * as 'U' since it is not associated with this recording. The screening keeps going
- * until we find the decoded SEI. */
-void
-bu_list_remove_missing_items(bu_list_t *list)
-{
-  if (!list) {
-    return;
-  }
-
-  bool found_first_pending_bu = false;
-  bool found_decoded_sei = false;
-  int num_removed_items = 0;
-  bu_list_item_t *item = list->first_item;
-  while (item && !(found_first_pending_bu && found_decoded_sei)) {
-    // Remove the missing BU in the front.
-    if (item->tmp_validation_status == 'M' && item->in_validation) {
-      const bu_list_item_t *item_to_remove = item;
-      item = item->next;
-      bu_list_remove_and_free_item(list, item_to_remove);
-      num_removed_items++;
-      continue;
-    }
-    if (item->has_been_decoded && item->tmp_validation_status != 'U' && item->in_validation) {
-      found_decoded_sei = true;
-    }
-    item = item->next;
-    if (item && item->tmp_validation_status == 'P') {
-      found_first_pending_bu = true;
-    }
-  }
-  if (num_removed_items > 0) {
-    DEBUG_LOG("Removed %d missing items to list", num_removed_items);
-  }
-}
-
 /* Searches for, and returns, the next pending SEI item. */
 bu_list_item_t *
 bu_list_get_next_sei_item(const bu_list_t *list)

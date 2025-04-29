@@ -130,18 +130,6 @@ bu_list_add_missing_items_at_end_of_partial_gop(bu_list_t* list,
     const bu_list_item_t* associated_sei);
 
 /**
- * @brief Removes 'M' items present at the beginning of a |list|
- *
- * There are scenarios when missing items are added to the front of the |list|, when the
- * framework actually could not verify the hashes. This function marks the decoded SEI as
- * 'U', even if it could be verified, because it is not associated with this recording.
- *
- * @param list The |list| to remove items from.
- */
-void
-bu_list_remove_missing_items(bu_list_t* list);
-
-/**
  * @brief Removes a specific item from the |list| and frees the memory
  *
  * @param list The |list| to remove items from.
