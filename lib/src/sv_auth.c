@@ -649,18 +649,24 @@ verify_hashes_without_sei(signed_video_t *self, int num_skips)
   // Determine number of items to mark given number of BUs to skip.
   int num_marked_items = 0;
   int max_marked_items = num_bu_in_first_gop;
+  int extra_marked_item = 0;
   if (num_bu_in_all_gops == num_bu_in_first_gop) {
     // Only one GOP present. Skip BUs from first GOP.
     max_marked_items -= num_skips;
     if (max_marked_items < 0) {
       max_marked_items = 0;
+      // By definition, at least one BU needs to be validated to be able to synchronize
+      // the SEI.
+      if (!self->validation_flags.sei_in_sync) {
+        extra_marked_item = 1;
+      }
     }
   }
 
   // Start from the oldest item and mark all pending items as NOT OK ('N') until
   // |max_marked_items| have been marked.
   item = bu_list->first_item;
-  while (item && (num_marked_items < max_marked_items)) {
+  while (item && (num_marked_items < max_marked_items + extra_marked_item)) {
     // Skip non-pending items and items already associated with a SEI.
     if (item->tmp_validation_status != 'P' || item->associated_sei) {
       item = item->next;
@@ -682,7 +688,7 @@ verify_hashes_without_sei(signed_video_t *self, int num_skips)
     item = item->next;
   }
 
-  return (num_marked_items > 0);
+  return (num_marked_items - extra_marked_item > 0);
 }
 
 /* Validates the authenticity using hashes in the |bu_list|.
