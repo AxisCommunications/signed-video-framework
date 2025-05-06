@@ -889,13 +889,19 @@ update_sei_in_validation(signed_video_t *self,
       // Fetch the validation status, if not pending, before resetting tmp variable.
       if (sei->tmp_validation_status != 'P') {
         *get_validation_status = sei->tmp_validation_status;
+      } else if (!sei->bu->is_signed && sei->validation_status_if_sei_ok != ' ') {
+        *get_validation_status = sei->validation_status_if_sei_ok;
       }
       sei->tmp_validation_status = sei->validation_status;
     }
     // Set the |validation_status| unless it has been set before.
     if (set_validation_status && sei->validation_status == 'P') {
-      sei->validation_status = *set_validation_status;
-      sei->tmp_validation_status = *set_validation_status;
+      if (!sei->bu->is_signed) {
+        sei->validation_status_if_sei_ok = *set_validation_status;
+      } else {
+        sei->validation_status = *set_validation_status;
+        sei->tmp_validation_status = *set_validation_status;
+      }
     }
   }
 }
