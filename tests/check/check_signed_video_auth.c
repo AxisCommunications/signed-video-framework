@@ -497,19 +497,48 @@ START_TEST(modify_one_p_frame)
   test_stream_t *list = create_signed_stream("IPPIPPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPPISPPISP");
 
-  // Modify first 'P' in second GOP: IPPIS P PPISPPISP
-  const int modify_item_number = 6;
+  // Modify first 'P' in second GOP: IP P ISPPPISPPISP
+  const int modify_item_number = 3;
   modify_list_item(list, modify_item_number, 'P');
 
+  // IPPISPPPISPPISP
+  //
+  // IPPIS                       ..NP.               (invalid, 1 pending)
+  //    ISPPPIS                     .....P.          (  valid, 1 pending)
+  //         ISPPIS                      ....P.      (  valid, 1 pending)
+  //                                                           3 pending
+  //             ISP                         P.P     (invalid, 3 pending)
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, false, 15, 12, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  // IPPISPPPISPPISP
-  // IPPIS            ...P.          ->   (   valid)
-  //    ISPPPIS          ..N..P.     ->   ( invalid)
-  //    ISPPPIS          N.NNNPN     ->   ( invalid) [GOP level authentication]
-  //         ISPPIS           ....P. ->   (   valid)
-  const struct validation_stats expected = {
-      .valid_gops = 2, .invalid_gops = 1, .pending_bu = 3, .final_validation = &final_validation};
+  struct validation_stats expected = {.valid_gops = 0,  // 2,
+      .valid_gops_with_missing_info = 1,  // 0,
+      .invalid_gops = 2,  // 1,
+      .pending_bu = 2,  // 3,
+      .missed_bu = 1,  // 0,
+      .final_validation = &final_validation};
+  if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
+    // When in low bitrate mode the first validation fails and it is not possible to
+    // know if it is due to a modified BU (SEI is in sync), or if the SEI is out of sync
+    // and the associated BUs are not present in the test_stream.
+    //
+    // IPPISPPPISPPISP
+    //
+    // IPPIS                       PPPP.               ( signed, 4 pending)
+    // IPPISPPPIS                  NNN.....P.          (invalid, 1 pending)
+    //         ISPPIS                      ....P.      (  valid, 1 pending)
+    //                                                           6 pending
+    //             ISP                         P.P     (invalid, 3 pending)
+    expected.valid_gops = 0;  // 1;
+    expected.invalid_gops = 0;
+    expected.pending_bu = 4;  // 6;
+    expected.has_signature = 1;
+    // Temporary stats
+    expected.valid_gops_with_missing_info = 0;
+    expected.missed_bu = 0;
+    final_validation.authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
+    final_validation.number_of_validated_nalus = 0;
+    final_validation.number_of_pending_nalus = 15;
+  }
   validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
