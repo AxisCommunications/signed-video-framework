@@ -804,6 +804,12 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
       valid = SV_AUTH_RESULT_SIGNATURE_PRESENT;
       num_expected = -1;
       num_received = -1;
+      if (sei && !sei->bu->is_signed) {
+        // Reset the newly added |linked_hash| if this SEI is not signed, because
+        // otherwise it will be added once again in the next round.
+        uint8_t *computed_linked_hash = gop_info->linked_hashes;
+        memcpy(computed_linked_hash + hash_size, computed_linked_hash, hash_size);
+      }
       // If no valid Bitstream Units were found, reset validation to be able to make more
       // attepts to synchronize the SEIs.
       validation_flags->reset_first_validation = true;
