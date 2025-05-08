@@ -253,7 +253,7 @@ gop_info_create(void)
   gop_info_t *gop_info = (gop_info_t *)calloc(1, sizeof(gop_info_t));
   if (!gop_info) return NULL;
 
-  gop_info->current_partial_gop = 0;
+  gop_info->current_partial_gop = -1;
   // Initialize |verified_signature_hash| as 'error', since we lack data.
   gop_info->verified_signature_hash = -1;
 
@@ -279,7 +279,7 @@ gop_info_reset(gop_info_t *gop_info)
   // If a reset is forced, the stored hashes in |hash_list| have no meaning anymore.
   gop_info->list_idx = 0;
   gop_info->num_partial_gop_wraparounds = 0;
-  gop_info->current_partial_gop = 0;
+  gop_info->current_partial_gop = -1;
   gop_info->next_partial_gop = 0;
   memset(gop_info->linked_hashes, 0, MAX_HASH_SIZE * 2);
 }

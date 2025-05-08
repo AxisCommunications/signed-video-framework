@@ -671,6 +671,11 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
           self->num_gops_until_signing = self->signing_frequency;
         }
       }
+      // Increment GOP counter since a new (partial) GOP is detected.
+      if (gop_info->current_partial_gop < 0) {
+        gop_info->current_partial_gop = 0;
+      }
+      gop_info->current_partial_gop++;
       if (new_gop) {
         self->num_gops_until_signing--;
       }
