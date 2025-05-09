@@ -536,7 +536,6 @@ verify_hashes_with_sei(signed_video_t *self, bu_list_item_t *sei)
       (!sei->bu->is_signed || (sei->bu->is_signed && sei->verified_signature == 1));
   bool gop_hash_ok = verify_gop_hash(self);
   bool linked_hash_ok = verify_linked_hash(self, true);
-  self->validation_flags.sei_in_sync |= linked_hash_ok;
   // For complete and successful validation both the GOP hash and the linked hash have
   // to be correct (given that the signature could be verified successfully of course).
   // If the gop hash could not be verified correct, there is a second chance by
@@ -694,6 +693,7 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
   gop_info_t *gop_info = self->gop_info;
   validation_flags_t *validation_flags = &(self->validation_flags);
   signed_video_latest_validation_t *latest = self->latest_validation;
+  size_t hash_size = self->verify_data->hash_size;
 
   SignedVideoAuthenticityResult valid = SV_AUTH_RESULT_NOT_OK;
   // Initialize to "Unknown"
@@ -751,6 +751,29 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
     valid = SV_AUTH_RESULT_OK_WITH_MISSING_INFO;
     DEBUG_LOG("Successful validation, but detected missing Bitstream Units");
   }
+
+  // Determine if the SEIs are in sync.
+  if (!validation_flags->sei_in_sync) {
+    // If at least one BU could be validated successfully it is by definition also in
+    // sync.
+    validation_flags->sei_in_sync |= has_valid_bu;
+    // If the computed and received link hashes are identical the SEI is in sync. There is
+    // one exception though, and that is when the received SEI is the first of a stream.
+    // In that case the computed linked hash AND the received one have all zeros.
+    const uint8_t *received_linked_hash = self->received_linked_hash;
+    bool is_start_of_stream = hash_is_empty(received_linked_hash, hash_size);
+    if (!is_start_of_stream) {
+      // Comparing linked hashes is enough.
+      validation_flags->sei_in_sync |= verify_linked_hash(self, false);
+    }
+    // One special case is if the signature is not verified correctly, but the (partial)
+    // GOP is correctly verified (GOP hashes match). If the SEI is not in sync it will
+    // never get in sync and validation will never reach a verdict.
+    if (validation_flags->num_lost_seis == 0) {
+      validation_flags->sei_in_sync |= verify_success;
+    }
+  }
+
   // If we lose an entire GOP (part from the associated SEI) it will be seen as valid. Here we fix
   // it afterwards.
   // TODO: Move this inside the verify_hashes_ functions. We should not need to perform any special
@@ -793,10 +816,6 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
   }
   if (latest->public_key_has_changed) valid = SV_AUTH_RESULT_NOT_OK;
 
-  if (valid == SV_AUTH_RESULT_OK) {
-    validation_flags->sei_in_sync = true;
-  }
-
   // Update |latest_validation| with the validation result.
   if (latest->authenticity <= SV_AUTH_RESULT_SIGNATURE_PRESENT) {
     // Still either pending validation or video has no signature. Update with the current
@@ -815,12 +834,19 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
     latest->number_of_expected_picture_nalus += num_expected;
   }
   // Update |current_partial_gop| and |num_lost_seis| w.r.t. if SEI is in sync.
-  if (validation_flags->sei_in_sync) {
-    gop_info->current_partial_gop = gop_info->next_partial_gop;
-    validation_flags->num_lost_seis = 0;
-  } else {
-    validation_flags->num_lost_seis =
-        gop_info->next_partial_gop - gop_info->current_partial_gop - 1;
+  // Only update if SEIs have not been reordered.
+  if (validation_flags->num_lost_seis >= 0) {
+    if (validation_flags->sei_in_sync && (validation_flags->num_lost_seis < 2)) {
+      gop_info->current_partial_gop = gop_info->next_partial_gop;
+      validation_flags->num_lost_seis = 0;
+    } else {
+      // Only update |num_lost_seis| if decreased. For example, if a validation was
+      // performed with an "old" re-ordered SEI |next_partial_gop| is incorrect.
+      int new_num_lost_seis = gop_info->next_partial_gop - gop_info->current_partial_gop - 1;
+      if (new_num_lost_seis < validation_flags->num_lost_seis) {
+        validation_flags->num_lost_seis = new_num_lost_seis;
+      }
+    }
   }
 }
 
