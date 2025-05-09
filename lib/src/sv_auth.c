@@ -91,7 +91,7 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
   gop_info_t *gop_info = self->gop_info;
   int64_t partial_gop_number = gop_info->current_partial_gop;
   DEBUG_LOG("SEI payload size = %zu, exp (partial) gop number = %ld", payload_size,
-      gop_info->latest_validated_gop + 1);
+      partial_gop_number + 1);
 
   svrc_t status = sv_tlv_decode(self, payload, payload_size);
   if (status != SV_OK) {
@@ -108,7 +108,6 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
       gop_info->num_partial_gop_wraparounds++;
     }
   }
-  gop_info->current_partial_gop = gop_info->next_partial_gop;
 
   return status;
 }
@@ -121,9 +120,9 @@ detect_lost_sei(signed_video_t *self)
 {
   gop_info_t *gop_info = self->gop_info;
   // Get the last GOP counter.
-  int64_t exp_partial_gop_number = gop_info->latest_validated_gop + 1;
+  int64_t exp_partial_gop_number = gop_info->current_partial_gop + 1;
   // Compare new with last number of GOPs to detect potentially lost SEIs.
-  int64_t new_partial_gop_number = gop_info->current_partial_gop;
+  int64_t new_partial_gop_number = gop_info->next_partial_gop;
   // Compensate for counter wraparounds.
   new_partial_gop_number += (int64_t)gop_info->num_partial_gop_wraparounds << 32;
   int64_t potentially_lost_seis = new_partial_gop_number - exp_partial_gop_number;
@@ -732,9 +731,9 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
     remove_sei_association(self->bu_list, sei);
     sei = NULL;
     verify_success = verify_hashes_without_sei(self, gop_info->num_sent);
-    // If a GOP was verified without a SEI, increment the |latest_validated_gop|.
+    // If a GOP was verified without a SEI, increment the |current_partial_gop|.
     if (self->validation_flags.signing_present && verify_success) {
-      gop_info->latest_validated_gop++;
+      gop_info->current_partial_gop++;
     }
     num_expected = -1;
   } else if (validation_flags->num_lost_seis < 0) {
@@ -836,13 +835,13 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
   } else if (latest->number_of_expected_picture_nalus != -1) {
     latest->number_of_expected_picture_nalus += num_expected;
   }
-  // Update |latest_validated_gop| and |num_lost_seis| w.r.t. if SEI is in sync.
+  // Update |current_partial_gop| and |num_lost_seis| w.r.t. if SEI is in sync.
   if (self->validation_flags.sei_in_sync) {
-    gop_info->latest_validated_gop = gop_info->current_partial_gop;
+    gop_info->current_partial_gop = gop_info->next_partial_gop;
     self->validation_flags.num_lost_seis = 0;
   } else {
     self->validation_flags.num_lost_seis =
-        gop_info->current_partial_gop - gop_info->latest_validated_gop - 1;
+        gop_info->next_partial_gop - gop_info->current_partial_gop - 1;
   }
 }
 
