@@ -255,7 +255,7 @@ typedef struct {
   // |gop_hash|.
   uint16_t num_frames_in_partial_gop;  // Counted number of frames in the current partial
   // GOP.
-  uint32_t current_partial_gop;  // The index of the current GOP, incremented when encoded in the
+  int64_t current_partial_gop;  // The index of the current GOP, incremented when encoded in the
   // TLV.
   int64_t latest_validated_gop;  // The index of latest validated GOP.
   int num_partial_gop_wraparounds;  // Tracks number of times the |current_partial_gop|
