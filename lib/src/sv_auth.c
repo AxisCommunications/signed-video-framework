@@ -228,13 +228,6 @@ update_link_hash(signed_video_t *self, const bu_list_item_t *sei)
 #endif
 }
 
-/* Resets the buffer of linked hashes. */
-static void
-reset_linked_hash(signed_video_t *self)
-{
-  memset(self->gop_info->linked_hashes, 0, 2 * MAX_HASH_SIZE);
-}
-
 /* Computes the GOP hash from Bitstream Units (BU) in the |bu_list|
  *
  * This function iterates through the BU list, identifies the BUs that belong to the
@@ -1120,6 +1113,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
 {
   assert(self && bu);
 
+  gop_info_t *gop_info = self->gop_info;
   validation_flags_t *validation_flags = &(self->validation_flags);
   signed_video_latest_validation_t *latest = self->latest_validation;
   bu_list_t *bu_list = self->bu_list;
@@ -1144,7 +1138,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
       latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
       latest->public_key_has_changed = false;
       // Check if the data is golden. If it is, update the validation status accordingly.
-      if (bu->is_golden_sei && self->gop_info->verified_signature_hash != 1) {
+      if (bu->is_golden_sei && gop_info->verified_signature_hash != 1) {
         latest->authenticity = SV_AUTH_RESULT_NOT_OK;
         self->has_public_key = false;
       }
@@ -1210,7 +1204,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
         update_validation_status = true;
       }
       if (!validation_flags->waiting_for_signature) {
-        self->gop_info->verified_signature_hash = -1;
+        gop_info->verified_signature_hash = -1;
         validation_flags->has_auth_result = true;
         // All statistics but pending BUs have already been collected.
         latest->number_of_pending_picture_nalus = bu_list_num_pending_items(bu_list);
@@ -1239,7 +1233,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
     if (validation_flags->is_first_validation) {
       update_sei_in_validation(self, false, NULL, &sei_validation_status);
       // Reset any set linked hashes if the session is still waiting for a first validation.
-      reset_linked_hash(self);
+      memset(gop_info->linked_hashes, 0, 2 * MAX_HASH_SIZE);
       // Re-compute number of pending BUs.
       latest->number_of_pending_picture_nalus = bu_list_num_pending_items(bu_list);
     }
