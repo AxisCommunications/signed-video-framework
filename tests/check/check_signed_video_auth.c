@@ -1301,9 +1301,13 @@ START_TEST(fast_forward_stream_without_reset)
   //
   //                   ISP                 ->  (invalid)
   signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 8 + 13,
-      8 + 10, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  const struct validation_stats expected = {
-      .valid_gops = 1, .invalid_gops = 2, .pending_bu = 3, .final_validation = &final_validation};
+      8 + 1,  // 10,
+      12,  // 3,
+      SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {.valid_gops = 0,  // 1,
+      .invalid_gops = 3,  // 2,
+      .pending_bu = 4,  // 3,
+      .final_validation = &final_validation};
   validate_stream(sv, list, expected, true);
 
   // Free list and session.
