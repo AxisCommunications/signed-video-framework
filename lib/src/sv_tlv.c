@@ -332,10 +332,8 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
   SV_TRY()
     SV_THROW_IF(version < 1 || version > 4, SV_INCOMPATIBLE_VERSION);
 
-    uint32_t gop_counter = 0;
-    data_ptr += sv_read_32bits(data_ptr, &gop_counter);
-    gop_info->current_partial_gop = gop_counter;
-    DEBUG_LOG("Found GOP counter = %ld", gop_info->current_partial_gop);
+    data_ptr += sv_read_32bits(data_ptr, &gop_info->next_partial_gop);
+    DEBUG_LOG("Found GOP counter = %u", gop_info->next_partial_gop);
     data_ptr += sv_read_16bits(data_ptr, &gop_info->num_sent);
     DEBUG_LOG("Number of sent Bitstream Units = %u", gop_info->num_sent);
 
@@ -382,7 +380,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
     printf("\nGeneral Information Tag\n");
     printf("             tag version: %u\n", version);
     printf("                   flags: %u\n", flags);
-    printf("           partial GOP #: %ld\n", gop_info->current_partial_gop);
+    printf("           partial GOP #: %u\n", gop_info->next_partial_gop);
     printf("triggered by partial GOP: %s\n", gop_info->triggered_partial_gop ? "true" : "false");
     printf("# hashed Bitstream Units: %u\n", gop_info->num_sent);
     printf("              SW version: %s\n", code_version_str);

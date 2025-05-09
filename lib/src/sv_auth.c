@@ -100,7 +100,7 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
   }
 
   // Compare new with last number of GOPs to detect potential wraparound.
-  int64_t new_partial_gop_number = gop_info->current_partial_gop;
+  int64_t new_partial_gop_number = gop_info->next_partial_gop;
   if (new_partial_gop_number < partial_gop_number) {
     // There is a potential wraparound, but it could also be due to re-ordering of SEIs.
     // Use the distance to determine which of these options is the most likely one.
@@ -108,6 +108,7 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
       gop_info->num_partial_gop_wraparounds++;
     }
   }
+  gop_info->current_partial_gop = gop_info->next_partial_gop;
 
   return status;
 }
