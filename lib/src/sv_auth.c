@@ -47,8 +47,6 @@
 
 static svrc_t
 decode_sei_data(signed_video_t *signed_video, const uint8_t *payload, size_t payload_size);
-static void
-detect_lost_sei(signed_video_t *self);
 static bool
 hash_is_empty(const uint8_t *hash, size_t hash_size);
 static bool
@@ -89,9 +87,12 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
 {
   assert(self && payload && (payload_size > 0));
   gop_info_t *gop_info = self->gop_info;
-  int64_t partial_gop_number = gop_info->current_partial_gop;
-  DEBUG_LOG("SEI payload size = %zu, exp (partial) gop number = %ld", payload_size,
-      partial_gop_number + 1);
+  int64_t last_gop_number = gop_info->current_partial_gop;
+  int64_t exp_gop_number = last_gop_number + 1;
+  int64_t previous_next_partial_gop = gop_info->next_partial_gop;
+  DEBUG_LOG("SEI payload size = %zu, exp (partial) gop number = %ld", payload_size, exp_gop_number);
+  // Reset hash list to make sure the list does not contain old hashes if not populated.
+  gop_info->list_idx = 0;
 
   svrc_t status = sv_tlv_decode(self, payload, payload_size);
   if (status != SV_OK) {
@@ -101,49 +102,28 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
 
   // Compare new with last number of GOPs to detect potential wraparound.
   int64_t new_partial_gop_number = gop_info->next_partial_gop;
-  if (new_partial_gop_number < partial_gop_number) {
+  if (new_partial_gop_number < previous_next_partial_gop) {
     // There is a potential wraparound, but it could also be due to re-ordering of SEIs.
     // Use the distance to determine which of these options is the most likely one.
-    if (((int64_t)1 << 31) < partial_gop_number - new_partial_gop_number) {
+    if (((int64_t)1 << 31) < previous_next_partial_gop - new_partial_gop_number) {
       gop_info->num_partial_gop_wraparounds++;
+    } else {
+      new_partial_gop_number = previous_next_partial_gop;
     }
   }
-
-  return status;
-}
-
-/**
- * Detects if there are any missing SEI messages based on the GOP counter and updates the GOP state.
- */
-static void
-detect_lost_sei(signed_video_t *self)
-{
-  gop_info_t *gop_info = self->gop_info;
-  // Get the last GOP counter.
-  int64_t exp_partial_gop_number = gop_info->current_partial_gop + 1;
-  // Compare new with last number of GOPs to detect potentially lost SEIs.
-  int64_t new_partial_gop_number = gop_info->next_partial_gop;
   // Compensate for counter wraparounds.
   new_partial_gop_number += (int64_t)gop_info->num_partial_gop_wraparounds << 32;
-  int64_t potentially_lost_seis = new_partial_gop_number - exp_partial_gop_number;
-
-  // If this is the first SEI used in this session there can by definition not be any lost
-  // SEIs. Also, if a SEI is detected that is the first SEI of a stream (no linked hash)
-  // it is infeasible to detect lost SEIs as well. This can happen if the session is reset
-  // on the camera/signing device.
-  size_t hash_size = self->verify_data->hash_size;
-  bool is_start_of_stream = hash_is_empty(self->received_linked_hash, hash_size);
-  if (is_start_of_stream || self->validation_flags.is_first_sei) {
+  int64_t potentially_lost_seis = new_partial_gop_number - exp_gop_number;
+  // Before the SEIs are in sync it is, by definition, not possible to detect number of
+  // lost SEIs.
+  if (!self->validation_flags.sei_in_sync) {
     potentially_lost_seis = 0;
   }
   // Check if any SEIs have been lost. Wraparound of 64 bits is not feasible in practice.
   // Hence, a negative value means that an older SEI has been received.
-  // NOTE: It should not be necessary to check if |potentially_lost_seis| is outside
-  // range, since if that many GOPs have been lost that is a much more serious issue.
-  self->validation_flags.num_lost_seis = (int)potentially_lost_seis;
-  // If there are no lost SEIs it is in sync. Otherwise, validation should probably be
-  // performed without this SEI.
-  self->validation_flags.sei_in_sync = (potentially_lost_seis == 0);
+  self->validation_flags.num_lost_seis = potentially_lost_seis;
+
+  return status;
 }
 
 /* Checks if the hash is empty, that is, consists of all zeros. */
@@ -948,7 +928,6 @@ prepare_for_validation(signed_video_t *self, bu_list_item_t **sei)
       (*sei)->has_been_decoded = true;
       memcpy(verify_data->hash, (*sei)->hash, hash_size);
     }
-    detect_lost_sei(self);
     // Mark status of |sei| based on signature verification.
     if (validation_flags->num_lost_seis == 0) {
       if ((*sei)->bu->is_signed) {
