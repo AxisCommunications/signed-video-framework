@@ -1179,6 +1179,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
     int max_loop = 10;
     bool update_validation_status = false;
     bool public_key_has_changed = false;
+    bool start_sei_in_sync = validation_flags->sei_in_sync;
     char sei_validation_status = 'U';
     // Keep validating as long as there are pending GOPs.
     bool stop_validating = false;
@@ -1249,6 +1250,36 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
       DEBUG_LOG("Validation aborted after reaching max number of loops");
     }
 
+    if (start_sei_in_sync != validation_flags->sei_in_sync) {
+      // Some partial GOPs may have been discarded due to being out of sync at that time
+      // because they were in fact correctly invalid. Get stats another time and update
+      // |latest->authenticity|.
+      SignedVideoAuthenticityResult valid = SV_AUTH_RESULT_NOT_OK;
+      int num_invalid;
+      int num_missed;
+      bu_list_get_stats(self->bu_list, NULL, &num_invalid, &num_missed);
+      DEBUG_LOG("Number of invalid Bitstream Units = %d.", num_invalid);
+      DEBUG_LOG("Number of missed Bitstream Units  = %d.", num_missed);
+
+      valid = (num_invalid > 0) ? SV_AUTH_RESULT_NOT_OK : SV_AUTH_RESULT_OK;
+
+      // Determine if this GOP is valid, but has missing information. This happens if we have
+      // detected missed BUs or if the GOP is incomplete.
+      if (valid == SV_AUTH_RESULT_OK && (num_missed > 0)) {
+        valid = SV_AUTH_RESULT_OK_WITH_MISSING_INFO;
+      }
+      // Update |latest_validation| with the validation result.
+      if (latest->authenticity <= SV_AUTH_RESULT_SIGNATURE_PRESENT) {
+        // Still either pending validation or video has no signature. Update with the current
+        // result.
+        latest->authenticity = valid;
+      } else if (valid < latest->authenticity) {
+        // Current GOP validated a worse authenticity compared to what has been validated so
+        // far. Update with this worse result, since that is what should rule the total
+        // validation.
+        latest->authenticity = valid;
+      }
+    }
     SV_THROW(bu_list_update_status(bu_list, update_validation_status));
     if (validation_flags->is_first_validation) {
       update_sei_in_validation(self, false, NULL, &sei_validation_status);
