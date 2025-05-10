@@ -559,7 +559,9 @@ verify_hashes_with_sei(signed_video_t *self, bu_list_item_t *sei)
     mark_associated_items(bu_list, verify_success, linked_hash_ok, sei);
   }
 
-  return verify_success;
+  // Return success also if the GOP hash is correct, but the SEI is not. This means that
+  // The actual verification is correct.
+  return verify_success || gop_hash_ok;
 }
 
 /* Verifying hashes without the SEI means that we have nothing to verify against. Therefore, we mark
@@ -709,7 +711,7 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
     // Marking this GOP as not OK by verify_hashes_without_sei().
     remove_sei_association(self->bu_list, sei);
     sei = NULL;
-    verify_success = verify_hashes_without_sei(self, gop_info->num_sent);
+    verify_success = verify_hashes_without_sei(self, num_expected);
     // If a GOP was verified without a SEI, increment the |current_partial_gop|.
     if (validation_flags->signing_present && verify_success) {
       gop_info->current_partial_gop++;
