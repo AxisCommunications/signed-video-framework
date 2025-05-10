@@ -784,29 +784,14 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
     }
   }
 
-  // If we lose an entire GOP (part from the associated SEI) it will be seen as valid. Here we fix
-  // it afterwards.
-  // TODO: Move this inside the verify_hashes_ functions. We should not need to perform any special
-  // actions on the output.
-  // TODO: Investigate if this part is actually needed.
-  // if (!validation_flags->is_first_validation) {
-  //   if ((valid == SV_AUTH_RESULT_OK) && (num_expected > 1) && (num_missed >= num_expected)) {
-  //     valid = SV_AUTH_RESULT_NOT_OK;
-  //   }
-  // }
   // The very first validation needs to be handled separately. If this is truly the start of a
   // stream we have all necessary information to successfully validate the authenticity. It can be
   // interpreted as being in sync with its signing counterpart. If this session validates the
   // authenticity of a segment of a stream, e.g., an exported file, we start out of sync. The first
   // SEI may be associated with a GOP prior to this segment.
-  if (validation_flags->is_first_validation) {
-    // Change status from SV_AUTH_RESULT_OK to SV_AUTH_RESULT_SIGNATURE_PRESENT if no valid BUs
-    // were found when collecting stats.
-    if ((valid == SV_AUTH_RESULT_OK) && !has_valid_bu && (sei && sei->bu->is_signed)) {
-      valid = SV_AUTH_RESULT_SIGNATURE_PRESENT;
-    }
+  if (validation_flags->is_first_validation && !validation_flags->sei_in_sync) {
     // If validation was successful, the |current_partial_gop| is in sync.
-    if (valid != SV_AUTH_RESULT_OK) {
+    if (valid != SV_AUTH_RESULT_OK && !has_valid_bu) {
       // We have validated the authenticity based on one single BU, but failed. A success can only
       // happen if we are at the beginning of the original stream. For all other cases, for example,
       // if we validate the authenticity of an exported file, the first SEI may be associated with a
@@ -821,7 +806,7 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
       num_received = -1;
       // If no valid Bitstream Units were found, reset validation to be able to make more
       // attepts to synchronize the SEIs.
-      validation_flags->reset_first_validation = !has_valid_bu;
+      validation_flags->reset_first_validation = true;
     }
   }
   if (latest->public_key_has_changed) valid = SV_AUTH_RESULT_NOT_OK;
@@ -869,7 +854,7 @@ remove_sei_association(bu_list_t *bu_list, const bu_list_item_t *sei)
   bu_list_item_t *item = bu_list->first_item;
   while (item) {
     if (sei && item->associated_sei == sei) {
-      if (item->validation_status == 'M') {
+      if (item->tmp_validation_status == 'M') {
         const bu_list_item_t *item_to_remove = item;
         item = item->next;
         bu_list_remove_and_free_item(bu_list, item_to_remove);
@@ -1200,8 +1185,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
     while (has_pending_partial_gop(self) && !stop_validating && max_loop > 0) {
       bu_list_item_t *sei = NULL;
       // Initialize latest validation if not validating intermediate GOPs.
-      if (!validation_flags->waiting_for_signature &&
-          (!validation_flags->has_auth_result || validation_flags->is_first_validation)) {
+      if (!validation_flags->waiting_for_signature && !validation_flags->has_auth_result) {
         latest->authenticity = SV_AUTH_RESULT_SIGNATURE_PRESENT;
         latest->number_of_expected_picture_nalus = 0;
         latest->number_of_received_picture_nalus = 0;
@@ -1223,7 +1207,7 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
         validate_authenticity(self, sei);
       }
 
-      if (validation_flags->is_first_validation && (latest->authenticity != SV_AUTH_RESULT_OK)) {
+      if (validation_flags->is_first_validation && !validation_flags->sei_in_sync) {
         // Fetch the |tmp_validation_status| for later use.
         update_sei_in_validation(self, false, &sei_validation_status, NULL);
       }
