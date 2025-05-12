@@ -697,7 +697,7 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
 
   SignedVideoAuthenticityResult valid = SV_AUTH_RESULT_NOT_OK;
   // Initialize to "Unknown"
-  int num_expected = self->gop_info->num_sent;
+  int num_expected = gop_info->num_sent;
   int num_received = self->tmp_num_in_partial_gop;
   int num_invalid = -1;
   int num_missed = -1;
@@ -711,7 +711,7 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
     sei = NULL;
     verify_success = verify_hashes_without_sei(self, gop_info->num_sent);
     // If a GOP was verified without a SEI, increment the |current_partial_gop|.
-    if (self->validation_flags.signing_present && verify_success) {
+    if (validation_flags->signing_present && verify_success) {
       gop_info->current_partial_gop++;
     }
     num_expected = -1;
@@ -788,13 +788,13 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
       num_received = -1;
       // If no valid Bitstream Units were found, reset validation to be able to make more
       // attepts to synchronize the SEIs.
-      self->validation_flags.reset_first_validation = !has_valid_bu;
+      validation_flags->reset_first_validation = !has_valid_bu;
     }
   }
   if (latest->public_key_has_changed) valid = SV_AUTH_RESULT_NOT_OK;
 
   if (valid == SV_AUTH_RESULT_OK) {
-    self->validation_flags.sei_in_sync = true;
+    validation_flags->sei_in_sync = true;
   }
 
   // Update |latest_validation| with the validation result.
@@ -809,17 +809,17 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
     latest->authenticity = valid;
   }
   latest->number_of_received_picture_nalus += num_received;
-  if (self->validation_flags.num_lost_seis > 0) {
+  if (validation_flags->num_lost_seis > 0) {
     latest->number_of_expected_picture_nalus = -1;
   } else if (latest->number_of_expected_picture_nalus != -1) {
     latest->number_of_expected_picture_nalus += num_expected;
   }
   // Update |current_partial_gop| and |num_lost_seis| w.r.t. if SEI is in sync.
-  if (self->validation_flags.sei_in_sync) {
+  if (validation_flags->sei_in_sync) {
     gop_info->current_partial_gop = gop_info->next_partial_gop;
-    self->validation_flags.num_lost_seis = 0;
+    validation_flags->num_lost_seis = 0;
   } else {
-    self->validation_flags.num_lost_seis =
+    validation_flags->num_lost_seis =
         gop_info->next_partial_gop - gop_info->current_partial_gop - 1;
   }
 }
