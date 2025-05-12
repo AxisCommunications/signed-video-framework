@@ -719,10 +719,18 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
     num_expected = -1;
   } else if (validation_flags->num_lost_seis < 0) {
     DEBUG_LOG("Found an old SEI. Mark (partial) GOP as not authentic.");
-    remove_sei_association(self->bu_list, sei);
-    sei = NULL;
-    verify_success = verify_hashes_without_sei(self, 0);
-    num_expected = -1;
+    // If the number of lost SEIs is negative it either indicates a re-order of SEIs or
+    // if the signing side reset the session. For the latter case, the GOP hash should be
+    // correct, only the link is off.
+    bool gop_hash_ok = verify_gop_hash(self);
+    if (gop_hash_ok) {
+      verify_success = verify_hashes_with_sei(self, sei);
+    } else {
+      remove_sei_association(self->bu_list, sei);
+      sei = NULL;
+      verify_success = verify_hashes_without_sei(self, 0);
+      num_expected = -1;
+    }
   } else {
     verify_success = verify_hashes_with_sei(self, sei);
   }

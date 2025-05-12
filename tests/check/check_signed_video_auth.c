@@ -1093,8 +1093,6 @@ END_TEST
  */
 START_TEST(camera_reset_on_signing_side)
 {
-  // TODO: Enable when solved
-  return;
   // Generate 2 GOPs
   test_stream_t *list = create_signed_stream("IPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISP");
