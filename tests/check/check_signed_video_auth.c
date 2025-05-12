@@ -510,12 +510,8 @@ START_TEST(modify_one_p_frame)
   //             ISP                         P.P     (invalid, 3 pending)
   signed_video_accumulated_validation_t final_validation = {
       SV_AUTH_RESULT_NOT_OK, false, 15, 12, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
-  struct validation_stats expected = {.valid_gops = 0,  // 2,
-      .valid_gops_with_missing_info = 1,  // 0,
-      .invalid_gops = 2,  // 1,
-      .pending_bu = 2,  // 3,
-      .missed_bu = 1,  // 0,
-      .final_validation = &final_validation};
+  struct validation_stats expected = {
+      .valid_gops = 2, .invalid_gops = 1, .pending_bu = 3, .final_validation = &final_validation};
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
     // When in low bitrate mode the first validation fails and it is not possible to
     // know if it is due to a modified BU (SEI is in sync), or if the SEI is out of sync
@@ -2084,9 +2080,7 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
   ck_assert_int_eq(sv_rc, SV_OK);
   ck_assert(auth_report);
 
-  // TODO: This test is correct but currently one SEI is not enough. The state "signature
-  // present" will be used until the bug is fixed.
-  ck_assert_int_eq(auth_report->latest_validation.authenticity, SV_AUTH_RESULT_SIGNATURE_PRESENT);
+  ck_assert_int_eq(auth_report->latest_validation.authenticity, SV_AUTH_RESULT_NOT_OK);
 
   signed_video_authenticity_report_free(auth_report);
   // Free bu_list_item and session.
