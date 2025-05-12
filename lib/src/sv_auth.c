@@ -159,16 +159,16 @@ hash_is_empty(const uint8_t *hash, size_t hash_size)
  * SEI.
  */
 bool
-verify_linked_hash(signed_video_t *self)
+verify_linked_hash(signed_video_t *self, bool check_empty_hash)
 {
-  gop_info_t *gop_info = self->gop_info;
   const size_t hash_size = self->verify_data->hash_size;
-  const uint8_t linked_hash[MAX_HASH_SIZE] = {0};
+  const uint8_t *computed_link = self->gop_info->linked_hashes;
+  const uint8_t *received_link = self->received_linked_hash;
   // The linked hash is used to validate the sequence of GOPs. Verification is only possible
   // after receiving two complete GOPs, which is indicated by the presence of all-zero
   // hashes in |linked_hashes|.
-  return ((memcmp(gop_info->linked_hashes, linked_hash, hash_size) == 0) ||
-      (memcmp(gop_info->linked_hashes, self->received_linked_hash, hash_size) == 0));
+  return ((memcmp(computed_link, received_link, hash_size) == 0) ||
+      (check_empty_hash && hash_is_empty(computed_link, hash_size)));
 }
 
 /**
@@ -562,7 +562,7 @@ verify_hashes_with_sei(signed_video_t *self, bu_list_item_t *sei)
   bool sei_is_maybe_ok =
       (!sei->bu->is_signed || (sei->bu->is_signed && sei->verified_signature == 1));
   bool gop_hash_ok = verify_gop_hash(self);
-  bool linked_hash_ok = verify_linked_hash(self);
+  bool linked_hash_ok = verify_linked_hash(self, true);
   self->validation_flags.sei_in_sync |= linked_hash_ok;
   // For complete and successful validation both the GOP hash and the linked hash have
   // to be correct (given that the signature could be verified successfully of course).
