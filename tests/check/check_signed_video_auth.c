@@ -524,14 +524,9 @@ START_TEST(modify_one_p_frame)
     //         ISPPIS                      ....P.      (  valid, 1 pending)
     //                                                           6 pending
     //             ISP                         P.P     (invalid, 3 pending)
-    expected.valid_gops = 2;  // 1;
-    expected.invalid_gops = 0;
+    expected.valid_gops = 1;
     expected.pending_bu = 6;
     expected.has_signature = 1;
-    // Temporary stats
-    expected.valid_gops_with_missing_info = 0;
-    expected.missed_bu = 0;
-    final_validation.authenticity = SV_AUTH_RESULT_OK;
   }
   validate_stream(NULL, list, expected, true);
 
