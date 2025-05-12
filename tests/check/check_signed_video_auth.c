@@ -2860,8 +2860,6 @@ END_TEST
 
 START_TEST(file_export_and_scrubbing_multiple_gops)
 {
-  // Enable when validation can be made without dead lock.
-  return;
   // Device side
   struct sv_setting setting = settings[_i];
   const unsigned signing_frequency = 3;
@@ -2899,15 +2897,16 @@ START_TEST(file_export_and_scrubbing_multiple_gops)
   // Get the first two GOPs.
   test_stream_t *first_list = test_stream_pop_gops(list, 2);
   // IsPPPPPIsPP
-  // No report triggered.
-  signed_video_accumulated_validation_t tmp_final_validation = {
-      SV_AUTH_RESULT_NOT_SIGNED, false, 11, 0, 11, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  // No report triggered. No timestamps in report.
+  signed_video_accumulated_validation_t tmp_final_validation = {SV_AUTH_RESULT_SIGNATURE_PRESENT,
+      false, 11, 0, 11, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, false, 0, 0};
   expected.final_validation = &tmp_final_validation;
   expected.valid_gops = 0;
   expected.pending_bu = 0;  // No report triggered.
   expected.has_signature = 0;
-  ck_assert_int_eq(signed_video_reset(sv), SV_OK);
+  expected.has_no_timestamp = true;
   // 5) Reset and validate the first two GOPs.
+  ck_assert_int_eq(signed_video_reset(sv), SV_OK);
   validate_stream(sv, first_list, expected, true);
   test_stream_free(first_list);
   // 6) Scrub forward one GOP.
@@ -2921,8 +2920,9 @@ START_TEST(file_export_and_scrubbing_multiple_gops)
   expected.valid_gops = 1;
   expected.pending_bu = 1;  // No report on the first unsigned SEI.
   expected.has_signature = 0;
-  ck_assert_int_eq(signed_video_reset(sv), SV_OK);
+  expected.has_no_timestamp = false;
   // 7) Reset and validate the rest of the file.
+  ck_assert_int_eq(signed_video_reset(sv), SV_OK);
   validate_stream(sv, list, expected, true);
 
   test_stream_free(list);
