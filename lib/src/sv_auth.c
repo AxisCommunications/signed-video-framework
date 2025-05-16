@@ -1489,6 +1489,8 @@ add_bitstream_unit(signed_video_t *self, const uint8_t *bu_data, size_t bu_data_
       self->legacy_sv = legacy_sv_create(self);
       SV_THROW_IF(!self->legacy_sv, SV_MEMORY);
       sv_accumulated_validation_init(self->accumulated_validation);
+      // Hash algorithm is by definition known.
+      validation_flags->hash_algo_known = true;
     }
     if (nalus_pending_registration && validation_flags->hash_algo_known) {
       SV_THROW(reregister_bu(self));
