@@ -429,7 +429,9 @@ remove_epb_from_sei_payload(bu_info_t *bu)
       // If the SEI was hashed before applying emulation prevention, update |hashable_data|.
       bu->hashable_data = bu->nalu_data_wo_epb;
       bu->tlv_start_in_bu_data = bu->tlv_data;
-      if (bu->is_signed) {
+      if (bu->is_signed && !signature_ptr) {
+        bu->is_valid = -1;  // Something went wrong when finding the signature tag.
+      } else if (bu->is_signed) {
         bu->hashable_data_size = signature_ptr - bu->hashable_data;
       } else {
         bu->hashable_data_size = data_size;
