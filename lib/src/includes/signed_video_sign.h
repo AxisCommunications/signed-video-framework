@@ -513,6 +513,36 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid);
 SignedVideoReturnCode
 signed_viedo_set_max_signing_frames(signed_video_t *self, unsigned max_signing_frames);
 
+/**
+ * @brief Sets an attestation report to the Signed Video session
+ *
+ * The attestation report is defined as the Public key |attestation| and a
+ * |certificate_chain|. This attestation report is stored and added to the generated SEI
+ * as optional metadata, that is, metadata that is not always present.
+ *
+ * This API must be called before the session starts to have an impact.
+ *
+ * Excluding |attestation| implies that the signing key is factory provisioned and an
+ * attestation is not needed. Leave out |attestation| with a NULL pointer.
+ * It is assumed that the |attestation| is at most 255 bytes large, hence
+ * |attestation_size| fits in a single byte.
+ *
+ * @param sv Pointer to the Signed Video session.
+ * @param attestation Pointer to the key attestation. A NULL means that the signing key is
+ *   factory provisioned.
+ * @param attestation_size The size of the key attestation. Set to 0 if no attestation
+ *   should be set.
+ * @param certificate_chain Pointer to the certificate chain. SV_NOT_SUPPORTED is returned
+ *   if an attempt to replace an existing certificate_chain is made.
+ *
+ * @return SV_OK upon success, otherwise an appropriate error.
+ */
+SignedVideoReturnCode
+sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,
+    const void *attestation,
+    uint8_t attestation_size,
+    const char *certificate_chain);
+
 #ifdef __cplusplus
 }
 #endif

@@ -27,7 +27,7 @@
 #include "legacy/legacy_tlv.h"  // legacy_tlv_decode()
 #include "legacy_validation.h"  // Has public declarations
 #include "sv_authenticity.h"  // update_accumulated_validation()
-#include "sv_axis_communications_internal.h"
+#include "sv_axis_communications.h"
 #include "sv_openssl_internal.h"  // sv_openssl_verify_hash()
 #include "sv_tlv.h"  // sv_tlv_find_tag()
 

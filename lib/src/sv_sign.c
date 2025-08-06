@@ -27,7 +27,7 @@
 #include "includes/signed_video_sign.h"
 #include "includes/signed_video_signing_plugin.h"
 #include "sv_authenticity.h"  // allocate_memory_and_copy_string
-#include "sv_axis_communications_internal.h"
+#include "sv_axis_communications.h"
 #include "sv_codec_internal.h"  // METADATA_TYPE_USER_PRIVATE
 #include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
 #include "sv_internal.h"  // gop_info_t

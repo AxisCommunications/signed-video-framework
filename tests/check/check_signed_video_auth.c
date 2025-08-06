@@ -27,7 +27,6 @@
 #include "includes/signed_video_common.h"  // signed_video_t
 #include "includes/signed_video_openssl.h"  // pem_pkey_t
 #include "includes/signed_video_sign.h"  // signed_video_set_authenticity_level()
-#include "includes/sv_vendor_axis_communications.h"
 #include "sv_internal.h"  // set_hash_list_size()
 #include "sv_openssl_internal.h"  // openssl_read_pubkey_from_private_key()
 #include "sv_tlv.h"  // sv_write_byte_many()
