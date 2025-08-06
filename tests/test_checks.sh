@@ -29,15 +29,9 @@ echo ""
 meson setup -Ddebugprints=false -Dbuildtype=debug -Dsigningplugin=threaded_unless_check_dep --reconfigure . build
 ninja -C build test
 
-echo "=== Run check tests without any vendors ==="
-echo ""
-
-meson setup -Dbuildtype=debug -Dsigningplugin=unthreaded -Dvendors= --reconfigure . build
-ninja -C build test
-
 echo ""
 echo "=== Run check tests with all vendors and SIGNED_VIDEO_DEBUG ==="
 echo ""
 
-meson setup -Ddebugprints=true -Dbuildtype=debug -Dvendors=all --reconfigure . build
+meson setup -Ddebugprints=true -Dbuildtype=debug -Dsigningplugin=unthreaded --reconfigure . build
 ninja -C build test

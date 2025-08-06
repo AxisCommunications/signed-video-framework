@@ -22,15 +22,12 @@
 #include <stdbool.h>
 #include <string.h>  // strcmp
 
-#include "legacy_validation.h"  // Has public declarations
-
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
-#include "axis-communications/sv_vendor_axis_communications_internal.h"
-#endif
 #include "legacy/legacy_bu_list.h"
 #include "legacy/legacy_internal.h"
 #include "legacy/legacy_tlv.h"  // legacy_tlv_decode()
+#include "legacy_validation.h"  // Has public declarations
 #include "sv_authenticity.h"  // update_accumulated_validation()
+#include "sv_axis_communications_internal.h"
 #include "sv_openssl_internal.h"  // sv_openssl_verify_hash()
 #include "sv_tlv.h"  // sv_tlv_find_tag()
 
@@ -754,7 +751,6 @@ legacy_prepare_for_validation(legacy_sv_t *self)
     SV_THROW_IF_WITH_MSG(validation_flags->signing_present && !self->has_public_key,
         SV_NOT_SUPPORTED, "No public key present");
 
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // If "Axis Communications AB" can be identified from the |product_info|, get
     // |supplemental_authenticity| from |vendor_handle|.
     if (sei && strcmp(self->product_info->manufacturer, "Axis Communications AB") == 0) {
@@ -780,7 +776,6 @@ legacy_prepare_for_validation(legacy_sv_t *self)
         }
       }
     }
-#endif
 
     // If we have received a SEI there is a signature to use for verification.
     if (self->gop_state.has_sei || self->bu_list->first_item->bu->is_golden_sei) {

@@ -29,9 +29,7 @@
 #include "includes/signed_video_common.h"
 #include "includes/signed_video_helpers.h"
 #include "includes/signed_video_sign.h"
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "includes/sv_vendor_axis_communications.h"
-#endif
 #include "sv_codec_internal.h"  // bu_info_t, kUuidSignedVideo
 #include "sv_internal.h"  // set_hash_list_size(), UUID_LEN
 #include "sv_tlv.h"  // tlv_has_{optional, mandatory}_tags()
@@ -411,7 +409,6 @@ START_TEST(incorrect_operation)
 }
 END_TEST
 
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 /* Test description
  * All APIs in vendors/axis-communications are checked for invalid parameters, and valid NULL
  * pointer inputs. */
@@ -509,7 +506,6 @@ START_TEST(factory_provisioned_key)
   free(certificate_chain);
 }
 END_TEST
-#endif
 
 // TODO: Enabled when we have better support and knowledge about EOS.
 #if 0
@@ -825,7 +821,6 @@ START_TEST(w_wo_emulation_prevention_bytes)
     signed_video_t *sv = get_initialized_signed_video(setting, false);
     ck_assert(sv);
 
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     const size_t attestation_size = 2;
     void *attestation = calloc(1, attestation_size);
     // Setting |attestation| and |certificate_chain|.
@@ -834,7 +829,6 @@ START_TEST(w_wo_emulation_prevention_bytes)
     ck_assert_int_eq(sv_rc, SV_OK);
     free(attestation);
     setting.vendor_axis_mode = 0;
-#endif
 
     // Add I-frame for signing and get SEI frame
     sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
@@ -966,10 +960,8 @@ signed_video_suite(void)
   // Add tests
   tcase_add_loop_test(tc, api_inputs, s, e);
   tcase_add_loop_test(tc, incorrect_operation, s, e);
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
   tcase_add_loop_test(tc, factory_provisioned_key, s, e);
-#endif
   // tcase_add_loop_test(tc, correct_signed_stream_with_eos, s, e);
   // tcase_add_loop_test(tc, correct_signed_multislice_stream_with_eos, s, e);
   tcase_add_loop_test(tc, correct_signed_stream_without_eos, s, e);

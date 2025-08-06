@@ -23,13 +23,11 @@
 #include <stdlib.h>  // free, malloc
 #include <string.h>  // size_t, strncpy
 
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
-#include "axis-communications/sv_vendor_axis_communications_internal.h"
-#endif
 #include "includes/signed_video_openssl.h"  // pem_pkey_t
 #include "includes/signed_video_sign.h"
 #include "includes/signed_video_signing_plugin.h"
 #include "sv_authenticity.h"  // allocate_memory_and_copy_string
+#include "sv_axis_communications_internal.h"
 #include "sv_codec_internal.h"  // METADATA_TYPE_USER_PRIVATE
 #include "sv_defines.h"  // svrc_t, sv_tlv_tag_t
 #include "sv_internal.h"  // gop_info_t
@@ -798,11 +796,9 @@ initialize_onvif(signed_video_t *self)
   SV_TRY()
     // Port settings to ONVIF
     SV_THROW(port_settings_to_onvif(self));
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // Retrieve the certificate chain
     certificate_chain = get_axis_communications_certificate_chain(self->vendor_handle);
     SV_THROW_IF(!certificate_chain, SV_MEMORY);
-#endif
     // Set the signing key pair for ONVIF media signing
     SV_THROW(msrc_to_svrc(onvif_media_signing_set_signing_key_pair(self->onvif, self->private_key,
         self->private_key_size, certificate_chain, strlen(certificate_chain), false)));

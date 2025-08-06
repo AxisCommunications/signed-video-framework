@@ -27,9 +27,7 @@
 #include "includes/signed_video_common.h"  // signed_video_t
 #include "includes/signed_video_openssl.h"  // pem_pkey_t
 #include "includes/signed_video_sign.h"  // signed_video_set_authenticity_level()
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 #include "includes/sv_vendor_axis_communications.h"
-#endif
 #include "sv_internal.h"  // set_hash_list_size()
 #include "sv_openssl_internal.h"  // openssl_read_pubkey_from_private_key()
 #include "sv_tlv.h"  // sv_write_byte_many()
@@ -1572,7 +1570,6 @@ START_TEST(fallback_to_gop_level)
 }
 END_TEST
 
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 /* Test description
  * APIs in vendors/axis-communications are used and tests both signing and validation parts. */
 START_TEST(vendor_axis_communications_operation)
@@ -1839,7 +1836,6 @@ START_TEST(onvif_intact_stream)
   test_stream_free(list);
 }
 END_TEST
-#endif
 
 static signed_video_t *
 generate_and_set_private_key_on_camera_side(struct sv_setting setting,
@@ -2117,7 +2113,6 @@ START_TEST(no_emulation_prevention_bytes)
   signed_video_t *sv = get_initialized_signed_video(setting, false);
   ck_assert(sv);
 
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   const size_t attestation_size = 2;
   void *attestation = calloc(1, attestation_size);
   // Setting |attestation| and |certificate_chain|.
@@ -2125,7 +2120,6 @@ START_TEST(no_emulation_prevention_bytes)
       sv, attestation, attestation_size, axisDummyCertificateChain);
   ck_assert_int_eq(sv_rc, SV_OK);
   free(attestation);
-#endif
 
   // Add I-frame for signing and get SEI frame.
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
@@ -3296,11 +3290,9 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, no_public_key_in_sei_and_bad_public_key_on_validation_side, s, e);
   tcase_add_loop_test(tc, fallback_to_gop_level, s, e);
   tcase_add_loop_test(tc, golden_sei_principle, s, e);
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   tcase_add_loop_test(tc, vendor_axis_communications_operation, s, e);
   tcase_add_loop_test(tc, factory_provisioned_key, s, e);
   tcase_add_loop_test(tc, onvif_intact_stream, s, e);
-#endif
   tcase_add_loop_test(tc, no_emulation_prevention_bytes, s, e);
   tcase_add_loop_test(tc, with_blocked_signing, s, e);
   // Signed partial GOPs

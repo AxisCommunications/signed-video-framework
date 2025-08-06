@@ -5,6 +5,7 @@ signedvideoframework_public_headers = files(
   'includes/signed_video_openssl.h',
   'includes/signed_video_sign.h',
   'includes/signed_video_signing_plugin.h',
+  'includes/sv_vendor_axis_communications.h'
 )
 
 signedvideoframework_sources = files(
@@ -12,6 +13,8 @@ signedvideoframework_sources = files(
   'sv_auth.c',
   'sv_authenticity.c',
   'sv_authenticity.h',
+  'sv_axis_communications.c',
+  'sv_axis_communications_internal.h',
   'sv_bu_list.c',
   'sv_bu_list.h',
   'sv_codec_av1.c',
@@ -41,13 +44,8 @@ legacy_sources = files(
 
 # Add source files from plugins, vendors, legacy code
 signedvideoframework_sources += plugin_sources
-signedvideoframework_sources += vendor_sources
 signedvideoframework_sources += legacy_sources
 
-# Add vendor specific public headers
-if build_with_axis
-  signedvideoframework_public_headers += files('includes/sv_vendor_axis_communications.h')
-endif
 # Add ONVIF Media Signing source files and public headers
 if populated_media_signing_submodule
   signedvideoframework_sources += mediasigningframework_sources

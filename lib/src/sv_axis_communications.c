@@ -18,8 +18,6 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#include "includes/sv_vendor_axis_communications.h"
-
 #include <assert.h>
 #include <openssl/bio.h>  // BIO_*
 #include <openssl/evp.h>  // EVP_*
@@ -29,9 +27,10 @@
 #include <stdbool.h>
 #include <stdlib.h>  // malloc, memcpy, calloc, free
 
+#include "includes/sv_vendor_axis_communications.h"
+#include "sv_axis_communications_internal.h"
 #include "sv_internal.h"  // signed_video_t
 #include "sv_tlv.h"
-#include "sv_vendor_axis_communications_internal.h"
 
 #define NUM_UNTRUSTED_CERTIFICATES 2  // |certificate_chain| has 2 untrusted certificates.
 #define CHIP_ID_SIZE 18

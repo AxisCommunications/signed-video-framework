@@ -14,30 +14,26 @@ signed-video-framework
 |   |   |   └── plugin.c
 |   |   └── unthreaded-signing
 |   |       └── plugin.c
-|   ├── src
-|   |   ├── includes
-|   |   |   └── public header files
-|   |   └── source files
-|   └── vendors
-|       └── axis-communications
-|           └── source files
+|   └── src
+|       ├── includes
+|       |   └── public header files
+|       └── source files
 └── tests
 ```
 
 The repository is split into a library and tests. The library is further organized in
-[source code](./lib/src/), [plugins](./lib/plugins/) and [vendors](./lib/vendors/). The source code
-includes all necessary source files for both signing and validation, and there is no conceptual
-difference in building the library for signing or for validation.
+[source code](./lib/src/) and [plugins](./lib/plugins/). The source code includes all necessary
+source files for both signing and validation, and there is no conceptual difference in building the
+library for signing or for validation.
 
 Signing is commonly device specific with separate calls for, e.g., reading and using private keys.
 Therefore, the framework uses the concept of signing plugins which implements a set of
 [interfaces](./lib/src/includes/signed_video_signing_plugin.h). The framework comes with both a
 threaded and an unthreaded signing plugin.
 
-Further, the framework allows for vendor specific metadata. Adding that on the signing side, and
-interpreting it on the validation side is controlled through vendor specific code.
-
-For instructions on how to use the APIs to integrate the Signed Video Framework in either a signing or a validation application, see [lib/](./lib/). Example applications are available in the [signed-video-framework-examples](https://github.com/AxisCommunications/signed-video-framework-examples) repository.
+For instructions on how to use the APIs to integrate the Signed Video Framework in either a signing
+or a validation application, see [lib/](./lib/). Example applications are available in the
+[signed-video-framework-examples](https://github.com/AxisCommunications/signed-video-framework-examples) repository.
 
 # Releases
 There are no pre-built releases. The user is encouraged to build the library from a [release tag](https://github.com/AxisCommunications/signed-video-framework/tags).
