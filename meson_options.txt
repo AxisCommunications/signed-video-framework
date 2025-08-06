@@ -6,11 +6,6 @@ option('signingplugin',
   type : 'string',
   value : 'unthreaded',
   description : 'Select signing plugin; \'unthreaded\' (default), \'threaded\' or \'threaded_unless_check_dep\'')
-option('vendors',
-  type : 'array',
-  choices : [ 'all', 'axis-communications' ],
-  value : [ 'all' ],
-  description : 'Select vendor(s) to support. By default all vendors are added. Set an empty list \'-Dvendors=\' if the library should be built without vendors.')
 option('parsesei',
   type : 'boolean',
   value : false,

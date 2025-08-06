@@ -24,12 +24,10 @@
 #include <stdio.h>
 #endif
 
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
-#include "axis-communications/sv_vendor_axis_communications_internal.h"
-#endif
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "sv_authenticity.h"  // transfer_product_info()
+#include "sv_axis_communications_internal.h"
 #include "sv_openssl_internal.h"  // openssl_public_key_malloc()
 
 /**
@@ -714,7 +712,6 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
     // Convert to EVP_PKEY_CTX
     SV_THROW(openssl_public_key_malloc(self->verify_data, &self->pem_public_key));
 
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // If "Axis Communications AB" can be identified from the |product_info|, set |public_key| to
     // |vendor_handle|.
     if (strcmp(self->product_info.manufacturer, "Axis Communications AB") == 0) {
@@ -722,7 +719,6 @@ decode_public_key(signed_video_t *self, const uint8_t *data, size_t data_size)
       SV_THROW(set_axis_communications_public_key(self->vendor_handle, self->verify_data->key,
           self->latest_validation->public_key_has_changed));
     }
-#endif
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
 #ifdef PRINT_DECODED_SEI
@@ -1017,17 +1013,10 @@ decode_crypto_info(signed_video_t *self, const uint8_t *data, size_t data_size)
  *
  */
 static size_t
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 encode_axis_communications(signed_video_t *self, uint8_t *data)
 {
   bool epb = self->sei_epb;
   return encode_axis_communications_handle(self->vendor_handle, &self->last_two_bytes, epb, data);
-#else
-encode_axis_communications(signed_video_t ATTR_UNUSED *self, uint8_t ATTR_UNUSED *data)
-{
-  // Vendor Axis Communications not selected.
-  return 0;
-#endif
 }
 
 /**
@@ -1035,7 +1024,6 @@ encode_axis_communications(signed_video_t ATTR_UNUSED *self, uint8_t ATTR_UNUSED
  *
  */
 static svrc_t
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 decode_axis_communications(signed_video_t *self, const uint8_t *data, size_t data_size)
 {
   svrc_t status = SV_UNKNOWN_FAILURE;
@@ -1051,14 +1039,6 @@ decode_axis_communications(signed_video_t *self, const uint8_t *data, size_t dat
   SV_DONE(status)
 
   return status;
-#else
-decode_axis_communications(signed_video_t ATTR_UNUSED *self,
-    const uint8_t ATTR_UNUSED *data,
-    size_t ATTR_UNUSED data_size)
-{
-  // Vendor Axis Communications not selected.
-  return SV_NOT_SUPPORTED;
-#endif
 }
 
 static size_t

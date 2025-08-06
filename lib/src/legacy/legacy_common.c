@@ -979,10 +979,8 @@ legacy_sv_create(signed_video_t *parent)
     SV_THROW_WITH_MSG(legacy_reset_gop_hash(self), "Could not reset gop_hash");
 
     // Borrow vendor handle from |parent|.
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     self->vendor_handle = parent->vendor_handle;
     SV_THROW_IF(!self->vendor_handle, SV_MEMORY);
-#endif
 
     // Initialize validation members
     self->bu_list = legacy_bu_list_create();

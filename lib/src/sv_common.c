@@ -28,14 +28,12 @@
 #include <stdlib.h>  // free, calloc, malloc
 #include <string.h>  // size_t
 
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
-#include "axis-communications/sv_vendor_axis_communications_internal.h"
-#endif
 #include "includes/signed_video_common.h"
 #include "includes/signed_video_helpers.h"  // onvif_media_signing_parse_sei()
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "includes/signed_video_signing_plugin.h"
 #include "sv_authenticity.h"  // sv_latest_validation_init()
+#include "sv_axis_communications_internal.h"
 #include "sv_bu_list.h"  // bu_list_create(), bu_list_free()
 #include "sv_codec_internal.h"  // parse_h264_nalu_header(), parse_av1_obu_header()
 #include "sv_defines.h"  // svrc_t
@@ -990,10 +988,8 @@ signed_video_create(SignedVideoCodec codec)
     SV_THROW_IF_WITH_MSG(!self->gop_info, SV_MEMORY, "Could not allocate gop_info");
     self->gop_info->num_in_partial_gop = 0;
     // Setup vendor handle.
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     self->vendor_handle = sv_vendor_axis_communications_setup();
     SV_THROW_IF(!self->vendor_handle, SV_MEMORY);
-#endif
 
     // Initialize signing members
     // Signing plugin is setup when the private key is set.
@@ -1091,9 +1087,7 @@ signed_video_free(signed_video_t *self)
   // Teardown the plugin before closing.
   sv_signing_plugin_session_teardown(self->plugin_handle);
   // Teardown the vendor handle.
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
   sv_vendor_axis_communications_teardown(self->vendor_handle);
-#endif
   // Teardown the crypto handle.
   sv_openssl_free_handle(self->crypto_handle);
 

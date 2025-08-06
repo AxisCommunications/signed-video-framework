@@ -21,13 +21,11 @@
 #include <assert.h>  // assert
 #include <stdlib.h>  // free
 
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
-#include "axis-communications/sv_vendor_axis_communications_internal.h"
-#endif
 #include "includes/signed_video_auth.h"
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "legacy_validation.h"
 #include "sv_authenticity.h"  // sv_create_local_authenticity_report_if_needed()
+#include "sv_axis_communications_internal.h"
 #include "sv_bu_list.h"  // bu_list_append()
 #include "sv_defines.h"  // svrc_t
 #include "sv_internal.h"  // gop_info_t, validation_flags_t
@@ -987,7 +985,6 @@ prepare_for_validation(signed_video_t *self, bu_list_item_t **sei)
     }
     validation_flags->waiting_for_signature = !(*sei)->bu->is_signed;
 
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // If "Axis Communications AB" can be identified from the |product_info|, get
     // |supplemental_authenticity| from |vendor_handle|.
     if (strcmp(self->product_info.manufacturer, "Axis Communications AB") == 0) {
@@ -1013,7 +1010,6 @@ prepare_for_validation(signed_video_t *self, bu_list_item_t **sei)
         }
       }
     }
-#endif
 
   SV_CATCH()
   SV_DONE(status)
@@ -1410,11 +1406,9 @@ detect_onvif_media_signing(signed_video_t *self, const bu_info_t *bu)
   SV_TRY()
     self->onvif = onvif_media_signing_create(codec);
     SV_THROW_IF(!self->onvif, SV_EXTERNAL_ERROR);
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // Get the root CA certificate from Axis code.
     trusted_certificate = get_axis_communications_trusted_certificate();
     trusted_certificate_size = strlen(trusted_certificate);
-#endif
     SV_THROW(msrc_to_svrc(onvif_media_signing_set_trusted_certificate(
         self->onvif, trusted_certificate, trusted_certificate_size, false)));
     // If the ONVIF Media Signing session has successfully been set up, register all

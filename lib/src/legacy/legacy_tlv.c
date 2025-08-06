@@ -25,12 +25,10 @@
 #endif
 #include <string.h>
 
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
-#include "axis-communications/sv_vendor_axis_communications_internal.h"
-#endif
 #include "includes/signed_video_common.h"  // Return codes
 #include "includes/signed_video_openssl.h"  // sign_or_verify_data_t
 #include "sv_authenticity.h"  // allocate_memory_and_copy_string, transfer_product_info()
+#include "sv_axis_communications_internal.h"
 #include "sv_openssl_internal.h"  // openssl_public_key_malloc()
 #include "sv_tlv.h"  // sv_read_8bits, sv_read_16bits, sv_read_32bits, sv_read_64bits_signed
 
@@ -382,7 +380,6 @@ legacy_decode_public_key(legacy_sv_t *self, const uint8_t *data, size_t data_siz
     // Convert to EVP_PKEY_CTX
     SV_THROW(openssl_public_key_malloc(self->verify_data, &self->pem_public_key));
 
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
     // If "Axis Communications AB" can be identified from the |product_info|, set |public_key| to
     // |vendor_handle|.
     if (strcmp(self->product_info->manufacturer, "Axis Communications AB") == 0) {
@@ -390,7 +387,6 @@ legacy_decode_public_key(legacy_sv_t *self, const uint8_t *data, size_t data_siz
       SV_THROW(set_axis_communications_public_key(self->vendor_handle, self->verify_data->key,
           self->latest_validation->public_key_has_changed));
     }
-#endif
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
 #ifdef PRINT_DECODED_SEI
@@ -549,18 +545,9 @@ legacy_decode_crypto_info(legacy_sv_t *self, const uint8_t *data, size_t data_si
  *
  */
 static svrc_t
-#ifdef SV_VENDOR_AXIS_COMMUNICATIONS
 legacy_decode_axis_communications(legacy_sv_t *self, const uint8_t *data, size_t data_size)
 {
   return decode_axis_communications_handle(self->vendor_handle, data, data_size);
-#else
-legacy_decode_axis_communications(legacy_sv_t ATTR_UNUSED *self,
-    const uint8_t ATTR_UNUSED *data,
-    size_t ATTR_UNUSED data_size)
-{
-  // Vendor Axis Communications not selected.
-  return SV_NOT_SUPPORTED;
-#endif
 }
 
 static svrc_t

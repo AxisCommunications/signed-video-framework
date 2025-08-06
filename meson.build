@@ -41,11 +41,6 @@ if get_option('generatetestkeys')
   add_global_arguments('-DGENERATE_TEST_KEYS', language : 'c')
 endif
 
-build_with_axis = ('axis-communications' in get_option('vendors')) or ('all' in get_option('vendors'))
-if build_with_axis
-  add_global_arguments('-DSV_VENDOR_AXIS_COMMUNICATIONS', language : 'c')
-endif
-
 signing_plugin = get_option('signingplugin')
 # Determine if 'threaded_unless_check_dep' should use 'threaded' or 'unthreaded'
 if (signing_plugin == 'threaded_unless_check_dep' and check_dep.found())
@@ -82,7 +77,7 @@ signedvideoframework_deps = [ openssl_dep, plugin_deps, mediasigningframework_de
 signedvideoframework = shared_library(
     'signed-video-framework',
     signedvideoframework_sources,
-    include_directories : [ svsrcinc, vendorinc, omssrcinc ],
+    include_directories : [ svsrcinc, omssrcinc ],
     version : meson.project_version(),
     dependencies : signedvideoframework_deps,
     install : true,
