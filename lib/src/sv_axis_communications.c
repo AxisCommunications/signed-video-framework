@@ -18,6 +18,8 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+#include "sv_axis_communications.h"
+
 #include <assert.h>
 #include <openssl/bio.h>  // BIO_*
 #include <openssl/evp.h>  // EVP_*
@@ -27,8 +29,7 @@
 #include <stdbool.h>
 #include <stdlib.h>  // malloc, memcpy, calloc, free
 
-#include "includes/sv_vendor_axis_communications.h"
-#include "sv_axis_communications_internal.h"
+#include "includes/signed_video_sign.h"
 #include "sv_internal.h"  // signed_video_t
 #include "sv_tlv.h"
 
@@ -829,7 +830,7 @@ get_axis_communications_certificate_chain(void *handle)
   return (const char *)self->certificate_chain;
 }
 
-// Definitions of public APIs declared in sv_vendor_axis_communications.h.
+// Definitions of public APIs declared in signed_video_sign.h.
 
 SignedVideoReturnCode
 sv_vendor_axis_communications_set_attestation_report(signed_video_t *sv,

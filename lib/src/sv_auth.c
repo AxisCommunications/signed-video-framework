@@ -25,7 +25,7 @@
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "legacy_validation.h"
 #include "sv_authenticity.h"  // sv_create_local_authenticity_report_if_needed()
-#include "sv_axis_communications_internal.h"
+#include "sv_axis_communications.h"
 #include "sv_bu_list.h"  // bu_list_append()
 #include "sv_defines.h"  // svrc_t
 #include "sv_internal.h"  // gop_info_t, validation_flags_t

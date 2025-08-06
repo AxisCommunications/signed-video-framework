@@ -33,7 +33,7 @@
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "includes/signed_video_signing_plugin.h"
 #include "sv_authenticity.h"  // sv_latest_validation_init()
-#include "sv_axis_communications_internal.h"
+#include "sv_axis_communications.h"
 #include "sv_bu_list.h"  // bu_list_create(), bu_list_free()
 #include "sv_codec_internal.h"  // parse_h264_nalu_header(), parse_av1_obu_header()
 #include "sv_defines.h"  // svrc_t

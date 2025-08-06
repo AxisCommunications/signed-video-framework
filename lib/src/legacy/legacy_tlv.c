@@ -28,7 +28,7 @@
 #include "includes/signed_video_common.h"  // Return codes
 #include "includes/signed_video_openssl.h"  // sign_or_verify_data_t
 #include "sv_authenticity.h"  // allocate_memory_and_copy_string, transfer_product_info()
-#include "sv_axis_communications_internal.h"
+#include "sv_axis_communications.h"
 #include "sv_openssl_internal.h"  // openssl_public_key_malloc()
 #include "sv_tlv.h"  // sv_read_8bits, sv_read_16bits, sv_read_32bits, sv_read_64bits_signed
 

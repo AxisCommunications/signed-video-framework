@@ -27,7 +27,7 @@
 #include "includes/signed_video_auth.h"  // signed_video_product_info_t
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "sv_authenticity.h"  // transfer_product_info()
-#include "sv_axis_communications_internal.h"
+#include "sv_axis_communications.h"
 #include "sv_openssl_internal.h"  // openssl_public_key_malloc()
 
 /**

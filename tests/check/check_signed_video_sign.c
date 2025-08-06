@@ -29,7 +29,6 @@
 #include "includes/signed_video_common.h"
 #include "includes/signed_video_helpers.h"
 #include "includes/signed_video_sign.h"
-#include "includes/sv_vendor_axis_communications.h"
 #include "sv_codec_internal.h"  // bu_info_t, kUuidSignedVideo
 #include "sv_internal.h"  // set_hash_list_size(), UUID_LEN
 #include "sv_tlv.h"  // tlv_has_{optional, mandatory}_tags()
