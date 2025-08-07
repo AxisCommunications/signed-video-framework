@@ -249,8 +249,8 @@ START_TEST(invalid_api_inputs)
 
   signed_video_t *sv = signed_video_create(codec);
   ck_assert(sv);
-  test_stream_item_t *p_frame = test_stream_item_create_from_type('P', 0, codec);
-  test_stream_item_t *invalid = test_stream_item_create_from_type('X', 0, codec);
+  test_stream_item_t *p_frame = test_stream_item_create_from_type('P', 0, codec, false);
+  test_stream_item_t *invalid = test_stream_item_create_from_type('X', 0, codec, false);
 
   // signed_video_add_nalu_and_authenticate()
   // NULL pointers are invalid, as well as zero sized BUs.
@@ -1001,7 +1001,7 @@ START_TEST(add_one_sei_after_signing)
   test_stream_check_types(list, "IPPISPPPISPPISP");
 
   const uint8_t id = 0;
-  test_stream_item_t *sei = test_stream_item_create_from_type('Z', id, codec);
+  test_stream_item_t *sei = test_stream_item_create_from_type('Z', id, codec, false);
 
   // Append the middle 'P' in second GOP: IPPISP P(Z) PISPPISP
   const int append_item_number = 7;
@@ -1463,7 +1463,7 @@ END_TEST
  */
 START_TEST(onvif_seis)
 {
-  test_stream_t *list = test_stream_create("IPIOPIOP", settings[_i].codec);
+  test_stream_t *list = test_stream_create("IPIOPIOP", settings[_i].codec, false);
   if (settings[_i].codec == SV_CODEC_AV1) {
     // ONVIF Media Signing is not supported for AV1.
     test_stream_check_types(list, "IPIPIP");
@@ -1499,7 +1499,7 @@ END_TEST
  */
 START_TEST(no_signature)
 {
-  test_stream_t *list = test_stream_create("IPPIPPIPPIPPI", settings[_i].codec);
+  test_stream_t *list = test_stream_create("IPPIPPIPPIPPI", settings[_i].codec, false);
   test_stream_check_types(list, "IPPIPPIPPIPPI");
 
   // Video is not signed, hence all Bitstream Units are pending.
@@ -1519,7 +1519,7 @@ START_TEST(multislice_no_signature)
 {
   // For AV1, multi-slices are covered in one single OBU (OBU Frame).
   if (settings[_i].codec == SV_CODEC_AV1) return;
-  test_stream_t *list = test_stream_create("IiPpPpIiPpPpIiPpPpIiPpPpIi", settings[_i].codec);
+  test_stream_t *list = test_stream_create("IiPpPpIiPpPpIiPpPpIiPpPpIi", settings[_i].codec, false);
   test_stream_check_types(list, "IiPpPpIiPpPpIiPpPpIiPpPpIi");
 
   // Video is not signed, hence all Bitstream Units are pending.
@@ -1576,9 +1576,9 @@ START_TEST(vendor_axis_communications_operation)
   SignedVideoReturnCode sv_rc;
   struct sv_setting setting = settings[_i];
   SignedVideoCodec codec = settings[_i].codec;
-  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec);
-  test_stream_item_t *p_frame = test_stream_item_create_from_type('P', 1, codec);
-  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 2, codec);
+  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec, false);
+  test_stream_item_t *p_frame = test_stream_item_create_from_type('P', 1, codec, false);
+  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 2, codec, false);
   test_stream_item_t *sei_item = NULL;
   uint8_t *sei = NULL;
   size_t sei_size = 0;
@@ -1691,9 +1691,9 @@ START_TEST(factory_provisioned_key)
 #ifndef NO_ONVIF_MEDIA_SIGNING
   if (codec != SV_CODEC_AV1) return;
 #endif
-  test_stream_item_t *i_item = test_stream_item_create_from_type('I', 0, codec);
-  test_stream_item_t *p_item = test_stream_item_create_from_type('P', 1, codec);
-  test_stream_item_t *i_item_2 = test_stream_item_create_from_type('I', 2, codec);
+  test_stream_item_t *i_item = test_stream_item_create_from_type('I', 0, codec, false);
+  test_stream_item_t *p_item = test_stream_item_create_from_type('P', 1, codec, false);
+  test_stream_item_t *i_item_2 = test_stream_item_create_from_type('I', 2, codec, false);
   test_stream_item_t *sei_item = NULL;
   uint8_t *sei = NULL;
   size_t sei_size = 0;
@@ -1844,8 +1844,8 @@ generate_and_set_private_key_on_camera_side(struct sv_setting setting,
   SignedVideoReturnCode sv_rc;
   char *private_key = NULL;
   size_t private_key_size = 0;
-  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, setting.codec);
-  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 1, setting.codec);
+  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, setting.codec, false);
+  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 1, setting.codec, false);
   signed_video_t *sv = signed_video_create(setting.codec);
   ck_assert(sv);
   // Read and set content of private_key.
@@ -1894,7 +1894,7 @@ validate_public_key_scenario(signed_video_t *sv,
   signed_video_authenticity_t *auth_report = NULL;
   signed_video_latest_validation_t *latest = NULL;
 
-  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec, false);
   sv_rc =
       signed_video_add_nalu_and_authenticate(sv, i_frame->data, i_frame->data_size, &auth_report);
   ck_assert(!auth_report);
@@ -2028,8 +2028,8 @@ START_TEST(no_public_key_in_sei_and_bad_public_key_on_validation_side)
 {
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
-  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec);
-  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 1, codec);
+  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec, false);
+  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 1, codec, false);
   test_stream_item_t *sei = NULL;
   signed_video_t *sv_camera = NULL;
   char *tmp_private_key = NULL;
@@ -2098,8 +2098,8 @@ START_TEST(no_emulation_prevention_bytes)
   SignedVideoReturnCode sv_rc;
 
   // Create a video with a single I-frame, and a SEI (to be created later).
-  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec);
-  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 1, codec);
+  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec, false);
+  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 1, codec, false);
 
   test_stream_item_t *sei_item = NULL;
   uint8_t *sei = NULL;
@@ -2561,7 +2561,7 @@ START_TEST(add_one_p_frame_partial_gops)
   test_stream_check_types(list, "IPPPPSPISPPISPPPPSPISP");
 
   // Add a middle 'P' in third GOP: IPPPPSPISPPISP P PPPSPISP
-  test_stream_item_t *p = test_stream_item_create_from_type('P', 100, settings[_i].codec);
+  test_stream_item_t *p = test_stream_item_create_from_type('P', 100, settings[_i].codec, false);
   const int append_item_number = 14;
   test_stream_append_item(list, p, append_item_number);
   test_stream_check_types(list, "IPPPPSPISPPISPPPPPSPISP");
@@ -3018,7 +3018,7 @@ START_TEST(add_one_p_frame_multiple_gops)
   test_stream_check_types(list, "IPPIsPPIsPPISPPIsPPIsPPISP");
 
   // Add a middle 'P' in second GOP: IPPIsP P PIsPPISPPIsPPIsPPISP
-  test_stream_item_t *p = test_stream_item_create_from_type('P', 100, settings[_i].codec);
+  test_stream_item_t *p = test_stream_item_create_from_type('P', 100, settings[_i].codec, false);
   const int append_nalu_number = 6;
   test_stream_append_item(list, p, append_nalu_number);
   test_stream_check_types(list, "IPPIsPPPIsPPISPPIsPPIsPPISP");

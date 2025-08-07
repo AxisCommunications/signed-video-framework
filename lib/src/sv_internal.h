@@ -89,6 +89,7 @@ typedef enum {
   BU_TYPE_PS = 4,  // Parameter Set: PPS/SPS/VPS and similar for AV1
   BU_TYPE_AUD = 5,
   BU_TYPE_OTHER = 6,
+  BU_TYPE_TG = 7,
 } SignedVideoFrameType;
 
 typedef enum {

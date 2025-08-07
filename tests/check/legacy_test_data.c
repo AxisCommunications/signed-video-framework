@@ -1301,7 +1301,7 @@ get_legacy_stream(int idx, SignedVideoCodec codec)
   // Check if this test case is valid.
   if (!legacy_data[idx][0].data || (legacy_data[idx][0].data_size == 0)) return NULL;
 
-  test_stream_t *list = test_stream_create("", codec);
+  test_stream_t *list = test_stream_create("", codec, false);
   for (int ii = 0; ii < LEGACY_STREAM_LENGTH; ii++) {
     uint8_t *data = malloc(legacy_data[idx][ii].data_size);
     memcpy(data, legacy_data[idx][ii].data, legacy_data[idx][ii].data_size);
