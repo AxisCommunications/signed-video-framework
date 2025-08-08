@@ -77,12 +77,11 @@ parse_av1_obu_header(bu_info_t *obu)
       obu_header_is_valid &= (obu_size == 0);
       break;
     case 3:  // 3 OBU_FRAME_HEADER
-      obu->bu_type = BU_TYPE_OTHER;
-      obu_header_is_valid = false;  // Not yet supported
+      obu->bu_type = ((*obu_ptr & 0x60) >> 5) == 0 ? BU_TYPE_I : BU_TYPE_P;
+      obu->is_primary_slice = true;
       break;
     case 4:  // 4 OBU_TILE_GROUP
-      obu->bu_type = BU_TYPE_OTHER;
-      obu_header_is_valid = false;  // Not yet supported
+      obu->bu_type = BU_TYPE_TG;
       break;
     case 5:  // 5 OBU_METADATA
       obu->bu_type = BU_TYPE_SEI;

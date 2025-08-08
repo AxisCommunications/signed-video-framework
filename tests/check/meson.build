@@ -14,6 +14,15 @@ tests = [
         'test_helpers.h'
       ]
     ],
+    ['unittest_av1',
+      [
+        'check_codec_av1.c',
+        'test_stream.c',
+        'test_stream.h',
+        'test_helpers.c',
+        'test_helpers.h'
+      ]
+    ],
 ]
 
 if (get_option('signingplugin') != 'threaded_unless_check_dep')
