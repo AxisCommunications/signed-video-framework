@@ -57,9 +57,10 @@ typedef struct _test_stream_st {
  **/
 
 /* Creates a test stream with test stream items based on the input string. The string is
- * converted to test stream items. */
+ * converted to test stream items. For AV1, one can select representing frames with
+ * OBU_FRAME or OBU_FRAME_HEADER + OBU_TILE_GROUP, the latter if |with_fh| is 'true'. */
 test_stream_t *
-test_stream_create(const char *str, SignedVideoCodec codec);
+test_stream_create(const char *str, SignedVideoCodec codec, bool with_fh);
 
 /* Frees all the items in the list and the list itself. */
 void
@@ -112,9 +113,11 @@ test_stream_print(test_stream_t *list);
  * test_stream_item_t functions
  **/
 
-/* Creates a test_stream_item_t from a |type| and |codec|. Then sets the |id|. */
+/* Creates a test_stream_item_t from a |type| and |codec|. Then sets the |id|.  For AV1,
+ * one can select representing frames with OBU_FRAME or OBU_FRAME_HEADER + OBU_TILE_GROUP,
+ * the latter if |with_fh| is 'true'.*/
 test_stream_item_t *
-test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec);
+test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec, bool with_fh);
 
 /* Creates a new test stream item. Takes pointers to the Bitstream Unit data, the bu data
  * size. Memory ownership is transferred. */

@@ -99,6 +99,12 @@ const uint8_t sh_av1[DUMMY_NALU_SIZE] = {0x0a, 0x03, 0x00, 0x00, 0x80};
 const uint8_t sei_av1[DUMMY_NALU_SIZE] = {0x2a, 0x03, 0x18, 0x00, 0x80};
 const uint8_t invalid_av1[DUMMY_NALU_SIZE] = {0x02, 0x03, 0xff, 0x00, 0xff};
 
+const uint8_t I_fh_av1[DUMMY_NALU_SIZE] = {0x1a, 0x03, 0x10, 0x00, 0x80};
+const uint8_t P_fh_av1[DUMMY_NALU_SIZE] = {0x1a, 0x03, 0x30, 0x00, 0x80};
+const uint8_t tg_av1[DUMMY_NALU_SIZE] = {0x22, 0x03, 0x00, 0x00, 0x80};
+// TODO: Maybe add OBU_TILE_LIST later
+// const uint8_t P_tl_av1[DUMMY_NALU_SIZE] = {0x42, 0x03, 0x02, 0x00, 0x80};
+
 /* Helper that parses information from the Bitstream Unit |data| and returns a character
  * representing the Bitstream Unit type. */
 static char
@@ -133,6 +139,9 @@ get_type_char(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
         type = 's';
       break;
     }
+    case BU_TYPE_TG:
+      type = 't';
+      break;
     default:
       type = '\0';
       break;
@@ -174,7 +183,7 @@ generate_nalu(bool valid_start_code,
 
 /* Creates a test_stream_item_t from |type| for |codec|, then sets the |id|. */
 test_stream_item_t *
-test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec)
+test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec, bool with_fh)
 {
   uint8_t *bu = NULL;  // Final Bitstream Unit with id and with/without start code.
   const uint8_t *bu_data = NULL;
@@ -184,22 +193,26 @@ test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec)
   // Find out which type of Bitstream Unit the character is and point |bu_data| to it.
   switch (type) {
     case 'I':
-      bu_data =
-          codec == SV_CODEC_H264 ? I_nalu_h264 : (codec == SV_CODEC_H265 ? I_nalu_h265 : I_av1);
+      bu_data = codec == SV_CODEC_H264
+          ? I_nalu_h264
+          : (codec == SV_CODEC_H265 ? I_nalu_h265 : (with_fh ? I_fh_av1 : I_av1));
       break;
     case 'i':
       // Not yet valid for AV1.
-      bu_data = codec == SV_CODEC_H264 ? i_nalu_h264
-                                       : (codec == SV_CODEC_H265 ? i_nalu_h265 : invalid_av1);
+      bu_data = codec == SV_CODEC_H264
+          ? i_nalu_h264
+          : (codec == SV_CODEC_H265 ? i_nalu_h265 : invalid_av1);
       break;
     case 'P':
-      bu_data =
-          codec == SV_CODEC_H264 ? P_nalu_h264 : (codec == SV_CODEC_H265 ? P_nalu_h265 : P_av1);
+      bu_data = codec == SV_CODEC_H264
+          ? P_nalu_h264
+          : (codec == SV_CODEC_H265 ? P_nalu_h265 : (with_fh ? P_fh_av1 : P_av1));
       break;
     case 'p':
       // Not yet valid for AV1.
-      bu_data = codec == SV_CODEC_H264 ? p_nalu_h264
-                                       : (codec == SV_CODEC_H265 ? p_nalu_h265 : invalid_av1);
+      bu_data = codec == SV_CODEC_H264
+          ? p_nalu_h264
+          : (codec == SV_CODEC_H265 ? p_nalu_h265 : invalid_av1);
       break;
     case 'O':
       bu_data = codec == SV_CODEC_H264 ? oms_sei_nalu_h264
@@ -214,6 +227,9 @@ test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec)
     case 'V':
       bu_data = codec == SV_CODEC_H264 ? pps_nalu_h264
                                        : (codec == SV_CODEC_H265 ? pps_nalu_h265 : sh_av1);
+      break;
+    case 't':
+      bu_data = (codec == SV_CODEC_AV1 && with_fh) ? tg_av1 : invalid_av1;
       break;
     case 'X':
     default:
@@ -398,7 +414,7 @@ test_stream_item_print(test_stream_item_t *item)
 /* Creates a test stream with items based on the input string for a given |codec|. The
  * string is converted to test stream items. */
 test_stream_t *
-test_stream_create(const char *str, SignedVideoCodec codec)
+test_stream_create(const char *str, SignedVideoCodec codec, bool with_fh)
 {
   test_stream_t *list = (test_stream_t *)calloc(1, sizeof(test_stream_t));
   ck_assert(list);
@@ -406,7 +422,7 @@ test_stream_create(const char *str, SignedVideoCodec codec)
   uint8_t i = 0;
 
   while (str[i]) {
-    test_stream_item_t *new_item = test_stream_item_create_from_type(str[i], i, codec);
+    test_stream_item_t *new_item = test_stream_item_create_from_type(str[i], i, codec, with_fh);
     if (!new_item) {
       // No character could be identified. Continue without adding.
       i++;
@@ -470,7 +486,7 @@ test_stream_pop(test_stream_t *list, int number_of_items)
   if (!list || number_of_items > list->num_items) return NULL;
 
   // Create an empty list.
-  test_stream_t *new_list = test_stream_create("", list->codec);
+  test_stream_t *new_list = test_stream_create("", list->codec, false);
   ck_assert(new_list);
   // Pop items from list and append to the new_list.
   while (number_of_items--) {
@@ -503,7 +519,7 @@ test_stream_pop_gops(test_stream_t *list, int number_of_gops)
   }
 
   // Create an empty list.
-  test_stream_t *new_list = test_stream_create("", list->codec);
+  test_stream_t *new_list = test_stream_create("", list->codec, false);
   ck_assert(new_list);
   // Pop items from list and append to the new_list.
   while (number_of_gops) {

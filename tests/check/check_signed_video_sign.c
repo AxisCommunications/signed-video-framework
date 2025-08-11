@@ -176,8 +176,8 @@ START_TEST(api_inputs)
 {
   SignedVideoReturnCode sv_rc;
   SignedVideoCodec codec = settings[_i].codec;
-  test_stream_item_t *p_frame = test_stream_item_create_from_type('P', 0, codec);
-  test_stream_item_t *invalid = test_stream_item_create_from_type('X', 0, codec);
+  test_stream_item_t *p_frame = test_stream_item_create_from_type('P', 0, codec, false);
+  test_stream_item_t *invalid = test_stream_item_create_from_type('X', 0, codec, false);
   char *private_key = NULL;
   size_t private_key_size = 0;
   uint8_t *sei = NULL;
@@ -357,8 +357,8 @@ START_TEST(incorrect_operation)
   ck_assert(sv);
   char *private_key = NULL;
   size_t private_key_size = 0;
-  test_stream_item_t *p_frame = test_stream_item_create_from_type('P', 0, codec);
-  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec);
+  test_stream_item_t *p_frame = test_stream_item_create_from_type('P', 0, codec, false);
+  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec, false);
   // The path to openssl keys has to be set before start of signing.
   SignedVideoReturnCode sv_rc =
       signed_video_add_nalu_for_signing_with_timestamp(sv, i_frame->data, i_frame->data_size, NULL);
@@ -685,11 +685,11 @@ START_TEST(two_completed_seis_pending)
   signed_video_t *sv = get_initialized_signed_video(settings[_i], false);
   ck_assert(sv);
 
-  test_stream_item_t *i_frame_1 = test_stream_item_create_from_type('I', 0, codec);
-  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 1, codec);
-  test_stream_item_t *p_frame = test_stream_item_create_from_type('P', 2, codec);
-  test_stream_item_t *i_frame_3 = test_stream_item_create_from_type('I', 3, codec);
-  test_stream_item_t *i_frame_4 = test_stream_item_create_from_type('i', 4, codec);
+  test_stream_item_t *i_frame_1 = test_stream_item_create_from_type('I', 0, codec, false);
+  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 1, codec, false);
+  test_stream_item_t *p_frame = test_stream_item_create_from_type('P', 2, codec, false);
+  test_stream_item_t *i_frame_3 = test_stream_item_create_from_type('I', 3, codec, false);
+  test_stream_item_t *i_frame_4 = test_stream_item_create_from_type('i', 4, codec, false);
 
   sv_rc = signed_video_add_nalu_for_signing_with_timestamp(
       sv, i_frame_1->data, i_frame_1->data_size, NULL);
@@ -808,8 +808,8 @@ START_TEST(w_wo_emulation_prevention_bytes)
   uint8_t *seis[NUM_EPB_CASES] = {NULL, NULL};
   size_t sei_sizes[NUM_EPB_CASES] = {0, 0};
   bool with_emulation_prevention[NUM_EPB_CASES] = {true, false};
-  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec);
-  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 1, codec);
+  test_stream_item_t *i_frame = test_stream_item_create_from_type('I', 0, codec, false);
+  test_stream_item_t *i_frame_2 = test_stream_item_create_from_type('I', 1, codec, false);
 
   size_t sei_size = 0;
   unsigned num_pending_seis = 0;

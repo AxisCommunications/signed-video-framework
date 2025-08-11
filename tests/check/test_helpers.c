@@ -369,7 +369,7 @@ create_signed_stream_with_sv(signed_video_t *sv, const char *str, bool split_bu,
   const bool apply_ep = false;  // Apply emulation prevention on generated SEI afterwards.
   const bool get_seis_at_end = false;  // Fetch all SEIs at once at the end of the stream.
   // Create a test stream given the input string.
-  test_stream_t *list = test_stream_create(str, sv->codec);
+  test_stream_t *list = test_stream_create(str, sv->codec, false);
   test_stream_item_t *item = list->first_item;
   int64_t timestamp = g_testTimestamp;
   num_gops_until_signing = sv->signing_frequency - 1;
