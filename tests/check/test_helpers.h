@@ -25,6 +25,7 @@
 #include <stdint.h>
 #include <stdlib.h>  // size_t
 
+#include "includes/signed_video_auth.h"  // signed_video_accumulated_validation_t
 #include "includes/signed_video_common.h"  // signed_video_t, SignedVideoCodec
 #include "includes/signed_video_sign.h"  // SignedVideoAuthenticityLevel
 #include "sv_defines.h"  // sv_tlv_tag_t
@@ -62,6 +63,20 @@ extern struct sv_setting settings[NUM_SETTINGS];
 extern const char *axisDummyCertificateChain;
 
 extern const int64_t g_testTimestamp;
+
+/* Struct to accumulate validation results used to compare against expected values. */
+struct validation_stats {
+  int valid_gops;
+  int valid_gops_with_missing_info;
+  int invalid_gops;
+  int unsigned_gops;
+  int missed_bu;
+  int pending_bu;
+  int has_signature;
+  bool public_key_has_changed;
+  bool has_no_timestamp;
+  signed_video_accumulated_validation_t *final_validation;
+};
 
 /**
  * @brief Helper function to read test private key
@@ -178,5 +193,26 @@ tlv_has_mandatory_tags(const uint8_t *tlv_data, size_t tlv_data_size);
  * legacy_test_data.c. */
 test_stream_t *
 get_legacy_stream(int idx, SignedVideoCodec codec);
+
+/* validate_stream(...)
+ *
+ * Helper function to validate the authentication result.
+ * It takes a test stream |list| as input together with |expected| values of
+ *   valid gops
+ *   invalid gops
+ *   unsigned gops, that is gops without signature
+ *   missed number of gops
+ *   etc
+ *
+ * If a NULL pointer |list| is passed in no action is taken.
+ * If a NULL pointer |sv| is passed in a new session is created. This is
+ * convenient if there are no other actions to take on |sv| outside this scope,
+ * like reset.
+ */
+void
+validate_stream(signed_video_t *sv,
+    test_stream_t *list,
+    struct validation_stats expected,
+    bool check_version);
 
 #endif  // __TEST_HELPERS_H__
