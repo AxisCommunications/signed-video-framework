@@ -278,9 +278,12 @@ compute_gop_hash(signed_video_t *self, bu_list_item_t *sei)
       if (gop_info->triggered_partial_gop && (num_in_partial_gop >= gop_info->num_sent)) {
         break;
       }
-      // Since the GOP hash is initialized, it can be updated with each incoming BU hash.
-      SV_THROW(sv_openssl_update_hash(self->crypto_handle, item->hash, hash_size, true));
-      num_in_partial_gop++;
+      // Skip TGs since they do not have their own hash.
+      if (item->bu->bu_type != BU_TYPE_TG) {
+        // Since the GOP hash is initialized, it can be updated with each incoming BU hash.
+        SV_THROW(sv_openssl_update_hash(self->crypto_handle, item->hash, hash_size, true));
+        num_in_partial_gop++;
+      }
 
       // Mark the item and move to next.
       item->associated_sei = sei;

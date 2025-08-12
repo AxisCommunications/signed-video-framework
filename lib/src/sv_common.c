@@ -85,15 +85,19 @@ bu_type_to_str(const bu_info_t *bu)
     case BU_TYPE_SEI:
       return bu->is_signed ? "SEI" : "unsigned SEI";
     case BU_TYPE_I:
-      return bu->is_primary_slice == true ? "I (primary)" : "I (secondary)";
+      return bu->is_fh ? "FH (I)"
+                       : (bu->is_primary_slice == true ? "I (primary)" : "I (secondary)");
     case BU_TYPE_P:
-      return bu->is_primary_slice == true ? "P (primary)" : "P (secondary)";
+      return bu->is_fh ? "FH (P)"
+                       : (bu->is_primary_slice == true ? "P (primary)" : "P (secondary)");
     case BU_TYPE_PS:
       return "PPS/SPS/VPS";
     case BU_TYPE_AUD:
       return "AUD";
     case BU_TYPE_OTHER:
       return "valid other bitstream unit";
+    case BU_TYPE_TG:
+      return !bu->ongoing_hash ? "TG" : (bu->ongoing_hash == 1 ? "P" : "I");
     case BU_TYPE_UNDEFINED:
     default:
       return "unknown bitstream unit";
@@ -120,6 +124,8 @@ bu_type_to_char(const bu_info_t *bu)
       return '_';
     case BU_TYPE_OTHER:
       return 'o';
+    case BU_TYPE_TG:
+      return 't';
     case BU_TYPE_UNDEFINED:
     default:
       return 'U';
@@ -749,8 +755,9 @@ get_hash_wrapper(signed_video_t *self, const bu_info_t *bu)
 {
   assert(self && bu);
 
-  if (!bu->is_last_bu_part) {
-    // If this is not the last part of a BU, update the hash.
+  if (!bu->is_last_bu_part || bu->ongoing_hash) {
+    // If this is not the last part of a BU, update the hash. Or if there is an
+    // |ongoing_hash| for AV1 FH+TG.
     return update_hash;
   } else if (bu->is_sv_sei) {
     // A SEI, i.e., the document_hash, is hashed without reference, since that one may be verified
@@ -884,6 +891,67 @@ hash_with_reference(signed_video_t *self,
 }
 
 svrc_t
+sv_add_ongoing_hash(signed_video_t *self,
+    const bu_info_t *bu,
+    const bu_info_t *prev_bu,
+    uint8_t *bu_hash)
+{
+  if (!self || !bu) return SV_INVALID_PARAMETER;
+  if (!prev_bu || !bu_hash) return SV_OK;
+
+  // A transition between frames occurs if the previous BU was part of an |ongoing_hash|
+  // and the current BU is NOT a TG.
+  if (!(prev_bu->ongoing_hash && bu->bu_type != BU_TYPE_TG)) {
+    // End of an |ongoing_hash| was NOT detected, hence move on.
+    return SV_OK;
+  }
+
+  gop_info_t *gop_info = self->gop_info;
+  size_t hash_size =
+      self->signing_started ? self->sign_data->hash_size : self->verify_data->hash_size;
+  // Second hash in |hash_buddies| is the buddy hash.
+  uint8_t *buddy_hash = &gop_info->hash_buddies[hash_size];
+  // Point to the place where the finalized hash shall be stored.
+  uint8_t *hash = prev_bu->ongoing_hash == 2 ? bu_hash : buddy_hash;
+
+  svrc_t status = SV_UNKNOWN_FAILURE;
+  SV_TRY()
+    SV_THROW(sv_openssl_finalize_hash(self->crypto_handle, hash, false));
+    if (prev_bu->is_first_bu_in_gop || prev_bu->ongoing_hash == 2) {
+      // If the current BU |is_first_bu_in_gop| copy the hash to reference.
+      // First hash in |hash_buddies| is the reference hash.
+      uint8_t *reference_hash = &gop_info->hash_buddies[0];
+      memcpy(reference_hash, hash, hash_size);
+      if (!self->authentication_started) {
+        SV_THROW(sv_update_linked_hash(self, reference_hash, hash_size));
+      }
+    } else {
+      // Hash |reference_hash| together with the |hash| and store in |bu_hash|.
+      SV_THROW(sv_openssl_hash_data(
+          self->crypto_handle, gop_info->hash_buddies, hash_size * 2, bu_hash));
+    }
+#ifdef SIGNED_VIDEO_DEBUG
+    sv_print_hex_data(bu_hash, hash_size, "Hash of %s: ", bu_type_to_str(prev_bu));
+#endif
+    if (prev_bu->is_last_bu_part && self->signing_started) {
+      // The end of the BU has been reached. Update hash list and GOP hash. This only
+      // applies to the signing side, where the GOP hash is updated continuously.
+      check_and_copy_hash_to_hash_list(self, bu_hash, hash_size);
+      update_num_bu_in_gop_hash(self, prev_bu);
+    }
+  SV_CATCH()
+  {
+    // Upon failure, the |hash_list| is not trustworthy (if being on the signing side).
+    if (self->signing_started) {
+      gop_info->list_idx = -1;
+    }
+  }
+  SV_DONE(status)
+
+  return status;
+}
+
+svrc_t
 sv_hash_and_add(signed_video_t *self, const bu_info_t *bu)
 {
   if (!self || !bu) return SV_INVALID_PARAMETER;
@@ -900,18 +968,19 @@ sv_hash_and_add(signed_video_t *self, const bu_info_t *bu)
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    if (bu->is_first_bu_part && !bu->is_last_bu_part) {
-      // If this is the first part of a non-complete BU, initialize the |crypto_handle| to
-      // enable sequentially updating the hash with more parts.
+    if (bu->is_first_bu_part && (!bu->is_last_bu_part || bu->is_fh)) {
+      // If this is the first part of a non-complete BU, or an OBU_FRAME_HEADER (FH),
+      // initialize the |crypto_handle| to enable sequentially updating the hash with more
+      // parts.
       SV_THROW(sv_openssl_init_hash(self->crypto_handle, false));
     }
     // Select hash function, hash the BU and store as 'latest hash'
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, bu);
     SV_THROW(hash_wrapper(self, bu, bu_hash, hash_size));
+    if (bu->is_last_bu_part && !bu->ongoing_hash) {
 #ifdef SIGNED_VIDEO_DEBUG
-    sv_print_hex_data(bu_hash, hash_size, "Hash of %s: ", bu_type_to_str(bu));
+      sv_print_hex_data(bu_hash, hash_size, "Hash of %s: ", bu_type_to_str(bu));
 #endif
-    if (bu->is_last_bu_part) {
       // The end of the BU has been reached. Update hash list and GOP hash.
       check_and_copy_hash_to_hash_list(self, bu_hash, hash_size);
       update_num_bu_in_gop_hash(self, bu);
@@ -931,7 +1000,7 @@ hash_and_add_for_auth(signed_video_t *self, bu_list_item_t *item)
 {
   if (!self || !item) return SV_INVALID_PARAMETER;
 
-  const bu_info_t *bu = item->bu;
+  bu_info_t *bu = item->bu;
   if (!bu) return SV_INVALID_PARAMETER;
 
   if (!bu->is_hashable) {
@@ -943,19 +1012,43 @@ hash_and_add_for_auth(signed_video_t *self, bu_list_item_t *item)
     return SV_OK;
   }
 
-  uint8_t *bu_hash = NULL;
-  bu_hash = item->hash;
-  assert(bu_hash);
+  uint8_t *bu_hash = item->hash;
   size_t hash_size = self->verify_data->hash_size;
   item->hash_size = hash_size;
 
+  // Members to handle the FH+TG case.
+  uint8_t *hash = NULL;
+  bu_list_item_t *prev_item = item->prev;
+  bu_info_t *prev_bu = item->prev ? item->prev->bu : NULL;
+
+  // Update |ongoing_hash| from the previous item.
+  if (bu->bu_type == BU_TYPE_TG && item->prev) {
+    bu->ongoing_hash = item->prev->bu->ongoing_hash;
+  } else {
+    // Find the hash of the previous FH if there is an |ongoing_hash|.
+    while (prev_item && prev_item->bu && prev_item->bu->ongoing_hash && !prev_item->bu->is_fh) {
+      prev_item = prev_item->prev;
+    }
+    if (prev_item && prev_item->bu->ongoing_hash) {
+      hash = prev_item->hash;
+    }
+  }
+
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
+    SV_THROW(sv_add_ongoing_hash(self, bu, prev_bu, hash));
+    if (bu->is_first_bu_part && bu->is_fh) {
+      // If this is the first part of a non-complete BU, or an FH, initialize the
+      // |crypto_handle| to enable sequentially updating the hash with more parts.
+      SV_THROW(sv_openssl_init_hash(self->crypto_handle, false));
+    }
     // Select hash wrapper, hash the BU and store as |bu_hash|.
     hash_wrapper_t hash_wrapper = get_hash_wrapper(self, bu);
     SV_THROW(hash_wrapper(self, bu, bu_hash, hash_size));
 #ifdef SIGNED_VIDEO_DEBUG
-    sv_print_hex_data(bu_hash, hash_size, "Hash of %s: ", bu_type_to_str(bu));
+    if (!bu->ongoing_hash) {
+      sv_print_hex_data(bu_hash, hash_size, "Hash of %s: ", bu_type_to_str(bu));
+    }
 #endif
   SV_CATCH()
   SV_DONE(status)

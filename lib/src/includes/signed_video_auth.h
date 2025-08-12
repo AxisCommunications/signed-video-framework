@@ -137,6 +137,7 @@ typedef struct {
   // 'v' : Parameter Set, i.e., SPS/PPS/VPS, SH
   // '_' : AUD/TD
   // 'o' : Other valid type of Bitstream Unit
+  // 't' : OBU Tile Group
   // 'U' : Undefined Bitstream Unit
   // ' ' : No Bitstream Unit present, e.g., when missing Bitstream Units are detected
 

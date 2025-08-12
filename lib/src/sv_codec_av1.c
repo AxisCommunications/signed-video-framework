@@ -79,6 +79,8 @@ parse_av1_obu_header(bu_info_t *obu)
     case 3:  // 3 OBU_FRAME_HEADER
       obu->bu_type = ((*obu_ptr & 0x60) >> 5) == 0 ? BU_TYPE_I : BU_TYPE_P;
       obu->is_primary_slice = true;
+      obu->ongoing_hash = obu->bu_type == BU_TYPE_I ? 2 : 1;
+      obu->is_fh = true;
       break;
     case 4:  // 4 OBU_TILE_GROUP
       obu->bu_type = BU_TYPE_TG;

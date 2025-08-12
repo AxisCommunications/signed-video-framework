@@ -150,6 +150,8 @@ typedef struct {
   bool with_epb;  // Hashable data may include emulation prevention bytes
   bool is_golden_sei;
   bool is_signed;  // True if the SEI is signed, i.e., has a signature
+  int ongoing_hash;  // Type of ongoing hash this BU is part of; 0: None, 1: P-frame, 2: I-frame
+  bool is_fh;  // True if this BU is an OBU_FRAME_HEADER. The |bu_type| indicates I- or P-frame
 } bu_info_t;
 
 /**
@@ -382,6 +384,12 @@ void
 check_and_copy_hash_to_hash_list(signed_video_t *signed_video,
     const uint8_t *hash,
     size_t hash_size);
+
+svrc_t
+sv_add_ongoing_hash(signed_video_t *self,
+    const bu_info_t *bu,
+    const bu_info_t *prev_bu,
+    uint8_t *bu_hash);
 
 svrc_t
 sv_hash_and_add(signed_video_t *self, const bu_info_t *bu);

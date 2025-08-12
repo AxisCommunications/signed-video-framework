@@ -41,3 +41,5 @@ jobs:
       run: CK_FORK=no valgrind --leak-check=full $GITHUB_WORKSPACE/build_lib/tests/check/unittest_sign
     - name: Run valgrind on unittest_auth
       run: CK_FORK=no valgrind --leak-check=full $GITHUB_WORKSPACE/build_lib/tests/check/unittest_auth
+    - name: Run valgrind on unittest_av1
+      run: CK_FORK=no valgrind $GITHUB_WORKSPACE/build_lib/tests/check/unittest_av1
