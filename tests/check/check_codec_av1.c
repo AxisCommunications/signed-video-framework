@@ -60,6 +60,21 @@ START_TEST(signed_stream_with_fh)
   setting.with_fh = true;
   test_stream_t *list = create_signed_stream("ItPtPtItPtPtItPtPtItPtPtItPtPt", setting);
   test_stream_check_types(list, "ItPtPtItSPtPtItSPtPtItSPtPtItSPtPt");
+
+  // ItPtPtItSPtPtItSPtPtItSPtPtItSPtPt
+  //
+  // ItPtPtItS                  ......PP.                           (valid, 2 pending)
+  //       ItSPtPtItS                 .......PP.                    (valid, 2 pending)
+  //              ItSPtPtItS                 .......PP.             (valid, 2 pending)
+  //                     ItSPtPtItS                 .......PP.      (valid, 2 pending)
+  //                                                                        8 pending
+  //                            ItSPtPt                    PP.PPPP  (valid, 7 pending)
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 34, 27, 7, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {
+      .valid_gops = 4, .pending_bu = 8, .final_validation = &final_validation};
+  validate_stream(NULL, list, expected, true);
+
   test_stream_free(list);
 }
 END_TEST
