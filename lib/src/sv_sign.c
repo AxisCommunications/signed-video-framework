@@ -599,6 +599,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
         self->onvif, bu_data, bu_data_size, onvif_timestamp, is_last_part));
   }
 
+  svrc_t status = SV_UNKNOWN_FAILURE;
   bu_info_t bu_info = {0};
   gop_info_t *gop_info = self->gop_info;
   // TODO: Consider moving this into parse_bu_info().
@@ -606,6 +607,16 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     // Only check for trailing zeros if this is the last part.
     bu_info = parse_bu_info(bu_data, bu_data_size, self->codec, is_last_part, false);
     bu_info.is_last_bu_part = is_last_part;
+    // Update |ongoing_hash| from the previous BU.
+    if (bu_info.bu_type == BU_TYPE_TG) {
+      bu_info.ongoing_hash = self->last_bu->ongoing_hash;
+    }
+    // Finalize ongoing hash as soon as the incoming one is not a TG. Only TGs are
+    // expected after an FH.
+    status = sv_add_ongoing_hash(self, &bu_info, self->last_bu, gop_info->bu_hash);
+    if (status != SV_OK) {
+      return status;
+    }
     copy_bu_except_pointers(self->last_bu, &bu_info);
   } else {
     self->last_bu->is_first_bu_part = false;
@@ -620,7 +631,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     bu_info.hashable_data_size = bu_data_size;
   }
 
-  svrc_t status = SV_UNKNOWN_FAILURE;
+  status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     SV_THROW(prepare_for_signing(self));
 
