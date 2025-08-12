@@ -509,7 +509,9 @@ parse_bu_info(const uint8_t *bu_data,
   bu.is_valid = bu_header_is_valid;
 
   // Only picture BUs are hashed.
-  if (bu.bu_type == BU_TYPE_I || bu.bu_type == BU_TYPE_P) bu.is_hashable = true;
+  if (bu.bu_type == BU_TYPE_I || bu.bu_type == BU_TYPE_P || bu.bu_type == BU_TYPE_TG) {
+    bu.is_hashable = true;
+  }
 
   bu.is_first_bu_in_gop = (bu.bu_type == BU_TYPE_I) && bu.is_primary_slice;
 

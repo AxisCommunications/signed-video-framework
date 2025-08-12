@@ -1555,7 +1555,7 @@ START_TEST(fallback_to_gop_level)
 
   // Create a list of Bitstream Units given the input string.
   test_stream_t *list =
-      create_signed_stream_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPIP", false, 0);
+      create_signed_stream_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPIP", false, 0, false);
   test_stream_check_types(list, "IPPISPPPPPPPPPPPPPPPPPPPPPPPPISPPISP");
 
   signed_video_accumulated_validation_t final_validation = {
@@ -1809,7 +1809,7 @@ START_TEST(onvif_intact_stream)
   setting.vendor_axis_mode = 2;
 
   // Create a signed video stream with SV.
-  test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIPPIPPIPPIPPIPPIP", false, 0);
+  test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIPPIPPIPPIPPIPPIP", false, 0, false);
 
   // Define expected validation results.
   signed_video_accumulated_validation_t final_validation = {
@@ -2269,7 +2269,7 @@ START_TEST(golden_sei_principle)
   signed_video_t *sv = get_initialized_signed_video(setting, false);
   ck_assert(sv);
 
-  test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIPPIPPIP", false, 0);
+  test_stream_t *list = create_signed_stream_with_sv(sv, "IPPIPPIPPIP", false, 0, false);
   test_stream_check_types(list, "GIPPISPPISPPISP");
 
   // GIPPISPPISPPISP

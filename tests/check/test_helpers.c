@@ -85,17 +85,26 @@ const int64_t g_testTimestamp = 42;
 //   unsigned delay;
 // };
 struct sv_setting settings[NUM_SETTINGS] = {
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, true, true, false, 0, NULL, 0, 1, false, 0, 0},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, true, true, false, 0, NULL, 0, 1, false, 0, 0},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, NULL, 0, 1, false, 0, 0},
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, NULL, 0, 1, false, 0, 0},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_GOP, true, true, false, 0, NULL, 0, 1, false, 0, 0,
+        false},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, true, true, false, 0, NULL, 0, 1, false, 0, 0,
+        false},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, NULL, 0, 1, false, 0, 0,
+        false},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, NULL, 0, 1, false, 0, 0,
+        false},
     // Special cases
-    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, false, true, false, 0, NULL, 0, 1, false, 0, 0},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, false, true, false, 0, NULL, 0, 1, false, 0, 0},
-    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, "sha512", 0, 1, false, 0, 0},
+    {SV_CODEC_H265, SV_AUTHENTICITY_LEVEL_GOP, false, true, false, 0, NULL, 0, 1, false, 0, 0,
+        false},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, false, true, false, 0, NULL, 0, 1, false, 0, 0,
+        false},
+    {SV_CODEC_H264, SV_AUTHENTICITY_LEVEL_FRAME, true, true, false, 0, "sha512", 0, 1, false, 0, 0,
+        false},
     // AV1 tests
-    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_GOP, true, false, false, 0, NULL, 0, 1, false, 0, 0},
-    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_FRAME, true, false, false, 0, NULL, 0, 1, false, 0, 0},
+    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_GOP, true, false, false, 0, NULL, 0, 1, false, 0, 0,
+        false},
+    {SV_CODEC_AV1, SV_AUTHENTICITY_LEVEL_FRAME, true, false, false, 0, NULL, 0, 1, false, 0, 0,
+        false},
 };
 
 static char private_key_rsa[RSA_PRIVATE_KEY_ALLOC_BYTES];
@@ -360,7 +369,11 @@ pull_seis(signed_video_t *sv, test_stream_item_t **item, bool apply_ep, unsigned
  * generates Bitstream Unit data for these. Then adds these Bitstream Units to the input session.
  * The generated SEIs are added to the stream. */
 test_stream_t *
-create_signed_stream_with_sv(signed_video_t *sv, const char *str, bool split_bu, int delay)
+create_signed_stream_with_sv(signed_video_t *sv,
+    const char *str,
+    bool split_bu,
+    int delay,
+    bool with_fh)
 {
   SignedVideoReturnCode rc = SV_UNKNOWN_FAILURE;
   ck_assert(sv);
@@ -369,7 +382,7 @@ create_signed_stream_with_sv(signed_video_t *sv, const char *str, bool split_bu,
   const bool apply_ep = false;  // Apply emulation prevention on generated SEI afterwards.
   const bool get_seis_at_end = false;  // Fetch all SEIs at once at the end of the stream.
   // Create a test stream given the input string.
-  test_stream_t *list = test_stream_create(str, sv->codec, false);
+  test_stream_t *list = test_stream_create(str, sv->codec, with_fh);
   test_stream_item_t *item = list->first_item;
   int64_t timestamp = g_testTimestamp;
   num_gops_until_signing = sv->signing_frequency - 1;
@@ -454,7 +467,8 @@ create_signed_stream_splitted_bu_int(const char *str,
   ck_assert(sv);
 
   // Create a test stream of Bitstream Units given the input string.
-  test_stream_t *list = create_signed_stream_with_sv(sv, str, split_bu, settings.delay);
+  test_stream_t *list =
+      create_signed_stream_with_sv(sv, str, split_bu, settings.delay, settings.with_fh);
   signed_video_free(sv);
 
   return list;
