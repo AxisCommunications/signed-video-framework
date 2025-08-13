@@ -14,3 +14,7 @@ option('generatetestkeys',
   type : 'boolean',
   value : false,
   description : 'Generate signing keys for tests')
+option('staticlibrary',
+  type : 'boolean',
+  value : false,
+  description : 'Build a static library instead of a shared one')
