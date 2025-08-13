@@ -79,7 +79,6 @@ if get_option('staticlibrary')
       'signed-video-framework',
       signedvideoframework_sources,
       include_directories : [ svsrcinc, omssrcinc ],
-      version : meson.project_version(),
       dependencies : signedvideoframework_deps,
       install : true,
   )
@@ -88,6 +87,7 @@ else
       'signed-video-framework',
       signedvideoframework_sources,
       include_directories : [ svsrcinc, omssrcinc ],
+      version : meson.project_version(),
       dependencies : signedvideoframework_deps,
       install : true,
   )
