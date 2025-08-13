@@ -1,5 +1,5 @@
 project('signed-video-framework', 'c',
-  version : '2.2.5',
+  version : '2.2.6',
   meson_version : '>= 0.53.0',
   default_options : [ 'warning_level=2',
                       'werror=true',
@@ -74,14 +74,24 @@ install_headers(
 
 signedvideoframework_deps = [ openssl_dep, plugin_deps, mediasigningframework_dep ]
 
-signedvideoframework = shared_library(
-    'signed-video-framework',
-    signedvideoframework_sources,
-    include_directories : [ svsrcinc, omssrcinc ],
-    version : meson.project_version(),
-    dependencies : signedvideoframework_deps,
-    install : true,
-)
+if get_option('staticlibrary')
+  signedvideoframework = static_library(
+      'signed-video-framework',
+      signedvideoframework_sources,
+      include_directories : [ svsrcinc, omssrcinc ],
+      version : meson.project_version(),
+      dependencies : signedvideoframework_deps,
+      install : true,
+  )
+else
+  signedvideoframework = shared_library(
+      'signed-video-framework',
+      signedvideoframework_sources,
+      include_directories : [ svsrcinc, omssrcinc ],
+      dependencies : signedvideoframework_deps,
+      install : true,
+  )
+endif
 
 pkgconfig = import('pkgconfig')
 pkgconfig.generate(
