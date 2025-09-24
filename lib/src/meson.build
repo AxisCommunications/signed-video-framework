@@ -5,6 +5,7 @@ signedvideoframework_public_headers = files(
   'includes/signed_video_openssl.h',
   'includes/signed_video_sign.h',
   'includes/signed_video_signing_plugin.h',
+  'includes/sv_vendor_axis_communications.h',
 )
 
 signedvideoframework_sources = files(
