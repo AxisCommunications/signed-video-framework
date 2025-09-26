@@ -30,6 +30,7 @@
 #define START_CODE_SIZE 4
 #define DUMMY_NALU_SIZE 5
 #define DUMMY_SEI_SIZE 22
+#define DUMMY_TD_SIZE 2
 
 static const uint8_t start_code[START_CODE_SIZE] = {0x00, 0x00, 0x00, 0x01};
 static const uint8_t no_start_code[START_CODE_SIZE] = {0xff, 0xff, 0xff, 0xff};
@@ -102,6 +103,8 @@ const uint8_t invalid_av1[DUMMY_NALU_SIZE] = {0x02, 0x03, 0xff, 0x00, 0xff};
 const uint8_t I_fh_av1[DUMMY_NALU_SIZE] = {0x1a, 0x03, 0x10, 0x00, 0x80};
 const uint8_t P_fh_av1[DUMMY_NALU_SIZE] = {0x1a, 0x03, 0x30, 0x00, 0x80};
 const uint8_t tg_av1[DUMMY_NALU_SIZE] = {0x22, 0x03, 0x00, 0x00, 0x80};
+const uint8_t P_fh_noshow_av1[DUMMY_NALU_SIZE] = {0x1a, 0x03, 0x80, 0x00, 0x80};
+const uint8_t td_av1[DUMMY_TD_SIZE] = {0x12, 0x00};
 // TODO: Maybe add OBU_TILE_LIST later
 // const uint8_t P_tl_av1[DUMMY_NALU_SIZE] = {0x42, 0x03, 0x02, 0x00, 0x80};
 
@@ -141,6 +144,9 @@ get_type_char(const uint8_t *data, size_t data_size, SignedVideoCodec codec)
     }
     case BU_TYPE_TG:
       type = 't';
+      break;
+    case BU_TYPE_AUD:
+      type = '|';
       break;
     default:
       type = '\0';
@@ -199,9 +205,8 @@ test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec,
       break;
     case 'i':
       // Not yet valid for AV1.
-      bu_data = codec == SV_CODEC_H264
-          ? i_nalu_h264
-          : (codec == SV_CODEC_H265 ? i_nalu_h265 : invalid_av1);
+      bu_data = codec == SV_CODEC_H264 ? i_nalu_h264
+                                       : (codec == SV_CODEC_H265 ? i_nalu_h265 : invalid_av1);
       break;
     case 'P':
       bu_data = codec == SV_CODEC_H264
@@ -210,9 +215,8 @@ test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec,
       break;
     case 'p':
       // Not yet valid for AV1.
-      bu_data = codec == SV_CODEC_H264
-          ? p_nalu_h264
-          : (codec == SV_CODEC_H265 ? p_nalu_h265 : invalid_av1);
+      bu_data = codec == SV_CODEC_H264 ? p_nalu_h264
+                                       : (codec == SV_CODEC_H265 ? p_nalu_h265 : invalid_av1);
       break;
     case 'O':
       bu_data = codec == SV_CODEC_H264 ? oms_sei_nalu_h264
@@ -231,6 +235,13 @@ test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec,
     case 't':
       bu_data = (codec == SV_CODEC_AV1 && with_fh) ? tg_av1 : invalid_av1;
       break;
+    case 'f':
+      bu_data = (codec == SV_CODEC_AV1 && with_fh) ? P_fh_noshow_av1 : invalid_av1;
+      break;
+    case '|':
+      bu_data = (codec == SV_CODEC_AV1) ? td_av1 : NULL;
+      bu_data_size = DUMMY_TD_SIZE;
+      break;
     case 'X':
     default:
       bu_data = (codec != SV_CODEC_AV1) ? invalid_nalu : invalid_av1;
@@ -248,12 +259,16 @@ test_stream_item_create_from_type(char type, uint8_t id, SignedVideoCodec codec,
     // For AV1 all OBUs are of same size and have no start code. No need for a function.
     bu = (uint8_t *)malloc(DUMMY_NALU_SIZE);
     memcpy(bu, bu_data, bu_data_size);
-    bu[DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
-    bu_size = DUMMY_NALU_SIZE;
+    if (bu_data_size > 2) {
+      bu[DUMMY_NALU_SIZE - 2] = id;  // Set ID to make it unique.
+    }
+    bu_size = bu_data_size;
   }
   ck_assert(bu);
   ck_assert(bu_size > 0);
-  ck_assert_int_eq(bu[bu_size - 2], id);  // Check id.
+  if (bu_data_size > 2) {
+    ck_assert_int_eq(bu[bu_size - 2], id);  // Check id.
+  }
   return test_stream_item_create(bu, bu_size, codec);
 }
 

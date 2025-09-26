@@ -57,7 +57,6 @@ START_TEST(signed_stream_with_fh)
   // |settings_av1|; See signed_video_helpers.h.
 
   struct sv_setting setting = settings_av1[_i];
-  setting.with_fh = true;
   test_stream_t *list = create_signed_stream("ItPtPtItPtPtItPtPtItPtPtItPtPt", setting);
   test_stream_check_types(list, "ItPtPtItSPtPtItSPtPtItSPtPtItSPtPt");
 
@@ -73,6 +72,87 @@ START_TEST(signed_stream_with_fh)
       SV_AUTH_RESULT_OK, false, 34, 27, 7, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 4, .pending_bu = 8, .final_validation = &final_validation};
+  validate_stream(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
+START_TEST(signed_stream_in_parts)
+{
+  test_stream_t *list =
+      create_signed_stream_splitted_bu("ItPtPtItPtPtItPtPtItPtPt", settings_av1[_i]);
+  test_stream_check_types(list, "ItPtPtItSPtPtItSPtPtItSPtPt");
+  // ItPtPtItSPtPtItSPtPtItSPtPt
+  //
+  // ItPtPtItS                  ......PP.                    (valid, 2 pending)
+  //       ItSPtPtItS                 .......PP.             (valid, 2 pending)
+  //              ItSPtPtItS                 .......PP.      (valid, 2 pending)
+  //                                                                 6 pending
+  //                     ItSPtPt                    PP.PPPP  (valid, 7 pending)
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 27, 20, 7, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {
+      .valid_gops = 3, .pending_bu = 6, .final_validation = &final_validation};
+  validate_stream(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
+START_TEST(has_fh_without_td)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings_av1|; See signed_video_helpers.h.
+
+  struct sv_setting setting = settings_av1[_i];
+  test_stream_t *list = create_signed_stream("|ZIt|Ptf|Pt|It|Pt|Ptf|It|Pt|Pt|It|Pt", setting);
+  // Note that 'f' (single FH) turns into a 'P' when reading the BU.
+  test_stream_check_types(list, "|ZIt|SPtP|Pt|It|SPt|PtP|It|SPt|Pt|It|SPt");
+
+  // |ZIt|SPtP|Pt|It|SPt|PtP|It|SPt|Pt|It|SPt
+  //
+  // |ZIt|S                _.PP_.                                    (valid, 2 pending)
+  //   It|SPtP|Pt|It|S       .._...._.._PP_.                         (valid, 2 pending)
+  //              It|SPt|PtP|It|S       .._..._..._PP_.              (valid, 2 pending)
+  //                         It|SPt|Pt|It|S        .._..._.._PP_.    (valid, 2 pending)
+  //                                                                         8 pending
+  //                                   It|SPt                PP_.PP  (valid, 6 pending)
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 40, 34, 6, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {
+      .valid_gops = 4, .pending_bu = 8, .final_validation = &final_validation};
+  validate_stream(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
+START_TEST(scrap_first_gop_mixed_with_fh_td_and_obu_metdata)
+{
+  // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
+  // |settings_av1|; See signed_video_helpers.h.
+
+  struct sv_setting setting = settings_av1[_i];
+  test_stream_t *list = create_signed_stream("|ZIt|Ptf|Pt|ZIt|Pt|Ptf|ZIt|Pt|Pt|ZIt|Pt", setting);
+  // Note that 'f' (single FH) turns into a 'P' when reading the BU.
+  test_stream_check_types(list, "|ZIt|SPtP|Pt|ZIt|SPt|PtP|ZIt|SPt|Pt|ZIt|SPt");
+  const int obus_to_remove = 12;
+  test_stream_t *scrapped_gop = test_stream_pop(list, obus_to_remove);
+  test_stream_free(scrapped_gop);
+  test_stream_check_types(list, "|ZIt|SPt|PtP|ZIt|SPt|Pt|ZIt|SPt");
+
+  // |ZIt|SPt|PtP|ZIt|SPt|Pt|ZIt|SPt
+  //
+  // |ZIt|S               _PPP_.                            (signed, 3 pending)
+  //  ZIt|SPt|PtP|ZIt|S    U.._..._..._.PP_.                ( valid, 2 pending)
+  //               It|SPt|Pt|ZIt|S      .._..._.._.PP_.     ( valid, 2 pending)
+  //                                                                 7 pending
+  //                          It|SPt               PP_.PP   ( valid, 6 pending)
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 31, 25, 6, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {
+      .valid_gops = 2, .pending_bu = 7, .has_signature = 1, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
 
   test_stream_free(list);
@@ -95,6 +175,9 @@ signed_video_suite(void)
 
   // Add tests
   tcase_add_loop_test(tc, signed_stream_with_fh, s, e);
+  tcase_add_loop_test(tc, signed_stream_in_parts, s, e);
+  tcase_add_loop_test(tc, has_fh_without_td, s, e);
+  tcase_add_loop_test(tc, scrap_first_gop_mixed_with_fh_td_and_obu_metdata, s, e);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);

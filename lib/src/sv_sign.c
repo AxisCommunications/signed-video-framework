@@ -610,6 +610,8 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     // Update |ongoing_hash| from the previous BU.
     if (bu_info.bu_type == BU_TYPE_TG) {
       bu_info.ongoing_hash = self->last_bu->ongoing_hash;
+      bu_info.is_primary_slice = self->last_bu->is_primary_slice;
+      bu_info.is_first_bu_in_gop = self->last_bu->is_first_bu_in_gop;
     }
     // Finalize ongoing hash as soon as the incoming one is not a TG. Only TGs are
     // expected after an FH.
@@ -638,8 +640,9 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     SV_THROW_IF(bu_info.is_valid < 0, SV_INVALID_PARAMETER);
 
     // Note that |recurrence| is counted in frames and not in BUs, hence we only increment the
-    // counter for primary slices.
-    if (bu_info.is_primary_slice && bu_info.is_last_bu_part) {
+    // counter for primary slices. Frame counting is updated at the end of a frame, hence
+    // shall be ignored for FH.
+    if (bu_info.is_primary_slice && bu_info.is_last_bu_part && !bu_info.is_fh) {
       if ((self->frame_count % self->recurrence) == 0) {
         self->has_recurrent_data = true;
       }
@@ -648,6 +651,8 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
 
     // Determine if a SEI should be generated.
     bool new_gop = (bu_info.is_first_bu_in_gop && bu_info.is_last_bu_part);
+    // Do not trigger on FH.
+    new_gop &= !bu_info.is_fh;
     // Trigger signing if number of frames exceeds the limit for a partial GOP.
     bool trigger_signing = ((self->max_signing_frames > 0) &&
         (gop_info->num_frames_in_partial_gop >= self->max_signing_frames));
@@ -669,11 +674,21 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
         gop_info->has_timestamp = true;
       }
 
-      if (self->sei_generation_enabled) {
+      // SEI creation is triggered by I-frames. Skip the first trigger unless there are
+      // already hashed BUs.
+      if (self->sei_generation_enabled || gop_info->list_idx > 0) {
         // If there are hashes added to the hash list, the |computed_gop_hash| can be finalized.
         SV_THROW(sv_openssl_finalize_hash(self->crypto_handle, gop_info->computed_gop_hash, true));
         // The previous GOP is now completed. The gop_hash was reset right after signing and
         // adding it to the SEI.
+
+        // Update GOP counter if this first GOP started without an I-frame.
+        if (!self->sei_generation_enabled && gop_info->list_idx > 0) {
+          if (gop_info->current_partial_gop < 0) {
+            gop_info->current_partial_gop = 0;
+          }
+          trigger_signing = true;
+        }
         SV_THROW(generate_sei_and_add_to_buffer(self, trigger_signing));
         if (new_gop && (self->num_gops_until_signing == 0)) {
           // Reset signing counter only upon new GOPs
