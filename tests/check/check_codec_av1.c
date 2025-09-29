@@ -100,7 +100,7 @@ START_TEST(signed_stream_in_parts)
 }
 END_TEST
 
-START_TEST(has_fh_without_td)
+START_TEST(has_fh_without_tg)
 {
   // This test runs in a loop with loop index _i, corresponding to struct sv_setting _i in
   // |settings_av1|; See signed_video_helpers.h.
@@ -176,7 +176,7 @@ signed_video_suite(void)
   // Add tests
   tcase_add_loop_test(tc, signed_stream_with_fh, s, e);
   tcase_add_loop_test(tc, signed_stream_in_parts, s, e);
-  tcase_add_loop_test(tc, has_fh_without_td, s, e);
+  tcase_add_loop_test(tc, has_fh_without_tg, s, e);
   tcase_add_loop_test(tc, scrap_first_gop_mixed_with_fh_td_and_obu_metdata, s, e);
 
   // Add test case to suit
