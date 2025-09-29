@@ -682,8 +682,10 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
         // The previous GOP is now completed. The gop_hash was reset right after signing and
         // adding it to the SEI.
 
-        // Update GOP counter if this first GOP started without an I-frame.
+        // Update GOP counter and |start_timestamp| if this first GOP started without an
+        // I-frame.
         if (!self->sei_generation_enabled && gop_info->list_idx > 0) {
+          gop_info->start_timestamp = gop_info->end_timestamp;
           if (gop_info->current_partial_gop < 0) {
             gop_info->current_partial_gop = 0;
           }
