@@ -64,6 +64,8 @@ typedef svrc_t (*hash_wrapper_t)(signed_video_t *, const bu_info_t *, uint8_t *,
 static hash_wrapper_t
 get_hash_wrapper(signed_video_t *self, const bu_info_t *bu);
 static svrc_t
+no_hash(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t hash_size);
+static svrc_t
 update_hash(signed_video_t *self, const bu_info_t *bu, uint8_t *hash, size_t hash_size);
 #ifndef SIGNED_VIDEO_DEBUG
 static svrc_t
@@ -755,7 +757,9 @@ get_hash_wrapper(signed_video_t *self, const bu_info_t *bu)
 {
   assert(self && bu);
 
-  if (!bu->is_last_bu_part || bu->ongoing_hash) {
+  if (!bu->is_hashable) {
+    return no_hash;
+  } else if (!bu->is_last_bu_part || bu->ongoing_hash) {
     // If this is not the last part of a BU, update the hash. Or if there is an
     // |ongoing_hash| for AV1 FH+TG.
     return update_hash;
@@ -774,6 +778,18 @@ get_hash_wrapper(signed_video_t *self, const bu_info_t *bu)
 }
 
 /* Hash wrapper functions */
+
+/* no_hash()
+ *
+ * performs no hashing. */
+static svrc_t
+no_hash(signed_video_t ATTR_UNUSED *self,
+    const bu_info_t ATTR_UNUSED *bu,
+    uint8_t ATTR_UNUSED *hash,
+    size_t ATTR_UNUSED hash_size)
+{
+  return SV_OK;
+}
 
 /* update_hash()
  *
@@ -957,7 +973,7 @@ sv_hash_and_add(signed_video_t *self, const bu_info_t *bu)
   if (!self || !bu) return SV_INVALID_PARAMETER;
 
   if (!bu->is_hashable) {
-    DEBUG_LOG("This Bitstream Unit (type %d) was not hashed", bu->bu_type);
+    DEBUG_LOG("This Bitstream Unit (type %s) was not hashed", bu_type_to_str(bu));
     return SV_OK;
   }
 
@@ -968,10 +984,11 @@ sv_hash_and_add(signed_video_t *self, const bu_info_t *bu)
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    if (bu->is_first_bu_part && (!bu->is_last_bu_part || bu->is_fh)) {
-      // If this is the first part of a non-complete BU, or an OBU_FRAME_HEADER (FH),
-      // initialize the |crypto_handle| to enable sequentially updating the hash with more
-      // parts.
+    if (bu->is_first_bu_part && (!bu->is_last_bu_part || bu->is_fh) &&
+        (bu->bu_type != BU_TYPE_TG)) {
+      // If this is the first part of a non-complete BU (Tile Group excluded), or an
+      // OBU_FRAME_HEADER (FH), initialize the |crypto_handle| to enable sequentially
+      // updating the hash with more parts.
       SV_THROW(sv_openssl_init_hash(self->crypto_handle, false));
     }
     // Select hash function, hash the BU and store as 'latest hash'
@@ -1003,8 +1020,9 @@ hash_and_add_for_auth(signed_video_t *self, bu_list_item_t *item)
   bu_info_t *bu = item->bu;
   if (!bu) return SV_INVALID_PARAMETER;
 
-  if (!bu->is_hashable) {
-    DEBUG_LOG("This Bitstream Unit (type %d) was not hashed.", bu->bu_type);
+  // Abort if this BU is not hashable unless there is an |ongoing_hash|.
+  if (!bu->is_hashable && !(item->prev && item->prev->bu && item->prev->bu->ongoing_hash)) {
+    DEBUG_LOG("This Bitstream Unit (type %s) was not hashed.", bu_type_to_str(bu));
     return SV_OK;
   }
   if (!self->validation_flags.hash_algo_known) {
@@ -1022,8 +1040,8 @@ hash_and_add_for_auth(signed_video_t *self, bu_list_item_t *item)
   bu_info_t *prev_bu = item->prev ? item->prev->bu : NULL;
 
   // Update |ongoing_hash| from the previous item.
-  if (bu->bu_type == BU_TYPE_TG && item->prev) {
-    bu->ongoing_hash = item->prev->bu->ongoing_hash;
+  if (bu->bu_type == BU_TYPE_TG && prev_bu) {
+    bu->ongoing_hash = prev_bu->ongoing_hash;
   } else {
     // Find the hash of the previous FH if there is an |ongoing_hash|.
     while (prev_item && prev_item->bu && prev_item->bu->ongoing_hash && !prev_item->bu->is_fh) {

@@ -77,7 +77,8 @@ parse_av1_obu_header(bu_info_t *obu)
       obu_header_is_valid &= (obu_size == 0);
       break;
     case 3:  // 3 OBU_FRAME_HEADER
-      obu->bu_type = ((*obu_ptr & 0x60) >> 5) == 0 ? BU_TYPE_I : BU_TYPE_P;
+      // Read frame_type (2 bits), include also show_existing_frame since it must be 0
+      obu->bu_type = ((*obu_ptr & 0xf0) >> 5) == 0 ? BU_TYPE_I : BU_TYPE_P;
       obu->is_primary_slice = true;
       obu->ongoing_hash = obu->bu_type == BU_TYPE_I ? 2 : 1;
       obu->is_fh = true;

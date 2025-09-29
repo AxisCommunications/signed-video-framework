@@ -678,16 +678,20 @@ validate_stream(signed_video_t *sv,
           break;
       }
       public_key_has_changed |= latest->public_key_has_changed;
-      has_timestamp |= latest->has_timestamp;
 
       if (latest->has_timestamp) {
         if (sv->onvif || sv->legacy_sv) {
           // Media Signing and Legacy code only have one timestamp
           ck_assert_int_eq(latest->start_timestamp, latest->end_timestamp);
         } else {
-          ck_assert_int_lt(latest->start_timestamp, latest->end_timestamp);
+          if (has_timestamp) {
+            ck_assert_int_lt(latest->start_timestamp, latest->end_timestamp);
+          } else {
+            ck_assert_int_le(latest->start_timestamp, latest->end_timestamp);
+          }
         }
       }
+      has_timestamp |= latest->has_timestamp;
 
       // Check if product_info has been received and set correctly.
       if ((latest->authenticity != SV_AUTH_RESULT_NOT_SIGNED) &&

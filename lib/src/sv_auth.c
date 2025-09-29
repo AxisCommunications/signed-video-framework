@@ -216,6 +216,11 @@ update_link_hash(signed_video_t *self, const bu_list_item_t *sei)
     if (item == sei) {
       break;
     }
+    // A SEI cannot be a linked hash.
+    // TODO: Investigate if a SEI can become a linked hash when signing multiple GOPs.
+    if (item->bu && item->bu->bu_type == BU_TYPE_SEI) {
+      break;
+    }
 
     sv_update_linked_hash(self, item->hash, hash_size);
     break;
@@ -1256,6 +1261,17 @@ maybe_validate_gop(signed_video_t *self, bu_info_t *bu)
     }
 
     if (start_sei_in_sync != validation_flags->sei_in_sync) {
+      // For AV1 OBU Metadata (SEIs) are hashed. Since these prepend picture OBUs. When
+      // prepending an I-frame they, by design, belong to the previous GOP, but will
+      // still be present when exporting to file. If so, the first one is not feasible
+      // to validate and should be marked as 'U'.
+      // TODO: Find a more generic solution to this.
+      bu_list_item_t *item = self->bu_list->first_item;
+      bool is_other_sei = (item->bu && item->bu->bu_type == BU_TYPE_SEI && !item->bu->is_sv_sei);
+      if (item->tmp_validation_status == 'N' && is_other_sei) {
+        item->tmp_validation_status = 'U';
+      }
+
       // Some partial GOPs may have been discarded due to being out of sync at that time
       // because they were in fact correctly invalid. Get stats another time and update
       // |latest->authenticity|.
