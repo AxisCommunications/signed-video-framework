@@ -159,6 +159,36 @@ START_TEST(scrap_first_gop_mixed_with_fh_td_and_obu_metdata)
 }
 END_TEST
 
+START_TEST(partial_gop_with_fh_in_parts)
+{
+  // Device side
+  struct sv_setting setting = settings_av1[_i];
+  const unsigned max_signing_frames = 4;  // Trigger signing after reaching 4 frames.
+  setting.max_signing_frames = max_signing_frames;
+  test_stream_t *list = create_signed_stream_splitted_bu(
+      "|It|Pt|Pt|Pt|Pt|It|Pt|It|Pt|Pt|Pt|Pt|Pt|Pt|Pt|Pt|Pt|It|Pt", setting);
+  test_stream_check_types(list, "|It|Pt|Pt|Pt|Pt|SIt|SPt|It|SPt|Pt|Pt|Pt|SPt|Pt|Pt|Pt|SPt|It|SPt");
+
+  // |It|Pt|Pt|Pt|Pt|SIt|SPt|It|SPt|Pt|Pt|Pt|SPt|Pt|Pt|Pt|SPt|It|SPt
+  //
+  // |It|Pt|Pt|Pt|Pt|S  _.._.._.._.._PP_.                                      (valid, 2 pending)
+  //              Pt|SIt|S           .._.PP_.                                            (v, 2 p)
+  //                  It|SPt|It|S        .._..._PP_.                                     (v, 2 p)
+  //                         It|SPt|Pt|Pt|Pt|S  .._..._.._.._PP_.                        (v, 2 p)
+  //                                      Pt|SPt|Pt|Pt|Pt|S  .._..._.._.._PP_.           (v, 2 p)
+  //                                                   Pt|SPt|It|S        .._..._PP_.    (v, 2 p)
+  //                                                                                        12 pend
+  //                                                          It|SPt             PP_.PP  (v, 6 p)
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 63, 57, 6, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {
+      .valid_gops = 6, .invalid_gops = 0, .pending_bu = 12, .final_validation = &final_validation};
+  validate_stream(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
 static Suite *
 signed_video_suite(void)
 {
@@ -178,6 +208,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, signed_stream_in_parts, s, e);
   tcase_add_loop_test(tc, has_fh_without_tg, s, e);
   tcase_add_loop_test(tc, scrap_first_gop_mixed_with_fh_td_and_obu_metdata, s, e);
+  tcase_add_loop_test(tc, partial_gop_with_fh_in_parts, s, e);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);

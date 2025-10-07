@@ -279,8 +279,10 @@ compute_gop_hash(signed_video_t *self, bu_list_item_t *sei)
       }
 
       // Stop adding Bitstream Units when exceeding the amount that the SEI has reported
-      // in the partial GOP if the SEI was triggered by a partial GOP.
-      if (gop_info->triggered_partial_gop && (num_in_partial_gop >= gop_info->num_sent)) {
+      // in the partial GOP if the SEI was triggered by a partial GOP. By design, one
+      // cannot break at a TG, since they are hashed together with an FH.
+      if (gop_info->triggered_partial_gop && (num_in_partial_gop >= gop_info->num_sent) &&
+          (item->bu->bu_type != BU_TYPE_TG)) {
         break;
       }
       // Skip TGs since they do not have their own hash.

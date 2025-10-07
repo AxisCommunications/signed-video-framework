@@ -220,9 +220,9 @@ START_TEST(api_inputs)
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Check setting max signing frames
-  sv_rc = signed_viedo_set_max_signing_frames(NULL, 1);
+  sv_rc = signed_video_set_max_signing_frames(NULL, 1);
   ck_assert_int_eq(sv_rc, SV_INVALID_PARAMETER);
-  sv_rc = signed_viedo_set_max_signing_frames(sv, 1);
+  sv_rc = signed_video_set_max_signing_frames(sv, 1);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Setting validation level.
@@ -942,6 +942,20 @@ START_TEST(signing_mulitslice_stream_partial_gops)
 }
 END_TEST
 
+START_TEST(signing_partial_gops_with_bu_in_parts)
+{
+  // Device side
+  struct sv_setting setting = settings[_i];
+  const unsigned max_signing_frames = 4;  // Trigger signing after reaching 4 frames.
+  setting.max_signing_frames = max_signing_frames;
+  test_stream_t *list = create_signed_stream_splitted_bu("IPPPPPIPPIPPPPPPPPPIP", setting);
+  test_stream_check_types(list, "IPPPPSPISPPISPPPPSPPPPSPISP");
+  verify_seis(list, setting);
+
+  test_stream_free(list);
+}
+END_TEST
+
 static Suite *
 signed_video_suite(void)
 {
@@ -976,6 +990,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, signing_multiple_gops, s, e);
   tcase_add_loop_test(tc, signing_partial_gops, s, e);
   tcase_add_loop_test(tc, signing_mulitslice_stream_partial_gops, s, e);
+  tcase_add_loop_test(tc, signing_partial_gops_with_bu_in_parts, s, e);
 
   // Add test case to suit
   suite_add_tcase(suite, tc);
