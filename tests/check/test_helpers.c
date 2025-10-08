@@ -404,8 +404,8 @@ create_signed_stream_with_sv(signed_video_t *sv,
     if (!(!item->prev && sv->using_golden_sei)) {
       ck_assert(!signed_video_is_golden_sei(sv, item->data, item->data_size));
     }
-    // Only split Bitstream Units that are not generated SEIs.
-    if (split_bu && pulled_seis == 0) {
+    // Only split Bitstream Units that are not generated SEIs and large enough to be split.
+    if (split_bu && pulled_seis == 0 && item->data_size > 2) {
       // Split the Bitstream Unit into 2 parts, where the last part inlcudes the ID and the stop
       // bit.
       rc = signed_video_add_nalu_part_for_signing_with_timestamp(
@@ -519,7 +519,7 @@ get_initialized_signed_video(struct sv_setting settings, bool new_private_key)
   ck_assert_int_eq(signed_video_set_product_info(sv, HW_ID, FW_VER, SER_NO, MANUFACT, ADDR), SV_OK);
   ck_assert_int_eq(signed_video_set_authenticity_level(sv, settings.auth_level), SV_OK);
   ck_assert_int_eq(signed_video_set_max_sei_payload_size(sv, settings.max_sei_payload_size), SV_OK);
-  ck_assert_int_eq(signed_viedo_set_max_signing_frames(sv, settings.max_signing_frames), SV_OK);
+  ck_assert_int_eq(signed_video_set_max_signing_frames(sv, settings.max_signing_frames), SV_OK);
   ck_assert_int_eq(signed_video_set_signing_frequency(sv, settings.signing_frequency), SV_OK);
   ck_assert_int_eq(signed_video_set_hash_algo(sv, settings.hash_algo_name), SV_OK);
   if (settings.codec != SV_CODEC_AV1) {

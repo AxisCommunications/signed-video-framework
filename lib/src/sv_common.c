@@ -945,6 +945,10 @@ sv_add_ongoing_hash(signed_video_t *self,
       // Hash |reference_hash| together with the |hash| and store in |bu_hash|.
       SV_THROW(sv_openssl_hash_data(
           self->crypto_handle, gop_info->hash_buddies, hash_size * 2, bu_hash));
+      if (gop_info->triggered_partial_gop && !self->authentication_started) {
+        // If the BU triggered a partial GOP the linked hash has to be updated.
+        SV_THROW(sv_update_linked_hash(self, bu_hash, hash_size));
+      }
     }
 #ifdef SIGNED_VIDEO_DEBUG
     sv_print_hex_data(bu_hash, hash_size, "Hash of %s: ", bu_type_to_str(prev_bu));

@@ -632,6 +632,8 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     }
     bu_info.hashable_data_size = bu_data_size;
   }
+  // Only completed primary slices, unless FH, can trigger actions.
+  bool is_actionable = bu_info.is_primary_slice && bu_info.is_last_bu_part && !bu_info.is_fh;
 
   status = SV_UNKNOWN_FAILURE;
   SV_TRY()
@@ -642,7 +644,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     // Note that |recurrence| is counted in frames and not in BUs, hence we only increment the
     // counter for primary slices. Frame counting is updated at the end of a frame, hence
     // shall be ignored for FH.
-    if (bu_info.is_primary_slice && bu_info.is_last_bu_part && !bu_info.is_fh) {
+    if (is_actionable) {
       if ((self->frame_count % self->recurrence) == 0) {
         self->has_recurrent_data = true;
       }
@@ -650,16 +652,15 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     }
 
     // Determine if a SEI should be generated.
-    bool new_gop = (bu_info.is_first_bu_in_gop && bu_info.is_last_bu_part);
-    // Do not trigger on FH.
-    new_gop &= !bu_info.is_fh;
+    // Check for a new GOP.
+    bool new_gop = bu_info.is_first_bu_in_gop && is_actionable;
     // Trigger signing if number of frames exceeds the limit for a partial GOP.
     bool trigger_signing = ((self->max_signing_frames > 0) &&
         (gop_info->num_frames_in_partial_gop >= self->max_signing_frames));
     // Only trigger if this Bitstream Unit is hashable, hence will be added to the hash
     // list. Also, trigger on a primary slice. Otherwise two slices belonging to the same
     // frame will be part of different SEIs.
-    trigger_signing &= bu_info.is_hashable && bu_info.is_primary_slice;
+    trigger_signing &= bu_info.is_hashable && is_actionable;
     gop_info->triggered_partial_gop = false;
     // Depending on the input Bitstream Unit, different actions are taken. If the input is
     // an I-frame there is a transition to a new GOP. That triggers generating a SEI. If
@@ -709,7 +710,7 @@ signed_video_add_nalu_part_for_signing_with_timestamp(signed_video_t *self,
     }
     SV_THROW(sv_hash_and_add(self, &bu_info));
     // Increment frame counter after the incoming Bitstream Unit has been processed.
-    if (bu_info.is_primary_slice && bu_info.is_last_bu_part) {
+    if (is_actionable) {
       gop_info->num_frames_in_partial_gop++;
     }
 
@@ -1089,7 +1090,7 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid)
 }
 
 SignedVideoReturnCode
-signed_viedo_set_max_signing_frames(signed_video_t *self, unsigned max_signing_frames)
+signed_video_set_max_signing_frames(signed_video_t *self, unsigned max_signing_frames)
 {
   if (!self) {
     return SV_INVALID_PARAMETER;

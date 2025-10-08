@@ -511,7 +511,7 @@ signed_video_set_hash_algo(signed_video_t *self, const char *name_or_oid);
  * @return An appropriate Signed Video Return Code.
  */
 SignedVideoReturnCode
-signed_viedo_set_max_signing_frames(signed_video_t *self, unsigned max_signing_frames);
+signed_video_set_max_signing_frames(signed_video_t *self, unsigned max_signing_frames);
 
 /**
  * @brief Sets an attestation report to the Signed Video session

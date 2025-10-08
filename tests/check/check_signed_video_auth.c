@@ -2180,6 +2180,35 @@ START_TEST(sign_multislice_stream_partial_gops)
 }
 END_TEST
 
+START_TEST(sign_partial_gops_with_bu_in_parts)
+{
+  // Device side
+  struct sv_setting setting = settings[_i];
+  const unsigned max_signing_frames = 4;  // Trigger signing after reaching 4 frames.
+  setting.max_signing_frames = max_signing_frames;
+  test_stream_t *list = create_signed_stream_splitted_bu("IPPPPPIPPIPPPPPPPPPIP", setting);
+  test_stream_check_types(list, "IPPPPSPISPPISPPPPSPPPPSPISP");
+
+  // IPPPPSPISPPISPPPPSPPPPSPISP
+  //
+  // IPPPPS    ....P.                       (valid, 1 pending)
+  //     PSPIS     ...P.                    (valid, 1 pending)
+  //        ISPPIS    ....P.                (valid, 1 pending)
+  //            ISPPPPS   .....P.           (valid, 1 pending)
+  //                 PSPPPPS   .....P.      (valid, 1 pending)
+  //                      PSPIS     ...P.   (valid, 1 pending)
+  //                                                6 pending
+  //                         ISP       P.P  (valid, 3 pending)
+  signed_video_accumulated_validation_t final_validation = {
+      SV_AUTH_RESULT_OK, false, 27, 24, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  const struct validation_stats expected = {
+      .valid_gops = 6, .pending_bu = 6, .final_validation = &final_validation};
+  validate_stream(NULL, list, expected, true);
+
+  test_stream_free(list);
+}
+END_TEST
+
 START_TEST(all_seis_arrive_late_partial_gops)
 {
   // Device side
@@ -3121,6 +3150,7 @@ signed_video_suite(void)
   // Signed partial GOPs
   tcase_add_loop_test(tc, sign_partial_gops, s, e);
   tcase_add_loop_test(tc, sign_multislice_stream_partial_gops, s, e);
+  tcase_add_loop_test(tc, sign_partial_gops_with_bu_in_parts, s, e);
   tcase_add_loop_test(tc, all_seis_arrive_late_partial_gops, s, e);
   tcase_add_loop_test(tc, file_export_and_scrubbing_partial_gops, s, e);
   tcase_add_loop_test(tc, modify_one_p_frame_partial_gops, s, e);
