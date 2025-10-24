@@ -98,3 +98,6 @@ Note that you need libcheck installed as well.
 
 # License
 [MIT License](./LICENSE)
+
+# Original Contributors
+The main part of the work in this repository was done internally at Axis Communications AB by @bjornvolcker and @lurvas777.
