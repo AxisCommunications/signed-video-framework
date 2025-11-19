@@ -225,7 +225,8 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
     }
     SV_THROW_IF(num_certificates > NUM_UNTRUSTED_CERTIFICATES, SV_VENDOR_ERROR);
 
-    SV_THROW(verify_certificate_chain(self->trusted_ca, untrusted_certificates));
+    SV_THROW_WITH_MSG(verify_certificate_chain(self->trusted_ca, untrusted_certificates),
+        "Failed verifying certificate chain");
 
     // Extract |chip_id| from the |attestation_certificate|.
     X509_NAME *subject = X509_get_subject_name(attestation_certificate);
@@ -453,7 +454,7 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
     verified_signature = EVP_DigestVerify(self->md_ctx,
         self->attestation_report.attestation_list.signature,
         self->attestation_report.attestation_list.signature_size, signed_data, SIGNED_DATA_SIZE);
-    SV_THROW_IF(verified_signature < 0, SV_EXTERNAL_ERROR);
+    SV_THROW_IF_WITH_MSG(verified_signature < 0, SV_EXTERNAL_ERROR, "Failed verifying Public Key");
 
     // If verification fails (is 0) the result should never be overwritten with success (1) later.
     self->supplemental_authenticity.public_key_validation &= verified_signature;
