@@ -680,8 +680,8 @@ validate_stream(signed_video_t *sv,
       public_key_has_changed |= latest->public_key_has_changed;
 
       if (latest->has_timestamp) {
-        if (sv->onvif || sv->legacy_sv) {
-          // Media Signing and Legacy code only have one timestamp
+        if (sv->legacy_sv) {
+          // Legacy code only have one timestamp
           ck_assert_int_eq(latest->start_timestamp, latest->end_timestamp);
         } else {
           if (has_timestamp) {
