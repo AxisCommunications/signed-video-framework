@@ -1054,6 +1054,9 @@ legacy_add_bu(legacy_sv_t *self, const uint8_t *bu_data, size_t bu_data_size)
   self->validation_flags.has_auth_result = false;
 
   self->accumulated_validation->number_of_received_nalus++;
+  if (bu.is_primary_slice) {
+    self->accumulated_validation->number_of_received_frames++;
+  }
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
@@ -1113,6 +1116,23 @@ legacy_get_num_bu_items(legacy_sv_t *self)
   return self->bu_list->num_items;
 }
 
+unsigned int
+legacy_get_num_pending_frames(const legacy_sv_t *self)
+{
+  if (!self || !self->bu_list) return 0;
+
+  unsigned int num_pending_frames = 0;
+  legacy_bu_list_item_t *item = self->bu_list->first_item;
+  while (item) {
+    if ((item->tmp_validation_status == 'P') && item->bu->is_primary_slice) {
+      num_pending_frames++;
+    }
+    item = item->next;
+  }
+
+  return num_pending_frames;
+}
+
 // Copied from signed_video_authenticity.c
 static void
 legacy_update_authenticity_report(legacy_sv_t *self)
@@ -1137,7 +1157,8 @@ legacy_update_authenticity_report(legacy_sv_t *self)
     self->authenticity->latest_validation.authenticity = SV_AUTH_RESULT_VERSION_MISMATCH;
   }
   // Remove validated items from the list.
-  const unsigned int number_validated = legacy_bu_list_clean_up(self->bu_list);
+  unsigned int validated_frames = 0;
+  const unsigned int number_validated = legacy_bu_list_clean_up(self->bu_list, &validated_frames);
   // Update the |accumulated_validation| w.r.t. the |latest_validation|.
   update_accumulated_validation(self->latest_validation, self->accumulated_validation);
   // Only update |number_of_validated_nalus| if the video is signed. Currently, unsigned videos are
@@ -1145,5 +1166,6 @@ legacy_update_authenticity_report(legacy_sv_t *self)
   // view, that is not strictly not correct.
   if (self->accumulated_validation->authenticity != SV_AUTH_RESULT_NOT_SIGNED) {
     self->accumulated_validation->number_of_validated_nalus += number_validated;
+    self->accumulated_validation->number_of_validated_frames += validated_frames;
   }
 }

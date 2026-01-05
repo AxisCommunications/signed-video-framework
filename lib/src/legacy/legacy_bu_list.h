@@ -189,11 +189,12 @@ legacy_bu_list_get_str(const legacy_bu_list_t* list, LegacyBUListStringType str_
  *   information that was supposed to be presented to the end user.
  *
  * @param list The list to clean from validated items.
+ * @param removed_frames A pointer to where the number of removed frames is written.
  *
  * @return Number of removed items, excluding previously added 'missing' BUs.
  */
 unsigned int
-legacy_bu_list_clean_up(legacy_bu_list_t* list);
+legacy_bu_list_clean_up(legacy_bu_list_t* list, unsigned int* removed_frames);
 
 svrc_t
 legacy_bu_list_update_status(legacy_bu_list_t* bu_list, bool update);

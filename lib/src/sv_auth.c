@@ -1469,6 +1469,9 @@ add_bitstream_unit(signed_video_t *self, const uint8_t *bu_data, size_t bu_data_
   validation_flags->has_auth_result = false;
 
   self->accumulated_validation->number_of_received_nalus++;
+  if (bu.is_primary_slice) {
+    self->accumulated_validation->number_of_received_frames++;
+  }
   const bool nalus_pending_registration = !self->validation_flags.hash_algo_known;
 
   svrc_t status = SV_UNKNOWN_FAILURE;

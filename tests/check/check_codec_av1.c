@@ -68,8 +68,8 @@ START_TEST(signed_stream_with_fh)
   //                     ItSPtPtItS                 .......PP.      (valid, 2 pending)
   //                                                                        8 pending
   //                            ItSPtPt                    PP.PPPP  (valid, 7 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 34, 27, 7, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 34, 27, 7, 15,
+      12, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 4, .pending_bu = 8, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -91,7 +91,7 @@ START_TEST(signed_stream_in_parts)
   //                                                                 6 pending
   //                     ItSPtPt                    PP.PPPP  (valid, 7 pending)
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 27, 20, 7, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 27, 20, 7, 12, 9, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 3, .pending_bu = 6, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -118,8 +118,8 @@ START_TEST(has_fh_without_tg)
   //                         It|SPt|Pt|It|S        .._..._.._PP_.    (valid, 2 pending)
   //                                                                         8 pending
   //                                   It|SPt                PP_.PP  (valid, 6 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 40, 34, 6, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 40, 34, 6, 13,
+      11, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 4, .pending_bu = 8, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -150,7 +150,7 @@ START_TEST(scrap_first_gop_mixed_with_fh_td_and_obu_metdata)
   //                                                                 7 pending
   //                          It|SPt               PP_.PP   ( valid, 6 pending)
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 31, 25, 6, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 31, 25, 6, 9, 7, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 7, .has_signature = 1, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -179,8 +179,8 @@ START_TEST(partial_gop_with_fh_in_parts)
   //                                                   Pt|SPt|It|S        .._..._PP_.    (v, 2 p)
   //                                                                                        12 pend
   //                                                          It|SPt             PP_.PP  (v, 6 p)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 63, 57, 6, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 63, 57, 6, 19,
+      17, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 6, .invalid_gops = 0, .pending_bu = 12, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);

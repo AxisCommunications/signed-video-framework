@@ -174,6 +174,8 @@ typedef struct {
   // A new Public key has been detected. Signing an ongoing stream with a new key is not allowed. If
   // this flag is set the |authenticity| is automatically set to SV_AUTH_RESULT_NOT_OK.
   bool public_key_has_changed;
+  // NAL Unit statistics. Main usage is to track every single NAL Unit added for authentication.
+  //
   // Total number of received Bitstream Units, that is all Bitstream Units added for validation.
   unsigned int number_of_received_nalus;
   // Total number of validated Bitstream Units, that is, how many of the received Bitstream Units
@@ -181,6 +183,15 @@ typedef struct {
   unsigned int number_of_validated_nalus;
   // The number of Bitstream Units that currently are pending validation.
   unsigned int number_of_pending_nalus;
+  // Frame statistics. Main usage is to know which frames to display as validated/authentic.
+  //
+  // Total number of received frames added for validation.
+  unsigned int number_of_received_frames;
+  // Total number of validated frames, that is, how many of the received frames that so far have
+  // been validated.
+  unsigned int number_of_validated_frames;
+  // The number of frames that currently are pending validation.
+  unsigned int number_of_pending_frames;
   // The result of the Public key validation. If the Public key is present in the SEI/OBU Metadata,
   // it has to be validated to associate the video with a source. If it is not feasible to validate
   // the Public key, it should be validated manually to secure proper video authenticity.

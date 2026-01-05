@@ -477,16 +477,20 @@ legacy_bu_list_get_str(const legacy_bu_list_t *list, LegacyBUListStringType str_
 
 /* Cleans up the list by removing the validated items. */
 unsigned int
-legacy_bu_list_clean_up(legacy_bu_list_t *list)
+legacy_bu_list_clean_up(legacy_bu_list_t *list, unsigned int *removed_frames)
 {
-  if (!list) return 0;
+  if (!list || !removed_frames) return 0;
 
   // Remove validated items.
   unsigned int removed_items = 0;
   legacy_bu_list_item_t *item = list->first_item;
+  *removed_frames = 0;
   while (item && item->validation_status != 'P' && !item->need_second_verification) {
     if (item->validation_status != 'M') {
       removed_items++;
+      if (item->bu->is_primary_slice) {
+        (*removed_frames)++;
+      }
     }
     legacy_bu_list_remove_and_free(list, list->first_item);
     item = list->first_item;

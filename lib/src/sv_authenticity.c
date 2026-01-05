@@ -136,6 +136,9 @@ transfer_accumulated_validation(signed_video_accumulated_validation_t *dst,
   dst->number_of_received_nalus = src->number_of_received_nalus;
   dst->number_of_validated_nalus = src->number_of_validated_nalus;
   dst->number_of_pending_nalus = src->number_of_pending_nalus;
+  dst->number_of_received_frames = src->number_of_received_frames;
+  dst->number_of_validated_frames = src->number_of_validated_frames;
+  dst->number_of_pending_frames = src->number_of_pending_frames;
   dst->public_key_validation = src->public_key_validation;
   dst->has_timestamp = src->has_timestamp;
   dst->first_timestamp = src->first_timestamp;
@@ -201,6 +204,9 @@ sv_accumulated_validation_init(signed_video_accumulated_validation_t *self)
   self->number_of_received_nalus = 0;
   self->number_of_validated_nalus = 0;
   self->number_of_pending_nalus = 0;
+  self->number_of_received_frames = 0;
+  self->number_of_validated_frames = 0;
+  self->number_of_pending_frames = 0;
   self->public_key_validation = SV_PUBKEY_VALIDATION_NOT_FEASIBLE;
   self->has_timestamp = false;
   self->first_timestamp = 0;
@@ -278,7 +284,8 @@ sv_update_authenticity_report(signed_video_t *self)
     self->authenticity->latest_validation.authenticity = SV_AUTH_RESULT_VERSION_MISMATCH;
   }
   // Remove validated items from the list.
-  const unsigned int number_of_validated_bu = bu_list_clean_up(self->bu_list);
+  unsigned int validated_frames = 0;
+  const unsigned int number_of_validated_bu = bu_list_clean_up(self->bu_list, &validated_frames);
   // Update the |accumulated_validation| w.r.t. the |latest_validation|.
   update_accumulated_validation(self->latest_validation, self->accumulated_validation);
   // Only update |number_of_validated_bu| if the video is signed. Currently, unsigned
@@ -286,6 +293,7 @@ sv_update_authenticity_report(signed_video_t *self)
   // a statistics point of view, that is not strictly not correct.
   if (self->accumulated_validation->authenticity != SV_AUTH_RESULT_NOT_SIGNED) {
     self->accumulated_validation->number_of_validated_nalus += number_of_validated_bu;
+    self->accumulated_validation->number_of_validated_frames += validated_frames;
   }
 }
 
@@ -328,12 +336,16 @@ signed_video_get_authenticity_report(signed_video_t *self)
       // If the video is (so far) not signed, number of pending Bitstream Units equals the
       // number of added Bitstream Units for validation.
       accumulated->number_of_pending_nalus = accumulated->number_of_received_nalus;
+      accumulated->number_of_pending_frames = accumulated->number_of_received_frames;
     } else {
       // At this point, all validated Bitstream Units up to the first pending Bitstream
       // Unit have been removed from the |bu_list|, hence number of pending Bitstream
       // Units equals number of items in the |bu_list|.
       accumulated->number_of_pending_nalus =
           self->legacy_sv ? legacy_get_num_bu_items(self->legacy_sv) : self->bu_list->num_items;
+      accumulated->number_of_pending_frames = self->legacy_sv
+          ? legacy_get_num_pending_frames(self->legacy_sv)
+          : bu_list_get_num_pending_frames(self->bu_list);
     }
 
     SV_THROW(transfer_authenticity(authenticity_report, self->authenticity));
@@ -501,6 +513,9 @@ transfer_onvif_accumulated(signed_video_accumulated_validation_t *accumulated,
   accumulated->number_of_received_nalus = onvif_accumulated->number_of_received_nalus;
   accumulated->number_of_validated_nalus = onvif_accumulated->number_of_validated_nalus;
   accumulated->number_of_pending_nalus = onvif_accumulated->number_of_pending_nalus;
+  accumulated->number_of_received_frames = onvif_accumulated->number_of_received_frames;
+  accumulated->number_of_validated_frames = onvif_accumulated->number_of_validated_frames;
+  accumulated->number_of_pending_frames = onvif_accumulated->number_of_pending_frames;
   // Convert provenance result
   switch (onvif_accumulated->provenance) {
     case OMS_PROVENANCE_OK:

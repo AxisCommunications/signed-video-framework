@@ -140,4 +140,7 @@ legacy_sv_add_and_authenticate(legacy_sv_t *self,
 int
 legacy_get_num_bu_items(legacy_sv_t *self);
 
+unsigned int
+legacy_get_num_pending_frames(const legacy_sv_t *self);
+
 #endif  // __LEGACY_VALIDATION_H__
