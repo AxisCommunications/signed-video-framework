@@ -91,6 +91,9 @@ typedef struct {
   unsigned int number_of_received_nalus;
   unsigned int number_of_validated_nalus;
   unsigned int number_of_pending_nalus;
+  unsigned int number_of_received_frames;
+  unsigned int number_of_validated_frames;
+  unsigned int number_of_pending_frames;
   int64_t first_timestamp;
   int64_t last_timestamp;
 } onvif_media_signing_accumulated_validation_t;
