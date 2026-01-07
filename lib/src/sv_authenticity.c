@@ -464,9 +464,8 @@ transfer_onvif_latest(signed_video_latest_validation_t *latest,
       break;
   }
   latest->has_timestamp = true;
-  latest->start_timestamp = convert_1601_to_unix_us(onvif_latest->timestamp);
-  // ONVIF Media Signing currently only has one timestamp.
-  latest->end_timestamp = latest->start_timestamp;
+  latest->start_timestamp = convert_1601_to_unix_us(onvif_latest->start_timestamp);
+  latest->end_timestamp = convert_1601_to_unix_us(onvif_latest->end_timestamp);
 }
 
 static void

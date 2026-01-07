@@ -79,7 +79,8 @@ typedef struct {
   int number_of_pending_hashable_nalus;
   char *validation_str;
   char *nalu_str;
-  int64_t timestamp;
+  int64_t start_timestamp;
+  int64_t end_timestamp;
 } onvif_media_signing_latest_validation_t;
 // Defines onvif_media_signing_accumulated_validation_t
 typedef struct {
