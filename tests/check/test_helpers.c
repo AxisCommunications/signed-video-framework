@@ -750,6 +750,12 @@ validate_stream(signed_video_t *sv,
         expected.final_validation->number_of_validated_nalus);
     ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_nalus,
         expected.final_validation->number_of_pending_nalus);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_received_frames,
+        expected.final_validation->number_of_received_frames);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_validated_frames,
+        expected.final_validation->number_of_validated_frames);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_frames,
+        expected.final_validation->number_of_pending_frames);
     ck_assert_int_eq(auth_report->accumulated_validation.public_key_validation,
         expected.final_validation->public_key_validation);
     ck_assert_int_eq(auth_report->accumulated_validation.has_timestamp,

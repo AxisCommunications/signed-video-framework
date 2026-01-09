@@ -109,8 +109,8 @@ START_TEST(intact_stream)
   test_stream_t *list = create_signed_stream("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISPPISP");
 
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 26, 23, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 26, 23, 3, 20,
+      18, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 6, .pending_bu = 6, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -127,7 +127,7 @@ START_TEST(intact_multislice_stream)
   test_stream_check_types(list, "IiPpPpIiSPpPpIiSPp");
 
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 18, 13, 5, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 18, 13, 5, 8, 6, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 4, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -142,8 +142,8 @@ START_TEST(intact_stream_with_splitted_bu)
   test_stream_t *list = create_signed_stream_splitted_bu("IPPIPPIPPIPPIPPIPPIP", settings[_i]);
   test_stream_check_types(list, "IPPISPPISPPISPPISPPISPPISP");
 
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 26, 23, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 26, 23, 3, 20,
+      18, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // For expected values see the "intact_stream" test above.
   const struct validation_stats expected = {
       .valid_gops = 6, .pending_bu = 6, .final_validation = &final_validation};
@@ -163,7 +163,7 @@ START_TEST(intact_stream_with_pps_in_stream)
 
   // The 'V' is counted as being validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 11, 8, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 11, 8, 3, 8, 6, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 2, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -181,7 +181,7 @@ START_TEST(intact_ms_stream_with_pps_in_stream)
 
   // The 'V' is counted as being validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 19, 14, 5, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 19, 14, 5, 8, 6, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 4, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -203,7 +203,7 @@ START_TEST(intact_with_undefined_bu_in_stream)
   test_stream_check_types(list, "IPXPISPPISP");
 
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 11, 8, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 11, 8, 3, 8, 6, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 2, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -220,7 +220,7 @@ START_TEST(intact_multislice_with_undefined_bu_in_stream)
   test_stream_check_types(list, "IiPpXPpIiSPpPpIiSPp");
 
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 19, 14, 5, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 19, 14, 5, 8, 6, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 4, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -246,8 +246,8 @@ START_TEST(remove_one_p_frame)
   test_stream_check_types(list, "IPPISPPISPPISP");
 
   // Since one Bitstream Unit has been removed the authenticity is NOT OK.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 14, 11, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 14, 11, 3,
+      11, 9, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // IPPISPPISPPISP
   // IPPIS            ...P.          ->   (   valid)
   //    ISPPIS           NM.NNPN     ->   ( invalid, 1 missed)
@@ -298,8 +298,8 @@ START_TEST(interchange_two_p_frames)
   //    ISPPPIS          ...M.NP.    ->   ( invalid) Adds a missing item in string, to be fixed
   //    ISPPPIS          N.NNNPN     ->   ( invalid) [GOP level authentication]
   //         ISPPIS           ....P. ->   (   valid)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 15, 12, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 15, 12, 3,
+      12, 10, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .invalid_gops = 1, .pending_bu = 3, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -329,8 +329,8 @@ START_TEST(modify_one_p_frame)
   //         ISPPIS                      ....P.      (  valid, 1 pending)
   //                                                           3 pending
   //             ISP                         P.P     (invalid, 3 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 15, 12, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 15, 12, 3,
+      12, 10, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {
       .valid_gops = 2, .invalid_gops = 1, .pending_bu = 3, .final_validation = &final_validation};
   if (settings[_i].auth_level == SV_AUTHENTICITY_LEVEL_GOP) {
@@ -364,8 +364,8 @@ START_TEST(modify_one_i_frame)
   const int modify_item_number = 4;
   modify_list_item(list, modify_item_number, 'I');
 
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 19, 16, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 19, 16, 3,
+      15, 13, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // IPPISPPPISPPISPPISP
   // [Frame level authentication]
   // IPPIS            ...P.              ->   (   valid)
@@ -399,8 +399,8 @@ START_TEST(modify_one_sei)
   // least 70 bytes large, hence flipping the 50th byte from the end is safe.
   sei->data[sei->data_size - 50] = ~(sei->data[sei->data_size - 50]);
 
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 15, 12, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 15, 12, 3,
+      12, 10, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
 
   // IPPISPPPISPPISP
   //
@@ -436,8 +436,8 @@ START_TEST(remove_one_sei)
   // IPPIS            ...P.              ->   (   valid)
   //    ISPPIPPIS        N.NN...P.       ->   ( invalid)
   //           ISPPIS           ....P.   ->   (   valid)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 17, 14, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 17, 14, 3,
+      14, 12, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .invalid_gops = 1, .pending_bu = 3, .final_validation = &final_validation};
 
@@ -457,8 +457,8 @@ START_TEST(remove_one_i_frame)
   remove_item_then_check_and_free(list, remove_item_number, 'I');
   test_stream_check_types(list, "IPPISPPSPPISPPISPPISPPISP");
 
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 25, 22, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 25, 22, 3,
+      19, 17, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // IPPISPPSPPISPPISPPISPPISP
   //
   // IPPIS            ...P.                     ->  (   valid)
@@ -490,8 +490,8 @@ START_TEST(remove_one_sei_and_i_frame)
   remove_item_then_check_and_free(list, remove_item_number, 'S');
   test_stream_check_types(list, "IPPISPPPPISPPISPPISP");
 
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 20, 17, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 20, 17, 3,
+      16, 14, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // IPPISPPPPISPPISPPISP
   //
   // IPPIS            ...P.                     ->  (  valid)
@@ -519,8 +519,8 @@ START_TEST(two_lost_seis)
   remove_item_then_check_and_free(list, remove_item_number, 'S');
   test_stream_check_types(list, "IPPISPPIPPIPPISPPISPPISP");
 
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 24, 21, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 24, 21, 3,
+      20, 18, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // IPPISPPIPPIPPISPPISPPISP
   //
   // IPPIS                 ...P.                     ->  (   valid)
@@ -557,8 +557,8 @@ START_TEST(sei_arrives_late)
   // IPPPIS            ....P.                    ->  (   valid)
   //     ISPPPIPPPIS       .....PPPPP.           ->  (   valid)
   //          IPPPISS           ....P..          ->  (   valid)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 17, 13, 4, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 17, 13, 4, 14,
+      12, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 3, .pending_bu = 7, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -617,8 +617,8 @@ START_TEST(all_seis_arrive_late)
   //                    IPPSSPIS           ......P.      ->  (   valid)  1 pending
   //                          ISPIS              ...P.   ->  (   valid)  1 pending
   //                                                                    26 pending
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 31, 28, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 31, 28, 3, 25,
+      23, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 6, .pending_bu = 26, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -644,8 +644,8 @@ START_TEST(all_seis_arrive_late_first_gop_scrapped)
   //               IPPSSPIS          ......P.      ->  (    valid)  1 pending
   //                     ISPIS             ...P.   ->  (    valid)  1 pending
   //                                                               26 pending
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 26, 23, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 26, 23, 3, 20,
+      18, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 5, .has_signature = 1, .pending_bu = 26, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -671,8 +671,8 @@ START_TEST(all_seis_arrive_late_two_gops_scrapped)
   //           IPPSSPIS    ->      (valid) ->           ......P.     1 pending
   //                 ISPIS ->      (valid) ->                 ...P.  1 pending
   //                                                                15 pending
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 22, 19, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 22, 19, 3, 16,
+      14, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 4, .pending_bu = 15, .has_signature = 1, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -707,8 +707,8 @@ START_TEST(lost_one_sei_before_late_sei_arrival)
   //     ISPPPIPPPIPPIS    N.NNN....PPPP.      ->  ( invalid)
   //              IPPISS            ...P..     ->  (   valid)
   //                 ISSPPIS           .....P. ->  (   valid)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 24, 21, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 24, 21, 3,
+      20, 18, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 3, .invalid_gops = 1, .pending_bu = 7, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -765,7 +765,7 @@ START_TEST(lost_one_sei_and_gop_with_late_sei_arrival)
   //      IPS*PPIPS ->     (valid) -> .....PP.
   // All Bitstream Units but the last three Bitstream Units are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 13, 10, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 13, 10, 3, 10, 8, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 6, .has_signature = 1, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -796,8 +796,8 @@ START_TEST(lost_all_data_between_two_seis)
   //        PPPIS                NNNMP.         ->  ( invalid, 1 missing I-frame)
   //           ISPPIS                N...P.     ->  ( invalid, wrong link)
   //               ISPPIS               ....P.  ->  (   valid)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 21, 18, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 21, 18, 3,
+      16, 14, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {.valid_gops = 2,
       .valid_gops_with_missing_info = 1,
       .invalid_gops = 2,
@@ -836,7 +836,7 @@ START_TEST(add_one_sei_after_signing)
   SignedVideoAuthenticityResult authenticity =
       codec != SV_CODEC_AV1 ? SV_AUTH_RESULT_OK : SV_AUTH_RESULT_NOT_OK;
   signed_video_accumulated_validation_t final_validation = {
-      authenticity, false, 16, 13, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      authenticity, false, 16, 13, 3, 12, 10, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {.valid_gops = codec != SV_CODEC_AV1 ? 3 : 2,
       .invalid_gops = codec != SV_CODEC_AV1 ? 0 : 1,
       .missed_bu = codec != SV_CODEC_AV1 ? 0 : -1,
@@ -877,8 +877,8 @@ START_TEST(remove_two_gops_in_start_of_stream)
   test_stream_free(removed_list);
   test_stream_check_types(list, "ISPPSPISPPPPISPPISP");
 
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 19, 16, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 19, 16, 3, 14,
+      12, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // ISPPSPISPPPPISPPISP
   //
   // IS                P.                      -> (signature) 1 pending
@@ -937,8 +937,8 @@ START_TEST(camera_reset_on_signing_side)
   //        ISPPPIS          N....P.           ->  ( invalid, reset, wrong link etc.)
   //             ISPIS            ...P.        ->  (   valid)
   //                ISPIS             ...P.    ->  (   valid)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 21, 18, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 21, 18, 3,
+      16, 14, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {
       .valid_gops = 4, .invalid_gops = 1, .pending_bu = 5, .final_validation = &final_validation};
 
@@ -996,8 +996,8 @@ START_TEST(detect_change_of_public_key)
   //    ISPPIS           ....P.            ->  (   valid)
   //        ISPIS*           N.NPN         ->  ( invalid, key has changed, wrong link)
   //           IS*PIS*          NNNPN      ->  ( invalid)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, true, 16, 13, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, true, 16, 13, 3,
+      12, 10, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {.valid_gops = 2,
       .invalid_gops = 2,
       .pending_bu = 4,
@@ -1037,7 +1037,7 @@ mimic_au_fast_forward_and_get_list(signed_video_t *sv, struct sv_setting setting
   test_stream_check_types(list, "PPISPPPISPPPISPPPISP");
 
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 8, 4, 4, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 8, 4, 4, 7, 4, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // Validate the video before fast forward using the user created session |sv|.
   // IPPPIS   ...P.  -> (   valid)
   const struct validation_stats expected = {
@@ -1073,7 +1073,7 @@ START_TEST(fast_forward_stream_with_reset)
   // The reset will not report in another signature present. That message is only
   // presented once.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 13, 10, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 13, 10, 3, 10, 8, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 2, .final_validation = &final_validation};
 
@@ -1111,7 +1111,7 @@ START_TEST(fast_forward_stream_without_reset)
   //
   //                   ISP                 ->  (invalid)
   signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 8 + 13,
-      8 + 10, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      8 + 10, 3, 7 + 10, 7 + 8, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 1, .invalid_gops = 2, .pending_bu = 3, .final_validation = &final_validation};
   validate_stream(sv, list, expected, true);
@@ -1134,7 +1134,7 @@ mimic_au_fast_forward_on_late_seis_and_get_list(signed_video_t *sv, struct sv_se
   test_stream_check_types(list, "PIPPSPIPPSPIPPSPISPISP");
 
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 9, 5, 4, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 9, 5, 4, 8, 5, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // Validate the video before fast forward using the user created session |sv|.
   // IPPPPIPPS
   // IPPPPIPPS     -> .....PPP.  (   valid)
@@ -1169,8 +1169,8 @@ START_TEST(fast_forward_stream_with_delayed_seis)
   //           ISPIS          ...P.  ->  (    valid)
   // The reset will not report in another signature present. That message is only
   // presented once.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 16, 13, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 16, 13, 3, 12,
+      10, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 3, .pending_bu = 5, .final_validation = &final_validation};
 
@@ -1244,8 +1244,8 @@ START_TEST(file_export_with_dangling_end)
   //                               ISPIS          ...P.    (    valid, 1 pending)
   //                                                                   6 pending
   //                                  ISPP           P.PP  (    valid, 4 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 37, 33, 4, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 37, 33, 4, 30,
+      27, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 5, .pending_bu = 6, .has_signature = 1, .final_validation = &final_validation};
 
@@ -1271,8 +1271,8 @@ START_TEST(file_export_with_two_useless_seis)
   //      IPPSSPIS       ...U..P.     ->      (valid) ->  1 pending
   //            ISPIS          ...P.  ->      (valid) ->  1 pending
   //                                                      8 pending
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 17, 14, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 17, 14, 3, 12,
+      10, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 3, .pending_bu = 8, .has_signature = 1, .final_validation = &final_validation};
 
@@ -1327,8 +1327,8 @@ START_TEST(no_signature)
   test_stream_check_types(list, "IPPIPPIPPIPPI");
 
   // Video is not signed, hence all Bitstream Units are pending.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_SIGNED, false, 13, 0, 13, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, false, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_SIGNED, false, 13, 0,
+      13, 13, 0, 13, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, false, 0, 0};
   // No intermediate results
   const struct validation_stats expected = {
       .has_no_timestamp = true, .final_validation = &final_validation};
@@ -1347,8 +1347,8 @@ START_TEST(multislice_no_signature)
   test_stream_check_types(list, "IiPpPpIiPpPpIiPpPpIiPpPpIi");
 
   // Video is not signed, hence all Bitstream Units are pending.
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_SIGNED, false, 26, 0, 26, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, false, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_SIGNED, false, 26, 0,
+      26, 13, 0, 13, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, false, 0, 0};
   // No intermediate results
   const struct validation_stats expected = {
       .has_no_timestamp = true, .final_validation = &final_validation};
@@ -1382,8 +1382,8 @@ START_TEST(fallback_to_gop_level)
       create_signed_stream_with_sv(sv, "IPPIPPPPPPPPPPPPPPPPPPPPPPPPIPPIP", false, 0, false);
   test_stream_check_types(list, "IPPISPPPPPPPPPPPPPPPPPPPPPPPPISPPISP");
 
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 36, 33, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 36, 33, 3, 33,
+      31, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 3, .pending_bu = 3, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -1476,6 +1476,9 @@ START_TEST(vendor_axis_communications_operation)
     ck_assert_int_eq(auth_report->accumulated_validation.number_of_received_nalus, 4);
     ck_assert_int_eq(auth_report->accumulated_validation.number_of_validated_nalus, 2);
     ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_nalus, 2);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_received_frames, 3);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_validated_frames, 2);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_frames, 1);
     ck_assert_int_eq(
         auth_report->accumulated_validation.public_key_validation, SV_PUBKEY_VALIDATION_NOT_OK);
     // We are done with auth_report.
@@ -1588,6 +1591,9 @@ START_TEST(factory_provisioned_key)
   ck_assert_int_eq(auth_report->accumulated_validation.number_of_received_nalus, 4);
   ck_assert_int_eq(auth_report->accumulated_validation.number_of_validated_nalus, 2);
   ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_nalus, 2);
+  ck_assert_int_eq(auth_report->accumulated_validation.number_of_received_frames, 3);
+  ck_assert_int_eq(auth_report->accumulated_validation.number_of_validated_frames, 2);
+  ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_frames, 1);
   ck_assert_int_eq(
       auth_report->accumulated_validation.public_key_validation, SV_PUBKEY_VALIDATION_NOT_OK);
   // We are done with auth_report.
@@ -1637,7 +1643,7 @@ START_TEST(onvif_intact_stream)
 
   // Define expected validation results.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 26, 23, 3, SV_PUBKEY_VALIDATION_NOT_OK, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 26, 23, 3, 20, 18, 2, SV_PUBKEY_VALIDATION_NOT_OK, true, 0, 0};
   struct validation_stats expected = {
       .valid_gops = 6, .pending_bu = 6, .final_validation = &final_validation};
 
@@ -2014,6 +2020,9 @@ START_TEST(no_emulation_prevention_bytes)
     ck_assert_int_eq(auth_report->accumulated_validation.number_of_received_nalus, 3);
     ck_assert_int_eq(auth_report->accumulated_validation.number_of_validated_nalus, 1);
     ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_nalus, 2);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_received_frames, 2);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_validated_frames, 1);
+    ck_assert_int_eq(auth_report->accumulated_validation.number_of_pending_frames, 1);
     ck_assert_int_eq(auth_report->accumulated_validation.public_key_validation,
         SV_PUBKEY_VALIDATION_NOT_FEASIBLE);
     // We are done with auth_report.
@@ -2066,8 +2075,8 @@ START_TEST(with_blocked_signing)
   //        IPPIPPISPS             ...PPPP.P.      ->  (   valid)
   //           IPPISPSPS              ...P.P.P.    ->  (   valid)
   //              ISPSPSIS               ......P.  ->  (   valid)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 22, 19, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 22, 19, 3, 17,
+      15, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 5, .pending_bu = 17, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -2103,7 +2112,7 @@ START_TEST(golden_sei_principle)
   //     ISPPIS       ....P.      ->  (    valid)
   //         ISPPIS       ....P.  ->  (    valid)
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 15, 12, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 15, 12, 3, 11, 9, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 3, .has_signature = 1, .pending_bu = 3, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -2138,8 +2147,8 @@ START_TEST(sign_partial_gops)
   //                      PSPIS                  ...P.   (valid, 1 pending)
   //                                                             6 pending
   //                         ISP                    P.P  (valid, 3 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 27, 24, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 27, 24, 3, 21,
+      19, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 6, .pending_bu = 6, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -2170,8 +2179,8 @@ START_TEST(sign_multislice_stream_partial_gops)
   //                       IiSPpPpIiS              .......PP.    (valid, 2 pending)
   //                                                                     8 pending
   //                              IiSPp                   PP.PP  (valid, 5 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 34, 29, 5, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 34, 29, 5, 15,
+      13, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 4, .pending_bu = 8, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -2199,8 +2208,8 @@ START_TEST(sign_partial_gops_with_bu_in_parts)
   //                      PSPIS     ...P.   (valid, 1 pending)
   //                                                6 pending
   //                         ISP       P.P  (valid, 3 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 27, 24, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 27, 24, 3, 21,
+      19, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 6, .pending_bu = 6, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -2232,8 +2241,8 @@ START_TEST(all_seis_arrive_late_partial_gops)
   //                      PPIPSPPPS                   ..PP.PPP.      (valid, 5 pending)
   //                                                                        27 pending
   //                        IPSPPPSP                    PP.PPP.P     (valid, 8 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 31, 23, 8, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 31, 23, 8, 25,
+      19, 6, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 6, .pending_bu = 27, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -2267,8 +2276,8 @@ START_TEST(file_export_and_scrubbing_partial_gops)
   //                                   ISPIS                  ...P.   ( valid, 1 pending)
   //                                                                          10 pending
   //                                      ISPP                   P.PP ( valid, 4 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 41, 37, 4, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 41, 37, 4, 30,
+      27, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {
       .valid_gops = 9, .has_signature = 1, .pending_bu = 10, .final_validation = &final_validation};
   validate_stream(sv, list, expected, settings[_i].ec_key);
@@ -2292,6 +2301,8 @@ START_TEST(file_export_and_scrubbing_partial_gops)
   // No report triggered.
   final_validation.number_of_received_nalus = 12;
   final_validation.number_of_validated_nalus = 8;
+  final_validation.number_of_received_frames = 9;
+  final_validation.number_of_validated_frames = 6;
   expected.valid_gops = 2;
   expected.pending_bu = 2;
   // 5) Reset and validate the first two GOPs.
@@ -2304,6 +2315,8 @@ START_TEST(file_export_and_scrubbing_partial_gops)
   // ISPPPPSPISPISPP
   final_validation.number_of_received_nalus = 15;
   final_validation.number_of_validated_nalus = 11;
+  final_validation.number_of_received_frames = 11;
+  final_validation.number_of_validated_frames = 8;
   expected.valid_gops = 3;
   expected.pending_bu = 3;
   // 7) Reset and validate the rest of the file.
@@ -2340,8 +2353,8 @@ START_TEST(modify_one_p_frame_partial_gops)
   //                 PSPIS                  ...P.   (  valid, 1 pending)
   //                                                          5 pending
   //                    ISP                   P.P   (invalid, 3 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 22, 19, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 22, 19, 3,
+      17, 15, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 4, .invalid_gops = 1, .pending_bu = 5, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -2376,7 +2389,7 @@ START_TEST(remove_one_p_frame_partial_gops)
   //                                                          5 pending
   //                   ISP                     P.P  (missing, 3 pending)
   signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK_WITH_MISSING_INFO,
-      false, 21, 18, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      false, 21, 18, 3, 16, 14, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {.valid_gops = 4,
       .valid_gops_with_missing_info = 1,
       .missed_bu = 1,
@@ -2430,8 +2443,8 @@ START_TEST(add_one_p_frame_partial_gops)
   //                  PSPIS                  ...P.  (  valid, 1 pending)
   //                                                          5 pending
   //                   ISP                    P.P   (invalid, 3 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 23, 20, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 23, 20, 3,
+      18, 16, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {.valid_gops = 4,
       .invalid_gops = 1,
       .missed_bu = -1,
@@ -2484,8 +2497,8 @@ START_TEST(modify_one_i_frame_partial_gops)
   //                        ISPIS                 ...P.   (  valid, 1 pending)
   //                                                                7 pending
   //                           ISP                   P.P  (invalid, 3 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 29, 26, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 29, 26, 3,
+      22, 20, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 4, .invalid_gops = 3, .pending_bu = 7, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -2521,8 +2534,8 @@ START_TEST(remove_one_i_frame_partial_gops)
   //                       ISPIS       ...P.   (  valid, 1 pending)
   //                                                     5 pending
   //                          ISP         P.P  (invalid, 3 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 28, 25, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 28, 25, 3,
+      21, 19, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {.valid_gops = 4,
       .invalid_gops = 3,
       .pending_bu = 5,
@@ -2564,8 +2577,8 @@ START_TEST(modify_one_sei_frame_partial_gops)
   //                        ISPIS                 ...P.   (  valid, 1 pending)
   //                                                                7 pending
   //                           ISP                   P.P  (invalid, 3 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 29, 26, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 29, 26, 3,
+      22, 20, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 6, .invalid_gops = 1, .pending_bu = 7, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -2601,8 +2614,8 @@ START_TEST(remove_one_sei_frame_partial_gops)
   //                       ISPIS       ...P.   (  valid, 1 pending)
   //                                                     6 pending
   //                          ISP         P.P  (invalid, 3 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 28, 25, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 28, 25, 3,
+      22, 20, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 5, .invalid_gops = 1, .pending_bu = 6, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -2633,8 +2646,8 @@ START_TEST(sign_multiple_gops)
   //            ISPPIsPPIsPPIS    ...........P.  ( valid, 1 pending)
   //                                                      7 pending
   //                        ISP              P.P ( valid, 3 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 26, 23, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 26, 23, 3, 20,
+      18, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 7, .has_signature = 1, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -2664,8 +2677,8 @@ START_TEST(sign_multislice_stream_multiple_gops)
   //                     IiSPpPpIisPpPpIisPpPpIiS  .....................PP.   ( valid, 2 pending)
   //                                                                                  13 pending
   //                                          IiSPp                     PP.PP ( valid, 5 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 46, 41, 5, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 46, 41, 5, 20,
+      18, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 13, .has_signature = 1, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -2694,8 +2707,8 @@ START_TEST(all_seis_arrive_late_multiple_gops)
   //            IPPISsPPIsPPIPPPS             ............PPPP.   ( valid, 4 pending)
   //                                                                      13 pending
   //                        IPPPSP                        PPPP.P  ( valid, 6 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 29, 23, 6, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 29, 23, 6, 23,
+      18, 5, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {
       .valid_gops = 2, .pending_bu = 13, .has_signature = 1, .final_validation = &final_validation};
   validate_stream(NULL, list, expected, true);
@@ -2722,8 +2735,8 @@ START_TEST(file_export_and_scrubbing_multiple_gops)
   //             ISPPPPPPPPPIsPPPPPIsPIS    .....................P.   ( valid, 1 pending)
   //                                                                           4 pending
   //                                  ISPP                       P.PP ( valid, 4 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 37, 33, 4, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK, false, 37, 33, 4, 30,
+      27, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {
       .valid_gops = 2, .has_signature = 1, .pending_bu = 4, .final_validation = &final_validation};
   validate_stream(sv, list, expected, true);
@@ -2745,7 +2758,7 @@ START_TEST(file_export_and_scrubbing_multiple_gops)
   // IsPPPPPIsPP
   // No report triggered. No timestamps in report.
   signed_video_accumulated_validation_t tmp_final_validation = {SV_AUTH_RESULT_SIGNATURE_PRESENT,
-      false, 11, 0, 11, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, false, 0, 0};
+      false, 11, 0, 11, 9, 0, 9, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, false, 0, 0};
   expected.final_validation = &tmp_final_validation;
   expected.valid_gops = 0;
   expected.pending_bu = 0;  // No report triggered.
@@ -2763,6 +2776,9 @@ START_TEST(file_export_and_scrubbing_multiple_gops)
   final_validation.number_of_received_nalus = 14;
   final_validation.number_of_validated_nalus = 10;
   final_validation.number_of_pending_nalus = 4;
+  final_validation.number_of_received_frames = 11;
+  final_validation.number_of_validated_frames = 8;
+  final_validation.number_of_pending_frames = 3;
   expected.valid_gops = 1;
   expected.pending_bu = 1;  // No report on the first unsigned SEI.
   expected.has_signature = 0;
@@ -2799,8 +2815,8 @@ START_TEST(modify_one_p_frame_multiple_gops)
   //            ISPPIsPPIsPPIS    ...........P.  (  valid, 1 pending)
   //                                                       7 pending
   //                        ISP              P.P (invalid, 3 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 26, 23, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 26, 23, 3,
+      20, 18, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {.valid_gops = 1,
       .invalid_gops = 1,
       .has_signature = 1,
@@ -2836,7 +2852,7 @@ START_TEST(remove_one_p_frame_multiple_gops)
   //                                                       7 pending
   //                       ISP               P.P (missing, 3 pending)
   signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_OK_WITH_MISSING_INFO,
-      false, 25, 22, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      false, 25, 22, 3, 19, 17, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   struct validation_stats expected = {.valid_gops = 1,
       .valid_gops_with_missing_info = 1,
       .has_signature = 1,
@@ -2886,8 +2902,8 @@ START_TEST(add_one_p_frame_multiple_gops)
   //             ISPPIsPPIsPPIS    ...........P.  (  valid, 1 pending)
   //                                                        7 pending
   //                         ISP              P.P (invalid, 3 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 27, 24, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 27, 24, 3,
+      21, 19, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {.valid_gops = 1,
       .invalid_gops = 1,
       .has_signature = 1,
@@ -2923,8 +2939,8 @@ START_TEST(modify_one_i_frame_multiple_gops)
   //            ISPPIsPPIsPPIS    ...........P.  (  valid, 1 pending)
   //                                                       7 pending
   //                        ISP              P.P (invalid, 3 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 26, 23, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 26, 23, 3,
+      20, 18, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {.valid_gops = 1,
       .invalid_gops = 1,
       .has_signature = 1,
@@ -2961,8 +2977,8 @@ START_TEST(remove_one_i_frame_multiple_gops)
   //                       ISIsIsIS           ......P.  (  valid, 1 pending)
   //                                                              8 pending
   //                             ISP                P.P (invalid, 3 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 31, 28, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 31, 28, 3,
+      22, 20, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {.valid_gops = 1,
       .invalid_gops = 2,
       .has_signature = 1,
@@ -3009,8 +3025,8 @@ START_TEST(modify_sei_frames_multiple_gops)
   //            ISPPIsPPIsPPIS    NNNN.N.....P.  (invalid, 1 pending)
   //                                                       7 pending
   //                        ISP              P.P (invalid, 3 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 26, 23, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 26, 23, 3,
+      20, 18, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {.valid_gops = 0,
       .invalid_gops = 2,
       .has_signature = 1,
@@ -3050,8 +3066,8 @@ START_TEST(remove_sei_frames_multiple_gops)
   //                            ISIsIsIS                  ......P.  (  valid, 1 pending)
   //                                                                          8 pending
   //                                  ISP                       P.P (invalid, 3 pending)
-  signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_NOT_OK, false, 36, 33, 3, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+  signed_video_accumulated_validation_t final_validation = {SV_AUTH_RESULT_NOT_OK, false, 36, 33, 3,
+      26, 24, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   const struct validation_stats expected = {.valid_gops = 1,
       .invalid_gops = 2,
       .has_signature = 1,
@@ -3077,7 +3093,7 @@ START_TEST(legacy_stream)
 
   // All BUs but the last 'I' are validated.
   signed_video_accumulated_validation_t final_validation = {
-      SV_AUTH_RESULT_OK, false, 15, 13, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
+      SV_AUTH_RESULT_OK, false, 15, 13, 2, 11, 9, 2, SV_PUBKEY_VALIDATION_NOT_FEASIBLE, true, 0, 0};
   // One pending BU per GOP.
   const struct validation_stats expected = {
       .valid_gops = 4, .pending_bu = 4, .final_validation = &final_validation};

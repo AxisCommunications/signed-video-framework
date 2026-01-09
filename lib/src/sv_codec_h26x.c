@@ -98,6 +98,9 @@ parse_h264_nalu_header(bu_info_t *bu)
       break;
   }
 
+  // Primary slice only applies to picture NAL Units.
+  bu->is_primary_slice &= (bu->bu_type == BU_TYPE_I || bu->bu_type == BU_TYPE_P);
+
   // If the forbidden_zero_bit is set this is not a correct NALU header.
   nalu_header_is_valid &= !forbidden_zero_bit;
   return nalu_header_is_valid;
@@ -127,9 +130,7 @@ parse_h265_nalu_header(bu_info_t *bu)
   switch (nalu_type) {
       // 0 to 5. Trailing non-IRAP pictures
     case 0:  // 0 TRAIL_N Coded slice segment of a non-TSA, non-STSA trailing picture VCL
-
     case 1:  // 1 TRAIL_R Coded slice segment of a non-TSA, non-STSA trailing picture VCL
-
       bu->bu_type = BU_TYPE_P;
       nalu_header_is_valid = true;
       break;
@@ -210,6 +211,9 @@ parse_h265_nalu_header(bu_info_t *bu)
       bu->bu_type = BU_TYPE_UNDEFINED;
       break;
   }
+
+  // Primary slice only applies to picture NAL Units.
+  bu->is_primary_slice &= (bu->bu_type == BU_TYPE_I || bu->bu_type == BU_TYPE_P);
 
   // If the forbidden_zero_bit is set this is not a correct NALU header.
   nalu_header_is_valid &= !forbidden_zero_bit;

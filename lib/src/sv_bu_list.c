@@ -581,6 +581,23 @@ bu_list_num_pending_items(const bu_list_t *list)
   return num_pending_bu;
 }
 
+unsigned int
+bu_list_get_num_pending_frames(const bu_list_t *list)
+{
+  if (!list) return 0;
+
+  unsigned int num_pending_frames = 0;
+  bu_list_item_t *item = list->first_item;
+  while (item) {
+    if ((item->tmp_validation_status == 'P') && item->bu->is_primary_slice) {
+      num_pending_frames++;
+    }
+    item = item->next;
+  }
+
+  return num_pending_frames;
+}
+
 svrc_t
 bu_list_update_status(bu_list_t *list, bool update)
 {
@@ -639,18 +656,22 @@ bu_list_get_str(const bu_list_t *list, BitstreamUnitListStringType str_type)
 
 /* Cleans up the list by removing the validated items. */
 unsigned int
-bu_list_clean_up(bu_list_t *list)
+bu_list_clean_up(bu_list_t *list, unsigned int *removed_frames)
 {
-  if (!list) {
+  if (!list || !removed_frames) {
     return 0;
   }
 
   // Remove validated items.
   unsigned int removed_items = 0;
   bu_list_item_t *item = list->first_item;
+  *removed_frames = 0;
   while (item && item->validation_status != 'P') {
     if (item->validation_status != 'M') {
       removed_items++;
+      if (item->bu->is_primary_slice) {
+        (*removed_frames)++;
+      }
     }
     bu_list_remove_and_free_item(list, list->first_item);
     item = list->first_item;

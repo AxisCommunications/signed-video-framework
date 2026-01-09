@@ -183,6 +183,16 @@ int
 bu_list_num_pending_items(const bu_list_t* list);
 
 /**
+ * @brief Counts and returns number of frames pending validation
+ *
+ * @param list The |list| to count pending frames.
+ *
+ * @return Number of frames pending validation. Returns zero upon failure.
+ */
+unsigned int
+bu_list_get_num_pending_frames(const bu_list_t* list);
+
+/**
  * @brief Updates or resets validation status of all items in a list
  *
  * @param list The |list| to count pending items.
@@ -219,11 +229,12 @@ bu_list_get_str(const bu_list_t* list, BitstreamUnitListStringType str_type);
  *   was supposed to be presented to the end user.
  *
  * @param list The list to clean from validated items.
+ * @param removed_frames A pointer to where the number of removed frames is written.
  *
  * @return Number of removed items, excluding previously added 'missing' BUs.
  */
 unsigned int
-bu_list_clean_up(bu_list_t* list);
+bu_list_clean_up(bu_list_t* list, unsigned int* removed_frames);
 
 /**
  * @brief Prints all items in the list
