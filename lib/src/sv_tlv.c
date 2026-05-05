@@ -262,10 +262,10 @@ encode_general(signed_video_t *self, uint8_t *data)
   sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter >> 24) & 0x000000ff), epb);
   sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter >> 16) & 0x000000ff), epb);
   sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter >> 8) & 0x000000ff), epb);
-  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter)&0x000000ff), epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((gop_counter) & 0x000000ff), epb);
   // Write num_in_partial_gop; 2 bytes
   sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((num_in_partial_gop >> 8) & 0x00ff), epb);
-  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((num_in_partial_gop)&0x00ff), epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((num_in_partial_gop) & 0x00ff), epb);
 
   for (int i = 0; i < SV_VERSION_BYTES; i++) {
     sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)self->code_version[i], epb);
@@ -284,7 +284,7 @@ encode_general(signed_video_t *self, uint8_t *data)
     sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((start_ts >> 24) & 0x000000ff), epb);
     sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((start_ts >> 16) & 0x000000ff), epb);
     sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((start_ts >> 8) & 0x000000ff), epb);
-    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((start_ts)&0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((start_ts) & 0x000000ff), epb);
     sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((end_ts >> 56) & 0x000000ff), epb);
     sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((end_ts >> 48) & 0x000000ff), epb);
     sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((end_ts >> 40) & 0x000000ff), epb);
@@ -292,7 +292,7 @@ encode_general(signed_video_t *self, uint8_t *data)
     sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((end_ts >> 24) & 0x000000ff), epb);
     sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((end_ts >> 16) & 0x000000ff), epb);
     sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((end_ts >> 8) & 0x000000ff), epb);
-    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((end_ts)&0x000000ff), epb);
+    sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((end_ts) & 0x000000ff), epb);
   }
 
   // Write linked hash; hash_size bytes
@@ -364,6 +364,7 @@ decode_general(signed_video_t *self, const uint8_t *data, size_t data_size)
     }
     if (version >= 3) {
       hash_size = (data_size - (data_ptr - data)) / 2;
+      SV_THROW_IF(hash_size > MAX_HASH_SIZE, SV_AUTHENTICATION_ERROR);
       // Decode linked hash data.
       memcpy(self->received_linked_hash, data_ptr, hash_size);
       data_ptr += hash_size;
@@ -849,7 +850,7 @@ encode_signature(signed_video_t *self, uint8_t *data)
   // Write hash type
   // Write actual signature size (2 bytes)
   sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((signature_size >> 8) & 0x00ff), epb);
-  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((signature_size)&0x00ff), epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)((signature_size) & 0x00ff), epb);
   // Write signature
   size_t i = 0;
   for (; i < signature_size; i++) {
