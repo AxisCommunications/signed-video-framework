@@ -28,6 +28,7 @@
 #include "includes/signed_video_openssl.h"  // pem_pkey_t, sign_or_verify_data_t
 #include "sv_authenticity.h"  // transfer_product_info()
 #include "sv_axis_communications.h"
+#include "sv_defines_general.h"  // ATTR_UNUSED
 #include "sv_openssl_internal.h"  // openssl_public_key_malloc()
 
 /**
@@ -149,7 +150,6 @@ static const sv_tlv_tag_t optional_tags[] = {
 static const sv_tlv_tag_t mandatory_tags[] = {
     GENERAL_TAG,
     HASH_LIST_TAG,
-    ARBITRARY_DATA_TAG,
 };
 
 /**
@@ -556,37 +556,21 @@ decode_product_info(signed_video_t *self, const uint8_t *data, size_t data_size)
 
 /**
  * @brief Encodes the ARBITRARY_DATA_TAG into data
+ *
+ * This tag is deprecated and should not be used for new implementations. Always
+ * returns 0 and does not write anything to |data|.
  */
 static size_t
-encode_arbitrary_data(signed_video_t *self, uint8_t *data)
+encode_arbitrary_data(ATTR_UNUSED signed_video_t *self, ATTR_UNUSED uint8_t *data)
 {
-  size_t data_size = 0;
-  const uint8_t version = 1;
-
-  if (!self->arbitrary_data || self->arbitrary_data_size == 0) return 0;
-
-  data_size += sizeof(version);
-
-  // Size of arbitrary_data
-  data_size += self->arbitrary_data_size;
-
-  if (!data) return data_size;
-
-  uint8_t *data_ptr = data;
-  uint16_t *last_two_bytes = &self->last_two_bytes;
-  bool epb = self->sei_epb;
-  // Version
-  sv_write_byte(last_two_bytes, &data_ptr, version, epb);
-
-  for (size_t ii = 0; ii < self->arbitrary_data_size; ++ii) {
-    sv_write_byte(last_two_bytes, &data_ptr, self->arbitrary_data[ii], epb);
-  }
-
-  return (data_ptr - data);
+  return 0;
 }
 
 /**
  * @brief Decodes the ARBITRARY_DATA_TAG from data
+ *
+ * This tag is deprecated and should not be used for new implementations. If it
+ * is present, it will not be decoded, and an error is thrown.
  */
 static svrc_t
 decode_arbitrary_data(signed_video_t *self, const uint8_t *data, size_t data_size)
@@ -599,25 +583,17 @@ decode_arbitrary_data(signed_video_t *self, const uint8_t *data, size_t data_siz
   SV_TRY()
     SV_THROW_IF(version != 1, SV_INCOMPATIBLE_VERSION);
     SV_THROW_IF(arbdata_size == 0, SV_AUTHENTICATION_ERROR);
-    uint8_t *arbdata = realloc(self->arbitrary_data, arbdata_size);
-    SV_THROW_IF(!arbdata, SV_MEMORY);
-    memcpy(arbdata, data_ptr, arbdata_size);
-    self->arbitrary_data = arbdata;
-    self->arbitrary_data_size = arbdata_size;
-    data_ptr += arbdata_size;
-    SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
+    /* Do not decode the data, but throw an error if this is used on v2.3.4 or later. */
+    SV_THROW_IF(!is_older_than_v2_3_4(self->code_version), SV_INCOMPATIBLE_VERSION);
 #ifdef PRINT_DECODED_SEI
     printf("\nArbitrary Data Tag\n");
     printf("             tag version: %u\n", version);
     printf("     arbitrary data size: %u\n", arbdata_size);
-    sv_print_hex_data(arbdata, arbdata_size, "          arbitrary data: ");
+    sv_print_hex_data(data_ptr, arbdata_size, "          arbitrary data: ");
 #endif
+    data_ptr += arbdata_size;
+    SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
   SV_CATCH()
-  {
-    free(self->arbitrary_data);
-    self->arbitrary_data = NULL;
-    self->arbitrary_data_size = 0;
-  }
   SV_DONE(status)
 
   return status;
@@ -1393,4 +1369,21 @@ sv_write_byte_many(uint8_t **dst,
     uint8_t ch = src[ii];
     sv_write_byte(last_two_bytes, dst, ch, do_emulation_prevention);
   }
+}
+
+bool
+is_older_than_v2_3_4(const int *code_version)
+{
+  if (code_version[0] < 2) {
+    return true;
+  } else if (code_version[0] == 2) {
+    if (code_version[1] < 3) {
+      return true;
+    } else if (code_version[1] == 3) {
+      if (code_version[2] < 4) {
+        return true;
+      }
+    }
+  }
+  return false;
 }

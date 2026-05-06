@@ -50,7 +50,7 @@
 #define DEFAULT_HASH_SIZE (256 / 8)
 
 #define SV_VERSION_BYTES 3
-#define SIGNED_VIDEO_VERSION "v2.3.4"
+#define SIGNED_VIDEO_VERSION "v2.3.5"
 #define SV_VERSION_MAX_STRLEN 19  // Longest possible string including 'ONVIF' prefix
 
 #define DEFAULT_AUTHENTICITY_LEVEL SV_AUTHENTICITY_LEVEL_FRAME
@@ -283,11 +283,6 @@ struct _signed_video_t {
 
   // Handle for vendor specific data. Only works with one vendor.
   void *vendor_handle;
-
-  // Arbitrary data
-  uint8_t *arbitrary_data;  // Enables the user to transmit user specific data and is automatically
-  // sent through the ARBITRARY_DATA_TAG.
-  size_t arbitrary_data_size;  // Size of |arbitrary_data|.
 
   // Members only used for signing
 

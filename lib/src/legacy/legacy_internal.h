@@ -218,11 +218,6 @@ struct _legacy_sv_t {
   // Handle for vendor specific data. Only works with one vendor.
   void *vendor_handle;  // Borrowed from |parent|
 
-  // Arbitrary data
-  uint8_t *arbitrary_data;  // Enables the user to transmit user specific data and is automatically
-  // sent through the ARBITRARY_DATA_TAG.
-  size_t arbitrary_data_size;  // Size of |arbitrary_data|.
-
   // Status and authentication
   // Linked list to track the validation status of each added BU. Items are appended to the list
   // when added, that is, in signed_video_add_nalu_and_authenticate(). Items are removed when

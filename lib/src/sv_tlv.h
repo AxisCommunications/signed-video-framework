@@ -181,4 +181,14 @@ sv_get_mandatory_tags(size_t *num_of_mandatory_tags);
 sv_tlv_tag_t
 sv_get_signature_tag();
 
+/**
+ * @brief Check of version is older than v2.3.4
+ *
+ * @param code_version A pointer to an array of version numbers.
+ *
+ * @return True if the version is older than v2.3.4, false otherwise.
+ */
+bool
+is_older_than_v2_3_4(const int *code_version);
+
 #endif  // __SV_TLV_H__

@@ -108,8 +108,7 @@ typedef SignedVideoReturnCode svrc_t;
   svrc_t status_; \
   bool status_set_ = false;
 #define SV_CATCH() \
-  catch_error: \
-  if (!status_set_) { \
+  catch_error : if (!status_set_) { \
     DEBUG_LOG("status_ was never set, which means no THROW call was used"); \
     status_ = SV_OK; \
   } \
@@ -162,7 +161,7 @@ typedef enum {
   PRODUCT_INFO_TAG = 3,
   HASH_LIST_TAG = 4,
   SIGNATURE_TAG = 5,
-  ARBITRARY_DATA_TAG = 6,
+  ARBITRARY_DATA_TAG = 6,  // deprecated
   CRYPTO_INFO_TAG = 7,
   NUMBER_OF_TLV_TAGS = 8,
   // Vendor specific TLV tags.
