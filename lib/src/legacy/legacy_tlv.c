@@ -302,6 +302,9 @@ legacy_decode_product_info(legacy_sv_t *self, const uint8_t *data, size_t data_s
 
 /**
  * @brief Decodes the ARBITRARY_DATA_TAG from data
+ *
+ * This tag is deprecated and should not be used for new implementations. If it
+ * is present, it will not be decoded, and an error is thrown.
  */
 static svrc_t
 legacy_decode_arbitrary_data(legacy_sv_t *self, const uint8_t *data, size_t data_size)
@@ -314,25 +317,17 @@ legacy_decode_arbitrary_data(legacy_sv_t *self, const uint8_t *data, size_t data
   SV_TRY()
     SV_THROW_IF(version == 0, SV_INCOMPATIBLE_VERSION);
     SV_THROW_IF(arbdata_size == 0, SV_AUTHENTICATION_ERROR);
-    uint8_t *arbdata = realloc(self->arbitrary_data, arbdata_size);
-    SV_THROW_IF(!arbdata, SV_MEMORY);
-    memcpy(arbdata, data_ptr, arbdata_size);
-    self->arbitrary_data = arbdata;
-    self->arbitrary_data_size = arbdata_size;
-    data_ptr += arbdata_size;
-    SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
+    /* Do not decode the data, but throw an error if this is used on v2.3.4 or later. */
+    SV_THROW_IF(!is_older_than_v2_3_4(self->code_version), SV_INCOMPATIBLE_VERSION);
 #ifdef PRINT_DECODED_SEI
     printf("\nArbitrary Data Tag\n");
     printf("             tag version: %u\n", version);
     printf("     arbitrary data size: %u\n", arbdata_size);
-    sv_print_hex_data(arbdata, arbdata_size, "          arbitrary data: ");
+    sv_print_hex_data(data_ptr, arbdata_size, "          arbitrary data: ");
 #endif
+    data_ptr += arbdata_size;
+    SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
   SV_CATCH()
-  {
-    free(self->arbitrary_data);
-    self->arbitrary_data = NULL;
-    self->arbitrary_data_size = 0;
-  }
   SV_DONE(status)
 
   return status;
