@@ -1179,7 +1179,7 @@ sv_tlv_find_tag(const uint8_t *tlv_data, size_t tlv_data_size, sv_tlv_tag_t tag,
       length |= sv_read_byte(&last_two_bytes, &tlv_data_ptr, with_ep);
     }
     if (tlv_data_ptr + length > tlv_data + tlv_data_size) {
-      DEBUG_LOG("TLV length (%u) too large", length);
+      DEBUG_LOG("TLV (%d) length (%u) too large", this_tag, length);
       return NULL;
     }
     // Scan past the data

@@ -1408,7 +1408,7 @@ detect_onvif_media_signing(signed_video_t *self, const bu_info_t *bu)
     return SV_OK;
   }
 
-  const char *trusted_certificate = NULL;
+  const char **trusted_certificates = NULL;
   size_t trusted_certificate_size = 0;
   // Map codec to ONVIF enum.
   MediaSigningCodec codec = OMS_CODEC_NUM;
@@ -1428,10 +1428,13 @@ detect_onvif_media_signing(signed_video_t *self, const bu_info_t *bu)
     self->onvif = onvif_media_signing_create(codec);
     SV_THROW_IF(!self->onvif, SV_EXTERNAL_ERROR);
     // Get the root CA certificate from Axis code.
-    trusted_certificate = get_axis_communications_trusted_certificate();
-    trusted_certificate_size = strlen(trusted_certificate);
-    SV_THROW(msrc_to_svrc(onvif_media_signing_set_trusted_certificate(
-        self->onvif, trusted_certificate, trusted_certificate_size, false)));
+    trusted_certificates = get_axis_communications_trusted_certificate();
+    while (*trusted_certificates) {
+      trusted_certificate_size = strlen(*trusted_certificates);
+      SV_THROW(msrc_to_svrc(onvif_media_signing_set_trusted_certificate(
+          self->onvif, *trusted_certificates, trusted_certificate_size)));
+      trusted_certificates++;
+    }
     // If the ONVIF Media Signing session has successfully been set up, register all
     // queued Bitstream Units to the ONVIF session.
     SV_THROW(reregister_bu(self));

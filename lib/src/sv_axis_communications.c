@@ -21,6 +21,7 @@
 #include "sv_axis_communications.h"
 
 #include <assert.h>
+#include <ctype.h>  // toupper
 #include <openssl/bio.h>  // BIO_*
 #include <openssl/evp.h>  // EVP_*
 #include <openssl/pem.h>  // PEM_*
@@ -42,7 +43,7 @@
 #define PUBLIC_KEY_UNCOMPRESSED_PREFIX 0x04
 #define BINARY_RAW_DATA_SIZE 40
 
-static const char *kTrustedAxisRootCA =
+static const char *kTrustedRootCAs[] = {
     "-----BEGIN CERTIFICATE-----\n"
     "MIIClDCCAfagAwIBAgIBATAKBggqhkjOPQQDBDBcMR8wHQYDVQQKExZBeGlzIENv\n"
     "bW11bmljYXRpb25zIEFCMRgwFgYDVQQLEw9BeGlzIEVkZ2UgVmF1bHQxHzAdBgNV\n"
@@ -58,7 +59,24 @@ static const char *kTrustedAxisRootCA =
     "hwJBUfwiBK0TIRJebWm9/nsNAEkjbxao40oeMUg+I3mDNr7guNJUo4ugOfToGpnm\n"
     "3QLOhEJzyHqPBHTChxEd5bGVUW8CQgDR/ZAr405Ohk5kpM/gmzELP+fYDZfuTFut\n"
     "w3S8HMYSvMWbTCzN+qnq+GV1goSS6vjVr95EpDxCVIxkKOvuxhyVDg==\n"
-    "-----END CERTIFICATE-----\n";
+    "-----END CERTIFICATE-----\n",
+    "-----BEGIN CERTIFICATE-----\n"
+    "MIIChjCCAeegAwIBAgIBATAKBggqhkjOPQQDBDBWMQswCQYDVQQGEwJTRTEfMB0G\n"
+    "A1UECgwWQXhpcyBDb21tdW5pY2F0aW9ucyBBQjEmMCQGA1UEAwwdQXhpcyBURUUg\n"
+    "U2lnbmVkIFZpZGVvIFJvb3QgQ0EwHhcNMjYwMzIzMTAyMTE0WhcNNDEwMzE5MTAy\n"
+    "MTE0WjBWMQswCQYDVQQGEwJTRTEfMB0GA1UECgwWQXhpcyBDb21tdW5pY2F0aW9u\n"
+    "cyBBQjEmMCQGA1UEAwwdQXhpcyBURUUgU2lnbmVkIFZpZGVvIFJvb3QgQ0EwgZsw\n"
+    "EAYHKoZIzj0CAQYFK4EEACMDgYYABAByYn89N6rzNsUTEHPRZXsdQQqorBJPX8W/\n"
+    "nV7j00ANnFioFDWp9WdSW/UC1ALY+SKoArUBjnzGnqTPBPtfV3UbRQBOHacPkVgL\n"
+    "//1OxEJfwyhhQrGTcn9KKeG8iJTKFoXArvicU+lilsjE8PV9+uUsE6zbIf4lFQLE\n"
+    "oU5hx+vTSxGRA6NjMGEwHwYDVR0jBBgwFoAUvtSs3PsLSpSPdTDJjXMBivgRJo4w\n"
+    "DwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYEFL7UrNz7\n"
+    "C0qUj3UwyY1zAYr4ESaOMAoGCCqGSM49BAMEA4GMADCBiAJCAUjQy+PomgLYoKn1\n"
+    "4bcF1Y4Bv80jm285vdy+hQ8AdmaG6ixvHGMSaXolOhSDWKOuwDg0kIYGVF1quHCI\n"
+    "9vEKNZw0AkIB2b20NGna+9QE3hB0nuTmK1uYsqXfbwnQYj0dOv4YfRicHeys73u+\n"
+    "4+x8cqidPOf4i0Xdf+zFg9hRWxW/WGbvmA4=\n"
+    "-----END CERTIFICATE-----\n",
+    NULL};
 
 #define ATTRIBUTES_LENGTH 37
 static const uint8_t kAttributes[ATTRIBUTES_LENGTH] = {0x7b, 0x00, 0x02, 0x01, 0x29, 0x01, 0x00,
@@ -106,7 +124,7 @@ typedef struct _sv_vendor_axis_communications_t {
 
   // Information needed for public key validation.
   EVP_MD_CTX *md_ctx;  // Message digest context for verifying the public key
-  X509 *trusted_ca;  // The trusted Axis root CA in X509 form.
+  X509_STORE *trusted_cas;  // The trusted Axis root CAs in X509 form.
   uint8_t chip_id[CHIP_ID_SIZE];
   struct attestation_report attestation_report;
 
@@ -121,7 +139,8 @@ typedef struct _sv_vendor_axis_communications_t {
 
 // Declarations of static functions.
 static svrc_t
-verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificates);
+verify_certificate_chain(sv_vendor_axis_communications_t *self,
+    STACK_OF(X509) * untrusted_certificates);
 static svrc_t
 verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self);
 static svrc_t
@@ -138,20 +157,16 @@ get_untrusted_certificates_size(const sv_vendor_axis_communications_t *self);
  * Uses the |trusted_ca| to verify the first certificate in the chain. The last certificate verified
  * is the |attestation_certificate| which will be used to verify the transmitted public key. */
 static svrc_t
-verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificates)
+verify_certificate_chain(sv_vendor_axis_communications_t *self,
+    STACK_OF(X509) * untrusted_certificates)
 {
-  assert(trusted_ca && untrusted_certificates);
+  assert(self && untrusted_certificates);
 
-  X509_STORE *trust_store = NULL;
+  X509_STORE *trust_store = self->trusted_cas;
   X509_STORE_CTX *ctx = NULL;
 
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
-    trust_store = X509_STORE_new();
-    SV_THROW_IF(!trust_store, SV_EXTERNAL_ERROR);
-    // Load trusted CA certificate
-    SV_THROW_IF(X509_STORE_add_cert(trust_store, trusted_ca) != 1, SV_EXTERNAL_ERROR);
-
     // Start a new context for certificate verification.
     ctx = X509_STORE_CTX_new();
     SV_THROW_IF(!ctx, SV_EXTERNAL_ERROR);
@@ -164,13 +179,19 @@ verify_certificate_chain(X509 *trusted_ca, STACK_OF(X509) * untrusted_certificat
     SV_THROW_IF(
         X509_STORE_CTX_init(ctx, trust_store, attestation_certificate, untrusted_certificates) != 1,
         SV_EXTERNAL_ERROR);
-    SV_THROW_IF(X509_verify_cert(ctx) != 1, SV_VENDOR_ERROR);
+    int verified = X509_verify_cert(ctx);
+    if (verified == 0) {
+      DEBUG_LOG("Certificate verification error: %s\n",
+          X509_verify_cert_error_string(X509_STORE_CTX_get_error(ctx)));
+    }
+    if (self->factory_provisioned) {
+      self->supplemental_authenticity.public_key_validation = verified;
+    }
 
   SV_CATCH()
   SV_DONE(status)
 
   X509_STORE_CTX_free(ctx);
-  X509_STORE_free(trust_store);
 
   return status;
 }
@@ -215,17 +236,21 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
     // prevents from potential deadlock.
     // Get the first certificate from |stackbio|.
     X509 *certificate = PEM_read_bio_X509(stackbio, NULL, NULL, NULL);
+    SV_THROW_IF(!certificate, SV_VENDOR_ERROR);
     // The first certificate is the |attestation_certificate|. Keep a reference to it to extract
     // information from it.
     X509 *attestation_certificate = certificate;
     while (certificate && num_certificates < NUM_UNTRUSTED_CERTIFICATES + 1) {
+#ifdef SIGNED_VIDEO_DEBUG
+      X509_print_fp(stdout, certificate);
+#endif
       num_certificates = sk_X509_push(untrusted_certificates, certificate);
       // Get the next certificate.
       certificate = PEM_read_bio_X509(stackbio, NULL, NULL, NULL);
     }
     SV_THROW_IF(num_certificates > NUM_UNTRUSTED_CERTIFICATES, SV_VENDOR_ERROR);
 
-    SV_THROW_WITH_MSG(verify_certificate_chain(self->trusted_ca, untrusted_certificates),
+    SV_THROW_WITH_MSG(verify_certificate_chain(self, untrusted_certificates),
         "Failed verifying certificate chain");
 
     // Extract |chip_id| from the |attestation_certificate|.
@@ -235,6 +260,32 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
     // Found CN in certificate. Read that entry and convert to UTF8.
     entry_data = X509_NAME_ENTRY_get_data(X509_NAME_get_entry(subject, common_name_index));
     SV_THROW_IF(ASN1_STRING_to_UTF8(&common_name_str, entry_data) <= 0, SV_EXTERNAL_ERROR);
+
+    if (self->factory_provisioned) {
+      // Extract serial number from CommonName. It shall be present between the first two
+      // '-' characters.
+      char *start_pos = strstr((char *)common_name_str, "-");
+      SV_THROW_IF(!start_pos, SV_VENDOR_ERROR);
+      start_pos++;  // Skip the "-" character.
+      char *end_pos = strstr(start_pos, "-");
+      SV_THROW_IF(!end_pos, SV_VENDOR_ERROR);
+      char *serial_number_str = OPENSSL_strndup(start_pos, end_pos - start_pos);
+      SV_THROW_IF(!serial_number_str, SV_EXTERNAL_ERROR);
+      start_pos = serial_number_str;
+      // Convert to upper case.
+      while (*start_pos != '\0') {
+        *start_pos = toupper(*start_pos);
+        start_pos++;
+      }
+      // Copy only if necessary.
+      if (strcmp(self->supplemental_authenticity.serial_number, serial_number_str)) {
+        memset(self->supplemental_authenticity.serial_number, 0, SV_VENDOR_AXIS_SER_NO_MAX_LENGTH);
+        strcpy(self->supplemental_authenticity.serial_number, serial_number_str);
+      }
+      OPENSSL_free(serial_number_str);
+      goto catch_error;
+    }
+
     // Find the Chip ID string, which shows up right after "Axis Edge Vault Attestation ".
     char *chip_id_str = strstr((char *)common_name_str, AXIS_EDGE_VAULT_ATTESTATION_STR);
     SV_THROW_IF(!chip_id_str, SV_VENDOR_ERROR);
@@ -248,7 +299,6 @@ verify_and_parse_certificate_chain(sv_vendor_axis_communications_t *self)
     }
     // Check that the chip ID has correct prefix.
     SV_THROW_IF(memcmp(self->chip_id, kChipIDPrefix, CHIP_ID_PREFIX_SIZE) != 0, SV_VENDOR_ERROR);
-
     // Extract |serial_number| from the |attestation_certificate|.
     int ser_no_index = X509_NAME_get_index_by_NID(subject, NID_serialNumber, -1);
     SV_THROW_IF(ser_no_index < 0, SV_VENDOR_ERROR);
@@ -377,6 +427,10 @@ verify_axis_communications_public_key(sv_vendor_axis_communications_t *self)
   // Initiate verification to not feasible/error.
   int verified_signature = -1;
 
+  if (self->factory_provisioned) {
+    return SV_OK;
+  }
+
   svrc_t status = SV_UNKNOWN_FAILURE;
   SV_TRY()
     // If no message digest context exists, the |public_key| cannot be validated.
@@ -477,25 +531,37 @@ sv_vendor_axis_communications_setup(void)
 
   if (!self) return NULL;
 
-  // Store the |kTrustedAxisRootCA| in X509 format.
-  BIO *ca_bio = BIO_new(BIO_s_mem());
-  if (ca_bio) {
-    if (BIO_puts(ca_bio, kTrustedAxisRootCA) > 0) {
-      // Successfully written |kTrustedAxisRootCA| to |ca_bio|. Convert to X509.
-      self->trusted_ca = PEM_read_bio_X509(ca_bio, NULL, NULL, NULL);
+  self->trusted_cas = X509_STORE_new();
+  if (!self->trusted_cas) {
+    DEBUG_LOG("Could not convert Axis root CAs to X509");
+    sv_vendor_axis_communications_teardown((void *)self);
+    self = NULL;
+    return NULL;
+  }
+
+  const char **trusted_certificates = kTrustedRootCAs;
+  while (*trusted_certificates) {
+    // Store each |kTrustedRootCAs| in X509_STORE.
+    BIO *ca_bio = BIO_new(BIO_s_mem());
+    if (ca_bio) {
+      if (BIO_write(ca_bio, *trusted_certificates, (int)strlen(*trusted_certificates)) > 0) {
+        // Successfully written |*trusted_certificates| to |ca_bio|. Convert to X509.
+        X509 *trusted_certificate_x509 = PEM_read_bio_X509(ca_bio, NULL, NULL, NULL);
+        // Load trusted CA certificate
+        if (X509_STORE_add_cert(self->trusted_cas, trusted_certificate_x509) != 1) {
+          // Add better debug print
+          DEBUG_LOG("Failed to add trusted certificate to trust store");
+        }
+        X509_free(trusted_certificate_x509);
+      }
+      BIO_free(ca_bio);
     }
-    BIO_free(ca_bio);
+    trusted_certificates++;
   }
 
   // Initialize |public_key_validation| to unknown/error.
   self->supplemental_authenticity.public_key_validation = -1;
   strcpy(self->supplemental_authenticity.serial_number, SERIAL_NUMBER_UNKNOWN);
-
-  if (!self->trusted_ca) {
-    DEBUG_LOG("Could not convert Axis root CA to X509");
-    sv_vendor_axis_communications_teardown((void *)self);
-    self = NULL;
-  }
 
   return (void *)self;
 }
@@ -509,7 +575,7 @@ sv_vendor_axis_communications_teardown(void *handle)
 
   free(self->attestation);
   free(self->certificate_chain);
-  X509_free(self->trusted_ca);
+  X509_STORE_free(self->trusted_cas);
   free(self);
 }
 
@@ -533,11 +599,6 @@ get_untrusted_certificates_size(const sv_vendor_axis_communications_t *self)
   const char *cert_chain_ptr = self->certificate_chain;
   const char *cert_ptr = self->certificate_chain;
   int certs_left = NUM_UNTRUSTED_CERTIFICATES + 1;
-  if (self->factory_provisioned) {
-    // Temporary solution until it is known how many (if any) intermediate certificates there are.
-    // Assuming no intermediate certificates.
-    certs_left = 2;  // Leaf and root certificate.
-  }
   while (certs_left > 0 && cert_ptr) {
     cert_ptr = strstr(cert_chain_ptr, "-----BEGIN CERTIFICATE-----");
     certs_left--;
@@ -654,6 +715,7 @@ decode_axis_communications_handle(void *handle, const uint8_t *data, size_t data
     data_ptr += cert_size;
 
     SV_THROW_IF(data_ptr != data + data_size, SV_AUTHENTICATION_ERROR);
+    self->factory_provisioned = attestation_size == 0;
 #ifdef PRINT_DECODED_SEI
     char *cert_chain_str = calloc(1, cert_size + 1);
     SV_THROW_IF(!cert_chain_str, SV_MEMORY);
@@ -900,8 +962,8 @@ catch_error:
   return SV_MEMORY;
 }
 
-const char *
+const char **
 get_axis_communications_trusted_certificate(void)
 {
-  return kTrustedAxisRootCA;
+  return kTrustedRootCAs;
 }

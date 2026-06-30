@@ -147,7 +147,7 @@ get_axis_communications_supplemental_authenticity(void *handle,
  *
  * @return A pointer to the trusted certificate as a null-terminated string.
  */
-const char *
+const char **
 get_axis_communications_trusted_certificate(void);
 
 /**
