@@ -1420,7 +1420,7 @@ START_TEST(vendor_axis_communications_operation)
   ck_assert_int_eq(sv_rc, SV_OK);
   free(attestation);
 
-  sv_rc = signed_video_set_product_info(sv, HW_ID, FW_VER, NULL, "Axis Communications AB", ADDR);
+  sv_rc = signed_video_set_product_info(sv, HW_ID, FW_VER, SER_NO, "Axis Communications AB", ADDR);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Mimic a GOP with 1 P-frame between 2 I-frames to trigger an SEI message.
@@ -1536,7 +1536,7 @@ START_TEST(factory_provisioned_key)
   ck_assert_int_eq(sv_rc, SV_OK);
   free(certificate_chain);
 
-  sv_rc = signed_video_set_product_info(sv, HW_ID, FW_VER, NULL, "Axis Communications AB", ADDR);
+  sv_rc = signed_video_set_product_info(sv, HW_ID, FW_VER, SER_NO, "Axis Communications AB", ADDR);
   ck_assert_int_eq(sv_rc, SV_OK);
 
   // Mimic a GOP with 1 P-frame between 2 I-frames to trigger an SEI message.

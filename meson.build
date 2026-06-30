@@ -33,6 +33,7 @@ endif
 
 if get_option('debugprints')
   add_global_arguments('-DSIGNED_VIDEO_DEBUG', language : 'c')
+  add_global_arguments('-DONVIF_MEDIA_SIGNING_DEBUG', language : 'c')
 endif
 if get_option('parsesei')
   add_global_arguments('-DPRINT_DECODED_SEI', language : 'c')

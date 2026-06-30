@@ -166,8 +166,7 @@ onvif_media_signing_authenticity_report_free(
 MediaSigningReturnCode
 onvif_media_signing_set_trusted_certificate(onvif_media_signing_t ATTR_UNUSED *self,
     const char ATTR_UNUSED *trusted_certificate,
-    size_t ATTR_UNUSED trusted_certificate_size,
-    bool ATTR_UNUSED user_provisioned)
+    size_t ATTR_UNUSED trusted_certificate_size)
 {
   return OMS_NOT_SUPPORTED;
 }
