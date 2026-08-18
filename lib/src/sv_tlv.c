@@ -460,29 +460,29 @@ encode_product_info(signed_video_t *self, uint8_t *data)
   sv_write_byte(last_two_bytes, &data_ptr, version, epb);
 
   // Write |hardware_id|, i.e., size + string.
-  sv_write_byte(last_two_bytes, &data_ptr, hardware_id_size, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)hardware_id_size, epb);
   // Write all but the null-terminated character.
   sv_write_byte_many(&data_ptr, product_info->hardware_id, hardware_id_size, last_two_bytes, epb);
 
   // Write |firmware_version|, i.e., size + string.
-  sv_write_byte(last_two_bytes, &data_ptr, firmware_version_size, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)firmware_version_size, epb);
   // Write all but the null-terminated character.
   sv_write_byte_many(
       &data_ptr, product_info->firmware_version, firmware_version_size, last_two_bytes, epb);
 
   // Write |serial_number|, i.e., size + string.
-  sv_write_byte(last_two_bytes, &data_ptr, serial_number_size, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)serial_number_size, epb);
   // Write all but the null-terminated character.
   sv_write_byte_many(
       &data_ptr, product_info->serial_number, serial_number_size, last_two_bytes, epb);
 
   // Write |manufacturer|, i.e., size + string.
-  sv_write_byte(last_two_bytes, &data_ptr, manufacturer_size, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)manufacturer_size, epb);
   // Write all but the null-terminated character.
   sv_write_byte_many(&data_ptr, product_info->manufacturer, manufacturer_size, last_two_bytes, epb);
 
   // Write |address|, i.e., size + string.
-  sv_write_byte(last_two_bytes, &data_ptr, address_size, epb);
+  sv_write_byte(last_two_bytes, &data_ptr, (uint8_t)address_size, epb);
   // Write all but the null-terminated character.
   sv_write_byte_many(&data_ptr, product_info->address, address_size, last_two_bytes, epb);
 
