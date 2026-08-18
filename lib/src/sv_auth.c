@@ -119,7 +119,7 @@ decode_sei_data(signed_video_t *self, const uint8_t *payload, size_t payload_siz
   }
   // Check if any SEIs have been lost. Wraparound of 64 bits is not feasible in practice.
   // Hence, a negative value means that an older SEI has been received.
-  self->validation_flags.num_lost_seis = potentially_lost_seis;
+  self->validation_flags.num_lost_seis = (int)potentially_lost_seis;
 
   return status;
 }
@@ -851,7 +851,7 @@ validate_authenticity(signed_video_t *self, bu_list_item_t *sei)
     } else {
       // Only update |num_lost_seis| if decreased. For example, if a validation was
       // performed with an "old" re-ordered SEI |next_partial_gop| is incorrect.
-      int new_num_lost_seis = gop_info->next_partial_gop - gop_info->current_partial_gop - 1;
+      int new_num_lost_seis = (int)(gop_info->next_partial_gop - gop_info->current_partial_gop - 1);
       if (new_num_lost_seis < validation_flags->num_lost_seis) {
         validation_flags->num_lost_seis = new_num_lost_seis;
       }
