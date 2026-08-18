@@ -1,5 +1,8 @@
 name: Signed Video Framework approval workflow
 on: pull_request_review
+permissions:
+  contents: read
+
 jobs:
   label-when-approved:
     name: "Label when approved"
