@@ -29,6 +29,9 @@ if check_dep.found()
   # Option for code related to unit tests
   # Compile flag should not be used to change defines and settings in the lib
   add_global_arguments('-DSV_UNIT_TEST', language : 'c')
+  if (get_option('signingplugin') == 'threaded_unless_check_dep')
+    add_global_arguments('-DSV_LIMITED_UNIT_TEST', language : 'c')
+  endif
 endif
 
 if get_option('debugprints')
