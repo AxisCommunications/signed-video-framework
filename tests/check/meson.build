@@ -14,20 +14,20 @@ tests = [
         'test_helpers.h'
       ]
     ],
-    ['unittest_av1',
-      [
-        'check_codec_av1.c',
-        'test_stream.c',
-        'test_stream.h',
-        'test_helpers.c',
-        'test_helpers.h'
-      ]
-    ],
 ]
 
 if (get_option('signingplugin') != 'threaded_unless_check_dep')
   # Only include the auth side tests if not threaded
   tests += [
+      ['unittest_av1',
+        [
+          'check_codec_av1.c',
+          'test_stream.c',
+          'test_stream.h',
+          'test_helpers.c',
+          'test_helpers.h'
+        ]
+      ],
       ['unittest_auth',
         [ 
           'check_signed_video_auth.c',

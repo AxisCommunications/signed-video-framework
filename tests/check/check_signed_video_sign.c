@@ -573,6 +573,7 @@ START_TEST(correct_signed_multislice_stream_without_eos)
 }
 END_TEST
 
+#ifndef SV_LIMITED_UNIT_TEST
 /* Test description
  * Add
  *   IPPIPPPPPI
@@ -955,6 +956,7 @@ START_TEST(signing_partial_gops_with_bu_in_parts)
   test_stream_free(list);
 }
 END_TEST
+#endif
 
 static Suite *
 signed_video_suite(void)
@@ -979,6 +981,7 @@ signed_video_suite(void)
   // tcase_add_loop_test(tc, correct_signed_multislice_stream_with_eos, s, e);
   tcase_add_loop_test(tc, correct_signed_stream_without_eos, s, e);
   tcase_add_loop_test(tc, correct_signed_multislice_stream_without_eos, s, e);
+#ifndef SV_LIMITED_UNIT_TEST
   tcase_add_loop_test(tc, sei_size_increase_with_gop_length, s, e);
   tcase_add_loop_test(tc, fallback_to_gop_level, s, e);
   tcase_add_loop_test(tc, two_completed_seis_pending, s, e);
@@ -991,6 +994,7 @@ signed_video_suite(void)
   tcase_add_loop_test(tc, signing_partial_gops, s, e);
   tcase_add_loop_test(tc, signing_mulitslice_stream_partial_gops, s, e);
   tcase_add_loop_test(tc, signing_partial_gops_with_bu_in_parts, s, e);
+#endif
 
   // Add test case to suit
   suite_add_tcase(suite, tc);
