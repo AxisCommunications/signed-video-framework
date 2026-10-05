@@ -1085,7 +1085,7 @@ sv_tlv_list_encode_or_get_size(signed_video_t *self,
   for (size_t ii = 0; ii < num_tags; ++ii) {
     sv_tlv_tag_t tag = tags[ii];
     sv_tlv_tuple_t tlv = get_tlv_tuple(tag);
-    if (tlv.tag != tag) {
+    if (tlv.tag != tag || tlv.tag == UNDEFINED_TAG) {
       DEBUG_LOG("Did not find TLV tuple from tag (%d)", tag);
       continue;
     }
@@ -1114,7 +1114,7 @@ decode_tlv_header(const uint8_t *data,
   sv_tlv_tag_t tag_from_data = (sv_tlv_tag_t)(*data_ptr++);
   *data_bytes_read = 0;
   sv_tlv_tuple_t tlv = get_tlv_tuple(tag_from_data);
-  if (tlv.tag != tag_from_data) {
+  if (tlv.tag != tag_from_data || tlv.tag == UNDEFINED_TAG) {
     DEBUG_LOG("Parsed an invalid tag (%d) in the data", tag_from_data);
     return SV_INVALID_PARAMETER;
   }
