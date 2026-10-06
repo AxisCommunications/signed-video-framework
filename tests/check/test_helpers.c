@@ -702,7 +702,12 @@ validate_stream(signed_video_t *sv,
 #endif
         ck_assert_int_eq(strcmp(auth_report->product_info.firmware_version, FW_VER), 0);
         ck_assert_int_eq(strcmp(auth_report->product_info.serial_number, SER_NO), 0);
-        ck_assert_int_eq(strcmp(auth_report->product_info.manufacturer, MANUFACT), 0);
+        // If the video has been signed by ONVIF Media Signing, the versions will not
+        // match. This is signaled with the |check_version| flag. If so, the
+        // |manufacturer| is concatenated with |address|.
+        if (check_version) {
+          ck_assert_int_eq(strcmp(auth_report->product_info.manufacturer, MANUFACT), 0);
+        }
 
         // Check if code version used when signing the video is equal to the code version used when
         // validating the authenticity.
