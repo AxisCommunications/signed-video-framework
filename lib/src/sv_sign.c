@@ -20,6 +20,7 @@
  */
 #include <assert.h>  // assert
 #include <stdint.h>  // uint8_t
+#include <stdio.h>  // snprintf
 #include <stdlib.h>  // free, malloc
 #include <string.h>  // size_t, strncpy
 
@@ -510,9 +511,16 @@ static onvif_media_signing_vendor_info_t
 convert_product_info(const signed_video_product_info_t *product_info)
 {
   onvif_media_signing_vendor_info_t vendor_info = {0};
-  memcpy(vendor_info.firmware_version, product_info->firmware_version, 255);
-  memcpy(vendor_info.serial_number, product_info->serial_number, 255);
-  memcpy(vendor_info.manufacturer, product_info->manufacturer, 255);
+
+  memcpy(vendor_info.firmware_version, product_info->firmware_version, 256);
+  memcpy(vendor_info.serial_number, product_info->serial_number, 256);
+  // Combine manufacturer and address into ONVIF's manufacturer as "manufacturer (address)".
+  // If the result does not fit, it is truncated and terminated with "...)".
+  int written = snprintf(vendor_info.manufacturer, sizeof(vendor_info.manufacturer), "%s (%s)",
+      product_info->manufacturer, product_info->address);
+  if (written < 0 || written >= (int)sizeof(vendor_info.manufacturer)) {
+    memcpy(&vendor_info.manufacturer[sizeof(vendor_info.manufacturer) - 5], "...)", 4);
+  }
 
   return vendor_info;
 }
