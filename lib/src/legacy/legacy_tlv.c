@@ -132,6 +132,7 @@ static legacy_sv_tlv_tuple_t
 legacy_get_tlv_tuple(sv_tlv_tag_t tag);
 static svrc_t
 legacy_decode_tlv_header(const uint8_t *data,
+    size_t bytes_left,
     size_t *data_bytes_read,
     sv_tlv_tag_t *tag,
     size_t *length);
@@ -547,27 +548,36 @@ legacy_decode_axis_communications(legacy_sv_t *self, const uint8_t *data, size_t
 
 static svrc_t
 legacy_decode_tlv_header(const uint8_t *data,
+    size_t bytes_left,
     size_t *data_bytes_read,
     sv_tlv_tag_t *tag,
     size_t *length)
 {
-  // Sanity checks on input parameters.
-  if (!data || !data_bytes_read || !tag || !length) return SV_INVALID_PARAMETER;
+  // Sanity checks on input parameters. At least 2 bytes are needed to read a tag and a length.
+  if (!data || !data_bytes_read || !tag || !length || bytes_left < 2) return SV_INVALID_PARAMETER;
 
   const uint8_t *data_ptr = data;
   sv_tlv_tag_t tag_from_data = (sv_tlv_tag_t)(*data_ptr++);
   *data_bytes_read = 0;
   legacy_sv_tlv_tuple_t tlv = legacy_get_tlv_tuple(tag_from_data);
-  if (tlv.tag != tag_from_data) {
+  if (tlv.tag != tag_from_data || tlv.tag == UNDEFINED_TAG) {
     DEBUG_LOG("Parsed an invalid tag (%d) in the data", tag_from_data);
     return SV_INVALID_PARAMETER;
   }
   *tag = tag_from_data;
 
+  if (bytes_left < (size_t)tlv.bytes_for_length + 1) return SV_INVALID_PARAMETER;
   if (tlv.bytes_for_length == 2) {
     data_ptr += sv_read_16bits(data_ptr, (uint16_t *)length);
   } else {
     *length = *data_ptr++;
+  }
+
+  // Sanity check on the length. It should not exceed the remaining bytes in the data.
+  if (*length > bytes_left - tlv.bytes_for_length - 1) {
+    DEBUG_LOG("Parsed length (%zu) exceeds remaining bytes (%zu)", *length,
+        bytes_left - tlv.bytes_for_length - 1);
+    return SV_INVALID_PARAMETER;
   }
 
   *data_bytes_read = (data_ptr - data);
@@ -587,7 +597,8 @@ legacy_tlv_decode(legacy_sv_t *self, const uint8_t *data, size_t data_size)
     sv_tlv_tag_t tag = 0;
     size_t tlv_header_size = 0;
     size_t length = 0;
-    status = legacy_decode_tlv_header(data_ptr, &tlv_header_size, &tag, &length);
+    status = legacy_decode_tlv_header(
+        data_ptr, data + data_size - data_ptr, &tlv_header_size, &tag, &length);
     if (status != SV_OK) {
       DEBUG_LOG("Could not decode TLV header (error %d)", status);
       break;
@@ -621,7 +632,8 @@ legacy_tlv_find_and_decode_optional_tags(legacy_sv_t *self,
     size_t tlv_header_size = 0;
     size_t length = 0;
     sv_tlv_tag_t this_tag = UNDEFINED_TAG;
-    status = legacy_decode_tlv_header(tlv_data_ptr, &tlv_header_size, &this_tag, &length);
+    status = legacy_decode_tlv_header(tlv_data_ptr, tlv_data + tlv_data_size - tlv_data_ptr,
+        &tlv_header_size, &this_tag, &length);
     if (status != SV_OK) {
       DEBUG_LOG("Could not decode tlv header");
       break;
