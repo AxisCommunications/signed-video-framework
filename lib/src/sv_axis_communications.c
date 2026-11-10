@@ -186,6 +186,8 @@ verify_certificate_chain(sv_vendor_axis_communications_t *self,
     }
     if (self->factory_provisioned) {
       self->supplemental_authenticity.public_key_validation = verified;
+    } else {
+      SV_THROW_IF(verified != 1, SV_AUTHENTICATION_ERROR);
     }
 
   SV_CATCH()
